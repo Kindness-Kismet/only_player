@@ -1,6 +1,7 @@
 package one.next.player.core.media.services
 
 import android.app.Activity
+import android.app.PendingIntent
 import android.content.ContentUris
 import android.content.ContentValues
 import android.content.Context
@@ -19,16 +20,19 @@ import java.io.File
 import javax.inject.Inject
 import javax.inject.Singleton
 import kotlin.coroutines.resume
-import kotlinx.coroutines.CoroutineScope
+import kotlin.coroutines.suspendCoroutine
 import kotlinx.coroutines.Dispatchers
-import kotlinx.coroutines.cancel
-import kotlinx.coroutines.launch
-import kotlinx.coroutines.suspendCancellableCoroutine
+import kotlinx.coroutines.sync.Mutex
+import kotlinx.coroutines.sync.withLock
 import kotlinx.coroutines.withContext
+import one.next.player.core.common.Logger
+import one.next.player.core.common.extensions.VIDEO_COLLECTION_URI
+import one.next.player.core.common.extensions.canonicalPathOrSelf
 import one.next.player.core.common.extensions.getMediaContentUri
 import one.next.player.core.common.extensions.getMediaFileContentUri
 import one.next.player.core.common.extensions.getPath
 import one.next.player.core.common.extensions.updateMedia
+import one.next.player.core.common.hasManageExternalStorageAccess
 
 @Singleton
 class LocalMediaService @Inject constructor(
@@ -37,8 +41,8 @@ class LocalMediaService @Inject constructor(
 
     private lateinit var activity: Activity
     private val contentResolver = context.contentResolver
-    private var resultOkCallback: () -> Unit = {}
-    private var resultCancelledCallback: () -> Unit = {}
+    private val mediaRequestMutex = Mutex()
+    private var resultCallback: ((Boolean) -> Unit)? = null
     private var mediaRequestLauncher: ActivityResultLauncher<IntentSenderRequest>? = null
 
     override fun initialize(activity: ComponentActivity) {
@@ -46,48 +50,40 @@ class LocalMediaService @Inject constructor(
         mediaRequestLauncher = activity.registerForActivityResult(
             ActivityResultContracts.StartIntentSenderForResult(),
         ) { result ->
-            when (result.resultCode) {
-                Activity.RESULT_OK -> resultOkCallback()
-                Activity.RESULT_CANCELED -> resultCancelledCallback()
-            }
+            resultCallback?.invoke(result.resultCode == Activity.RESULT_OK)
         }
     }
 
     override suspend fun deleteMedia(uris: List<Uri>): Boolean = withContext(Dispatchers.IO) {
-        val contentUris = uris.mapNotNull(::ensureMediaStoreUri)
-        if (contentUris.isEmpty()) return@withContext false
+        val targets = uris.map(::resolveDeleteTarget)
+        val mediaUris = targets.mapNotNull(DeleteTarget::mediaUri).distinct()
+        val localFiles = targets.mapNotNull(DeleteTarget::localFile).distinctBy { it.path }
 
-        suspendCancellableCoroutine { continuation ->
-            launchDeleteRequest(
-                uris = contentUris,
-                onResultOk = { continuation.resume(true) },
-                onResultCanceled = { continuation.resume(false) },
-            )
+        if (mediaUris.isEmpty()) return@withContext deleteLocalFiles(localFiles)
+
+        val isDeleteApproved = launchMediaRequest {
+            MediaStore.createDeleteRequest(contentResolver, mediaUris)
         }
+        if (!isDeleteApproved) return@withContext false
+
+        deleteLocalFiles(localFiles)
+        true
     }
 
     override suspend fun renameMedia(uri: Uri, to: String): Boolean = withContext(Dispatchers.IO) {
         val validUri = ensureMediaStoreUri(uri) ?: return@withContext false
 
-        suspendCancellableCoroutine { continuation ->
-            val scope = CoroutineScope(Dispatchers.Default)
-            launchWriteRequest(
-                uris = listOf(validUri),
-                onResultOk = {
-                    scope.launch {
-                        val result = contentResolver.updateMedia(
-                            uri = validUri,
-                            contentValues = ContentValues().apply {
-                                put(MediaStore.MediaColumns.DISPLAY_NAME, to)
-                            },
-                        )
-                        continuation.resume(result)
-                    }
-                },
-                onResultCanceled = { continuation.resume(false) },
-            )
-            continuation.invokeOnCancellation { scope.cancel() }
+        val isWriteApproved = launchMediaRequest {
+            MediaStore.createWriteRequest(contentResolver, listOf(validUri))
         }
+        if (!isWriteApproved) return@withContext false
+
+        contentResolver.updateMedia(
+            uri = validUri,
+            contentValues = ContentValues().apply {
+                put(MediaStore.MediaColumns.DISPLAY_NAME, to)
+            },
+        )
     }
 
     override suspend fun moveMediaToRecycleBin(uri: Uri): RecycleBinMoveResult? = withContext(Dispatchers.IO) {
@@ -127,27 +123,23 @@ class LocalMediaService @Inject constructor(
         activity.startActivity(intent)
     }
 
-    private fun launchWriteRequest(
-        uris: List<Uri>,
-        onResultCanceled: () -> Unit = {},
-        onResultOk: () -> Unit = {},
-    ) {
-        resultOkCallback = onResultOk
-        resultCancelledCallback = onResultCanceled
-        MediaStore.createWriteRequest(contentResolver, uris).also { intent ->
-            mediaRequestLauncher?.launch(IntentSenderRequest.Builder(intent).build())
-        }
-    }
-
-    private fun launchDeleteRequest(
-        uris: List<Uri>,
-        onResultCanceled: () -> Unit = {},
-        onResultOk: () -> Unit = {},
-    ) {
-        resultOkCallback = onResultOk
-        resultCancelledCallback = onResultCanceled
-        MediaStore.createDeleteRequest(contentResolver, uris).also { intent ->
-            mediaRequestLauncher?.launch(IntentSenderRequest.Builder(intent).build())
+    private suspend fun launchMediaRequest(
+        createRequest: () -> PendingIntent,
+    ): Boolean = mediaRequestMutex.withLock {
+        suspendCoroutine { continuation ->
+            resultCallback = { isApproved ->
+                resultCallback = null
+                continuation.resume(isApproved)
+            }
+            runCatching {
+                createRequest()
+            }.onSuccess { intent ->
+                mediaRequestLauncher?.launch(IntentSenderRequest.Builder(intent).build())
+            }.onFailure { throwable ->
+                Logger.error(TAG, "Failed to launch media request", throwable)
+                resultCallback = null
+                continuation.resume(false)
+            }
         }
     }
 
@@ -244,7 +236,63 @@ class LocalMediaService @Inject constructor(
         )
     }.getOrElse { uri }
 
-    // createDeleteRequest / createWriteRequest 要求 content URI 且必须含 numeric ID
+    private fun deleteLocalFiles(files: List<File>): Boolean {
+        if (files.isEmpty()) return false
+        if (!hasManageExternalStorageAccess()) return false
+
+        return files.any { file ->
+            file.exists() && file.isFile && file.delete()
+        }
+    }
+
+    private fun resolveDeleteTarget(uri: Uri): DeleteTarget {
+        val path = context.getPath(uri)?.canonicalPathOrSelf()
+        val mediaUri = resolveVideoMediaUri(uri, path)
+        val localFile = path
+            ?.takeIf { mediaUri == null || uri.scheme == "file" }
+            ?.let(::File)
+            ?.takeIf { it.exists() && it.isFile }
+
+        return DeleteTarget(
+            mediaUri = mediaUri,
+            localFile = localFile,
+        )
+    }
+
+    private fun resolveVideoMediaUri(
+        uri: Uri,
+        path: String?,
+    ): Uri? {
+        val videoUri = path?.let { findVideoMediaUriByPath(it) }
+            ?: context.getMediaContentUri(uri)
+        if (videoUri != null) return videoUri
+
+        val id = runCatching { ContentUris.parseId(uri) }.getOrNull()
+        if (id == null || id <= 0L) return null
+        if (!uri.toString().contains("/video/media/")) return null
+
+        return uri
+    }
+
+    private fun findVideoMediaUriByPath(path: String): Uri? {
+        val projection = arrayOf(MediaStore.Video.Media._ID)
+        return runCatching {
+            contentResolver.query(
+                VIDEO_COLLECTION_URI,
+                projection,
+                "${MediaStore.Video.Media.DATA} = ?",
+                arrayOf(path),
+                null,
+            )?.use { cursor ->
+                if (!cursor.moveToFirst()) return@use null
+
+                val index = cursor.getColumnIndexOrThrow(MediaStore.Video.Media._ID)
+                ContentUris.withAppendedId(VIDEO_COLLECTION_URI, cursor.getLong(index))
+            }
+        }.getOrNull()
+    }
+
+    // createWriteRequest 要求 content URI 且必须含 numeric ID
     private fun ensureMediaStoreUri(uri: Uri): Uri? {
         if (uri.scheme == "content") {
             val id = runCatching { ContentUris.parseId(uri) }.getOrNull()
@@ -264,7 +312,13 @@ class LocalMediaService @Inject constructor(
         context.getMediaFileContentUri(path) ?: fallbackUri
     }
 
+    private data class DeleteTarget(
+        val mediaUri: Uri?,
+        val localFile: File?,
+    )
+
     companion object {
+        private const val TAG = "LocalMediaService"
         private const val RECYCLE_BIN_FOLDER_NAME = ".bin"
         private const val RECYCLE_BIN_RELATIVE_PATH = "Movies/$RECYCLE_BIN_FOLDER_NAME"
         private const val RECYCLE_BIN_EXTENSION = "optrash"

@@ -69,7 +69,6 @@ import androidx.core.net.toUri
 import androidx.hilt.lifecycle.viewmodel.compose.hiltViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import one.next.player.core.common.storagePermission
-import one.next.player.core.media.services.MediaService
 import one.next.player.core.model.ApplicationPreferences
 import one.next.player.core.model.Folder
 import one.next.player.core.model.MediaLayoutMode
@@ -406,15 +405,7 @@ internal fun MediaPickerScreen(
                     selectionManager.clearSelection()
                 },
                 onDeleteAction = {
-                    if (
-                        deleteAction == MediaPickerDeleteAction.PermanentlyDelete &&
-                        MediaService.shouldAskSystemForDeleteConfirmation()
-                    ) {
-                        onEvent(MediaPickerUiEvent.PermanentlyDeleteVideos(selectionManager.allSelectedVideos.map { it.uriString }))
-                        selectionManager.exitSelectionMode()
-                    } else {
-                        shouldShowDeleteVideosConfirmation = true
-                    }
+                    shouldShowDeleteVideosConfirmation = true
                 },
                 onExcludeAction = {
                     val paths = selectionManager.selectedFolders.map { it.path }
