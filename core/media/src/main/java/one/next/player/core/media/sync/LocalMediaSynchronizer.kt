@@ -52,6 +52,10 @@ import one.next.player.core.database.entities.MediumStateEntity
 import one.next.player.core.datastore.datasource.AppPreferencesDataSource
 import one.next.player.core.media.model.MediaVideo
 
+private val EXCLUDED_DIRECTORY_NAMES = setOf(".globalTrash", "MIUI")
+
+private fun String.isInsideExcludedSystemDirectory(): Boolean = replace('\\', '/').split('/').any { it in EXCLUDED_DIRECTORY_NAMES }
+
 class LocalMediaSynchronizer @Inject constructor(
     private val mediumDao: MediumDao,
     private val mediumStateDao: MediumStateDao,
@@ -183,11 +187,14 @@ class LocalMediaSynchronizer @Inject constructor(
         shouldIgnoreNoMediaFiles: Boolean,
     ): List<MediaVideo> = withContext(dispatcher) {
         val hasAllFilesAccess = hasManageExternalStorageAccess()
-        val effectiveManualPaths = if (shouldIgnoreNoMediaFiles) {
+        val baseManualPaths = if (shouldIgnoreNoMediaFiles) {
             manuallyDiscoveredPaths
         } else {
             manuallyDiscoveredPaths.excludeNoMediaPaths().toSet()
         }
+        val effectiveManualPaths = baseManualPaths
+            .filterNot(String::isInsideExcludedSystemDirectory)
+            .toSet()
         if (effectiveManualPaths.isNotEmpty()) {
             Logger.info(TAG, "mergeVisibleMedia manualPaths=${effectiveManualPaths.size}")
         }
@@ -446,6 +453,7 @@ class LocalMediaSynchronizer @Inject constructor(
 
     private fun File.collectNoMediaVideos(hasNoMediaAncestor: Boolean = false): List<MediaVideo> {
         if (!exists() || !isDirectory) return emptyList()
+        if (name in EXCLUDED_DIRECTORY_NAMES) return emptyList()
 
         val children = runCatching { listFiles()?.toList().orEmpty() }
             .getOrElse { return emptyList() }
@@ -469,6 +477,7 @@ class LocalMediaSynchronizer @Inject constructor(
     private fun File.collectVisibleUnindexedVideoPaths(indexedPaths: Set<String>): List<String> {
         if (!exists() || !isDirectory) return emptyList()
         if (name.equals("Android", ignoreCase = true)) return emptyList()
+        if (name in EXCLUDED_DIRECTORY_NAMES) return emptyList()
 
         val children = runCatching { listFiles()?.toList().orEmpty() }
             .getOrElse { return emptyList() }
