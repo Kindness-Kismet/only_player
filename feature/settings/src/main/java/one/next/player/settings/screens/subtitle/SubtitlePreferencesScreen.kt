@@ -244,6 +244,7 @@ private fun SubtitlePreferencesContent(
                     icon = NextIcons.Style,
                     isChecked = uiState.preferences.shouldApplyEmbeddedStyles,
                     onClick = { onEvent(SubtitlePreferencesUiEvent.ToggleApplyEmbeddedStyles) },
+                    isLastItem = uiState.preferences.shouldUseSystemCaptionStyle.not(),
                 )
                 if (uiState.preferences.shouldUseSystemCaptionStyle) {
                     ClickablePreferenceItem(
