@@ -13,8 +13,6 @@ data class PlayerPreferences(
     val playerVideoZoom: VideoContentScale = VideoContentScale.BEST_FIT,
     val defaultPlaybackSpeed: Float = 1.0f,
     val videoSharpening: Float = 0f,
-    val skipOpeningSeconds: Int = 0,
-    val skipEndingSeconds: Int = 0,
     val shouldAutoPlay: Boolean = true,
     val shouldAutoEnterPip: Boolean = true,
     val shouldAutoPlayInBackground: Boolean = false,
@@ -79,8 +77,6 @@ data class PlayerPreferences(
         const val DEFAULT_LONG_PRESS_CONTROLS_SPEED = 2.0f
         const val DEFAULT_VIDEO_SHARPENING = 0f
         const val MAX_VIDEO_SHARPENING = 1f
-        const val MAX_SKIP_OPENING_SECONDS = 300
-        const val MAX_SKIP_ENDING_SECONDS = 300
         const val MIN_LONG_PRESS_CONTROLS_SPEED = 0.2f
         const val MAX_LONG_PRESS_CONTROLS_SPEED = 4.0f
         const val DEFAULT_SUBTITLE_TEXT_SIZE = 20

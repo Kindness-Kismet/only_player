@@ -1,10 +1,10 @@
-- 播放速度控制支持 0.01 精度
-- 竖屏播放时隐藏顶部视频标题
+- 移除跳过片头片尾设置项
+- 收紧主页菜单项目间距
 
 <details>
 <summary>English Version</summary>
 
-- Support 0.01 precision for playback speed control
-- Hide the top video title during portrait playback
+- Remove skip opening and ending settings
+- Tighten home menu item spacing
 
 </details>

@@ -60,7 +60,6 @@
     <string name="unknown_error">An unknown error has occurred</string>
     <string name="playback">Playback</string>
     <string name="playback_behavior">Playback behavior</string>
-    <string name="skip_segments">Skip segments</string>
     <string name="video_processing">Video processing</string>
     <string name="interface_name">Interface</string>
     <string name="a_z">A-Z</string>
@@ -183,10 +182,6 @@
     <string name="percent">%1$d%%</string>
     <string name="video_sharpening">Video sharpening</string>
     <string name="reset_video_sharpening">Reset video sharpening</string>
-    <string name="skip_opening">Skip opening</string>
-    <string name="skip_ending">Skip ending</string>
-    <string name="reset_skip_opening">Reset skip opening</string>
-    <string name="reset_skip_ending">Reset skip ending</string>
     <string name="zoom_gesture">Zoom gesture</string>
     <string name="zoom_gesture_description">Pinch to zoom the video</string>
     <string name="audio_desc">Audio playback options</string>

@@ -115,10 +115,6 @@
     <string name="percent">%1$d%%</string>
     <string name="video_sharpening">影片銳化</string>
     <string name="reset_video_sharpening">重設影片銳化</string>
-    <string name="skip_opening">跳過開頭</string>
-    <string name="skip_ending">跳過結尾</string>
-    <string name="reset_skip_opening">重設跳過開頭</string>
-    <string name="reset_skip_ending">重設跳過結尾</string>
     <string name="error_playing_video">錯誤：無法播放影片</string>
     <string name="controls_lock">鎖定控制元件</string>
     <string name="system_volume_panel">系統音量面板</string>
@@ -163,7 +159,6 @@
     <string name="video">影片</string>
     <string name="playback">播放</string>
     <string name="playback_behavior">播放行為</string>
-    <string name="skip_segments">跳過片段</string>
     <string name="video_processing">畫面處理</string>
     <string name="fast_seek">快速跳轉</string>
     <string name="select_playback_speed">選擇播放速度</string>

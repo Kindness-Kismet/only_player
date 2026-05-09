@@ -19,6 +19,7 @@ import androidx.compose.foundation.layout.RowScope
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.WindowInsets
 import androidx.compose.foundation.layout.calculateStartPadding
+import androidx.compose.foundation.layout.defaultMinSize
 import androidx.compose.foundation.layout.displayCutout
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
@@ -347,7 +348,7 @@ internal fun MediaPickerScreen(
                                         )
                                     }
                                     HorizontalDivider(
-                                        modifier = Modifier.padding(horizontal = 14.dp, vertical = 4.dp),
+                                        modifier = Modifier.padding(horizontal = 14.dp, vertical = 2.dp),
                                         thickness = 1.dp,
                                         color = MaterialTheme.colorScheme.outline.copy(alpha = 0.16f),
                                     )
@@ -370,7 +371,7 @@ internal fun MediaPickerScreen(
                                         },
                                     )
                                     HorizontalDivider(
-                                        modifier = Modifier.padding(horizontal = 14.dp, vertical = 4.dp),
+                                        modifier = Modifier.padding(horizontal = 14.dp, vertical = 2.dp),
                                         thickness = 1.dp,
                                         color = MaterialTheme.colorScheme.outline.copy(alpha = 0.16f),
                                     )
@@ -618,7 +619,7 @@ private fun MainMenuItem(
         text = {
             Text(
                 text = text,
-                style = MaterialTheme.typography.bodyLarge,
+                style = MaterialTheme.typography.bodyMedium,
             )
         },
         onClick = onClick,
@@ -630,11 +631,12 @@ private fun MainMenuItem(
             )
         },
         modifier = Modifier
-            .padding(horizontal = 8.dp, vertical = 4.dp)
+            .defaultMinSize(minHeight = 40.dp)
+            .padding(horizontal = 8.dp, vertical = 1.dp)
             .clip(RoundedCornerShape(6.dp))
             .semantics { contentDescription = testTag }
             .testTag(testTag),
-        contentPadding = PaddingValues(horizontal = 14.dp, vertical = 12.dp),
+        contentPadding = PaddingValues(horizontal = 14.dp, vertical = 6.dp),
     )
 }
 

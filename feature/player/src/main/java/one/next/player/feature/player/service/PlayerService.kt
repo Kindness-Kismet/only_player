@@ -158,7 +158,6 @@ class PlayerService : MediaSessionService() {
         private const val TAG = "PlayerService"
         private const val FAST_SEEK_MIN_DELTA_MS = 2_000L
         private const val STARTUP_PRECISE_RESUME_THRESHOLD_MS = 10_000L
-        private const val SKIP_ENDING_CHECK_INTERVAL_MS = 500L
         private const val MKV_CUES_CACHE_MAGIC = 0x4E505145
         private val ISO_639_2T_TO_1 = mapOf(
             "zho" to "zh", "chi" to "zh",
@@ -258,8 +257,6 @@ class PlayerService : MediaSessionService() {
     private var assHandler: AssHandler? = null
     private var pendingPreciseSeekPromotionJob: Job? = null
     private var pendingStartupPreciseResumeToken: String? = null
-    private var skipEndingMonitorJob: Job? = null
-    private var openingSkippedMediaId: String? = null
     private var activeDecoderPriority: DecoderPriority = DecoderPriority.PREFER_DEVICE
     private var currentVideoSharpening: Float = PlayerPreferences.DEFAULT_VIDEO_SHARPENING
     private lateinit var fastStartMediaSourceFactory: DefaultMediaSourceFactory
@@ -370,7 +367,6 @@ class PlayerService : MediaSessionService() {
     private val playbackStateListener = object : Player.Listener {
         override fun onMediaItemTransition(mediaItem: MediaItem?, reason: Int) {
             super.onMediaItemTransition(mediaItem, reason)
-            openingSkippedMediaId = null
             if (reason == Player.MEDIA_ITEM_TRANSITION_REASON_REPEAT) {
                 handleRepeatedPlayback(mediaSession?.player ?: return)
                 return
@@ -378,8 +374,6 @@ class PlayerService : MediaSessionService() {
             pendingPreciseSeekPromotionJob?.cancel()
             pendingPreciseSeekPromotionJob = null
             pendingStartupPreciseResumeToken = null
-            skipEndingMonitorJob?.cancel()
-            skipEndingMonitorJob = null
             isMediaItemReady = false
             isPendingExternalSubAutoSelect = false
             if (mediaItem != null) {
@@ -593,8 +587,6 @@ class PlayerService : MediaSessionService() {
                     )
                 }
                 updateFolderPlaybackAnchor(currentMediaItem)
-                applySkipOpening(player, currentMediaItem)
-                updateSkipEndingMonitor(player)
             }
         }
 
@@ -1095,31 +1087,11 @@ class PlayerService : MediaSessionService() {
     }
 
     private fun handleRepeatedPlayback(player: Player) {
-        openingSkippedMediaId = null
         player.currentMediaItem?.mediaMetadata?.let { metadata ->
             player.setPlaybackSpeed(playerPreferences.defaultPlaybackSpeed)
             player.playerSpecificSubtitleDelayMilliseconds = metadata.subtitleDelayMilliseconds ?: 0L
             player.playerSpecificSubtitleSpeed = metadata.subtitleSpeed ?: 1f
         }
-        player.currentMediaItem?.let { applySkipOpening(player, it) }
-        updateSkipEndingMonitor(player)
-    }
-
-    private fun applySkipOpening(
-        player: Player,
-        mediaItem: MediaItem,
-    ) {
-        val openingMs = playerPreferences.skipOpeningSeconds * 1000L
-        if (openingMs <= 0L) return
-        if (openingSkippedMediaId == mediaItem.mediaId) return
-        val duration = player.duration.takeIf { it != C.TIME_UNSET && it > 0L } ?: return
-        if (openingMs >= duration) return
-        val currentPosition = player.currentPosition.takeIf { it != C.TIME_UNSET } ?: 0L
-        if (currentPosition >= openingMs) return
-
-        openingSkippedMediaId = mediaItem.mediaId
-        Logger.debug(TAG, "Skip opening: seconds=${playerPreferences.skipOpeningSeconds}")
-        seekWithinCurrentItem(player, openingMs)
     }
 
     private fun seekWithinCurrentItem(
@@ -1132,27 +1104,6 @@ class PlayerService : MediaSessionService() {
             return
         }
         player.seekTo(targetPositionMs)
-    }
-
-    private fun updateSkipEndingMonitor(player: Player) {
-        skipEndingMonitorJob?.cancel()
-        skipEndingMonitorJob = null
-        if (playerPreferences.skipEndingSeconds <= 0) return
-
-        skipEndingMonitorJob = serviceScope.launch {
-            while (true) {
-                delay(SKIP_ENDING_CHECK_INTERVAL_MS)
-                if (!player.isPlaying) continue
-                val duration = player.duration.takeIf { it != C.TIME_UNSET && it > 0L } ?: continue
-                val currentPosition = player.currentPosition.takeIf { it != C.TIME_UNSET } ?: continue
-                val endingMs = playerPreferences.skipEndingSeconds * 1000L
-                if (endingMs <= 0L || endingMs >= duration || currentPosition < duration - endingMs) continue
-
-                Logger.debug(TAG, "Skip ending: seconds=${playerPreferences.skipEndingSeconds}")
-                seekWithinCurrentItem(player, duration)
-                return@launch
-            }
-        }
     }
 
     private fun applyVideoSharpening(value: Float) {
@@ -1453,11 +1404,6 @@ class PlayerService : MediaSessionService() {
             preferencesRepository.playerPreferences
                 .distinctUntilChanged { old, new -> old.videoSharpening == new.videoSharpening }
                 .collect { preferences -> applyVideoSharpening(preferences.videoSharpening) }
-        }
-        serviceScope.launch {
-            preferencesRepository.playerPreferences
-                .distinctUntilChanged { old, new -> old.skipEndingSeconds == new.skipEndingSeconds }
-                .collect { updateSkipEndingMonitor(mediaSession?.player ?: return@collect) }
         }
         serviceScope.launch {
             preferencesRepository.playerPreferences

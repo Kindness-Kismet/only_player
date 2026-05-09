@@ -46,7 +46,6 @@
     <string name="unknown_error">发生未知错误</string>
     <string name="playback">播放</string>
     <string name="playback_behavior">播放行为</string>
-    <string name="skip_segments">跳过片段</string>
     <string name="video_processing">画面处理</string>
     <string name="interface_name">界面</string>
     <string name="shortest">最短</string>
@@ -170,10 +169,6 @@
     <string name="percent">%1$d%%</string>
     <string name="video_sharpening">视频锐化</string>
     <string name="reset_video_sharpening">重置视频锐化</string>
-    <string name="skip_opening">跳过开头</string>
-    <string name="skip_ending">跳过结尾</string>
-    <string name="reset_skip_opening">重置跳过开头</string>
-    <string name="reset_skip_ending">重置跳过结尾</string>
     <string name="zoom_gesture">缩放手势</string>
     <string name="zoom_gesture_description">捏合可缩放视频</string>
     <string name="pause_on_headset_disconnect_desc">耳机从设备断开连接时暂停播放</string>

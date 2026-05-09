@@ -190,46 +190,6 @@ private fun PlayerPreferencesContent(
                 )
             }
 
-            ListSectionTitle(text = stringResource(id = R.string.skip_segments))
-            Column(
-                verticalArrangement = Arrangement.spacedBy(ListItemDefaults.SegmentedGap),
-            ) {
-                PreferenceSlider(
-                    title = stringResource(id = R.string.skip_opening),
-                    description = stringResource(R.string.seconds, uiState.preferences.skipOpeningSeconds),
-                    icon = NextIcons.Replay,
-                    value = uiState.preferences.skipOpeningSeconds.toFloat(),
-                    valueRange = 0f..PlayerPreferences.MAX_SKIP_OPENING_SECONDS.toFloat(),
-                    onValueChange = { onEvent(PlayerPreferencesUiEvent.UpdateSkipOpeningSeconds(it.toInt())) },
-                    isFirstItem = true,
-                    trailingContent = {
-                        FilledIconButton(onClick = { onEvent(PlayerPreferencesUiEvent.UpdateSkipOpeningSeconds(0)) }) {
-                            Icon(
-                                imageVector = NextIcons.History,
-                                contentDescription = stringResource(id = R.string.reset_skip_opening),
-                            )
-                        }
-                    },
-                )
-                PreferenceSlider(
-                    title = stringResource(id = R.string.skip_ending),
-                    description = stringResource(R.string.seconds, uiState.preferences.skipEndingSeconds),
-                    icon = NextIcons.Replay,
-                    value = uiState.preferences.skipEndingSeconds.toFloat(),
-                    valueRange = 0f..PlayerPreferences.MAX_SKIP_ENDING_SECONDS.toFloat(),
-                    onValueChange = { onEvent(PlayerPreferencesUiEvent.UpdateSkipEndingSeconds(it.toInt())) },
-                    isLastItem = true,
-                    trailingContent = {
-                        FilledIconButton(onClick = { onEvent(PlayerPreferencesUiEvent.UpdateSkipEndingSeconds(0)) }) {
-                            Icon(
-                                imageVector = NextIcons.History,
-                                contentDescription = stringResource(id = R.string.reset_skip_ending),
-                            )
-                        }
-                    },
-                )
-            }
-
             ListSectionTitle(text = stringResource(id = R.string.video_processing))
             Column(
                 verticalArrangement = Arrangement.spacedBy(ListItemDefaults.SegmentedGap),
