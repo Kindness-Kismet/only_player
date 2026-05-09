@@ -41,6 +41,7 @@ internal fun PlayerCustomizableControlButton(
     onLockControlsClick: () -> Unit,
     onVideoContentScaleClick: () -> Unit,
     onVideoContentScaleLongClick: () -> Unit,
+    onVideoFiltersClick: () -> Unit,
     onPictureInPictureClick: () -> Unit,
     onRotateClick: () -> Unit,
     isTakingScreenshot: Boolean,
@@ -147,6 +148,21 @@ internal fun PlayerCustomizableControlButton(
                 Icon(
                     painter = painterResource(videoContentScale.drawableRes()),
                     contentDescription = "btn_scale",
+                )
+            }
+        }
+
+        PlayerControl.VIDEO_FILTERS -> {
+            PlayerButton(
+                modifier = buttonModifier,
+                onClick = onVideoFiltersClick,
+                isSelected = isSelected,
+                label = label,
+                isOutlineOnly = isPlaceholder,
+            ) {
+                Icon(
+                    imageVector = NextIcons.Appearance,
+                    contentDescription = "btn_video_filters",
                 )
             }
         }
@@ -286,6 +302,7 @@ private fun PlayerControl.label(): String = when (this) {
     PlayerControl.SUBTITLE -> stringResource(R.string.subtitle)
     PlayerControl.LOCK -> stringResource(R.string.controls_lock)
     PlayerControl.SCALE -> stringResource(R.string.video_zoom)
+    PlayerControl.VIDEO_FILTERS -> stringResource(R.string.video_filters)
     PlayerControl.PIP -> stringResource(R.string.pip_settings)
     PlayerControl.SCREENSHOT -> stringResource(R.string.take_screenshot)
     PlayerControl.BACKGROUND_PLAY -> stringResource(R.string.background_play)

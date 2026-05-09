@@ -5,14 +5,14 @@ import android.util.Log
 object Logger {
 
     fun debug(tag: String, message: String) {
-        Log.d("Logger - $tag", message)
+        runCatching { Log.d("Logger - $tag", message) }
     }
 
     fun info(tag: String, message: String) {
-        Log.i("Logger - $tag", message)
+        runCatching { Log.i("Logger - $tag", message) }
     }
 
     fun error(tag: String, message: String, throwable: Throwable? = null) {
-        Log.e("Logger - $tag", message, throwable)
+        runCatching { Log.e("Logger - $tag", message, throwable) }
     }
 }

@@ -11,6 +11,7 @@ import java.net.URI
 import javax.inject.Inject
 import okhttp3.OkHttpClient
 import okhttp3.Request
+import one.next.player.core.common.Logger
 
 class OnlineSubtitleRepository(
     private val cacheRoot: File,
@@ -36,6 +37,7 @@ class OnlineSubtitleRepository(
         val baseName = url.hashCode().toUInt().toString(16)
         val targetFile = File(subtitleCacheDir, "$baseName.${parsedUrl.extension}")
         val tempFile = File.createTempFile(baseName, ".${parsedUrl.extension}.part", subtitleCacheDir)
+        Logger.debug(TAG, "Download online subtitle start: extension=${parsedUrl.extension}, target=${targetFile.name}")
 
         try {
             downloader(url).inputStream.use { inputStream ->
@@ -68,6 +70,7 @@ class OnlineSubtitleRepository(
                 throw IOException("Unable to move subtitle file")
             }
             targetFile.setLastModified(nowMillis())
+            Logger.debug(TAG, "Download online subtitle cached: file=${targetFile.name}, bytes=${targetFile.length()}")
             return DownloadedOnlineSubtitle(file = targetFile)
         } catch (exception: EmptyOnlineSubtitleException) {
             tempFile.delete()
@@ -131,6 +134,7 @@ class OnlineSubtitleRepository(
     }
 
     private companion object {
+        const val TAG = "OnlineSubtitleRepository"
         const val ONLINE_SUBTITLE_DIR_NAME = "online_subtitles"
         const val MAX_SUBTITLE_BYTES = 10L * 1024 * 1024
         const val SUBTITLE_TTL_MILLIS = 7L * 24 * 60 * 60 * 1000

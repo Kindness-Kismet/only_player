@@ -4,6 +4,7 @@ import android.app.PendingIntent
 import android.content.ContentResolver
 import android.content.Intent
 import android.graphics.Bitmap
+import android.graphics.Color
 import android.media.MediaMetadataRetriever
 import android.media.audiofx.LoudnessEnhancer
 import android.net.Uri
@@ -32,6 +33,10 @@ import androidx.media3.datasource.DataSource
 import androidx.media3.datasource.DataSpec
 import androidx.media3.datasource.DefaultDataSource
 import androidx.media3.datasource.okhttp.OkHttpDataSource
+import androidx.media3.effect.Brightness
+import androidx.media3.effect.Contrast
+import androidx.media3.effect.HslAdjustment
+import androidx.media3.effect.SingleColorLut
 import androidx.media3.exoplayer.DefaultRenderersFactory
 import androidx.media3.exoplayer.ExoPlaybackException
 import androidx.media3.exoplayer.ExoPlayer
@@ -79,6 +84,7 @@ import java.io.File
 import java.io.InputStream
 import java.util.concurrent.ConcurrentHashMap
 import javax.inject.Inject
+import kotlin.math.pow
 import kotlinx.coroutines.CompletableDeferred
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Deferred
@@ -187,6 +193,7 @@ class PlayerService : MediaSessionService() {
             "ttml",
             "vtt",
         )
+        private const val GAMMA_LUT_SIZE = 32
     }
 
     @Inject
@@ -262,7 +269,7 @@ class PlayerService : MediaSessionService() {
     private var pendingPreciseSeekPromotionJob: Job? = null
     private var pendingStartupPreciseResumeToken: String? = null
     private var activeDecoderPriority: DecoderPriority = DecoderPriority.PREFER_DEVICE
-    private var currentVideoSharpening: Float = PlayerPreferences.DEFAULT_VIDEO_SHARPENING
+    private var currentVideoFilters = VideoFilterPreferences.default()
     private lateinit var fastStartMediaSourceFactory: DefaultMediaSourceFactory
     private lateinit var preciseSeekMediaSourceFactory: DefaultMediaSourceFactory
     private var sessionLoadErrorHandlingPolicy: LoadErrorHandlingPolicy? = null
@@ -1110,27 +1117,66 @@ class PlayerService : MediaSessionService() {
         player.seekTo(targetPositionMs)
     }
 
-    private fun applyVideoSharpening(value: Float) {
+    private fun applyVideoFilters(preferences: PlayerPreferences) {
         val player = mediaSession?.player as? ExoPlayer ?: return
-        applyVideoSharpening(player, value)
+        applyVideoFilters(player, preferences)
     }
 
-    private fun applyVideoSharpening(
+    private fun applyVideoFilters(
         player: ExoPlayer,
-        value: Float,
+        preferences: PlayerPreferences,
     ) {
-        val sharpening = value.coerceIn(PlayerPreferences.DEFAULT_VIDEO_SHARPENING, PlayerPreferences.MAX_VIDEO_SHARPENING)
-        if (currentVideoSharpening == sharpening) return
+        val videoFilters = preferences.toVideoFilterPreferences()
+        if (currentVideoFilters == videoFilters) return
 
-        currentVideoSharpening = sharpening
-        player.setVideoEffects(sharpening.toVideoEffects())
-        Logger.debug(TAG, "Apply video sharpening: percent=${(sharpening * 100).toInt()}")
+        val effects = videoFilters.toVideoEffects()
+        currentVideoFilters = videoFilters
+        player.setVideoEffects(effects)
+        Logger.debug(TAG, "Apply video filters: $videoFilters effects=${effects.size}")
     }
 
-    private fun Float.toVideoEffects(): List<Effect> = if (this <= 0f) {
-        emptyList()
-    } else {
-        listOf(VideoSharpeningEffect(this))
+    private fun PlayerPreferences.toVideoFilterPreferences(): VideoFilterPreferences = VideoFilterPreferences(
+        brightness = videoBrightness.coerceIn(PlayerPreferences.MIN_VIDEO_BRIGHTNESS, PlayerPreferences.MAX_VIDEO_BRIGHTNESS),
+        contrast = videoContrast.coerceIn(PlayerPreferences.MIN_VIDEO_CONTRAST, PlayerPreferences.MAX_VIDEO_CONTRAST),
+        saturation = videoSaturation.coerceIn(PlayerPreferences.MIN_VIDEO_SATURATION, PlayerPreferences.MAX_VIDEO_SATURATION),
+        hue = videoHue.coerceIn(PlayerPreferences.MIN_VIDEO_HUE, PlayerPreferences.MAX_VIDEO_HUE),
+        gamma = videoGamma.coerceIn(PlayerPreferences.MIN_VIDEO_GAMMA, PlayerPreferences.MAX_VIDEO_GAMMA),
+        sharpening = videoSharpening.coerceIn(PlayerPreferences.DEFAULT_VIDEO_SHARPENING, PlayerPreferences.MAX_VIDEO_SHARPENING),
+    )
+
+    private fun VideoFilterPreferences.toVideoEffects(): List<Effect> = buildList {
+        if (brightness != PlayerPreferences.DEFAULT_VIDEO_BRIGHTNESS) add(Brightness(brightness))
+        if (contrast != PlayerPreferences.DEFAULT_VIDEO_CONTRAST) add(Contrast(contrast))
+        if (saturation != PlayerPreferences.DEFAULT_VIDEO_SATURATION || hue != PlayerPreferences.DEFAULT_VIDEO_HUE) {
+            add(
+                HslAdjustment.Builder()
+                    .adjustSaturation(saturation)
+                    .adjustHue(hue)
+                    .build(),
+            )
+        }
+        if (gamma != PlayerPreferences.DEFAULT_VIDEO_GAMMA) add(createGammaEffect(gamma))
+        if (sharpening > PlayerPreferences.DEFAULT_VIDEO_SHARPENING) add(VideoSharpeningEffect(sharpening))
+    }
+
+    private fun createGammaEffect(gamma: Float): Effect {
+        val lut = Array(GAMMA_LUT_SIZE) { red ->
+            Array(GAMMA_LUT_SIZE) { green ->
+                IntArray(GAMMA_LUT_SIZE) { blue ->
+                    Color.rgb(
+                        red.toGammaColor(gamma),
+                        green.toGammaColor(gamma),
+                        blue.toGammaColor(gamma),
+                    )
+                }
+            }
+        }
+        return SingleColorLut.createFromCube(lut)
+    }
+
+    private fun Int.toGammaColor(gamma: Float): Int {
+        val normalized = this.toFloat() / (GAMMA_LUT_SIZE - 1)
+        return (normalized.pow(1f / gamma) * 255f).toInt().coerceIn(0, 255)
     }
 
     private fun applyLoudnessEnhancerGain() {
@@ -1194,12 +1240,22 @@ class PlayerService : MediaSessionService() {
 
             when (command) {
                 CustomCommands.ADD_SUBTITLE_TRACK -> {
-                    val subtitleUri = args.getString(CustomCommands.SUBTITLE_TRACK_URI_KEY)?.toUri()
-                        ?: return@future SessionResult(SessionError.ERROR_BAD_VALUE)
+                    val subtitleUriString = args.getString(CustomCommands.SUBTITLE_TRACK_URI_KEY)
+                    if (subtitleUriString.isNullOrBlank()) {
+                        Logger.info(TAG, "Add subtitle track rejected: empty uri")
+                        return@future SessionResult(SessionError.ERROR_BAD_VALUE)
+                    }
+                    val subtitleUri = subtitleUriString.toUri()
                     val player = mediaSession?.player
-                        ?: return@future SessionResult(SessionError.ERROR_BAD_VALUE)
+                    if (player == null) {
+                        Logger.info(TAG, "Add subtitle track rejected: player unavailable")
+                        return@future SessionResult(SessionError.ERROR_BAD_VALUE)
+                    }
                     val currentMediaItem = player.currentMediaItem
-                        ?: return@future SessionResult(SessionError.ERROR_BAD_VALUE)
+                    if (currentMediaItem == null) {
+                        Logger.info(TAG, "Add subtitle track rejected: current media item unavailable")
+                        return@future SessionResult(SessionError.ERROR_BAD_VALUE)
+                    }
 
                     val newSubConfiguration = uriToSubtitleConfiguration(
                         uri = subtitleUri,
@@ -1215,6 +1271,7 @@ class PlayerService : MediaSessionService() {
                         subtitleUri = subtitleUri,
                     )
                     player.addAdditionalSubtitleConfiguration(newSubConfiguration)
+                    Logger.info(TAG, "Added subtitle track: uri=$subtitleUri media=$playbackStateUri")
                     return@future SessionResult(SessionResult.RESULT_SUCCESS)
                 }
 
@@ -1396,8 +1453,8 @@ class PlayerService : MediaSessionService() {
                     LoopMode.ONE -> Player.REPEAT_MODE_ONE
                     LoopMode.ALL -> Player.REPEAT_MODE_ALL
                 }
-                currentVideoSharpening = PlayerPreferences.DEFAULT_VIDEO_SHARPENING
-                applyVideoSharpening(it, preferences.videoSharpening)
+                currentVideoFilters = VideoFilterPreferences.default()
+                applyVideoFilters(it, preferences)
             }
     }
 
@@ -1406,8 +1463,8 @@ class PlayerService : MediaSessionService() {
         serviceScope.launch(Dispatchers.IO) { warmUpCodecCache() }
         serviceScope.launch {
             preferencesRepository.playerPreferences
-                .distinctUntilChanged { old, new -> old.videoSharpening == new.videoSharpening }
-                .collect { preferences -> applyVideoSharpening(preferences.videoSharpening) }
+                .distinctUntilChanged { old, new -> old.toVideoFilterPreferences() == new.toVideoFilterPreferences() }
+                .collect(::applyVideoFilters)
         }
         serviceScope.launch {
             preferencesRepository.playerPreferences

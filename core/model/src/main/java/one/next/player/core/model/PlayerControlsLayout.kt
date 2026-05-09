@@ -85,6 +85,7 @@ class PlayerControlsLayout(
         val bottomLeftControls: List<PlayerControl> = listOf(
             PlayerControl.LOCK,
             PlayerControl.SCALE,
+            PlayerControl.VIDEO_FILTERS,
             PlayerControl.PIP,
             PlayerControl.SCREENSHOT,
             PlayerControl.BACKGROUND_PLAY,

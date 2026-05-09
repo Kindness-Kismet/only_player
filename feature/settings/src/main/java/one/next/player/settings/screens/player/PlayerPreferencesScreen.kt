@@ -35,6 +35,7 @@ import one.next.player.core.ui.components.NextTopAppBar
 import one.next.player.core.ui.components.PreferenceSlider
 import one.next.player.core.ui.components.PreferenceSwitch
 import one.next.player.core.ui.components.RadioTextButton
+import one.next.player.core.ui.components.VideoFiltersDialog
 import one.next.player.core.ui.designsystem.NextIcons
 import one.next.player.core.ui.extensions.withBottomFallback
 import one.next.player.core.ui.preview.DayNightPreview
@@ -194,23 +195,15 @@ private fun PlayerPreferencesContent(
             Column(
                 verticalArrangement = Arrangement.spacedBy(ListItemDefaults.SegmentedGap),
             ) {
-                PreferenceSlider(
-                    title = stringResource(id = R.string.video_sharpening),
-                    description = stringResource(id = R.string.percent, (uiState.preferences.videoSharpening * 100).toInt()),
+                ClickablePreferenceItem(
+                    title = stringResource(id = R.string.video_filters),
+                    description = videoFiltersSummary(uiState.preferences),
                     icon = NextIcons.Appearance,
-                    value = uiState.preferences.videoSharpening,
-                    valueRange = PlayerPreferences.DEFAULT_VIDEO_SHARPENING..PlayerPreferences.MAX_VIDEO_SHARPENING,
-                    onValueChange = { onEvent(PlayerPreferencesUiEvent.UpdateVideoSharpening(it)) },
+                    onClick = {
+                        onEvent(PlayerPreferencesUiEvent.ShowDialog(PlayerPreferenceDialog.VideoFiltersDialog))
+                    },
                     isFirstItem = true,
                     isLastItem = true,
-                    trailingContent = {
-                        FilledIconButton(onClick = { onEvent(PlayerPreferencesUiEvent.UpdateVideoSharpening(PlayerPreferences.DEFAULT_VIDEO_SHARPENING)) }) {
-                            Icon(
-                                imageVector = NextIcons.History,
-                                contentDescription = stringResource(id = R.string.reset_video_sharpening),
-                            )
-                        }
-                    },
                 )
             }
         }
@@ -252,9 +245,37 @@ private fun PlayerPreferencesContent(
                         }
                     }
                 }
+
+                PlayerPreferenceDialog.VideoFiltersDialog -> {
+                    VideoFiltersDialog(
+                        preferences = uiState.preferences,
+                        onDismissRequest = { onEvent(PlayerPreferencesUiEvent.ShowDialog(null)) },
+                        onBrightnessChanged = { onEvent(PlayerPreferencesUiEvent.UpdateVideoBrightness(it)) },
+                        onContrastChanged = { onEvent(PlayerPreferencesUiEvent.UpdateVideoContrast(it)) },
+                        onSaturationChanged = { onEvent(PlayerPreferencesUiEvent.UpdateVideoSaturation(it)) },
+                        onHueChanged = { onEvent(PlayerPreferencesUiEvent.UpdateVideoHue(it)) },
+                        onGammaChanged = { onEvent(PlayerPreferencesUiEvent.UpdateVideoGamma(it)) },
+                        onSharpeningChanged = { onEvent(PlayerPreferencesUiEvent.UpdateVideoSharpening(it)) },
+                    )
+                }
             }
         }
     }
+}
+
+@Composable
+private fun videoFiltersSummary(preferences: PlayerPreferences): String {
+    val adjustedCount = listOf(
+        preferences.videoBrightness != PlayerPreferences.DEFAULT_VIDEO_BRIGHTNESS,
+        preferences.videoContrast != PlayerPreferences.DEFAULT_VIDEO_CONTRAST,
+        preferences.videoSaturation != PlayerPreferences.DEFAULT_VIDEO_SATURATION,
+        preferences.videoHue != PlayerPreferences.DEFAULT_VIDEO_HUE,
+        preferences.videoGamma != PlayerPreferences.DEFAULT_VIDEO_GAMMA,
+        preferences.videoSharpening != PlayerPreferences.DEFAULT_VIDEO_SHARPENING,
+    ).count { it }
+
+    if (adjustedCount == 0) return stringResource(R.string.video_filters_default)
+    return stringResource(R.string.video_filters_adjusted_count, adjustedCount)
 }
 
 @DayNightPreview

@@ -113,6 +113,12 @@
     <string name="video_software_decoders_desc">使用應用程式視訊解碼器 (實驗性)</string>
     <string name="hundred_percent">100%</string>
     <string name="percent">%1$d%%</string>
+    <string name="degrees">%1$d°</string>
+    <string name="video_brightness">亮度</string>
+    <string name="video_contrast">對比度</string>
+    <string name="video_saturation">飽和度</string>
+    <string name="video_hue">色相</string>
+    <string name="video_gamma">Gamma</string>
     <string name="video_sharpening">影片銳化</string>
     <string name="reset_video_sharpening">重設影片銳化</string>
     <string name="error_playing_video">錯誤：無法播放影片</string>
@@ -161,6 +167,8 @@
     <string name="playback_behavior">播放行為</string>
     <string name="video_processing">畫面處理</string>
     <string name="video_filters">影片濾鏡</string>
+    <string name="video_filters_default">預設</string>
+    <string name="video_filters_adjusted_count">已調整 %1$d 項</string>
     <string name="fast_seek">快速跳轉</string>
     <string name="select_playback_speed">選擇播放速度</string>
     <string name="seek_gesture">跳轉手勢</string>

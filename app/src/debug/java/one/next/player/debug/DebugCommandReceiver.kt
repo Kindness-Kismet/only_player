@@ -1,19 +1,31 @@
 package one.next.player.debug
 
 import android.content.BroadcastReceiver
+import android.content.ComponentName
 import android.content.Context
 import android.content.Intent
+import android.os.Bundle
+import androidx.media3.session.MediaController
+import androidx.media3.session.SessionToken
 import dagger.hilt.EntryPoint
 import dagger.hilt.InstallIn
 import dagger.hilt.android.EntryPointAccessors
 import dagger.hilt.components.SingletonComponent
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.delay
+import kotlinx.coroutines.guava.await
 import kotlinx.coroutines.runBlocking
+import kotlinx.coroutines.withContext
 import one.next.player.core.common.Logger
 import one.next.player.core.data.repository.PreferencesRepository
 import one.next.player.core.data.repository.RemoteServerRepository
 import one.next.player.core.media.sync.MediaSynchronizer
+import one.next.player.core.model.PlayerPreferences
 import one.next.player.core.model.RemoteServer
 import one.next.player.core.model.ServerProtocol
+import one.next.player.feature.player.service.CustomCommands
+import one.next.player.feature.player.service.PlayerService
+import one.next.player.feature.player.subtitle.OnlineSubtitleRepository
 
 class DebugCommandReceiver : BroadcastReceiver() {
 
@@ -25,7 +37,7 @@ class DebugCommandReceiver : BroadcastReceiver() {
                     context.applicationContext,
                     DebugCommandReceiverEntryPoint::class.java,
                 )
-                runBlocking { dispatch(entryPoint, intent) }
+                runBlocking { dispatch(context, entryPoint, intent) }
             } catch (throwable: Throwable) {
                 Logger.error(TAG, "Failed to handle debug command: ${intent.action}", throwable)
             } finally {
@@ -35,6 +47,7 @@ class DebugCommandReceiver : BroadcastReceiver() {
     }
 
     private suspend fun dispatch(
+        context: Context,
         entryPoint: DebugCommandReceiverEntryPoint,
         intent: Intent,
     ) {
@@ -42,6 +55,13 @@ class DebugCommandReceiver : BroadcastReceiver() {
             ACTION_SET_IGNORE_NOMEDIA -> setIgnoreNoMedia(entryPoint.preferencesRepository(), intent)
             ACTION_SET_LONG_PRESS_CONTROLS -> setLongPressControls(entryPoint.preferencesRepository(), intent)
             ACTION_SET_LONG_PRESS_OVERLAY -> setLongPressOverlay(entryPoint.preferencesRepository(), intent)
+            ACTION_SET_VIDEO_FILTERS -> setVideoFilters(entryPoint.preferencesRepository(), intent)
+            ACTION_ADD_ONLINE_SUBTITLE -> addOnlineSubtitle(
+                context = context.applicationContext,
+                repository = entryPoint.onlineSubtitleRepository(),
+                intent = intent,
+            )
+            ACTION_SET_CONTROLLER_TIMEOUT -> setControllerTimeout(entryPoint.preferencesRepository(), intent)
             ACTION_REFRESH_LIBRARY -> refreshLibrary(entryPoint.mediaSynchronizer())
             ACTION_ADD_REMOTE_SERVER -> addRemoteServer(entryPoint.remoteServerRepository(), intent)
             ACTION_DELETE_REMOTE_SERVER -> deleteRemoteServer(entryPoint.remoteServerRepository(), intent)
@@ -90,6 +110,69 @@ class DebugCommandReceiver : BroadcastReceiver() {
             it.copy(isDebugLongPressOverlayVisible = isEnabled)
         }
         Logger.info(TAG, "isDebugLongPressOverlayVisible set to $isEnabled")
+    }
+
+    private suspend fun setVideoFilters(
+        preferencesRepository: PreferencesRepository,
+        intent: Intent,
+    ) {
+        preferencesRepository.updatePlayerPreferences { preferences ->
+            preferences.copy(
+                videoBrightness = intent.getFloatExtra(EXTRA_BRIGHTNESS, preferences.videoBrightness)
+                    .coerceIn(PlayerPreferences.MIN_VIDEO_BRIGHTNESS, PlayerPreferences.MAX_VIDEO_BRIGHTNESS),
+                videoContrast = intent.getFloatExtra(EXTRA_CONTRAST, preferences.videoContrast)
+                    .coerceIn(PlayerPreferences.MIN_VIDEO_CONTRAST, PlayerPreferences.MAX_VIDEO_CONTRAST),
+                videoSaturation = intent.getFloatExtra(EXTRA_SATURATION, preferences.videoSaturation)
+                    .coerceIn(PlayerPreferences.MIN_VIDEO_SATURATION, PlayerPreferences.MAX_VIDEO_SATURATION),
+                videoHue = intent.getFloatExtra(EXTRA_HUE, preferences.videoHue)
+                    .coerceIn(PlayerPreferences.MIN_VIDEO_HUE, PlayerPreferences.MAX_VIDEO_HUE),
+                videoGamma = intent.getFloatExtra(EXTRA_GAMMA, preferences.videoGamma)
+                    .coerceIn(PlayerPreferences.MIN_VIDEO_GAMMA, PlayerPreferences.MAX_VIDEO_GAMMA),
+                videoSharpening = intent.getFloatExtra(EXTRA_SHARPENING, preferences.videoSharpening)
+                    .coerceIn(PlayerPreferences.DEFAULT_VIDEO_SHARPENING, PlayerPreferences.MAX_VIDEO_SHARPENING),
+            )
+        }
+        Logger.info(TAG, "Video filters updated from debug command")
+    }
+
+    private suspend fun addOnlineSubtitle(
+        context: Context,
+        repository: OnlineSubtitleRepository,
+        intent: Intent,
+    ) {
+        val url = intent.getStringExtra(EXTRA_URL)?.trim().orEmpty()
+        if (url.isBlank()) return
+
+        val subtitle = repository.downloadSubtitle(url)
+        withContext(Dispatchers.Main) {
+            val sessionToken = SessionToken(context, ComponentName(context, PlayerService::class.java))
+            val controller = MediaController.Builder(context, sessionToken).buildAsync().await()
+            try {
+                var remainingAttempts = MAX_WAIT_MEDIA_ITEM_ATTEMPTS
+                while (controller.currentMediaItem == null && remainingAttempts > 0) {
+                    delay(WAIT_MEDIA_ITEM_INTERVAL_MS)
+                    remainingAttempts--
+                }
+                val args = Bundle().apply {
+                    putString(CustomCommands.SUBTITLE_TRACK_URI_KEY, subtitle.uriString)
+                }
+                val result = controller.sendCustomCommand(CustomCommands.ADD_SUBTITLE_TRACK.sessionCommand, args).await()
+                Logger.info(TAG, "Online subtitle add result=${result.resultCode}: ${subtitle.uriString}")
+            } finally {
+                controller.release()
+            }
+        }
+    }
+
+    private suspend fun setControllerTimeout(
+        preferencesRepository: PreferencesRepository,
+        intent: Intent,
+    ) {
+        val seconds = intent.getIntExtra(EXTRA_SECONDS, PlayerPreferences.DEFAULT_CONTROLLER_AUTO_HIDE_TIMEOUT)
+        preferencesRepository.updatePlayerPreferences {
+            it.copy(controllerAutoHideTimeout = seconds.coerceIn(1, 60))
+        }
+        Logger.info(TAG, "controllerAutoHideTimeout set to $seconds")
     }
 
     private suspend fun addRemoteServer(
@@ -145,9 +228,14 @@ class DebugCommandReceiver : BroadcastReceiver() {
 
     companion object {
         private const val TAG = "DebugCommandReceiver"
+        private const val MAX_WAIT_MEDIA_ITEM_ATTEMPTS = 20
+        private const val WAIT_MEDIA_ITEM_INTERVAL_MS = 250L
         const val ACTION_SET_IGNORE_NOMEDIA = "one.next.player.debug.SET_IGNORE_NOMEDIA"
         const val ACTION_SET_LONG_PRESS_CONTROLS = "one.next.player.debug.SET_LONG_PRESS_CONTROLS"
         const val ACTION_SET_LONG_PRESS_OVERLAY = "one.next.player.debug.SET_LONG_PRESS_OVERLAY"
+        const val ACTION_SET_VIDEO_FILTERS = "one.next.player.debug.SET_VIDEO_FILTERS"
+        const val ACTION_ADD_ONLINE_SUBTITLE = "one.next.player.debug.ADD_ONLINE_SUBTITLE"
+        const val ACTION_SET_CONTROLLER_TIMEOUT = "one.next.player.debug.SET_CONTROLLER_TIMEOUT"
         const val ACTION_REFRESH_LIBRARY = "one.next.player.debug.REFRESH_LIBRARY"
         const val ACTION_ADD_REMOTE_SERVER = "one.next.player.debug.ADD_REMOTE_SERVER"
         const val ACTION_DELETE_REMOTE_SERVER = "one.next.player.debug.DELETE_REMOTE_SERVER"
@@ -164,6 +252,14 @@ class DebugCommandReceiver : BroadcastReceiver() {
         const val EXTRA_PROXY_HOST = "proxy_host"
         const val EXTRA_PROXY_PORT = "proxy_port"
         const val EXTRA_ENABLED = "enabled"
+        const val EXTRA_URL = "url"
+        const val EXTRA_SECONDS = "seconds"
+        const val EXTRA_BRIGHTNESS = "brightness"
+        const val EXTRA_CONTRAST = "contrast"
+        const val EXTRA_SATURATION = "saturation"
+        const val EXTRA_HUE = "hue"
+        const val EXTRA_GAMMA = "gamma"
+        const val EXTRA_SHARPENING = "sharpening"
     }
 }
 
@@ -173,4 +269,5 @@ interface DebugCommandReceiverEntryPoint {
     fun preferencesRepository(): PreferencesRepository
     fun mediaSynchronizer(): MediaSynchronizer
     fun remoteServerRepository(): RemoteServerRepository
+    fun onlineSubtitleRepository(): OnlineSubtitleRepository
 }

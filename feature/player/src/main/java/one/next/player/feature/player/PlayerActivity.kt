@@ -388,6 +388,7 @@ class PlayerActivity : AppCompatActivity() {
         }
 
         lifecycleScope.launch {
+            Logger.debug(TAG, "Add online subtitle requested: url=$subtitleUrl")
             val messageResId = try {
                 val downloadedSubtitle = withContext(Dispatchers.IO) {
                     onlineSubtitleRepository.downloadSubtitle(subtitleUrl)
@@ -395,6 +396,7 @@ class PlayerActivity : AppCompatActivity() {
                 maybeInitControllerFuture()
                 val controller = controllerFuture?.await() ?: error("MediaController is unavailable")
                 controller.addSubtitleTrack(downloadedSubtitle.uri)
+                Logger.debug(TAG, "Add online subtitle command sent: uri=${downloadedSubtitle.uriString}")
                 one.next.player.core.ui.R.string.online_subtitle_added
             } catch (exception: CancellationException) {
                 throw exception

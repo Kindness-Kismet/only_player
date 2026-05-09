@@ -48,6 +48,8 @@
     <string name="playback_behavior">播放行为</string>
     <string name="video_processing">画面处理</string>
     <string name="video_filters">视频滤镜</string>
+    <string name="video_filters_default">默认</string>
+    <string name="video_filters_adjusted_count">已调整 %1$d 项</string>
     <string name="interface_name">界面</string>
     <string name="shortest">最短</string>
     <string name="longest">最长</string>
@@ -168,6 +170,12 @@
     <string name="crop">裁剪</string>
     <string name="hundred_percent">100%</string>
     <string name="percent">%1$d%%</string>
+    <string name="degrees">%1$d°</string>
+    <string name="video_brightness">亮度</string>
+    <string name="video_contrast">对比度</string>
+    <string name="video_saturation">饱和度</string>
+    <string name="video_hue">色相</string>
+    <string name="video_gamma">Gamma</string>
     <string name="video_sharpening">视频锐化</string>
     <string name="reset_video_sharpening">重置视频锐化</string>
     <string name="zoom_gesture">缩放手势</string>

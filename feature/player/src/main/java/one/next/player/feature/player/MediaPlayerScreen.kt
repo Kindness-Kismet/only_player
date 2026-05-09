@@ -79,6 +79,7 @@ import one.next.player.core.model.PlayerControlZone
 import one.next.player.core.model.PlayerControlsLayout
 import one.next.player.core.model.PlayerPreferences
 import one.next.player.core.ui.R as coreUiR
+import one.next.player.core.ui.components.VideoFiltersDialog
 import one.next.player.core.ui.extensions.copy
 import one.next.player.feature.player.buttons.NextButton
 import one.next.player.feature.player.buttons.PlayPauseButton
@@ -300,6 +301,7 @@ internal fun MediaPlayerScreen(
     }
     var shouldShowOverlay by remember { mutableStateOf(false) }
     var isSleepTimerDialogShown by remember { mutableStateOf(false) }
+    var isVideoFiltersDialogShown by remember { mutableStateOf(false) }
     var longPressOverlayAnimationStep by remember { mutableIntStateOf(0) }
     val keyboardInteractionEnabledState = rememberUpdatedState(
         overlayView == null &&
@@ -796,6 +798,14 @@ internal fun MediaPlayerScreen(
                                             overlayView = OverlayView.VIDEO_CONTENT_SCALE
                                         }
                                     },
+                                    onVideoFiltersClick = {
+                                        if (isCustomizingControls) {
+                                            toggleControlVisibility(PlayerControl.VIDEO_FILTERS)
+                                        } else {
+                                            controlsVisibilityState.hideControls()
+                                            isVideoFiltersDialogShown = true
+                                        }
+                                    },
                                     onPictureInPictureClick = {
                                         if (isCustomizingControls) {
                                             toggleControlVisibility(PlayerControl.PIP)
@@ -836,6 +846,7 @@ internal fun MediaPlayerScreen(
                                 onLockControlsClick = { },
                                 onVideoContentScaleClick = { },
                                 onVideoContentScaleLongClick = { },
+                                onVideoFiltersClick = { },
                                 onPictureInPictureClick = { },
                                 onRotateClick = { },
                                 isTakingScreenshot = isTakingScreenshot,
@@ -888,14 +899,15 @@ internal fun MediaPlayerScreen(
                 player = player,
                 overlayView = overlayView,
                 videoContentScale = videoZoomAndContentScaleState.videoContentScale,
-                videoSharpening = playerPreferences.videoSharpening,
                 onDismiss = { overlayView = null },
                 onSelectSubtitleClick = onSelectSubtitleClick,
                 onAddOnlineSubtitleClick = onAddOnlineSubtitleClick,
                 onSubtitleOptionEvent = viewModel::onSubtitleOptionEvent,
                 onVideoContentScaleChanged = { videoZoomAndContentScaleState.onVideoContentScaleChanged(it) },
-                onVideoSharpeningChanged = viewModel::updateVideoSharpening,
-                onShowVideoFilters = { overlayView = OverlayView.VIDEO_FILTERS },
+                onShowVideoFilters = {
+                    overlayView = null
+                    isVideoFiltersDialogShown = true
+                },
             )
         }
     }
@@ -904,6 +916,19 @@ internal fun MediaPlayerScreen(
         SleepTimerDialog(
             sleepTimerState = sleepTimerState,
             onDismiss = { isSleepTimerDialogShown = false },
+        )
+    }
+
+    if (isVideoFiltersDialogShown) {
+        VideoFiltersDialog(
+            preferences = playerPreferences,
+            onDismissRequest = { isVideoFiltersDialogShown = false },
+            onBrightnessChanged = viewModel::updateVideoBrightness,
+            onContrastChanged = viewModel::updateVideoContrast,
+            onSaturationChanged = viewModel::updateVideoSaturation,
+            onHueChanged = viewModel::updateVideoHue,
+            onGammaChanged = viewModel::updateVideoGamma,
+            onSharpeningChanged = viewModel::updateVideoSharpening,
         )
     }
 

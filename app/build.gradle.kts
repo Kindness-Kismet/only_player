@@ -144,4 +144,7 @@ dependencies {
     androidTestImplementation(project(":feature:player"))
     debugImplementation(libs.androidx.compose.ui.tooling)
     debugImplementation(libs.androidx.compose.ui.testManifest)
+    debugImplementation(libs.androidx.media3.session)
+    debugImplementation(libs.kotlinx.coroutines.android)
+    debugImplementation(libs.kotlinx.coroutines.guava)
 }

@@ -12,7 +12,12 @@ data class PlayerPreferences(
     val playerScreenOrientation: ScreenOrientation = ScreenOrientation.VIDEO_ORIENTATION,
     val playerVideoZoom: VideoContentScale = VideoContentScale.BEST_FIT,
     val defaultPlaybackSpeed: Float = 1.0f,
-    val videoSharpening: Float = 0f,
+    val videoBrightness: Float = DEFAULT_VIDEO_BRIGHTNESS,
+    val videoContrast: Float = DEFAULT_VIDEO_CONTRAST,
+    val videoSaturation: Float = DEFAULT_VIDEO_SATURATION,
+    val videoHue: Float = DEFAULT_VIDEO_HUE,
+    val videoGamma: Float = DEFAULT_VIDEO_GAMMA,
+    val videoSharpening: Float = DEFAULT_VIDEO_SHARPENING,
     val shouldAutoPlay: Boolean = true,
     val shouldAutoEnterPip: Boolean = true,
     val shouldAutoPlayInBackground: Boolean = false,
@@ -75,6 +80,21 @@ data class PlayerPreferences(
         const val DEFAULT_VOLUME_GESTURE_SENSITIVITY = 0.50f
         const val DEFAULT_BRIGHTNESS_GESTURE_SENSITIVITY = 0.50f
         const val DEFAULT_LONG_PRESS_CONTROLS_SPEED = 2.0f
+        const val DEFAULT_VIDEO_BRIGHTNESS = 0f
+        const val MIN_VIDEO_BRIGHTNESS = -1f
+        const val MAX_VIDEO_BRIGHTNESS = 1f
+        const val DEFAULT_VIDEO_CONTRAST = 0f
+        const val MIN_VIDEO_CONTRAST = -1f
+        const val MAX_VIDEO_CONTRAST = 1f
+        const val DEFAULT_VIDEO_SATURATION = 0f
+        const val MIN_VIDEO_SATURATION = -100f
+        const val MAX_VIDEO_SATURATION = 100f
+        const val DEFAULT_VIDEO_HUE = 0f
+        const val MIN_VIDEO_HUE = -180f
+        const val MAX_VIDEO_HUE = 180f
+        const val DEFAULT_VIDEO_GAMMA = 1f
+        const val MIN_VIDEO_GAMMA = 0.1f
+        const val MAX_VIDEO_GAMMA = 3f
         const val DEFAULT_VIDEO_SHARPENING = 0f
         const val MAX_VIDEO_SHARPENING = 1f
         const val MIN_LONG_PRESS_CONTROLS_SPEED = 0.2f
@@ -103,6 +123,7 @@ enum class PlayerControl {
     NEXT,
     LOCK,
     SCALE,
+    VIDEO_FILTERS,
     PIP,
     SCREENSHOT,
     BACKGROUND_PLAY,
