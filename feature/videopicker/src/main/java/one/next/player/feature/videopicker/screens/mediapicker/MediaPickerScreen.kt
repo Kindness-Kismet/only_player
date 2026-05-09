@@ -58,6 +58,8 @@ import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.platform.LocalLayoutDirection
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.res.stringResource
+import androidx.compose.ui.semantics.contentDescription
+import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.tooling.preview.Preview
@@ -190,6 +192,7 @@ internal fun MediaPickerScreen(
     }
     val selectedItemsSize = selectionManager.selectedFolders.size + selectionManager.selectedVideos.size
     val totalItemsSize = (uiState.mediaDataState as? DataState.Success)?.value?.run { folderList.size + mediaList.size } ?: 0
+    val recentlyPlayedVideo = (uiState.mediaDataState as? DataState.Success)?.value?.recentlyPlayedVideo
 
     Scaffold(
         topBar = {
@@ -332,6 +335,17 @@ internal fun MediaPickerScreen(
                                             selectVideoFileLauncher.launch("video/*")
                                         },
                                     )
+                                    recentlyPlayedVideo?.let { video ->
+                                        MainMenuItem(
+                                            text = stringResource(id = R.string.recently_played),
+                                            icon = NextIcons.History,
+                                            testTag = "item_main_menu_recently_played",
+                                            onClick = {
+                                                shouldShowMainMenu = false
+                                                onPlayVideo(video.uriString.toUri())
+                                            },
+                                        )
+                                    }
                                     HorizontalDivider(
                                         modifier = Modifier.padding(horizontal = 14.dp, vertical = 4.dp),
                                         thickness = 1.dp,
@@ -618,6 +632,7 @@ private fun MainMenuItem(
         modifier = Modifier
             .padding(horizontal = 8.dp, vertical = 4.dp)
             .clip(RoundedCornerShape(6.dp))
+            .semantics { contentDescription = testTag }
             .testTag(testTag),
         contentPadding = PaddingValues(horizontal = 14.dp, vertical = 12.dp),
     )

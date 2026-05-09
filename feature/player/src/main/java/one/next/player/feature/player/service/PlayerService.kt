@@ -33,9 +33,11 @@ import androidx.media3.datasource.DataSpec
 import androidx.media3.datasource.DefaultDataSource
 import androidx.media3.datasource.okhttp.OkHttpDataSource
 import androidx.media3.exoplayer.DefaultRenderersFactory
+import androidx.media3.exoplayer.ExoPlaybackException
 import androidx.media3.exoplayer.ExoPlayer
 import androidx.media3.exoplayer.analytics.AnalyticsListener
 import androidx.media3.exoplayer.drm.DrmSessionManagerProvider
+import androidx.media3.exoplayer.mediacodec.MediaCodecRenderer
 import androidx.media3.exoplayer.mediacodec.MediaCodecUtil
 import androidx.media3.exoplayer.source.DefaultMediaSourceFactory
 import androidx.media3.exoplayer.source.MediaSource
@@ -251,12 +253,14 @@ class PlayerService : MediaSessionService() {
     private var loudnessEnhancer: LoudnessEnhancer? = null
     private var requestedVolumeGain: Int = 0
     private val mediaParserRetried = mutableSetOf<String>()
+    private val softwareDecoderRetried = mutableSetOf<String>()
     private var isPendingExternalSubAutoSelect = false
     private var assHandler: AssHandler? = null
     private var pendingPreciseSeekPromotionJob: Job? = null
     private var pendingStartupPreciseResumeToken: String? = null
     private var skipEndingMonitorJob: Job? = null
     private var openingSkippedMediaId: String? = null
+    private var activeDecoderPriority: DecoderPriority = DecoderPriority.PREFER_DEVICE
     private var currentVideoSharpening: Float = PlayerPreferences.DEFAULT_VIDEO_SHARPENING
     private lateinit var fastStartMediaSourceFactory: DefaultMediaSourceFactory
     private lateinit var preciseSeekMediaSourceFactory: DefaultMediaSourceFactory
@@ -684,8 +688,90 @@ class PlayerService : MediaSessionService() {
 
         override fun onPlayerError(error: PlaybackException) {
             super.onPlayerError(error)
+            if (retryWithSoftwareDecoder(error)) return
             retryWithFixedSource(error)
         }
+    }
+
+    private fun retryWithSoftwareDecoder(error: PlaybackException): Boolean {
+        if (!isHardwareVideoDecoderError(error)) return false
+        val session = mediaSession ?: return false
+        val failedPlayer = session.player as? ExoPlayer ?: return false
+        val mediaId = failedPlayer.currentMediaItem?.mediaId ?: return false
+        if (!softwareDecoderRetried.add(mediaId)) return false
+        val mediaItems = (0 until failedPlayer.mediaItemCount).map { failedPlayer.getMediaItemAt(it) }
+        if (mediaItems.isEmpty()) return false
+
+        val currentIndex = failedPlayer.currentMediaItemIndex.coerceIn(0, mediaItems.lastIndex)
+        val playbackPosition = failedPlayer.currentPosition.coerceAtLeast(0L)
+        val shouldPlayWhenReady = failedPlayer.playWhenReady
+        val playbackParameters = failedPlayer.playbackParameters
+        val trackSelectionParameters = failedPlayer.trackSelectionParameters
+        val shuffleModeEnabled = failedPlayer.shuffleModeEnabled
+        val repeatMode = failedPlayer.repeatMode
+        val isSkipSilenceEnabled = failedPlayer.isSkipSilenceEnabledForPlayer
+        val subtitleDelayMilliseconds = failedPlayer.playerSpecificSubtitleDelayMilliseconds
+        val subtitleSpeed = failedPlayer.playerSpecificSubtitleSpeed
+        val retryPlayer = createPlayer(
+            decoderPriority = DecoderPriority.PREFER_APP,
+            assHandler = assHandler ?: return false,
+        )
+        Logger.debug(TAG, "Retrying playback with software decoder: $mediaId")
+
+        releaseLoudnessEnhancer()
+        failedPlayer.removeListener(playbackStateListener)
+        failedPlayer.removeAnalyticsListener(startupAnalyticsListener)
+        session.player = retryPlayer
+        failedPlayer.clearMediaItems()
+        failedPlayer.stop()
+        failedPlayer.release()
+
+        retryPlayer.setMediaItems(mediaItems, currentIndex, playbackPosition)
+        retryPlayer.prepare()
+        retryPlayer.playWhenReady = shouldPlayWhenReady
+        retryPlayer.restoreRuntimeState(
+            trackSelectionParameters = trackSelectionParameters,
+            shuffleModeEnabled = shuffleModeEnabled,
+            repeatMode = repeatMode,
+            isSkipSilenceEnabled = isSkipSilenceEnabled,
+            subtitleDelayMilliseconds = subtitleDelayMilliseconds,
+            subtitleSpeed = subtitleSpeed,
+            playbackParameters = playbackParameters,
+            mediaItemIndex = currentIndex,
+            positionMs = playbackPosition,
+        )
+        return true
+    }
+
+    private fun ExoPlayer.restoreRuntimeState(
+        trackSelectionParameters: TrackSelectionParameters,
+        shuffleModeEnabled: Boolean,
+        repeatMode: Int,
+        isSkipSilenceEnabled: Boolean,
+        subtitleDelayMilliseconds: Long,
+        subtitleSpeed: Float,
+        playbackParameters: androidx.media3.common.PlaybackParameters,
+        mediaItemIndex: Int,
+        positionMs: Long,
+    ) {
+        this.trackSelectionParameters = trackSelectionParameters
+        this.shuffleModeEnabled = shuffleModeEnabled
+        this.repeatMode = repeatMode
+        this.isSkipSilenceEnabledForPlayer = isSkipSilenceEnabled
+        this.playerSpecificSubtitleDelayMilliseconds = subtitleDelayMilliseconds
+        this.playerSpecificSubtitleSpeed = subtitleSpeed
+        setPlaybackParameters(playbackParameters)
+        seekTo(mediaItemIndex, positionMs)
+    }
+
+    private fun isHardwareVideoDecoderError(error: PlaybackException): Boolean {
+        if (activeDecoderPriority != DecoderPriority.PREFER_DEVICE) return false
+        val exoError = error as? ExoPlaybackException ?: return false
+        if (exoError.type != ExoPlaybackException.TYPE_RENDERER) return false
+        if (exoError.rendererFormat?.sampleMimeType?.startsWith("video/") != true) return false
+        val rendererException = exoError.rendererException ?: return false
+        if (rendererException !is MediaCodecRenderer.DecoderInitializationException && rendererException.cause == null) return false
+        return true
     }
 
     // MP4 容器解析失败时，检测并修复结构问题后以容错模式重试
@@ -1305,6 +1391,61 @@ class PlayerService : MediaSessionService() {
 
     override fun onGetSession(controllerInfo: MediaSession.ControllerInfo): MediaSession? = mediaSession
 
+    private fun createPlayer(
+        decoderPriority: DecoderPriority,
+        assHandler: AssHandler,
+    ): ExoPlayer {
+        activeDecoderPriority = decoderPriority
+        val renderersFactory = NormalizingRenderersFactory(
+            context = applicationContext,
+            volumeNormalizationAudioProcessor = volumeNormalizationAudioProcessor,
+        )
+            .setEnableDecoderFallback(true)
+            .setExtensionRendererMode(
+                when (decoderPriority) {
+                    DecoderPriority.DEVICE_ONLY -> DefaultRenderersFactory.EXTENSION_RENDERER_MODE_OFF
+                    DecoderPriority.PREFER_DEVICE -> DefaultRenderersFactory.EXTENSION_RENDERER_MODE_ON
+                    DecoderPriority.PREFER_APP -> DefaultRenderersFactory.EXTENSION_RENDERER_MODE_PREFER
+                },
+            )
+
+        val preferences = playerPreferences
+        val trackSelector = DefaultTrackSelector(applicationContext).apply {
+            setParameters(
+                buildUponParameters()
+                    .setPreferredAudioLanguage(preferences.preferredAudioLanguage)
+                    .setPreferredTextLanguage(preferences.preferredSubtitleLanguage),
+            )
+        }
+
+        return ExoPlayer.Builder(applicationContext)
+            .setMediaSourceFactory(sessionMediaSourceFactory)
+            .setRenderersFactory(renderersFactory.withAssSupport(assHandler))
+            .setTrackSelector(trackSelector)
+            .setAudioAttributes(
+                AudioAttributes.Builder()
+                    .setUsage(C.USAGE_MEDIA)
+                    .setContentType(C.AUDIO_CONTENT_TYPE_MOVIE)
+                    .build(),
+                preferences.shouldRequireAudioFocus,
+            )
+            .setHandleAudioBecomingNoisy(preferences.shouldPauseOnHeadsetDisconnect)
+            .build()
+            .also {
+                assHandler.init(it)
+                it.addListener(playbackStateListener)
+                it.addAnalyticsListener(startupAnalyticsListener)
+                it.pauseAtEndOfMediaItems = !preferences.shouldAutoPlay
+                it.repeatMode = when (preferences.loopMode) {
+                    LoopMode.OFF -> Player.REPEAT_MODE_OFF
+                    LoopMode.ONE -> Player.REPEAT_MODE_ONE
+                    LoopMode.ALL -> Player.REPEAT_MODE_ALL
+                }
+                currentVideoSharpening = PlayerPreferences.DEFAULT_VIDEO_SHARPENING
+                applyVideoSharpening(it, preferences.videoSharpening)
+            }
+    }
+
     override fun onCreate() {
         super.onCreate()
         serviceScope.launch(Dispatchers.IO) { warmUpCodecCache() }
@@ -1339,27 +1480,6 @@ class PlayerService : MediaSessionService() {
                 }
         }
         volumeNormalizationAudioProcessor.isEnabled = playerPreferences.isVolumeNormalizationEnabled
-        val renderersFactory = NormalizingRenderersFactory(
-            context = applicationContext,
-            volumeNormalizationAudioProcessor = volumeNormalizationAudioProcessor,
-        )
-            .setEnableDecoderFallback(true)
-            .setExtensionRendererMode(
-                when (playerPreferences.decoderPriority) {
-                    DecoderPriority.DEVICE_ONLY -> DefaultRenderersFactory.EXTENSION_RENDERER_MODE_OFF
-                    DecoderPriority.PREFER_DEVICE -> DefaultRenderersFactory.EXTENSION_RENDERER_MODE_ON
-                    DecoderPriority.PREFER_APP -> DefaultRenderersFactory.EXTENSION_RENDERER_MODE_PREFER
-                },
-            )
-
-        val trackSelector = DefaultTrackSelector(applicationContext).apply {
-            setParameters(
-                buildUponParameters()
-                    .setPreferredAudioLanguage(playerPreferences.preferredAudioLanguage)
-                    .setPreferredTextLanguage(playerPreferences.preferredSubtitleLanguage),
-            )
-        }
-
         val assHandler = AssHandler(renderType = resolveAssRenderType())
         this.assHandler = assHandler
         AssHandlerRegistry.register(assHandler)
@@ -1391,32 +1511,10 @@ class PlayerService : MediaSessionService() {
             override fun createMediaSource(mediaItem: MediaItem): MediaSource = this@PlayerService.createMediaSource(mediaItem)
         }
 
-        val player = ExoPlayer.Builder(applicationContext)
-            .setMediaSourceFactory(sessionMediaSourceFactory)
-            .setRenderersFactory(renderersFactory.withAssSupport(assHandler))
-            .setTrackSelector(trackSelector)
-            .setAudioAttributes(
-                AudioAttributes.Builder()
-                    .setUsage(C.USAGE_MEDIA)
-                    .setContentType(C.AUDIO_CONTENT_TYPE_MOVIE)
-                    .build(),
-                playerPreferences.shouldRequireAudioFocus,
-            )
-            .setHandleAudioBecomingNoisy(playerPreferences.shouldPauseOnHeadsetDisconnect)
-            .build()
-            .also {
-                assHandler.init(it)
-                it.addListener(playbackStateListener)
-                it.addAnalyticsListener(startupAnalyticsListener)
-                it.pauseAtEndOfMediaItems = !playerPreferences.shouldAutoPlay
-                it.repeatMode = when (playerPreferences.loopMode) {
-                    LoopMode.OFF -> Player.REPEAT_MODE_OFF
-                    LoopMode.ONE -> Player.REPEAT_MODE_ONE
-                    LoopMode.ALL -> Player.REPEAT_MODE_ALL
-                }
-                currentVideoSharpening = PlayerPreferences.DEFAULT_VIDEO_SHARPENING
-                applyVideoSharpening(it, playerPreferences.videoSharpening)
-            }
+        val player = createPlayer(
+            decoderPriority = playerPreferences.decoderPriority,
+            assHandler = assHandler,
+        )
 
         try {
             mediaSession = MediaSession.Builder(this, player).apply {
@@ -1470,6 +1568,7 @@ class PlayerService : MediaSessionService() {
         subtitleCacheDir.deleteFiles()
         mkvCueParseJobs.clear()
         mediaParserRetried.clear()
+        softwareDecoderRetried.clear()
         serviceScope.cancel()
     }
 
