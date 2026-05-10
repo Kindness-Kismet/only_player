@@ -12,6 +12,8 @@ import one.next.player.core.model.PlayerPreferences
 
 object PlayerPreferencesSerializer : Serializer<PlayerPreferences> {
 
+    private const val LEGACY_DEFAULT_MAX_INITIAL_PLAYER_VOLUME_PERCENTAGE = 100
+
     private val jsonFormat = Json { ignoreUnknownKeys = true }
     private val legacyKeys = setOf(
         "applyEmbeddedStyles",
@@ -52,10 +54,11 @@ object PlayerPreferencesSerializer : Serializer<PlayerPreferences> {
         }
 
         try {
-            return jsonFormat.decodeFromString(
+            val preferences = jsonFormat.decodeFromString(
                 deserializer = PlayerPreferences.serializer(),
                 string = serializedPreferences,
             )
+            return preferences.upgradeLegacyDefaults(serializedPreferences)
         } catch (exception: SerializationException) {
             throw CorruptionException("Cannot read datastore", exception)
         }
@@ -69,6 +72,14 @@ object PlayerPreferencesSerializer : Serializer<PlayerPreferences> {
                 value = t,
             ).encodeToByteArray(),
         )
+    }
+
+    private fun PlayerPreferences.upgradeLegacyDefaults(serializedPreferences: String): PlayerPreferences {
+        val root = runCatching { jsonFormat.parseToJsonElement(serializedPreferences).jsonObject }.getOrNull() ?: return this
+        val persistedInitialVolumeLimit = root["maxInitialPlayerVolumePercentage"]?.jsonPrimitive?.content?.toIntOrNull()
+        if (persistedInitialVolumeLimit != LEGACY_DEFAULT_MAX_INITIAL_PLAYER_VOLUME_PERCENTAGE) return this
+
+        return copy(maxInitialPlayerVolumePercentage = PlayerPreferences.DEFAULT_MAX_INITIAL_PLAYER_VOLUME_PERCENTAGE)
     }
 
     private fun String.containsLegacyPlayerPreferences(): Boolean {

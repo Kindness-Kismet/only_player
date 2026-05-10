@@ -73,6 +73,7 @@ import one.next.player.core.model.ScreenOrientation
 import one.next.player.core.model.ThemeConfig
 import one.next.player.core.ui.theme.OnePlayerTheme
 import one.next.player.feature.player.extensions.OpenDocumentWithInitialUri
+import one.next.player.feature.player.extensions.copy
 import one.next.player.feature.player.extensions.registerForSuspendActivityResult
 import one.next.player.feature.player.extensions.setExtras
 import one.next.player.feature.player.extensions.uriToSubtitleConfiguration
@@ -473,9 +474,39 @@ class PlayerActivity : AppCompatActivity() {
             playbackUriString = playbackUri.toString(),
             currentPath = playbackUri.path,
         )
+        val currentMediaItem = buildMediaItem(
+            uriString = playbackUri.toString(),
+            requestHeaders = requestHeaders,
+            isCurrentItem = true,
+            localParentPath = null,
+        )
+
+        withContext(Dispatchers.Main) {
+            mediaController?.run {
+                setMediaItem(currentMediaItem, playerApi.position?.toLong() ?: C.TIME_UNSET)
+                playWhenReady = viewModel.shouldPlayWhenReady
+                prepare()
+                Logger.info(TAG, "playVideo prepare total=${System.currentTimeMillis() - t0}ms")
+            }
+        }
+
+        appendPlaylistAfterCurrent(
+            playbackTarget = playbackTarget,
+            requestHeaders = requestHeaders,
+            startedAtMs = t0,
+            playlistStartedAtMs = System.currentTimeMillis(),
+        )
+    }
+
+    private suspend fun appendPlaylistAfterCurrent(
+        playbackTarget: PlaybackTarget,
+        requestHeaders: Map<String, String>,
+        startedAtMs: Long,
+        playlistStartedAtMs: Long,
+    ) {
         val apiPlaylist = playerApi.getPlaylist()
         val folderPlaylist = if (apiPlaylist.isEmpty()) {
-            viewModel.getPlaylistFromUri(playbackUri)
+            viewModel.getPlaylistFromUri(Uri.parse(playbackTarget.playbackUriString))
         } else {
             emptyList()
         }
@@ -491,70 +522,104 @@ class PlayerActivity : AppCompatActivity() {
             )
         }
         val playlist = playbackPlaylist.items
-        val t2 = System.currentTimeMillis()
-        Logger.info(TAG, "playVideo playlist=${t2 - t1}ms size=${playlist.size}")
+        Logger.info(TAG, "playVideo playlist=${System.currentTimeMillis() - playlistStartedAtMs}ms size=${playlist.size}")
+        if (playlist.size <= 1) return
 
-        val mediaItemIndexToPlay = playbackPlaylist.currentIndex
-
-        val mediaItems = playlist.mapIndexed { index, uriString ->
-            MediaItem.Builder().apply {
-                setUri(uriString)
-                setMediaId(uriString)
-                val isCurrentItem = index == mediaItemIndexToPlay
-                val remoteServerId = requestHeaders["_remote_server_id"]?.toLongOrNull()
-                val remoteProtocol = requestHeaders["_remote_protocol"]
-                // 远端播放列表中的每个 MediaItem 都需要认证头和远端元数据
-                val hasRemoteMetadata = remoteServerId != null && remoteProtocol != null
-                if (isCurrentItem || hasRemoteMetadata) {
-                    val filePath = if (isCurrentItem) {
-                        requestHeaders["_remote_file_path"]
-                    } else {
-                        Uri.parse(uriString).path
-                    }
-                    setMediaMetadata(
-                        MediaMetadata.Builder().apply {
-                            if (isCurrentItem) setTitle(playerApi.title)
-                            val itemPath = Uri.parse(uriString).path
-                            val localParentPath = folderPlaylist
-                                .find { video -> video.uriString == uriString || video.path == itemPath }
-                                ?.parentPath
-                                ?.takeIf { it.isNotBlank() }
-                            val remoteDirectoryPath = filePath
-                                ?.substringBeforeLast('/', missingDelimiterValue = "")
-                                ?.ifBlank { "/" }
-                            setExtras(
-                                positionMs = if (isCurrentItem) playerApi.position?.toLong() else null,
-                                requestHeaders = requestHeaders,
-                                remoteServerId = remoteServerId,
-                                remoteFilePath = filePath,
-                                remoteProtocol = remoteProtocol,
-                                localParentPath = localParentPath,
-                                remoteDirectoryPath = remoteDirectoryPath,
-                            )
-                        }.build(),
-                    )
-                }
-                if (isCurrentItem) {
-                    val apiSubs = playerApi.getSubs().map { subtitle ->
-                        uriToSubtitleConfiguration(
-                            uri = subtitle.uri,
-                            subtitleEncoding = playerPreferences?.subtitleTextEncoding ?: "",
-                            isSelected = subtitle.isSelected,
-                        )
-                    }
-                    setSubtitleConfigurations(apiSubs)
-                }
-            }.build()
+        val currentIndex = playbackPlaylist.currentIndex
+        val currentLocalParentPath = findLocalParentPath(folderPlaylist, playbackTarget.playbackUriString)
+            ?: findLocalParentPath(folderPlaylist, playbackTarget.sourceUriString)
+        val beforeItems = playlist.take(currentIndex).map { uriString ->
+            buildMediaItem(
+                uriString = uriString,
+                requestHeaders = requestHeaders,
+                isCurrentItem = false,
+                localParentPath = findLocalParentPath(folderPlaylist, uriString),
+            )
+        }
+        val afterItems = playlist.drop(currentIndex + 1).map { uriString ->
+            buildMediaItem(
+                uriString = uriString,
+                requestHeaders = requestHeaders,
+                isCurrentItem = false,
+                localParentPath = findLocalParentPath(folderPlaylist, uriString),
+            )
         }
 
         withContext(Dispatchers.Main) {
             mediaController?.run {
-                setMediaItems(mediaItems, mediaItemIndexToPlay, playerApi.position?.toLong() ?: C.TIME_UNSET)
-                playWhenReady = viewModel.shouldPlayWhenReady
-                prepare()
-                Logger.info(TAG, "playVideo prepare total=${System.currentTimeMillis() - t0}ms")
+                val currentItem = currentMediaItem ?: return@run
+                if (currentItem.localConfiguration?.uri.toString() != playbackTarget.playbackUriString) return@run
+                if (mediaItemCount != 1) return@run
+
+                if (currentLocalParentPath != null) {
+                    replaceMediaItem(
+                        currentMediaItemIndex,
+                        currentItem.copy(localParentPath = currentLocalParentPath),
+                    )
+                }
+                if (beforeItems.isNotEmpty()) addMediaItems(0, beforeItems)
+                if (afterItems.isNotEmpty()) addMediaItems(currentMediaItemIndex + 1, afterItems)
+                Logger.info(TAG, "playVideo appendPlaylist total=${System.currentTimeMillis() - startedAtMs}ms")
             }
         }
+    }
+
+    private suspend fun buildMediaItem(
+        uriString: String,
+        requestHeaders: Map<String, String>,
+        isCurrentItem: Boolean,
+        localParentPath: String?,
+    ): MediaItem = MediaItem.Builder().apply {
+        setUri(uriString)
+        setMediaId(uriString)
+        val remoteServerId = requestHeaders["_remote_server_id"]?.toLongOrNull()
+        val remoteProtocol = requestHeaders["_remote_protocol"]
+        val hasRemoteMetadata = remoteServerId != null && remoteProtocol != null
+        if (isCurrentItem || hasRemoteMetadata) {
+            val filePath = if (isCurrentItem) {
+                requestHeaders["_remote_file_path"]
+            } else {
+                Uri.parse(uriString).path
+            }
+            setMediaMetadata(
+                MediaMetadata.Builder().apply {
+                    if (isCurrentItem) setTitle(playerApi.title)
+                    val remoteDirectoryPath = filePath
+                        ?.substringBeforeLast('/', missingDelimiterValue = "")
+                        ?.ifBlank { "/" }
+                    setExtras(
+                        positionMs = if (isCurrentItem) playerApi.position?.toLong() else null,
+                        requestHeaders = requestHeaders,
+                        remoteServerId = remoteServerId,
+                        remoteFilePath = filePath,
+                        remoteProtocol = remoteProtocol,
+                        localParentPath = localParentPath,
+                        remoteDirectoryPath = remoteDirectoryPath,
+                    )
+                }.build(),
+            )
+        }
+        if (isCurrentItem) {
+            val apiSubs = playerApi.getSubs().map { subtitle ->
+                uriToSubtitleConfiguration(
+                    uri = subtitle.uri,
+                    subtitleEncoding = playerPreferences?.subtitleTextEncoding ?: "",
+                    isSelected = subtitle.isSelected,
+                )
+            }
+            setSubtitleConfigurations(apiSubs)
+        }
+    }.build()
+
+    private fun findLocalParentPath(
+        folderPlaylist: List<one.next.player.core.model.Video>,
+        uriString: String,
+    ): String? {
+        val itemPath = Uri.parse(uriString).path
+        return folderPlaylist
+            .find { video -> video.uriString == uriString || video.path == itemPath }
+            ?.parentPath
+            ?.takeIf { it.isNotBlank() }
     }
 
     private fun ensureMediaPermission(): Boolean {

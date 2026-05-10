@@ -18,6 +18,7 @@ import kotlinx.coroutines.coroutineScope
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
 import one.next.player.feature.player.extensions.formatted
+import one.next.player.feature.player.extensions.hasRenderedFirstFrame
 
 @UnstableApi
 @Composable
@@ -47,12 +48,16 @@ class MediaPresentationState(
     var isBuffering: Boolean by mutableStateOf(false)
         private set
 
+    var hasRenderedFirstFrame: Boolean by mutableStateOf(false)
+        private set
+
     suspend fun observe() {
         updatePosition()
         updateDuration()
         isPlaying = player.isPlaying
         isLoading = player.isLoading
         isBuffering = player.playbackState == Player.STATE_BUFFERING
+        hasRenderedFirstFrame = player.mediaMetadata.hasRenderedFirstFrame
 
         coroutineScope {
             launch {
@@ -69,6 +74,14 @@ class MediaPresentationState(
 
                     if (events.contains(Player.EVENT_PLAYBACK_STATE_CHANGED)) {
                         this@MediaPresentationState.isBuffering = player.playbackState == Player.STATE_BUFFERING
+                    }
+
+                    if (events.contains(Player.EVENT_MEDIA_ITEM_TRANSITION)) {
+                        this@MediaPresentationState.hasRenderedFirstFrame = false
+                    }
+
+                    if (events.contains(Player.EVENT_RENDERED_FIRST_FRAME)) {
+                        this@MediaPresentationState.hasRenderedFirstFrame = true
                     }
 
                     if (events.contains(Player.EVENT_IS_PLAYING_CHANGED)) {

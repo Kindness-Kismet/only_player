@@ -8,3 +8,5 @@ internal fun DecoderPriority.extensionRendererMode(): Int = when (this) {
     DecoderPriority.PREFER_DEVICE -> DefaultRenderersFactory.EXTENSION_RENDERER_MODE_OFF
     DecoderPriority.PREFER_APP -> DefaultRenderersFactory.EXTENSION_RENDERER_MODE_PREFER
 }
+
+internal fun DecoderPriority.shouldUseAudioExtensionFallback(): Boolean = this == DecoderPriority.PREFER_DEVICE

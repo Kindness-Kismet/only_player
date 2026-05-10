@@ -14,6 +14,7 @@ private const val MEDIA_METADATA_SUBTITLE_SPEED_KEY = "media_metadata_subtitle_s
 private const val MEDIA_METADATA_VIDEO_WIDTH_KEY = "media_metadata_video_width"
 private const val MEDIA_METADATA_VIDEO_HEIGHT_KEY = "media_metadata_video_height"
 private const val MEDIA_METADATA_VIDEO_ROTATION_KEY = "media_metadata_video_rotation"
+private const val MEDIA_METADATA_HAS_RENDERED_FIRST_FRAME_KEY = "media_metadata_has_rendered_first_frame"
 private const val MEDIA_METADATA_APPROXIMATE_SEEK_ENABLED_KEY = "media_metadata_approximate_seek_enabled"
 private const val MEDIA_METADATA_VIDEO_EFFECTS_AVAILABLE_KEY = "media_metadata_video_effects_available"
 private const val MEDIA_METADATA_REQUEST_HEADERS_PREFIX = "media_metadata_request_header_"
@@ -34,6 +35,7 @@ private fun Bundle.setExtras(
     videoWidth: Int? = null,
     videoHeight: Int? = null,
     videoRotation: Int? = null,
+    hasRenderedFirstFrame: Boolean? = null,
     isApproximateSeekEnabled: Boolean? = null,
     isVideoEffectsAvailable: Boolean? = null,
     remoteServerId: Long? = null,
@@ -52,6 +54,7 @@ private fun Bundle.setExtras(
     videoWidth?.let { putInt(MEDIA_METADATA_VIDEO_WIDTH_KEY, it) }
     videoHeight?.let { putInt(MEDIA_METADATA_VIDEO_HEIGHT_KEY, it) }
     videoRotation?.let { putInt(MEDIA_METADATA_VIDEO_ROTATION_KEY, it) }
+    hasRenderedFirstFrame?.let { putBoolean(MEDIA_METADATA_HAS_RENDERED_FIRST_FRAME_KEY, it) }
     isApproximateSeekEnabled?.let { putBoolean(MEDIA_METADATA_APPROXIMATE_SEEK_ENABLED_KEY, it) }
     isVideoEffectsAvailable?.let { putBoolean(MEDIA_METADATA_VIDEO_EFFECTS_AVAILABLE_KEY, it) }
     remoteServerId?.let { putLong(MEDIA_METADATA_REMOTE_SERVER_ID_KEY, it) }
@@ -72,6 +75,7 @@ fun MediaMetadata.Builder.setExtras(
     videoWidth: Int? = null,
     videoHeight: Int? = null,
     videoRotation: Int? = null,
+    hasRenderedFirstFrame: Boolean? = null,
     isApproximateSeekEnabled: Boolean? = null,
     isVideoEffectsAvailable: Boolean? = null,
     requestHeaders: Map<String, String> = emptyMap(),
@@ -92,6 +96,7 @@ fun MediaMetadata.Builder.setExtras(
         videoWidth = videoWidth,
         videoHeight = videoHeight,
         videoRotation = videoRotation,
+        hasRenderedFirstFrame = hasRenderedFirstFrame,
         isApproximateSeekEnabled = isApproximateSeekEnabled,
         isVideoEffectsAvailable = isVideoEffectsAvailable,
         remoteServerId = remoteServerId,
@@ -166,6 +171,9 @@ val MediaMetadata.videoRotation: Int?
             .takeIf { containsKey(MEDIA_METADATA_VIDEO_ROTATION_KEY) }
     }
 
+val MediaMetadata.hasRenderedFirstFrame: Boolean
+    get() = extras?.getBoolean(MEDIA_METADATA_HAS_RENDERED_FIRST_FRAME_KEY, false) == true
+
 val MediaMetadata.isApproximateSeekEnabled: Boolean
     get() = extras?.getBoolean(MEDIA_METADATA_APPROXIMATE_SEEK_ENABLED_KEY, false) == true
 
@@ -215,6 +223,7 @@ fun MediaItem.copy(
     videoWidth: Int? = this.mediaMetadata.videoWidth,
     videoHeight: Int? = this.mediaMetadata.videoHeight,
     videoRotation: Int? = this.mediaMetadata.videoRotation,
+    hasRenderedFirstFrame: Boolean? = this.mediaMetadata.hasRenderedFirstFrame,
     isApproximateSeekEnabled: Boolean? = this.mediaMetadata.isApproximateSeekEnabled,
     isVideoEffectsAvailable: Boolean? = this.mediaMetadata.isVideoEffectsAvailable,
     requestHeaders: Map<String, String> = this.mediaMetadata.requestHeaders,
@@ -238,6 +247,7 @@ fun MediaItem.copy(
                 videoWidth = videoWidth,
                 videoHeight = videoHeight,
                 videoRotation = videoRotation,
+                hasRenderedFirstFrame = hasRenderedFirstFrame,
                 isApproximateSeekEnabled = isApproximateSeekEnabled,
                 isVideoEffectsAvailable = isVideoEffectsAvailable,
                 remoteServerId = remoteServerId,

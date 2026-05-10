@@ -650,6 +650,7 @@ class PlayerService : MediaSessionService() {
                 videoWidth = width,
                 videoHeight = height,
                 videoRotation = rotation,
+                hasRenderedFirstFrame = true,
                 isVideoEffectsAvailable = shouldApplyVideoEffects(activeDecoderPriority),
             )
             player.replaceMediaItem(
@@ -1512,6 +1513,7 @@ class PlayerService : MediaSessionService() {
         val renderersFactory = NormalizingRenderersFactory(
             context = applicationContext,
             volumeNormalizationAudioProcessor = volumeNormalizationAudioProcessor,
+            shouldUseAudioExtensionFallback = decoderPriority.shouldUseAudioExtensionFallback(),
         )
             .setEnableDecoderFallback(true)
             .setExtensionRendererMode(decoderPriority.extensionRendererMode())

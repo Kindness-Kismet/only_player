@@ -233,11 +233,11 @@ internal fun MediaPlayerScreen(
         }
         if (playerPreferences.shouldRememberPlayerVolume && restoredVolumeMediaItemIndex != player.currentMediaItemIndex) {
             restoredVolumeMediaItemIndex = player.currentMediaItemIndex
-            val restoredVolumePercentage = playerPreferences.playerVolumePercentage
-                .coerceAtMost(playerPreferences.maxInitialPlayerVolumePercentage)
+            val savedVolumePercentage = playerPreferences.playerVolumePercentage
+            val restoredVolumePercentage = savedVolumePercentage.coerceAtMost(playerPreferences.maxInitialPlayerVolumePercentage)
             Logger.debug(
                 TAG,
-                "Restore player volume: saved=${playerPreferences.playerVolumePercentage}, " +
+                "Restore player volume: saved=$savedVolumePercentage, " +
                     "limit=${playerPreferences.maxInitialPlayerVolumePercentage}, applied=$restoredVolumePercentage",
             )
             volumeState.updateVolumePercentage(restoredVolumePercentage)
@@ -594,7 +594,7 @@ internal fun MediaPlayerScreen(
                     )
                 }
 
-                if (mediaPresentationState.isBuffering) {
+                if (mediaPresentationState.isBuffering && mediaPresentationState.hasRenderedFirstFrame) {
                     CircularProgressIndicator(
                         modifier = Modifier
                             .align(Alignment.Center)
