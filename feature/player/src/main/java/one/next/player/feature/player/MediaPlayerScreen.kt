@@ -119,6 +119,7 @@ import one.next.player.feature.player.ui.controls.PlayerCustomizableControlButto
 private const val TAG = "MediaPlayerScreen"
 
 val LocalControlsVisibilityState = compositionLocalOf<ControlsVisibilityState?> { null }
+val LocalShouldUseClassicPlayerIcons = compositionLocalOf { false }
 
 internal data class LongPressOverlayUiState(
     val speedText: String,
@@ -526,7 +527,10 @@ internal fun MediaPlayerScreen(
         )
     }
 
-    CompositionLocalProvider(LocalControlsVisibilityState provides controlsVisibilityState) {
+    CompositionLocalProvider(
+        LocalControlsVisibilityState provides controlsVisibilityState,
+        LocalShouldUseClassicPlayerIcons provides playerPreferences.shouldUseClassicPlayerIcons,
+    ) {
         Box {
             Box(
                 modifier = modifier

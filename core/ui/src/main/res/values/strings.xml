@@ -322,6 +322,8 @@
     <string name="reset_seek_sentivity">Reset seek sensitivity</string>
     <string name="hide_player_buttons_background">Hide player buttons background</string>
     <string name="hide_player_buttons_background_description">Hide the background of all player control buttons</string>
+    <string name="enable_classic_player_icons">Enable classic icons</string>
+    <string name="enable_classic_player_icons_description">Use the classic player control button style</string>
     <string name="volume_gesture_sensitivity">Volume gesture sensitivity</string>
     <string name="reset_volume_gesture_sensitivity">Reset volume gesture sensitivity</string>
     <string name="brightness_gesture_sensitivity">Brightness gesture sensitivity</string>

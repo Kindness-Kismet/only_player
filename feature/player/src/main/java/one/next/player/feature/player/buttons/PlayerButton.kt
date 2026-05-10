@@ -11,13 +11,19 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.widthIn
 import androidx.compose.foundation.shape.CircleShape
+import androidx.compose.material.ripple.RippleAlpha
 import androidx.compose.material3.ExperimentalMaterial3ExpressiveApi
 import androidx.compose.material3.FilledTonalIconButton
 import androidx.compose.material3.Icon
+import androidx.compose.material3.IconButton
 import androidx.compose.material3.IconButtonDefaults
+import androidx.compose.material3.LocalContentColor
+import androidx.compose.material3.LocalRippleConfiguration
 import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.RippleConfiguration
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.remember
@@ -39,6 +45,7 @@ import androidx.compose.ui.unit.dp
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.collectLatest
 import one.next.player.core.ui.designsystem.NextIcons
+import one.next.player.feature.player.LocalShouldUseClassicPlayerIcons
 
 @OptIn(ExperimentalMaterial3ExpressiveApi::class)
 @Composable
@@ -91,6 +98,7 @@ fun PlayerButton(
     }
 
     val colorScheme = MaterialTheme.colorScheme
+    val shouldUseClassicPlayerIcons = LocalShouldUseClassicPlayerIcons.current
     val selectionBadgeBackgroundColor = colorScheme.primaryContainer
     val selectionBadgeInactiveColor = colorScheme.surfaceContainerHighest
     val customizeBorderColor = Color(0xFFFFEB3B)
@@ -101,55 +109,75 @@ fun PlayerButton(
     val selectionBadgeSize = if (buttonSize >= 56.dp) 20.dp else 18.dp
     val selectionBadgeIconSize = if (buttonSize >= 56.dp) 13.dp else 12.dp
 
+    val buttonContent: @Composable () -> Unit = {
+        if (!isOutlineOnly) {
+            Box(
+                modifier = Modifier.fillMaxSize(),
+                contentAlignment = Alignment.Center,
+            ) {
+                content()
+            }
+        }
+    }
+
+    val outlineModifier = Modifier.drawBehind {
+        val strokeWidth = 1.5.dp.toPx()
+        drawCircle(
+            color = outlineFillColor,
+            radius = size.minDimension / 2f,
+        )
+        drawCircle(
+            color = outlineBorderColor,
+            style = Stroke(
+                width = strokeWidth,
+                pathEffect = PathEffect.dashPathEffect(
+                    intervals = floatArrayOf(12f, 12f),
+                ),
+            ),
+            radius = size.minDimension / 2f - (strokeWidth / 2f),
+        )
+    }
+
     val buttonWithBadge: @Composable () -> Unit = {
         Box(
             modifier = Modifier.size(buttonSize),
             contentAlignment = Alignment.Center,
         ) {
-            FilledTonalIconButton(
-                onClick = {},
-                enabled = isEnabled,
-                modifier = Modifier
-                    .size(buttonSize)
-                    .then(
-                        if (isOutlineOnly) {
-                            Modifier.drawBehind {
-                                val strokeWidth = 1.5.dp.toPx()
-                                drawCircle(
-                                    color = outlineFillColor,
-                                    radius = size.minDimension / 2f,
-                                )
-                                drawCircle(
-                                    color = outlineBorderColor,
-                                    style = Stroke(
-                                        width = strokeWidth,
-                                        pathEffect = PathEffect.dashPathEffect(
-                                            intervals = floatArrayOf(12f, 12f),
-                                        ),
-                                    ),
-                                    radius = size.minDimension / 2f - (strokeWidth / 2f),
-                                )
-                            }
-                        } else {
-                            Modifier
-                        },
+            if (shouldUseClassicPlayerIcons) {
+                CompositionLocalProvider(
+                    LocalContentColor provides Color.White,
+                    LocalRippleConfiguration provides RippleConfiguration(
+                        color = Color.White,
+                        rippleAlpha = RippleAlpha(
+                            pressedAlpha = 0.5f,
+                            focusedAlpha = 0.5f,
+                            draggedAlpha = 0.5f,
+                            hoveredAlpha = 0.5f,
+                        ),
                     ),
-                interactionSource = interactionSource,
-                colors = IconButtonDefaults.filledTonalIconButtonColors(
-                    containerColor = if (isOutlineOnly) colorScheme.surface.copy(alpha = 0f) else colorScheme.primary,
-                    contentColor = if (isOutlineOnly) colorScheme.primary else colorScheme.onPrimary,
-                    disabledContainerColor = colorScheme.surfaceContainerHighest.copy(alpha = 0.6f),
-                    disabledContentColor = colorScheme.onSurfaceVariant.copy(alpha = 0.6f),
-                ),
-            ) {
-                if (!isOutlineOnly) {
-                    Box(
-                        modifier = Modifier.fillMaxSize(),
-                        contentAlignment = Alignment.Center,
-                    ) {
-                        content()
-                    }
+                ) {
+                    IconButton(
+                        onClick = {},
+                        enabled = isEnabled,
+                        modifier = Modifier.size(buttonSize).then(if (isOutlineOnly) outlineModifier else Modifier),
+                        interactionSource = interactionSource,
+                        content = buttonContent,
+                    )
                 }
+            } else {
+                FilledTonalIconButton(
+                    onClick = {},
+                    enabled = isEnabled,
+                    modifier = Modifier.size(buttonSize).then(if (isOutlineOnly) outlineModifier else Modifier),
+                    interactionSource = interactionSource,
+                    colors = IconButtonDefaults.filledTonalIconButtonColors(
+                        containerColor = if (isOutlineOnly) colorScheme.surface.copy(alpha = 0f) else colorScheme.primary,
+                        contentColor = if (isOutlineOnly) colorScheme.primary else colorScheme.onPrimary,
+                        disabledContainerColor = colorScheme.surfaceContainerHighest.copy(alpha = 0.6f),
+                        disabledContentColor = colorScheme.onSurfaceVariant.copy(alpha = 0.6f),
+                    ),
+                    content = buttonContent,
+                )
             }
 
             if (shouldShowSelectionBadge && !isOutlineOnly) {

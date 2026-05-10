@@ -60,6 +60,7 @@ class PlayerPreferencesViewModel @Inject constructor(
             is PlayerPreferencesUiEvent.UpdateVideoGamma -> updateVideoGamma(event.value)
             is PlayerPreferencesUiEvent.UpdateVideoSharpening -> updateVideoSharpening(event.value)
             is PlayerPreferencesUiEvent.UpdateControlAutoHideTimeout -> updateControlAutoHideTimeout(event.value)
+            PlayerPreferencesUiEvent.ToggleUseClassicPlayerIcons -> toggleUseClassicPlayerIcons()
             is PlayerPreferencesUiEvent.UpdateHiddenPlayerControls -> updateHiddenPlayerControls(event.value)
         }
     }
@@ -187,6 +188,14 @@ class PlayerPreferencesViewModel @Inject constructor(
         }
     }
 
+    private fun toggleUseClassicPlayerIcons() {
+        viewModelScope.launch {
+            preferencesRepository.updatePlayerPreferences {
+                it.copy(shouldUseClassicPlayerIcons = !it.shouldUseClassicPlayerIcons)
+            }
+        }
+    }
+
     private fun updateHiddenPlayerControls(value: Set<PlayerControl>) {
         viewModelScope.launch {
             preferencesRepository.updatePlayerPreferences {
@@ -224,5 +233,6 @@ sealed interface PlayerPreferencesUiEvent {
     data class UpdateVideoGamma(val value: Float) : PlayerPreferencesUiEvent
     data class UpdateVideoSharpening(val value: Float) : PlayerPreferencesUiEvent
     data class UpdateControlAutoHideTimeout(val value: Int) : PlayerPreferencesUiEvent
+    data object ToggleUseClassicPlayerIcons : PlayerPreferencesUiEvent
     data class UpdateHiddenPlayerControls(val value: Set<PlayerControl>) : PlayerPreferencesUiEvent
 }

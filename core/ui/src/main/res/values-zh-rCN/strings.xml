@@ -370,6 +370,8 @@
     <string name="reset_seek_sentivity">重置跳转灵敏度</string>
     <string name="hide_player_buttons_background">隐藏播放器按钮背景</string>
     <string name="hide_player_buttons_background_description">隐藏所有播放器控制按钮的背景</string>
+    <string name="enable_classic_player_icons">启用经典图标</string>
+    <string name="enable_classic_player_icons_description">使用经典播放器控制按钮样式</string>
     <string name="volume_gesture_sensitivity">音量手势灵敏度</string>
     <string name="reset_volume_gesture_sensitivity">重置音量手势灵敏度</string>
     <string name="brightness_gesture_sensitivity">亮度手势灵敏度</string>

@@ -118,6 +118,14 @@ private fun PlayerPreferencesContent(
                     onClick = {
                         onEvent(PlayerPreferencesUiEvent.ShowDialog(PlayerPreferenceDialog.PlayerScreenOrientationDialog))
                     },
+                )
+                PreferenceSwitch(
+                    modifier = Modifier.testTag("item_settings_classic_player_icons"),
+                    title = stringResource(id = R.string.enable_classic_player_icons),
+                    description = stringResource(id = R.string.enable_classic_player_icons_description),
+                    icon = NextIcons.Style,
+                    isChecked = uiState.preferences.shouldUseClassicPlayerIcons,
+                    onClick = { onEvent(PlayerPreferencesUiEvent.ToggleUseClassicPlayerIcons) },
                     isLastItem = true,
                 )
             }
