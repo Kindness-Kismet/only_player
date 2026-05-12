@@ -6,6 +6,7 @@ import coil3.PlatformContext
 import coil3.SingletonImageLoader
 import dagger.hilt.android.HiltAndroidApp
 import javax.inject.Inject
+import one.next.player.core.common.Logger
 import one.next.player.crash.CrashActivity
 import one.next.player.crash.GlobalExceptionHandler
 
@@ -19,6 +20,7 @@ class OnePlayerApplication :
 
     override fun onCreate() {
         super.onCreate()
+        Logger.initialize(this)
         Thread.setDefaultUncaughtExceptionHandler(GlobalExceptionHandler(applicationContext, CrashActivity::class.java))
     }
 
