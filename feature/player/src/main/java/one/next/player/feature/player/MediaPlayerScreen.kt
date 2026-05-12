@@ -79,7 +79,6 @@ import one.next.player.core.model.PlayerControlZone
 import one.next.player.core.model.PlayerControlsLayout
 import one.next.player.core.model.PlayerPreferences
 import one.next.player.core.ui.R as coreUiR
-import one.next.player.core.ui.components.VideoFiltersDialog
 import one.next.player.core.ui.extensions.copy
 import one.next.player.feature.player.buttons.NextButton
 import one.next.player.feature.player.buttons.PlayPauseButton
@@ -303,14 +302,32 @@ internal fun MediaPlayerScreen(
     }
     var shouldShowOverlay by remember { mutableStateOf(false) }
     var isSleepTimerDialogShown by remember { mutableStateOf(false) }
-    var isVideoFiltersDialogShown by remember { mutableStateOf(false) }
+    var videoFiltersInitialPreferences by remember { mutableStateOf<PlayerPreferences?>(null) }
     val videoFiltersUnavailableMessage = stringResource(coreUiR.string.video_filters_unavailable_software_decoder)
+    fun restoreVideoFiltersPreview() {
+        videoFiltersInitialPreferences?.let { initialPreferences ->
+            (player as? androidx.media3.session.MediaController)?.previewVideoFilters(initialPreferences)
+        }
+        videoFiltersInitialPreferences = null
+    }
     val showVideoFilters = {
         if (metadataState.isVideoEffectsAvailable) {
-            isVideoFiltersDialogShown = true
+            videoFiltersInitialPreferences = playerPreferences
+            overlayView = OverlayView.VIDEO_FILTERS
+            controlsVisibilityState.hideControls()
         } else {
             Toast.makeText(context, videoFiltersUnavailableMessage, Toast.LENGTH_SHORT).show()
         }
+    }
+    fun closeVideoFiltersOverlay() {
+        videoFiltersInitialPreferences = null
+        overlayView = null
+    }
+    fun dismissOverlay() {
+        if (overlayView == OverlayView.VIDEO_FILTERS) {
+            restoreVideoFiltersPreview()
+        }
+        overlayView = null
     }
     var longPressOverlayAnimationStep by remember { mutableIntStateOf(0) }
     val keyboardInteractionEnabledState = rememberUpdatedState(
@@ -1007,11 +1024,17 @@ internal fun MediaPlayerScreen(
                 player = player,
                 overlayView = overlayView,
                 videoContentScale = videoZoomAndContentScaleState.videoContentScale,
-                onDismiss = { overlayView = null },
+                videoFilterPreferences = playerPreferences,
+                onDismiss = ::dismissOverlay,
                 onSelectSubtitleClick = onSelectSubtitleClick,
                 onAddOnlineSubtitleClick = onAddOnlineSubtitleClick,
                 onSubtitleOptionEvent = viewModel::onSubtitleOptionEvent,
                 onVideoContentScaleChanged = { videoZoomAndContentScaleState.onVideoContentScaleChanged(it) },
+                onPreviewVideoFilters = { previewPreferences ->
+                    (player as? androidx.media3.session.MediaController)?.previewVideoFilters(previewPreferences)
+                },
+                onConfirmVideoFilters = viewModel::updateVideoFilters,
+                onCloseVideoFilters = ::closeVideoFiltersOverlay,
                 onShowVideoFilters = {
                     overlayView = null
                     showVideoFilters()
@@ -1024,17 +1047,6 @@ internal fun MediaPlayerScreen(
         SleepTimerDialog(
             sleepTimerState = sleepTimerState,
             onDismiss = { isSleepTimerDialogShown = false },
-        )
-    }
-
-    if (isVideoFiltersDialogShown) {
-        VideoFiltersDialog(
-            preferences = playerPreferences,
-            onDismissRequest = { isVideoFiltersDialogShown = false },
-            onPreviewPreferences = { previewPreferences ->
-                (player as? androidx.media3.session.MediaController)?.previewVideoFilters(previewPreferences)
-            },
-            onConfirmPreferences = viewModel::updateVideoFilters,
         )
     }
 
@@ -1075,7 +1087,7 @@ internal fun MediaPlayerScreen(
 
     BackHandler {
         if (overlayView != null) {
-            overlayView = null
+            dismissOverlay()
         } else if (isCustomizingControls) {
             exitControlCustomization()
         } else {
