@@ -134,6 +134,7 @@ class PlayerViewModel @Inject constructor(
         val normalizedPreferences = preferences.normalizedVideoFilters()
         updateVideoFilter("confirmed=$normalizedPreferences") {
             it.copy(
+                shouldApplyVideoFilters = normalizedPreferences.shouldApplyVideoFilters,
                 videoBrightness = normalizedPreferences.videoBrightness,
                 videoContrast = normalizedPreferences.videoContrast,
                 videoSaturation = normalizedPreferences.videoSaturation,

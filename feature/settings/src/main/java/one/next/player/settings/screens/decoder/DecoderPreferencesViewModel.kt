@@ -45,6 +45,7 @@ class DecoderPreferencesViewModel @Inject constructor(
         when (event) {
             is DecoderPreferencesUiEvent.ShowDialog -> showDialog(event.value)
             is DecoderPreferencesUiEvent.UpdateDecoderPriority -> updateDecoderPriority(event.value)
+            DecoderPreferencesUiEvent.ToggleVideoFilters -> toggleVideoFilters()
             is DecoderPreferencesUiEvent.UpdateVideoBrightness -> updateVideoBrightness(event.value)
             is DecoderPreferencesUiEvent.UpdateVideoContrast -> updateVideoContrast(event.value)
             is DecoderPreferencesUiEvent.UpdateVideoSaturation -> updateVideoSaturation(event.value)
@@ -64,6 +65,14 @@ class DecoderPreferencesViewModel @Inject constructor(
         viewModelScope.launch {
             preferencesRepository.updatePlayerPreferences {
                 it.copy(decoderPriority = value)
+            }
+        }
+    }
+
+    private fun toggleVideoFilters() {
+        viewModelScope.launch {
+            preferencesRepository.updatePlayerPreferences {
+                it.copy(shouldApplyVideoFilters = !it.shouldApplyVideoFilters)
             }
         }
     }
@@ -122,6 +131,7 @@ sealed interface DecoderPreferenceDialog {
 sealed interface DecoderPreferencesUiEvent {
     data class ShowDialog(val value: DecoderPreferenceDialog?) : DecoderPreferencesUiEvent
     data class UpdateDecoderPriority(val value: DecoderPriority) : DecoderPreferencesUiEvent
+    data object ToggleVideoFilters : DecoderPreferencesUiEvent
     data class UpdateVideoBrightness(val value: Float) : DecoderPreferencesUiEvent
     data class UpdateVideoContrast(val value: Float) : DecoderPreferencesUiEvent
     data class UpdateVideoSaturation(val value: Float) : DecoderPreferencesUiEvent

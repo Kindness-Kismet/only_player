@@ -12,6 +12,7 @@ data class PlayerPreferences(
     val playerScreenOrientation: ScreenOrientation = ScreenOrientation.VIDEO_ORIENTATION,
     val playerVideoZoom: VideoContentScale = VideoContentScale.BEST_FIT,
     val defaultPlaybackSpeed: Float = 1.0f,
+    val shouldApplyVideoFilters: Boolean = false,
     val videoBrightness: Float = DEFAULT_VIDEO_BRIGHTNESS,
     val videoContrast: Float = DEFAULT_VIDEO_CONTRAST,
     val videoSaturation: Float = DEFAULT_VIDEO_SATURATION,

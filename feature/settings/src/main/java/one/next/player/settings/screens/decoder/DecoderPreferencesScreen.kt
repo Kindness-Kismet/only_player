@@ -31,6 +31,7 @@ import one.next.player.core.ui.components.ClickablePreferenceItem
 import one.next.player.core.ui.components.ListSectionTitle
 import one.next.player.core.ui.components.NextTopAppBar
 import one.next.player.core.ui.components.PreferenceSlider
+import one.next.player.core.ui.components.PreferenceSwitch
 import one.next.player.core.ui.components.RadioTextButton
 import one.next.player.core.ui.designsystem.NextIcons
 import one.next.player.core.ui.extensions.withBottomFallback
@@ -138,20 +139,30 @@ private fun VideoFiltersSettings(
     Column(
         verticalArrangement = Arrangement.spacedBy(ListItemDefaults.SegmentedGap),
     ) {
+        PreferenceSwitch(
+            modifier = Modifier.testTag("switch_settings_video_filters"),
+            title = stringResource(R.string.enable_video_filters),
+            description = stringResource(R.string.enable_video_filters_description),
+            icon = NextIcons.Sensitivity,
+            isChecked = preferences.shouldApplyVideoFilters,
+            onClick = { onEvent(DecoderPreferencesUiEvent.ToggleVideoFilters) },
+            isFirstItem = true,
+        )
         PreferenceSlider(
             modifier = Modifier.testTag("item_settings_video_brightness"),
             sliderModifier = Modifier.testTag("slider_settings_video_brightness"),
             title = stringResource(R.string.video_brightness),
             description = signedPercent(preferences.videoBrightness),
             icon = NextIcons.Sensitivity,
+            isEnabled = preferences.shouldApplyVideoFilters,
             value = preferences.videoBrightness,
             valueRange = PlayerPreferences.MIN_VIDEO_BRIGHTNESS..PlayerPreferences.MAX_VIDEO_BRIGHTNESS,
             onValueChange = { onEvent(DecoderPreferencesUiEvent.UpdateVideoBrightness(it)) },
-            isFirstItem = true,
             trailingContent = {
                 ResetVideoFilterButton(
                     testTag = "btn_reset_settings_video_brightness",
                     contentDescription = stringResource(id = R.string.reset_video_brightness),
+                    isEnabled = preferences.shouldApplyVideoFilters,
                     onClick = { onEvent(DecoderPreferencesUiEvent.UpdateVideoBrightness(PlayerPreferences.DEFAULT_VIDEO_BRIGHTNESS)) },
                 )
             },
@@ -162,6 +173,7 @@ private fun VideoFiltersSettings(
             title = stringResource(R.string.video_contrast),
             description = signedPercent(preferences.videoContrast),
             icon = NextIcons.Sensitivity,
+            isEnabled = preferences.shouldApplyVideoFilters,
             value = preferences.videoContrast,
             valueRange = PlayerPreferences.MIN_VIDEO_CONTRAST..PlayerPreferences.MAX_VIDEO_CONTRAST,
             onValueChange = { onEvent(DecoderPreferencesUiEvent.UpdateVideoContrast(it)) },
@@ -169,6 +181,7 @@ private fun VideoFiltersSettings(
                 ResetVideoFilterButton(
                     testTag = "btn_reset_settings_video_contrast",
                     contentDescription = stringResource(id = R.string.reset_video_contrast),
+                    isEnabled = preferences.shouldApplyVideoFilters,
                     onClick = { onEvent(DecoderPreferencesUiEvent.UpdateVideoContrast(PlayerPreferences.DEFAULT_VIDEO_CONTRAST)) },
                 )
             },
@@ -179,6 +192,7 @@ private fun VideoFiltersSettings(
             title = stringResource(R.string.video_saturation),
             description = signedInteger(preferences.videoSaturation),
             icon = NextIcons.Sensitivity,
+            isEnabled = preferences.shouldApplyVideoFilters,
             value = preferences.videoSaturation,
             valueRange = PlayerPreferences.MIN_VIDEO_SATURATION..PlayerPreferences.MAX_VIDEO_SATURATION,
             onValueChange = { onEvent(DecoderPreferencesUiEvent.UpdateVideoSaturation(it)) },
@@ -186,6 +200,7 @@ private fun VideoFiltersSettings(
                 ResetVideoFilterButton(
                     testTag = "btn_reset_settings_video_saturation",
                     contentDescription = stringResource(id = R.string.reset_video_saturation),
+                    isEnabled = preferences.shouldApplyVideoFilters,
                     onClick = { onEvent(DecoderPreferencesUiEvent.UpdateVideoSaturation(PlayerPreferences.DEFAULT_VIDEO_SATURATION)) },
                 )
             },
@@ -196,6 +211,7 @@ private fun VideoFiltersSettings(
             title = stringResource(R.string.video_hue),
             description = stringResource(R.string.degrees, preferences.videoHue.toInt()),
             icon = NextIcons.Sensitivity,
+            isEnabled = preferences.shouldApplyVideoFilters,
             value = preferences.videoHue,
             valueRange = PlayerPreferences.MIN_VIDEO_HUE..PlayerPreferences.MAX_VIDEO_HUE,
             onValueChange = { onEvent(DecoderPreferencesUiEvent.UpdateVideoHue(it)) },
@@ -203,6 +219,7 @@ private fun VideoFiltersSettings(
                 ResetVideoFilterButton(
                     testTag = "btn_reset_settings_video_hue",
                     contentDescription = stringResource(id = R.string.reset_video_hue),
+                    isEnabled = preferences.shouldApplyVideoFilters,
                     onClick = { onEvent(DecoderPreferencesUiEvent.UpdateVideoHue(PlayerPreferences.DEFAULT_VIDEO_HUE)) },
                 )
             },
@@ -213,6 +230,7 @@ private fun VideoFiltersSettings(
             title = stringResource(R.string.video_gamma),
             description = String.format("%.2f", preferences.videoGamma),
             icon = NextIcons.Sensitivity,
+            isEnabled = preferences.shouldApplyVideoFilters,
             value = preferences.videoGamma,
             valueRange = PlayerPreferences.MIN_VIDEO_GAMMA..PlayerPreferences.MAX_VIDEO_GAMMA,
             onValueChange = { onEvent(DecoderPreferencesUiEvent.UpdateVideoGamma(it)) },
@@ -220,6 +238,7 @@ private fun VideoFiltersSettings(
                 ResetVideoFilterButton(
                     testTag = "btn_reset_settings_video_gamma",
                     contentDescription = stringResource(id = R.string.reset_video_gamma),
+                    isEnabled = preferences.shouldApplyVideoFilters,
                     onClick = { onEvent(DecoderPreferencesUiEvent.UpdateVideoGamma(PlayerPreferences.DEFAULT_VIDEO_GAMMA)) },
                 )
             },
@@ -230,6 +249,7 @@ private fun VideoFiltersSettings(
             title = stringResource(R.string.video_sharpening),
             description = stringResource(R.string.percent, (preferences.videoSharpening * 100).toInt()),
             icon = NextIcons.Sensitivity,
+            isEnabled = preferences.shouldApplyVideoFilters,
             value = preferences.videoSharpening,
             valueRange = PlayerPreferences.DEFAULT_VIDEO_SHARPENING..PlayerPreferences.MAX_VIDEO_SHARPENING,
             onValueChange = { onEvent(DecoderPreferencesUiEvent.UpdateVideoSharpening(it)) },
@@ -238,6 +258,7 @@ private fun VideoFiltersSettings(
                 ResetVideoFilterButton(
                     testTag = "btn_reset_settings_video_sharpening",
                     contentDescription = stringResource(id = R.string.reset_video_sharpening),
+                    isEnabled = preferences.shouldApplyVideoFilters,
                     onClick = { onEvent(DecoderPreferencesUiEvent.UpdateVideoSharpening(PlayerPreferences.DEFAULT_VIDEO_SHARPENING)) },
                 )
             },
@@ -249,10 +270,12 @@ private fun VideoFiltersSettings(
 private fun ResetVideoFilterButton(
     testTag: String,
     contentDescription: String,
+    isEnabled: Boolean,
     onClick: () -> Unit,
 ) {
     FilledIconButton(
         modifier = Modifier.testTag(testTag),
+        enabled = isEnabled,
         onClick = onClick,
     ) {
         Icon(

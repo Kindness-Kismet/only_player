@@ -1198,7 +1198,7 @@ class PlayerService : MediaSessionService() {
         transition: VideoFilterTransition,
         effects: List<Effect>,
     ) {
-        videoFilterTransition = transition
+        videoFilterTransition = if (effects.isEmpty()) VideoFilterTransition.default() else transition
         currentVideoEffectsState = VideoEffectsState(
             filters = videoFilters,
             decoderPriority = decoderPriority,
@@ -1220,16 +1220,23 @@ class PlayerService : MediaSessionService() {
         Logger.debug(TAG, "Video effects availability: available=$isVideoEffectsAvailable decoder=$activeDecoderPriority")
     }
 
-    private fun PlayerPreferences.toVideoFilterPreferences(): VideoFilterPreferences = VideoFilterPreferences(
-        brightness = videoBrightness.coerceIn(PlayerPreferences.MIN_VIDEO_BRIGHTNESS, PlayerPreferences.MAX_VIDEO_BRIGHTNESS),
-        contrast = videoContrast.coerceIn(PlayerPreferences.MIN_VIDEO_CONTRAST, PlayerPreferences.MAX_VIDEO_CONTRAST),
-        saturation = videoSaturation.coerceIn(PlayerPreferences.MIN_VIDEO_SATURATION, PlayerPreferences.MAX_VIDEO_SATURATION),
-        hue = videoHue.coerceIn(PlayerPreferences.MIN_VIDEO_HUE, PlayerPreferences.MAX_VIDEO_HUE),
-        gamma = videoGamma.coerceIn(PlayerPreferences.MIN_VIDEO_GAMMA, PlayerPreferences.MAX_VIDEO_GAMMA),
-        sharpening = videoSharpening.coerceIn(PlayerPreferences.DEFAULT_VIDEO_SHARPENING, PlayerPreferences.MAX_VIDEO_SHARPENING),
-    )
+    private fun PlayerPreferences.toVideoFilterPreferences(): VideoFilterPreferences {
+        if (!shouldApplyVideoFilters) return VideoFilterPreferences.default()
+
+        val filters = VideoFilterPreferences(
+            shouldApply = true,
+            brightness = videoBrightness.coerceIn(PlayerPreferences.MIN_VIDEO_BRIGHTNESS, PlayerPreferences.MAX_VIDEO_BRIGHTNESS),
+            contrast = videoContrast.coerceIn(PlayerPreferences.MIN_VIDEO_CONTRAST, PlayerPreferences.MAX_VIDEO_CONTRAST),
+            saturation = videoSaturation.coerceIn(PlayerPreferences.MIN_VIDEO_SATURATION, PlayerPreferences.MAX_VIDEO_SATURATION),
+            hue = videoHue.coerceIn(PlayerPreferences.MIN_VIDEO_HUE, PlayerPreferences.MAX_VIDEO_HUE),
+            gamma = videoGamma.coerceIn(PlayerPreferences.MIN_VIDEO_GAMMA, PlayerPreferences.MAX_VIDEO_GAMMA),
+            sharpening = videoSharpening.coerceIn(PlayerPreferences.DEFAULT_VIDEO_SHARPENING, PlayerPreferences.MAX_VIDEO_SHARPENING),
+        )
+        return if (filters.shouldCreateEffect()) filters else VideoFilterPreferences.default()
+    }
 
     private fun Bundle.toVideoFilterPreferences(): PlayerPreferences = PlayerPreferences(
+        shouldApplyVideoFilters = getBoolean(CustomCommands.SHOULD_APPLY_VIDEO_FILTERS_KEY, false),
         videoBrightness = getFloat(CustomCommands.VIDEO_BRIGHTNESS_KEY, PlayerPreferences.DEFAULT_VIDEO_BRIGHTNESS),
         videoContrast = getFloat(CustomCommands.VIDEO_CONTRAST_KEY, PlayerPreferences.DEFAULT_VIDEO_CONTRAST),
         videoSaturation = getFloat(CustomCommands.VIDEO_SATURATION_KEY, PlayerPreferences.DEFAULT_VIDEO_SATURATION),
@@ -1243,6 +1250,7 @@ class PlayerService : MediaSessionService() {
         decoderPriority: DecoderPriority,
     ): List<Effect> {
         if (!shouldApplyVideoEffects(decoderPriority)) return emptyList()
+        if (!transition.targetFilters.shouldCreateEffect()) return emptyList()
         return listOf(
             VideoFiltersEffect(
                 transition = transition,

@@ -42,6 +42,7 @@ enum class CustomCommands(val customAction: String) {
         const val SUBTITLE_SPEED_KEY = "subtitle_speed"
         const val LOUDNESS_GAIN_KEY = "loudness_gain"
         const val IS_LOUDNESS_GAIN_SUPPORTED_KEY = "is_loudness_gain_supported"
+        const val SHOULD_APPLY_VIDEO_FILTERS_KEY = "should_apply_video_filters"
         const val VIDEO_BRIGHTNESS_KEY = "video_brightness"
         const val VIDEO_CONTRAST_KEY = "video_contrast"
         const val VIDEO_SATURATION_KEY = "video_saturation"
@@ -135,6 +136,7 @@ fun MediaController.setLoudnessGain(gain: Int) {
 
 fun MediaController.previewVideoFilters(preferences: PlayerPreferences) {
     val args = Bundle().apply {
+        putBoolean(CustomCommands.SHOULD_APPLY_VIDEO_FILTERS_KEY, preferences.shouldApplyVideoFilters)
         putFloat(CustomCommands.VIDEO_BRIGHTNESS_KEY, preferences.videoBrightness)
         putFloat(CustomCommands.VIDEO_CONTRAST_KEY, preferences.videoContrast)
         putFloat(CustomCommands.VIDEO_SATURATION_KEY, preferences.videoSaturation)

@@ -48,6 +48,8 @@
     <string name="playback_behavior">播放行为</string>
     <string name="video_processing">画面处理</string>
     <string name="video_filters">视频滤镜</string>
+    <string name="enable_video_filters">启用视频滤镜</string>
+    <string name="enable_video_filters_description">关闭后跳过 GPU 视频滤镜以节省电量</string>
     <string name="video_filters_unavailable_software_decoder">软解码不支持视频滤镜</string>
     <string name="video_filters_default">默认</string>
     <string name="video_filters_adjusted_count">已调整 %1$d 项</string>

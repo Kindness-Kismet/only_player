@@ -1,14 +1,9 @@
 package one.next.player.core.ui.components
 
-import android.os.Build
-import android.view.RoundedCorner
-import android.view.WindowInsets
-import androidx.annotation.RequiresApi
 import androidx.compose.foundation.interaction.MutableInteractionSource
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.shape.CornerBasedShape
-import androidx.compose.foundation.shape.CornerSize
 import androidx.compose.material3.ExperimentalMaterial3ExpressiveApi
 import androidx.compose.material3.ListItemColors
 import androidx.compose.material3.ListItemDefaults
@@ -21,11 +16,6 @@ import androidx.compose.runtime.remember
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
-import androidx.compose.ui.platform.LocalDensity
-import androidx.compose.ui.platform.LocalLayoutDirection
-import androidx.compose.ui.platform.LocalView
-import androidx.compose.ui.unit.Density
-import androidx.compose.ui.unit.LayoutDirection
 import androidx.compose.ui.unit.dp
 
 @OptIn(ExperimentalMaterial3ExpressiveApi::class)
@@ -48,18 +38,7 @@ fun NextSegmentedListItem(
     onLongClick: (() -> Unit)? = null,
     interactionSource: MutableInteractionSource? = null,
 ) {
-    val view = LocalView.current
-    val density = LocalDensity.current
-    val layoutDirection = LocalLayoutDirection.current
     val overrideShape = MaterialTheme.shapes.large
-    val deviceRoundedCorners = remember(view.rootWindowInsets, density, layoutDirection) {
-        deviceRoundedCorners(
-            windowInsets = view.rootWindowInsets,
-            density = density,
-            layoutDirection = layoutDirection,
-        )
-    }
-
     SegmentedListItem(
         modifier = modifier,
         selected = isSelected,
@@ -67,15 +46,15 @@ fun NextSegmentedListItem(
         onLongClick = onLongClick,
         enabled = isEnabled,
         verticalAlignment = Alignment.CenterVertically,
-        shapes = remember(isFirstItem, isLastItem, shapes, overrideShape, deviceRoundedCorners) {
+        shapes = remember(isFirstItem, isLastItem, shapes) {
             val defaultBaseShape = shapes.shape
             if (defaultBaseShape is CornerBasedShape) {
                 shapes.copy(
                     shape = defaultBaseShape.copy(
-                        topStart = deviceRoundedCorners.topStart.takeIf { isFirstItem } ?: overrideShape.topStart.takeIf { isFirstItem } ?: defaultBaseShape.topStart,
-                        topEnd = deviceRoundedCorners.topEnd.takeIf { isFirstItem } ?: overrideShape.topEnd.takeIf { isFirstItem } ?: defaultBaseShape.topEnd,
-                        bottomStart = deviceRoundedCorners.bottomStart.takeIf { isLastItem } ?: overrideShape.bottomStart.takeIf { isLastItem } ?: defaultBaseShape.bottomStart,
-                        bottomEnd = deviceRoundedCorners.bottomEnd.takeIf { isLastItem } ?: overrideShape.bottomEnd.takeIf { isLastItem } ?: defaultBaseShape.bottomEnd,
+                        topStart = overrideShape.topStart.takeIf { isFirstItem } ?: defaultBaseShape.topStart,
+                        topEnd = overrideShape.topEnd.takeIf { isFirstItem } ?: defaultBaseShape.topEnd,
+                        bottomStart = overrideShape.bottomStart.takeIf { isLastItem } ?: defaultBaseShape.bottomStart,
+                        bottomEnd = overrideShape.bottomEnd.takeIf { isLastItem } ?: defaultBaseShape.bottomEnd,
                     ),
                 )
             } else {
@@ -92,64 +71,6 @@ fun NextSegmentedListItem(
         content = content,
     )
 }
-
-private data class DeviceRoundedCorners(
-    val topStart: CornerSize? = null,
-    val topEnd: CornerSize? = null,
-    val bottomStart: CornerSize? = null,
-    val bottomEnd: CornerSize? = null,
-)
-
-private fun deviceRoundedCorners(
-    windowInsets: WindowInsets?,
-    density: Density,
-    layoutDirection: LayoutDirection,
-): DeviceRoundedCorners {
-    if (Build.VERSION.SDK_INT < Build.VERSION_CODES.S) return DeviceRoundedCorners()
-    if (windowInsets == null) return DeviceRoundedCorners()
-
-    return deviceRoundedCornersApi31(
-        windowInsets = windowInsets,
-        density = density,
-        layoutDirection = layoutDirection,
-    )
-}
-
-@RequiresApi(Build.VERSION_CODES.S)
-private fun deviceRoundedCornersApi31(
-    windowInsets: WindowInsets,
-    density: Density,
-    layoutDirection: LayoutDirection,
-): DeviceRoundedCorners {
-    val topLeft = windowInsets.cornerSize(RoundedCorner.POSITION_TOP_LEFT, density)
-    val topRight = windowInsets.cornerSize(RoundedCorner.POSITION_TOP_RIGHT, density)
-    val bottomLeft = windowInsets.cornerSize(RoundedCorner.POSITION_BOTTOM_LEFT, density)
-    val bottomRight = windowInsets.cornerSize(RoundedCorner.POSITION_BOTTOM_RIGHT, density)
-
-    return when (layoutDirection) {
-        LayoutDirection.Ltr -> DeviceRoundedCorners(
-            topStart = topLeft,
-            topEnd = topRight,
-            bottomStart = bottomLeft,
-            bottomEnd = bottomRight,
-        )
-        LayoutDirection.Rtl -> DeviceRoundedCorners(
-            topStart = topRight,
-            topEnd = topLeft,
-            bottomStart = bottomRight,
-            bottomEnd = bottomLeft,
-        )
-    }
-}
-
-@RequiresApi(Build.VERSION_CODES.S)
-private fun WindowInsets.cornerSize(
-    position: Int,
-    density: Density,
-): CornerSize? = getRoundedCorner(position)
-    ?.radius
-    ?.takeIf { it > 0 }
-    ?.let { radius -> CornerSize(with(density) { radius.toDp() }) }
 
 @Composable
 fun ListSectionTitle(

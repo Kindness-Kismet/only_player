@@ -172,6 +172,8 @@
     <string name="playback_behavior">播放行為</string>
     <string name="video_processing">畫面處理</string>
     <string name="video_filters">影片濾鏡</string>
+    <string name="enable_video_filters">啟用影片濾鏡</string>
+    <string name="enable_video_filters_description">關閉後跳過 GPU 影片濾鏡以節省電量</string>
     <string name="video_filters_unavailable_software_decoder">軟體解碼不支援影片濾鏡</string>
     <string name="video_filters_default">預設</string>
     <string name="video_filters_adjusted_count">已調整 %1$d 項</string>

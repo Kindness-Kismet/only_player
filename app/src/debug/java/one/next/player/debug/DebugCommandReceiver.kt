@@ -118,6 +118,7 @@ class DebugCommandReceiver : BroadcastReceiver() {
     ) {
         preferencesRepository.updatePlayerPreferences { preferences ->
             preferences.copy(
+                shouldApplyVideoFilters = intent.getBooleanExtra(EXTRA_ENABLED, preferences.shouldApplyVideoFilters),
                 videoBrightness = intent.getFloatExtra(EXTRA_BRIGHTNESS, preferences.videoBrightness)
                     .coerceIn(PlayerPreferences.MIN_VIDEO_BRIGHTNESS, PlayerPreferences.MAX_VIDEO_BRIGHTNESS),
                 videoContrast = intent.getFloatExtra(EXTRA_CONTRAST, preferences.videoContrast)

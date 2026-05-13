@@ -62,6 +62,8 @@
     <string name="playback_behavior">Playback behavior</string>
     <string name="video_processing">Video processing</string>
     <string name="video_filters">Video filters</string>
+    <string name="enable_video_filters">Enable video filters</string>
+    <string name="enable_video_filters_description">Turn this off to skip GPU video filtering and save battery</string>
     <string name="video_filters_unavailable_software_decoder">The software decoder does not support video filters</string>
     <string name="video_filters_default">Default</string>
     <string name="video_filters_adjusted_count">%1$d adjusted</string>

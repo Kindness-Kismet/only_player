@@ -77,10 +77,25 @@ object PlayerPreferencesSerializer : Serializer<PlayerPreferences> {
     private fun PlayerPreferences.upgradeLegacyDefaults(serializedPreferences: String): PlayerPreferences {
         val root = runCatching { jsonFormat.parseToJsonElement(serializedPreferences).jsonObject }.getOrNull() ?: return this
         val persistedInitialVolumeLimit = root["maxInitialPlayerVolumePercentage"]?.jsonPrimitive?.content?.toIntOrNull()
-        if (persistedInitialVolumeLimit != LEGACY_DEFAULT_MAX_INITIAL_PLAYER_VOLUME_PERCENTAGE) return this
+        var upgradedPreferences = if (persistedInitialVolumeLimit == LEGACY_DEFAULT_MAX_INITIAL_PLAYER_VOLUME_PERCENTAGE) {
+            copy(maxInitialPlayerVolumePercentage = PlayerPreferences.DEFAULT_MAX_INITIAL_PLAYER_VOLUME_PERCENTAGE)
+        } else {
+            this
+        }
 
-        return copy(maxInitialPlayerVolumePercentage = PlayerPreferences.DEFAULT_MAX_INITIAL_PLAYER_VOLUME_PERCENTAGE)
+        if ("shouldApplyVideoFilters" !in root && hasAdjustedVideoFilters()) {
+            upgradedPreferences = upgradedPreferences.copy(shouldApplyVideoFilters = true)
+        }
+
+        return upgradedPreferences
     }
+
+    private fun PlayerPreferences.hasAdjustedVideoFilters(): Boolean = videoBrightness != PlayerPreferences.DEFAULT_VIDEO_BRIGHTNESS ||
+        videoContrast != PlayerPreferences.DEFAULT_VIDEO_CONTRAST ||
+        videoSaturation != PlayerPreferences.DEFAULT_VIDEO_SATURATION ||
+        videoHue != PlayerPreferences.DEFAULT_VIDEO_HUE ||
+        videoGamma != PlayerPreferences.DEFAULT_VIDEO_GAMMA ||
+        videoSharpening != PlayerPreferences.DEFAULT_VIDEO_SHARPENING
 
     private fun String.containsLegacyPlayerPreferences(): Boolean {
         val root = runCatching { jsonFormat.parseToJsonElement(this).jsonObject }.getOrNull() ?: return false

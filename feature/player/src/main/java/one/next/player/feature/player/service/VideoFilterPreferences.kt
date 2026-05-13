@@ -3,6 +3,7 @@ package one.next.player.feature.player.service
 import one.next.player.core.model.PlayerPreferences
 
 data class VideoFilterPreferences(
+    val shouldApply: Boolean,
     val brightness: Float,
     val contrast: Float,
     val saturation: Float,
@@ -14,6 +15,7 @@ data class VideoFilterPreferences(
         target: VideoFilterPreferences,
         fraction: Float,
     ): VideoFilterPreferences = VideoFilterPreferences(
+        shouldApply = shouldApply || target.shouldApply,
         brightness = brightness.interpolate(target.brightness, fraction),
         contrast = contrast.interpolate(target.contrast, fraction),
         saturation = saturation.interpolate(target.saturation, fraction),
@@ -22,8 +24,11 @@ data class VideoFilterPreferences(
         sharpening = sharpening.interpolate(target.sharpening, fraction),
     )
 
+    fun shouldCreateEffect(): Boolean = shouldApply && copy(shouldApply = false) != default()
+
     companion object {
         fun default(): VideoFilterPreferences = VideoFilterPreferences(
+            shouldApply = false,
             brightness = PlayerPreferences.DEFAULT_VIDEO_BRIGHTNESS,
             contrast = PlayerPreferences.DEFAULT_VIDEO_CONTRAST,
             saturation = PlayerPreferences.DEFAULT_VIDEO_SATURATION,

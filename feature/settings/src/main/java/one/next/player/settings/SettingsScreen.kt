@@ -301,6 +301,7 @@ internal enum class SettingRow(
         subSettingResIds = listOf(
             R.string.decoder_priority,
             R.string.video_filters,
+            R.string.enable_video_filters,
             R.string.video_brightness,
             R.string.video_contrast,
             R.string.video_saturation,

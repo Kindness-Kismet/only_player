@@ -29,6 +29,7 @@ import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.unit.dp
 import one.next.player.core.model.PlayerPreferences
 import one.next.player.core.ui.R
+import one.next.player.core.ui.designsystem.NextIcons
 
 @OptIn(ExperimentalMaterial3ExpressiveApi::class)
 @Composable
@@ -172,6 +173,7 @@ private fun VideoFiltersEditor(
     val resetFilters = {
         updateDraft {
             it.copy(
+                shouldApplyVideoFilters = false,
                 videoBrightness = PlayerPreferences.DEFAULT_VIDEO_BRIGHTNESS,
                 videoContrast = PlayerPreferences.DEFAULT_VIDEO_CONTRAST,
                 videoSaturation = PlayerPreferences.DEFAULT_VIDEO_SATURATION,
@@ -205,6 +207,10 @@ private fun PortraitVideoFiltersContent(
             .verticalScroll(rememberScrollState()),
         verticalArrangement = Arrangement.spacedBy(12.dp),
     ) {
+        VideoFiltersSwitch(
+            preferences = preferences,
+            onUpdatePreferences = onUpdatePreferences,
+        )
         sliderSpecs.forEach { spec ->
             VideoFilterSlider(spec)
         }
@@ -222,6 +228,10 @@ private fun LandscapeVideoFiltersContent(
         modifier = Modifier.fillMaxWidth(),
         verticalArrangement = Arrangement.spacedBy(4.dp),
     ) {
+        VideoFiltersSwitch(
+            preferences = preferences,
+            onUpdatePreferences = onUpdatePreferences,
+        )
         sliderSpecs.chunked(2).forEach { rowSpecs ->
             Row(
                 modifier = Modifier.fillMaxWidth(),
@@ -238,12 +248,30 @@ private fun LandscapeVideoFiltersContent(
     }
 }
 
+@Composable
+private fun VideoFiltersSwitch(
+    preferences: PlayerPreferences,
+    onUpdatePreferences: ((PlayerPreferences) -> PlayerPreferences) -> Unit,
+) {
+    PreferenceSwitch(
+        modifier = Modifier.testTag("switch_video_filters"),
+        title = stringResource(R.string.enable_video_filters),
+        description = stringResource(R.string.enable_video_filters_description),
+        icon = NextIcons.Sensitivity,
+        isChecked = preferences.shouldApplyVideoFilters,
+        onClick = {
+            onUpdatePreferences { it.copy(shouldApplyVideoFilters = !it.shouldApplyVideoFilters) }
+        },
+    )
+}
+
 private data class VideoFilterSliderSpec(
     val title: String,
     val value: Float,
     val valueRange: ClosedFloatingPointRange<Float>,
     val valueText: String,
     val testTag: String,
+    val isEnabled: Boolean,
     val onValueChange: (Float) -> Unit,
 )
 
@@ -258,6 +286,7 @@ private fun videoFilterSliderSpecs(
         valueRange = PlayerPreferences.MIN_VIDEO_BRIGHTNESS..PlayerPreferences.MAX_VIDEO_BRIGHTNESS,
         valueText = signedPercent(preferences.videoBrightness),
         testTag = "slider_video_brightness",
+        isEnabled = preferences.shouldApplyVideoFilters,
         onValueChange = { onUpdatePreferences { preferences -> preferences.copy(videoBrightness = it) } },
     ),
     VideoFilterSliderSpec(
@@ -266,6 +295,7 @@ private fun videoFilterSliderSpecs(
         valueRange = PlayerPreferences.MIN_VIDEO_CONTRAST..PlayerPreferences.MAX_VIDEO_CONTRAST,
         valueText = signedPercent(preferences.videoContrast),
         testTag = "slider_video_contrast",
+        isEnabled = preferences.shouldApplyVideoFilters,
         onValueChange = { onUpdatePreferences { preferences -> preferences.copy(videoContrast = it) } },
     ),
     VideoFilterSliderSpec(
@@ -274,6 +304,7 @@ private fun videoFilterSliderSpecs(
         valueRange = PlayerPreferences.MIN_VIDEO_SATURATION..PlayerPreferences.MAX_VIDEO_SATURATION,
         valueText = signedInteger(preferences.videoSaturation),
         testTag = "slider_video_saturation",
+        isEnabled = preferences.shouldApplyVideoFilters,
         onValueChange = { onUpdatePreferences { preferences -> preferences.copy(videoSaturation = it) } },
     ),
     VideoFilterSliderSpec(
@@ -282,6 +313,7 @@ private fun videoFilterSliderSpecs(
         valueRange = PlayerPreferences.MIN_VIDEO_HUE..PlayerPreferences.MAX_VIDEO_HUE,
         valueText = stringResource(R.string.degrees, preferences.videoHue.toInt()),
         testTag = "slider_video_hue",
+        isEnabled = preferences.shouldApplyVideoFilters,
         onValueChange = { onUpdatePreferences { preferences -> preferences.copy(videoHue = it) } },
     ),
     VideoFilterSliderSpec(
@@ -290,6 +322,7 @@ private fun videoFilterSliderSpecs(
         valueRange = PlayerPreferences.MIN_VIDEO_GAMMA..PlayerPreferences.MAX_VIDEO_GAMMA,
         valueText = String.format("%.2f", preferences.videoGamma),
         testTag = "slider_video_gamma",
+        isEnabled = preferences.shouldApplyVideoFilters,
         onValueChange = { onUpdatePreferences { preferences -> preferences.copy(videoGamma = it) } },
     ),
     VideoFilterSliderSpec(
@@ -298,6 +331,7 @@ private fun videoFilterSliderSpecs(
         valueRange = PlayerPreferences.DEFAULT_VIDEO_SHARPENING..PlayerPreferences.MAX_VIDEO_SHARPENING,
         valueText = stringResource(R.string.percent, (preferences.videoSharpening * 100).toInt()),
         testTag = "slider_video_sharpening",
+        isEnabled = preferences.shouldApplyVideoFilters,
         onValueChange = { onUpdatePreferences { preferences -> preferences.copy(videoSharpening = it) } },
     ),
 )
@@ -308,6 +342,7 @@ private fun VideoFilterSlider(spec: VideoFilterSliderSpec) {
         modifier = Modifier.testTag(spec.testTag),
         title = spec.title,
         description = spec.valueText,
+        isEnabled = spec.isEnabled,
         value = spec.value,
         valueRange = spec.valueRange,
         onValueChange = spec.onValueChange,
@@ -343,6 +378,7 @@ private fun CompactVideoFilterSlider(
             modifier = Modifier
                 .fillMaxWidth()
                 .heightIn(max = 28.dp),
+            enabled = spec.isEnabled,
             value = spec.value,
             valueRange = spec.valueRange,
             onValueChange = spec.onValueChange,
