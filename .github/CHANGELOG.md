@@ -1,16 +1,12 @@
-- 恢复视频锐化滤镜的即时预览和播放效果
-- 新增应用日志页面，支持查看、复制、清空和导出日志
-- 记录云端文件访问失败并减少可恢复错误导致的崩溃
-- 扩展普通字幕样式自定义，支持字体、粗体、字号、背景、颜色、边缘样式和位置调节
-- 在播放器字幕面板中直接调整普通字幕外观
+- 新增视频滤镜总开关，关闭后跳过 GPU 滤镜链以节省电量
+- 保留已有滤镜参数，并在升级时继续启用已调整过的滤镜
+- 恢复设置列表较小圆角，避免跟随设备屏幕圆角过大
 
 <details>
 <summary>English Version</summary>
 
-- Restore instant preview and playback effects for the video sharpening filter
-- Add an app logs page with viewing, copying, clearing, and exporting support
-- Log cloud file access failures and reduce crashes from recoverable errors
-- Expand plain subtitle style customization with font, bold text, size, background, color, edge style, and position controls
-- Adjust plain subtitle appearance directly from the player subtitle panel
+- Add a master video filters switch that skips the GPU filter chain when disabled to save battery
+- Preserve existing filter values and keep previously adjusted filters enabled after upgrading
+- Restore smaller setting list corners instead of matching large device screen corners
 
 </details>
