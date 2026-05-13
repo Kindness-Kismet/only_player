@@ -63,7 +63,8 @@ fun SubtitleStylePanel(
             },
         )
         PreferenceSlider(
-            modifier = Modifier.testTag("slider_subtitle_position"),
+            modifier = Modifier.testTag("item_subtitle_position"),
+            sliderModifier = Modifier.testTag("slider_subtitle_position"),
             title = stringResource(id = R.string.subtitle_position),
             description = "${(preferences.subtitleBottomPaddingFraction * 100).roundToInt()}%",
             icon = NextIcons.Length,

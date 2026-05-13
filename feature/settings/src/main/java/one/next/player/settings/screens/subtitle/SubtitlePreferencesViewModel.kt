@@ -14,6 +14,7 @@ import one.next.player.core.data.repository.PreferencesRepository
 import one.next.player.core.data.repository.SubtitleFontRepository
 import one.next.player.core.model.Font
 import one.next.player.core.model.PlayerPreferences
+import one.next.player.core.model.withSubtitleStyleFrom
 
 @HiltViewModel
 class SubtitlePreferencesViewModel @Inject constructor(
@@ -125,14 +126,7 @@ class SubtitlePreferencesViewModel @Inject constructor(
     private fun updateSubtitleStyle(preferences: PlayerPreferences) {
         viewModelScope.launch {
             preferencesRepository.updatePlayerPreferences {
-                it.copy(
-                    shouldUseBoldSubtitleText = preferences.shouldUseBoldSubtitleText,
-                    subtitleTextSize = preferences.subtitleTextSize,
-                    shouldShowSubtitleBackground = preferences.shouldShowSubtitleBackground,
-                    subtitleColor = preferences.subtitleColor,
-                    subtitleEdgeStyle = preferences.subtitleEdgeStyle,
-                    subtitleBottomPaddingFraction = preferences.subtitleBottomPaddingFraction,
-                )
+                it.withSubtitleStyleFrom(preferences)
             }
         }
     }

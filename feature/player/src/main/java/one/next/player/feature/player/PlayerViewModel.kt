@@ -26,6 +26,7 @@ import one.next.player.core.model.PlayerControlsLayout
 import one.next.player.core.model.PlayerPreferences
 import one.next.player.core.model.Video
 import one.next.player.core.model.VideoContentScale
+import one.next.player.core.model.withSubtitleStyleFrom
 import one.next.player.feature.player.extensions.remoteFilePath
 import one.next.player.feature.player.extensions.remoteProtocol
 import one.next.player.feature.player.extensions.remoteServerId
@@ -196,14 +197,7 @@ class PlayerViewModel @Inject constructor(
     fun updateSubtitleStyle(preferences: PlayerPreferences) {
         viewModelScope.launch {
             preferencesRepository.updatePlayerPreferences {
-                it.copy(
-                    shouldUseBoldSubtitleText = preferences.shouldUseBoldSubtitleText,
-                    subtitleTextSize = preferences.subtitleTextSize,
-                    shouldShowSubtitleBackground = preferences.shouldShowSubtitleBackground,
-                    subtitleColor = preferences.subtitleColor,
-                    subtitleEdgeStyle = preferences.subtitleEdgeStyle,
-                    subtitleBottomPaddingFraction = preferences.subtitleBottomPaddingFraction,
-                )
+                it.withSubtitleStyleFrom(preferences)
             }
         }
     }

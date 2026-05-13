@@ -117,6 +117,15 @@ data class PlayerPreferences(
     }
 }
 
+fun PlayerPreferences.withSubtitleStyleFrom(preferences: PlayerPreferences): PlayerPreferences = copy(
+    shouldUseBoldSubtitleText = preferences.shouldUseBoldSubtitleText,
+    subtitleTextSize = preferences.subtitleTextSize,
+    shouldShowSubtitleBackground = preferences.shouldShowSubtitleBackground,
+    subtitleColor = preferences.subtitleColor,
+    subtitleEdgeStyle = preferences.subtitleEdgeStyle,
+    subtitleBottomPaddingFraction = preferences.subtitleBottomPaddingFraction,
+)
+
 @Serializable
 @Suppress("MagicNumber")
 enum class PlayerControl {
