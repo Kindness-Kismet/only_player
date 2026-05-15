@@ -1,8 +1,11 @@
 package one.next.player.core.ui.extensions
 
 import androidx.compose.foundation.layout.PaddingValues
+import androidx.compose.foundation.layout.WindowInsets
+import androidx.compose.foundation.layout.asPaddingValues
 import androidx.compose.foundation.layout.calculateEndPadding
 import androidx.compose.foundation.layout.calculateStartPadding
+import androidx.compose.foundation.layout.navigationBars
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.platform.LocalLayoutDirection
 import androidx.compose.ui.unit.Dp
@@ -29,8 +32,10 @@ fun PaddingValues.copy(
 @Composable
 fun PaddingValues.withBottomFallback(
     fallback: Dp = 24.dp,
-): PaddingValues = copy(
-    bottom = calculateBottomPadding() + fallback.takeIf { calculateBottomPadding() == 0.dp }.orZero(),
-)
-
-private fun Dp?.orZero(): Dp = this ?: 0.dp
+): PaddingValues {
+    val bottomPadding = calculateBottomPadding()
+    val navigationBarBottomPadding = WindowInsets.navigationBars.asPaddingValues().calculateBottomPadding()
+    return copy(
+        bottom = maxOf(bottomPadding, navigationBarBottomPadding) + fallback,
+    )
+}

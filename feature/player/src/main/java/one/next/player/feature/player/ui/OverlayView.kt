@@ -9,6 +9,7 @@ import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.BoxScope
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.ColumnScope
+import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.WindowInsets
 import androidx.compose.foundation.layout.asPaddingValues
@@ -33,6 +34,7 @@ import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
+import one.next.player.core.ui.extensions.withBottomFallback
 import one.next.player.core.ui.theme.OnePlayerTheme
 
 @Composable
@@ -41,9 +43,11 @@ fun BoxScope.OverlayView(
     shouldShow: Boolean,
     title: String,
     testTag: String? = null,
+    contentPadding: PaddingValues = PaddingValues(),
     content: @Composable ColumnScope.() -> Unit,
 ) {
     val configuration = LocalConfiguration.current
+    val resolvedContentPadding = contentPadding.withBottomFallback()
     val layoutDirection = LocalLayoutDirection.current
     val endPadding = WindowInsets.safeDrawing
         .asPaddingValues()
@@ -88,6 +92,7 @@ fun BoxScope.OverlayView(
             Column(
                 modifier = Modifier
                     .fillMaxSize()
+                    .padding(resolvedContentPadding)
                     .padding(top = 24.dp)
                     .padding(end = endPadding),
             ) {

@@ -9,6 +9,7 @@ import androidx.compose.foundation.layout.calculateStartPadding
 import androidx.compose.foundation.layout.displayCutout
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.navigationBarsPadding
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
@@ -113,7 +114,8 @@ internal fun CloudHomeScreen(
             FloatingActionButton(
                 onClick = { shouldShowAddDialog = true },
                 modifier = Modifier
-                    .padding(end = 16.dp, bottom = 16.dp)
+                    .navigationBarsPadding()
+                    .padding(end = 16.dp, bottom = 24.dp)
                     .testTag("cloud_add_server_fab"),
             ) {
                 Icon(

@@ -140,8 +140,9 @@ private fun LogsBottomBar(
                     strokeWidth = Dp.Hairline.value,
                 )
             }
-            .padding(8.dp)
-            .navigationBarsPadding(),
+            .navigationBarsPadding()
+            .padding(horizontal = 8.dp)
+            .padding(top = 8.dp, bottom = 24.dp),
         verticalArrangement = Arrangement.spacedBy(2.dp),
     ) {
         Row(horizontalArrangement = Arrangement.spacedBy(4.dp)) {

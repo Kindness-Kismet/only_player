@@ -88,6 +88,7 @@ import one.next.player.core.ui.composables.PermissionMissingView
 import one.next.player.core.ui.composables.rememberRuntimePermissionState
 import one.next.player.core.ui.designsystem.NextIcons
 import one.next.player.core.ui.extensions.copy
+import one.next.player.core.ui.extensions.withBottomFallback
 import one.next.player.core.ui.preview.DayNightPreview
 import one.next.player.core.ui.preview.VideoPickerPreviewParameterProvider
 import one.next.player.core.ui.theme.OnePlayerTheme
@@ -482,7 +483,7 @@ internal fun MediaPickerScreen(
                                 isRefreshing = uiState.isRefreshing,
                                 onRefresh = { onEvent(MediaPickerUiEvent.Refresh) },
                             ) {
-                                val updatedScaffoldPadding = scaffoldPadding.copy(top = 0.dp, start = 0.dp)
+                                val updatedScaffoldPadding = scaffoldPadding.copy(top = 0.dp, start = 0.dp).withBottomFallback()
                                 val rootFolder = uiState.mediaDataState.value
                                 if (rootFolder == null || rootFolder.folderList.isEmpty() && rootFolder.mediaList.isEmpty()) {
                                     NoVideosFound(contentPadding = updatedScaffoldPadding)
@@ -783,7 +784,8 @@ private fun SelectionActionsSheet(
             modifier = Modifier
                 .fillMaxWidth()
                 .navigationBarsPadding()
-                .padding(horizontal = 40.dp, vertical = 6.dp),
+                .padding(horizontal = 40.dp)
+                .padding(top = 6.dp, bottom = 24.dp),
         ) {
             Surface(
                 modifier = Modifier.fillMaxWidth(),

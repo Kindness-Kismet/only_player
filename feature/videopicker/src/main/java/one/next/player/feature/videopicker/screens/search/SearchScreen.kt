@@ -67,6 +67,7 @@ import one.next.player.core.ui.components.NextTopAppBar
 import one.next.player.core.ui.designsystem.NextIcons
 import one.next.player.core.ui.extensions.copy
 import one.next.player.core.ui.extensions.plus
+import one.next.player.core.ui.extensions.withBottomFallback
 import one.next.player.core.ui.theme.OnePlayerTheme
 import one.next.player.feature.videopicker.composables.FolderItem
 import one.next.player.feature.videopicker.composables.MediaView
@@ -185,7 +186,7 @@ internal fun SearchScreen(
                     .clip(RoundedCornerShape(topStart = 24.dp, topEnd = 24.dp))
                     .background(MaterialTheme.colorScheme.background),
             ) {
-                val updatedScaffoldPadding = scaffoldPadding.copy(top = 0.dp, start = 0.dp)
+                val updatedScaffoldPadding = scaffoldPadding.copy(top = 0.dp, start = 0.dp).withBottomFallback()
                 if (uiState.query.isBlank()) {
                     SuggestionsContent(
                         searchHistory = uiState.searchHistory,
