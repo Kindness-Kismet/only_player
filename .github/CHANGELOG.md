@@ -1,16 +1,12 @@
-- 修复 ASS 字幕渲染导致的视频黑屏和拉伸问题
-- 修复播放器暂停时顶部状态栏黑条问题
-- 增强氛围模式背景效果，让封面模糊背景更明显
-- 改进播放器内解码器切换，新增 AT 模式并通过对话框选择 AT、HW、HW+、SW
-- 修复切换解码器后画面黑屏问题
+- 修复 ASS 字幕使用 Arial 等常见字体时英文空格丢失和显示发虚的问题
+- 修复本地 ASS 字幕文件无法在文件选择器中显示的问题，并改进同名字幕自动匹配
+- 优化字幕垂直位置设置文案，明确该选项只调整上下位置
 
 <details>
 <summary>English Version</summary>
 
-- Fix video black screen and stretch issues caused by ASS subtitle rendering
-- Fix the top status bar black bar when the player is paused
-- Improve ambience mode background visibility with a clearer blurred artwork backdrop
-- Improve in-player decoder switching with an AT mode and a dialog for AT, HW, HW+, and SW
-- Fix the black screen after switching decoder modes
+- Fix missing spaces and blurry rendering in ASS subtitles that use common fonts such as Arial
+- Fix local ASS subtitle files not appearing in the file picker and improve matching for same-name subtitles
+- Clarify the subtitle vertical position setting label to show that it only adjusts vertical placement
 
 </details>
