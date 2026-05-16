@@ -745,6 +745,8 @@ class DebugCommandProvider : ContentProvider() {
             PlayerDebugCommandBridge.ACTION_BACK,
             PlayerDebugCommandBridge.ACTION_ROTATE,
             PlayerDebugCommandBridge.ACTION_TOGGLE_AMBIENCE,
+            PlayerDebugCommandBridge.ACTION_SHOW_CONTROLS,
+            PlayerDebugCommandBridge.ACTION_HIDE_CONTROLS,
             PlayerDebugCommandBridge.ACTION_SHOW_PLAYLIST,
             PlayerDebugCommandBridge.ACTION_SHOW_SPEED,
             PlayerDebugCommandBridge.ACTION_SHOW_AUDIO,

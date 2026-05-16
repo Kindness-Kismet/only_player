@@ -202,6 +202,11 @@ jobs:
         with:
           validate-wrappers: true
 
+      - name: 配置 Python
+        uses: actions/setup-python@v6
+        with:
+          python-version: '3.x'
+
       - name: 准备签名文件
         id: signing
         shell: bash
@@ -225,17 +230,17 @@ jobs:
 
       - name: 构建已签名正式版
         shell: bash
-        run: |
-          bash ./gradlew clean assembleRelease -PabiFilter=${{ matrix.abi }} \
-            -Pandroid.injected.signing.store.file="${{ steps.signing.outputs.keystore_path }}" \
-            -Pandroid.injected.signing.store.password="${{ secrets.KEYSTORE_PASSWORD }}" \
-            -Pandroid.injected.signing.key.alias="${{ secrets.KEY_ALIAS }}" \
-            -Pandroid.injected.signing.key.password="${{ secrets.KEY_PASSWORD }}"
+        env:
+          KEYSTORE_PATH: ${{ steps.signing.outputs.keystore_path }}
+          KEYSTORE_PASSWORD: ${{ secrets.KEYSTORE_PASSWORD }}
+          KEY_ALIAS: ${{ secrets.KEY_ALIAS }}
+          KEY_PASSWORD: ${{ secrets.KEY_PASSWORD }}
+        run: python scripts/build.py build-apk --abi ${{ matrix.abi }} --clean
 
       - name: 校验构建产物
         shell: bash
         run: |
-          required_file="app/build/outputs/apk/release/app-${{ matrix.abi }}-release.apk"
+          required_file="build/apk/One-Player-${{ matrix.abi }}-${{ needs.prepare.outputs.release_version }}.apk"
           if [ ! -f "${required_file}" ]; then
             echo "::error::缺少构建产物：${required_file}"
             exit 1
@@ -243,17 +248,11 @@ jobs:
 
           echo "✅ 构建产物校验通过"
 
-      - name: 整理发布产物
-        run: |
-          mkdir -p build/output
-          cp "app/build/outputs/apk/release/app-${{ matrix.abi }}-release.apk" \
-            "build/output/one-player-v${{ needs.prepare.outputs.release_version }}-${{ matrix.abi }}.apk"
-
       - name: 上传发布产物
         uses: actions/upload-artifact@v7
         with:
           name: one-player-release-${{ needs.prepare.outputs.release_version }}-${{ matrix.abi }}
-          path: build/output/
+          path: build/apk/
 
   release:
     name: 创建 GitHub 发布

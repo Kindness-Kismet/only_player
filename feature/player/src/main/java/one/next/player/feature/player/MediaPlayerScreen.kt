@@ -572,6 +572,8 @@ internal fun MediaPlayerScreen(
                 isAmbienceModeEnabled = !isAmbienceModeEnabled
                 controlsVisibilityState.showControls()
             }
+            PlayerDebugCommandBridge.ACTION_SHOW_CONTROLS -> controlsVisibilityState.showControls()
+            PlayerDebugCommandBridge.ACTION_HIDE_CONTROLS -> controlsVisibilityState.hideControls()
             PlayerDebugCommandBridge.ACTION_SHOW_PLAYLIST -> {
                 overlayView = OverlayView.PLAYLIST
                 controlsVisibilityState.hideControls()
