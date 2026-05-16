@@ -107,20 +107,22 @@ fun QuickSettingsDialog(
                         }
                     }
                 }
-                MediaLayoutScaleControls(
-                    scale = preferences.normalizedMediaLayoutScale(),
-                    onResetClick = { preferences = preferences.withMediaLayoutScale(ApplicationPreferences.DEFAULT_MEDIA_LAYOUT_SCALE) },
-                    onDecreaseClick = {
-                        preferences = preferences.withMediaLayoutScale(
-                            preferences.mediaLayoutScale - ApplicationPreferences.MEDIA_LAYOUT_SCALE_STEP,
-                        )
-                    },
-                    onIncreaseClick = {
-                        preferences = preferences.withMediaLayoutScale(
-                            preferences.mediaLayoutScale + ApplicationPreferences.MEDIA_LAYOUT_SCALE_STEP,
-                        )
-                    },
-                )
+                if (preferences.mediaLayoutMode == MediaLayoutMode.GRID) {
+                    MediaLayoutScaleControls(
+                        scale = preferences.normalizedMediaLayoutScale(),
+                        onResetClick = { preferences = preferences.withMediaLayoutScale(ApplicationPreferences.DEFAULT_MEDIA_LAYOUT_SCALE) },
+                        onDecreaseClick = {
+                            preferences = preferences.withMediaLayoutScale(
+                                preferences.mediaLayoutScale - ApplicationPreferences.MEDIA_LAYOUT_SCALE_STEP,
+                            )
+                        },
+                        onIncreaseClick = {
+                            preferences = preferences.withMediaLayoutScale(
+                                preferences.mediaLayoutScale + ApplicationPreferences.MEDIA_LAYOUT_SCALE_STEP,
+                            )
+                        },
+                    )
+                }
                 HorizontalDivider(modifier = Modifier.padding(top = 16.dp))
                 DialogSectionTitle(text = stringResource(R.string.sort))
                 SortOptions(
