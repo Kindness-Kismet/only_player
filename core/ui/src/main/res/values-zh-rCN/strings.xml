@@ -260,6 +260,7 @@
     <string name="online_subtitle_too_large">在线字幕过大（最大 10MB）</string>
     <string name="online_subtitle_empty">在线字幕为空</string>
     <string name="online_subtitle_download_failed">下载在线字幕失败</string>
+    <string name="local_subtitle_unsupported">不支持的字幕文件</string>
     <string name="no_subtitle_tracks_found">此视频的字幕不可用或不受支持</string>
     <string name="no_audio_tracks_found">此视频的音轨不可用或不受支持</string>
     <string name="rename_to">重命名为</string>

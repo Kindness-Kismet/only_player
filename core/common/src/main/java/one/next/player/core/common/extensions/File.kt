@@ -49,14 +49,13 @@ fun String.getThumbnail(): File? {
     return null
 }
 
-fun File.isSubtitle(): Boolean {
-    val subtitleExtensions = listOf("srt", "ssa", "ass", "vtt", "ttml")
-    return extension.lowercase() in subtitleExtensions
-}
+fun File.isSubtitle(): Boolean = extension.isSubtitleExtension()
+
+fun String.isSubtitleExtension(): Boolean = lowercase() in SUBTITLE_EXTENSIONS
 
 fun String.matchesSubtitleBase(videoName: String): Boolean {
     val subtitleBase = substringBeforeLast('.', missingDelimiterValue = this)
-    return subtitleBase == videoName || subtitleBase.startsWith("$videoName.", ignoreCase = true)
+    return subtitleBase.equals(videoName, ignoreCase = true) || subtitleBase.startsWith("$videoName.", ignoreCase = true)
 }
 
 fun File.deleteFiles() {
@@ -105,3 +104,5 @@ fun Iterable<String>.excludeNoMediaPaths(): List<String> = filterNot { path ->
 
 val File.prettyName: String
     get() = this.name.takeIf { this.path != Environment.getExternalStorageDirectory()?.path } ?: "Internal Storage"
+
+private val SUBTITLE_EXTENSIONS = setOf("srt", "ssa", "ass", "vtt", "ttml")

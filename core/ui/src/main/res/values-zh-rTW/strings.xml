@@ -258,6 +258,7 @@
     <string name="online_subtitle_too_large">線上字幕檔案過大（最大 10MB）</string>
     <string name="online_subtitle_empty">線上字幕為空</string>
     <string name="online_subtitle_download_failed">下載線上字幕失敗</string>
+    <string name="local_subtitle_unsupported">不支援的字幕檔案</string>
     <string name="no_subtitle_tracks_found">該影片的字幕軌道不可用或不受支援。</string>
     <string name="no_audio_tracks_found">該影片的音軌不可用或不受支援。</string>
     <string name="rename">重新命名</string>

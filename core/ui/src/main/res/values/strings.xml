@@ -267,6 +267,7 @@
     <string name="online_subtitle_too_large">Online subtitle is too large (max 10MB)</string>
     <string name="online_subtitle_empty">Online subtitle is empty</string>
     <string name="online_subtitle_download_failed">Failed to download online subtitle</string>
+    <string name="local_subtitle_unsupported">Unsupported subtitle file</string>
     <string name="no_subtitle_tracks_found">Subtitle tracks for this video are either unavailable or not supported.</string>
     <string name="no_audio_tracks_found">Audio tracks for this video are either unavailable or not supported.</string>
     <string name="rename">Rename</string>

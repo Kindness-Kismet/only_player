@@ -42,7 +42,6 @@ import androidx.lifecycle.lifecycleScope
 import androidx.media3.common.C
 import androidx.media3.common.MediaItem
 import androidx.media3.common.MediaMetadata
-import androidx.media3.common.MimeTypes
 import androidx.media3.common.Player
 import androidx.media3.session.MediaController
 import androidx.media3.session.SessionToken
@@ -66,7 +65,9 @@ import one.next.player.core.common.Logger
 import one.next.player.core.common.extensions.applyNavigationBarStyle
 import one.next.player.core.common.extensions.applyPrivacyProtection
 import one.next.player.core.common.extensions.canonicalPathOrSelf
+import one.next.player.core.common.extensions.getFilenameFromUri
 import one.next.player.core.common.extensions.getMediaContentUri
+import one.next.player.core.common.extensions.isSubtitleExtension
 import one.next.player.core.common.extensions.resolvePrivacyPreviewScrim
 import one.next.player.core.common.extensions.scanFileForContentUri
 import one.next.player.core.common.storagePermission
@@ -166,6 +167,8 @@ class PlayerActivity : AppCompatActivity() {
 
     companion object {
         private const val TAG = "PlayerActivity"
+
+        private val SUBTITLE_DOCUMENT_MIME_TYPES = arrayOf("*/*")
     }
 
     @Inject
@@ -269,15 +272,7 @@ class PlayerActivity : AppCompatActivity() {
                         lifecycleScope.launch {
                             val uri = subtitleFileSuspendLauncher.launch(
                                 OpenDocumentWithInitialUri.Input(
-                                    mimeTypes = arrayOf(
-                                        MimeTypes.APPLICATION_SUBRIP,
-                                        MimeTypes.APPLICATION_TTML,
-                                        MimeTypes.TEXT_VTT,
-                                        MimeTypes.TEXT_SSA,
-                                        MimeTypes.BASE_TYPE_APPLICATION + "/octet-stream",
-                                        MimeTypes.BASE_TYPE_TEXT + "/*",
-                                        MimeTypes.BASE_TYPE_AUDIO + "/aac",
-                                    ),
+                                    mimeTypes = SUBTITLE_DOCUMENT_MIME_TYPES,
                                     initialUri = IntentCompat.getParcelableExtra(
                                         intent,
                                         "initial_subtitle_directory_uri",
@@ -285,6 +280,10 @@ class PlayerActivity : AppCompatActivity() {
                                     ),
                                 ),
                             ) ?: return@launch
+                            if (!isSupportedSubtitleDocument(uri)) {
+                                showToast(one.next.player.core.ui.R.string.local_subtitle_unsupported)
+                                return@launch
+                            }
                             contentResolver.takePersistableUriPermission(uri, Intent.FLAG_GRANT_READ_URI_PERMISSION)
                             maybeInitControllerFuture()
                             controllerFuture?.await()?.addSubtitleTrack(uri)
@@ -427,6 +426,12 @@ class PlayerActivity : AppCompatActivity() {
 
     private fun showToast(messageResId: Int) {
         Toast.makeText(this@PlayerActivity, messageResId, Toast.LENGTH_SHORT).show()
+    }
+
+    private fun isSupportedSubtitleDocument(uri: Uri): Boolean {
+        val fileName = getFilenameFromUri(uri)
+        val extension = fileName.substringAfterLast('.', missingDelimiterValue = "")
+        return extension.isSubtitleExtension()
     }
 
     private fun String.toLogSummary(): String {
