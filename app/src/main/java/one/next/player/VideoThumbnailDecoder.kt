@@ -149,6 +149,15 @@ class VideoThumbnailDecoder(
             )
         }
 
+        tryLoadSystemThumbnail()?.let { systemBitmap ->
+            logThumbnail { "systemThumbnail fallback strategy=${strategy.logName} key=$key" }
+            val bitmap = writeToDiskCache(systemBitmap)
+            return DecodeResult(
+                image = bitmap.toDrawable(options.context.resources).asImage(),
+                isSampled = true,
+            )
+        }
+
         logThumbnail { "decode fail strategy=${strategy.logName} key=$key" }
         throw IllegalStateException("Failed to get video thumbnail for key=$key")
     }
