@@ -240,7 +240,7 @@ jobs:
       - name: 校验构建产物
         shell: bash
         run: |
-          required_file="build/apk/One-Player-${{ matrix.abi }}-${{ needs.prepare.outputs.release_version }}.apk"
+          required_file="build/apk/Only-Player-${{ matrix.abi }}-${{ needs.prepare.outputs.release_version }}.apk"
           if [ ! -f "${required_file}" ]; then
             echo "::error::缺少构建产物：${required_file}"
             exit 1
@@ -251,7 +251,7 @@ jobs:
       - name: 上传发布产物
         uses: actions/upload-artifact@v7
         with:
-          name: one-player-release-${{ needs.prepare.outputs.release_version }}-${{ matrix.abi }}
+          name: Only-Player-release-${{ needs.prepare.outputs.release_version }}-${{ matrix.abi }}
           path: build/apk/
 
   release:
@@ -282,7 +282,7 @@ jobs:
       - name: 下载所有构建产物
         uses: actions/download-artifact@v8
         with:
-          pattern: one-player-release-${{ needs.prepare.outputs.release_version }}-*
+          pattern: Only-Player-release-${{ needs.prepare.outputs.release_version }}-*
           path: release
           merge-multiple: true
 
@@ -300,6 +300,6 @@ jobs:
           files: release/*.apk
           overwrite_files: true
           draft: false
-          name: One Player ${{ needs.prepare.outputs.release_tag }}
+          name: Only Player ${{ needs.prepare.outputs.release_tag }}
           body_path: release_notes.md
           tag_name: ${{ needs.prepare.outputs.release_tag }}
