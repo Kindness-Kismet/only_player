@@ -1192,13 +1192,13 @@ private fun AmbienceBackground(
         contentScale = ContentScale.Crop,
         modifier = modifier
             .fillMaxSize()
-            .blur(72.dp),
-        alpha = 0.55f,
+            .blur(48.dp),
+        alpha = 0.9f,
     )
     Box(
         modifier = modifier
             .fillMaxSize()
-            .background(Color.Black.copy(alpha = 0.62f)),
+            .background(Color.Black.copy(alpha = 0.42f)),
     )
 }
 
