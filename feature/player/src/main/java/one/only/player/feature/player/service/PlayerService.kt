@@ -530,13 +530,13 @@ class PlayerService : MediaSessionService() {
                     metadata.subtitleTrackIndex in textTracks.indices -> player.switchTrack(C.TRACK_TYPE_TEXT, metadata.subtitleTrackIndex!!)
                     else -> player.switchTrack(C.TRACK_TYPE_TEXT, findBestSubtitleTrackIndex(textTracks))
                 }
-            } else {
-                val currentMediaItem = player.currentMediaItem ?: return
-                loadExternalSubtitlesForCurrentItem(
-                    mediaId = currentMediaItem.mediaId,
-                    requestHeaders = currentMediaItem.mediaMetadata.requestHeaders,
-                )
             }
+            // 与内置字幕并存：同目录外部字幕（如 ass）仍需扫描合并
+            val currentMediaItem = player.currentMediaItem ?: return
+            loadExternalSubtitlesForCurrentItem(
+                mediaId = currentMediaItem.mediaId,
+                requestHeaders = currentMediaItem.mediaMetadata.requestHeaders,
+            )
         }
 
         override fun onTrackSelectionParametersChanged(parameters: TrackSelectionParameters) {
