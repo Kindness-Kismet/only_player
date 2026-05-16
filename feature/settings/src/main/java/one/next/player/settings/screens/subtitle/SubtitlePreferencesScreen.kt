@@ -26,10 +26,9 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.res.stringArrayResource
 import androidx.compose.ui.res.stringResource
-import androidx.compose.ui.semantics.contentDescription
-import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.tooling.preview.PreviewLightDark
 import androidx.compose.ui.unit.dp
 import androidx.hilt.lifecycle.viewmodel.compose.hiltViewModel
@@ -130,6 +129,7 @@ private fun SubtitlePreferencesContent(
                 verticalArrangement = Arrangement.spacedBy(ListItemDefaults.SegmentedGap),
             ) {
                 PreferenceSwitch(
+                    modifier = Modifier.testTag("switch_settings_subtitle_auto_load"),
                     title = stringResource(id = R.string.subtitle_auto_load),
                     description = stringResource(id = R.string.subtitle_auto_load_desc),
                     icon = NextIcons.Subtitle,
@@ -138,6 +138,7 @@ private fun SubtitlePreferencesContent(
                     isFirstItem = true,
                 )
                 ClickablePreferenceItem(
+                    modifier = Modifier.testTag("item_settings_subtitle_language"),
                     title = stringResource(id = R.string.preferred_subtitle_lang),
                     description = LocalesHelper.getLocaleDisplayLanguage(uiState.preferences.preferredSubtitleLanguage)
                         .takeIf { it.isNotBlank() } ?: stringResource(R.string.preferred_subtitle_lang_description),
@@ -146,6 +147,7 @@ private fun SubtitlePreferencesContent(
                     onClick = { onEvent(SubtitlePreferencesUiEvent.ShowDialog(SubtitlePreferenceDialog.SubtitleLanguageDialog)) },
                 )
                 ClickablePreferenceItem(
+                    modifier = Modifier.testTag("item_settings_subtitle_encoding"),
                     title = stringResource(R.string.subtitle_text_encoding),
                     description = charsetResource.first { it.contains(uiState.preferences.subtitleTextEncoding) },
                     icon = NextIcons.Subtitle,
@@ -159,6 +161,8 @@ private fun SubtitlePreferencesContent(
                 verticalArrangement = Arrangement.spacedBy(ListItemDefaults.SegmentedGap),
             ) {
                 PreferenceSwitchWithDivider(
+                    modifier = Modifier.testTag("item_settings_subtitle_system_caption_style"),
+                    switchModifier = Modifier.testTag("switch_settings_subtitle_system_caption_style"),
                     title = stringResource(R.string.system_caption_style),
                     description = stringResource(R.string.system_caption_style_desc),
                     icon = NextIcons.Caption,
@@ -168,6 +172,7 @@ private fun SubtitlePreferencesContent(
                     isFirstItem = true,
                 )
                 PreferenceSwitch(
+                    modifier = Modifier.testTag("switch_settings_subtitle_embedded_styles"),
                     title = stringResource(R.string.embedded_styles),
                     description = stringResource(R.string.embedded_styles_desc),
                     icon = NextIcons.Style,
@@ -191,6 +196,7 @@ private fun SubtitlePreferencesContent(
                 verticalArrangement = Arrangement.spacedBy(ListItemDefaults.SegmentedGap),
             ) {
                 ClickablePreferenceItem(
+                    modifier = Modifier.testTag("item_settings_subtitle_font"),
                     title = stringResource(id = R.string.subtitle_font),
                     description = uiState.preferences.subtitleFont.name(),
                     icon = NextIcons.Font,
@@ -199,27 +205,24 @@ private fun SubtitlePreferencesContent(
                     isFirstItem = true,
                 )
                 ClickablePreferenceItem(
+                    modifier = Modifier.testTag("item_settings_subtitle_import_external_font"),
                     title = stringResource(id = R.string.external_subtitle_font_import),
                     description = stringResource(id = R.string.external_subtitle_font_import_desc),
                     icon = NextIcons.FileOpen,
-                    modifier = Modifier.semantics {
-                        contentDescription = "subtitle_import_external_font"
-                    },
                     onClick = { onEvent(SubtitlePreferencesUiEvent.ImportExternalSubtitleFont) },
                 )
                 ClickablePreferenceItem(
+                    modifier = Modifier.testTag("item_settings_subtitle_current_external_font"),
                     title = stringResource(id = R.string.external_subtitle_font_current),
                     description = uiState.externalFontName.ifBlank { stringResource(id = R.string.external_subtitle_font_not_imported) },
                     icon = NextIcons.Font,
                     isEnabled = false,
                 )
                 ClickablePreferenceItem(
+                    modifier = Modifier.testTag("item_settings_subtitle_clear_external_font"),
                     title = stringResource(id = R.string.external_subtitle_font_clear),
                     description = stringResource(id = R.string.external_subtitle_font_clear_desc),
                     icon = NextIcons.DeleteSweep,
-                    modifier = Modifier.semantics {
-                        contentDescription = "subtitle_clear_external_font"
-                    },
                     isEnabled = uiState.isExternalFontAvailable,
                     onClick = { onEvent(SubtitlePreferencesUiEvent.ClearExternalSubtitleFont) },
                     isLastItem = true,
@@ -242,6 +245,7 @@ private fun SubtitlePreferencesContent(
                     ) {
                         items(languages) {
                             RadioTextButton(
+                                modifier = Modifier.testTag("option_settings_subtitle_language_${it.second.ifBlank { "none" }}"),
                                 text = it.first,
                                 isSelected = it.second == uiState.preferences.preferredSubtitleLanguage,
                                 onClick = {
@@ -260,6 +264,7 @@ private fun SubtitlePreferencesContent(
                     ) {
                         items(Font.entries.toTypedArray()) {
                             RadioTextButton(
+                                modifier = Modifier.testTag("option_settings_subtitle_font_${it.name.lowercase()}"),
                                 text = it.name(),
                                 isSelected = it == uiState.preferences.subtitleFont,
                                 onClick = {
@@ -280,6 +285,7 @@ private fun SubtitlePreferencesContent(
                             val currentCharset = it.substringAfterLast("(", "").removeSuffix(")")
                             if (currentCharset.isEmpty() || Charset.isSupported(currentCharset)) {
                                 RadioTextButton(
+                                    modifier = Modifier.testTag("option_settings_subtitle_encoding_$currentCharset"),
                                     text = it,
                                     isSelected = currentCharset == uiState.preferences.subtitleTextEncoding,
                                     onClick = {

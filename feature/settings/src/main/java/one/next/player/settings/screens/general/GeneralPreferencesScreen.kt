@@ -25,6 +25,7 @@ import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.unit.dp
 import androidx.hilt.lifecycle.viewmodel.compose.hiltViewModel
@@ -124,6 +125,7 @@ private fun GeneralPreferencesContent(
                 verticalArrangement = Arrangement.spacedBy(ListItemDefaults.SegmentedGap),
             ) {
                 ClickablePreferenceItem(
+                    modifier = Modifier.testTag("item_settings_general_backup_settings"),
                     title = stringResource(R.string.backup_settings),
                     description = stringResource(R.string.backup_settings_description),
                     icon = NextIcons.FileOpen,
@@ -131,18 +133,21 @@ private fun GeneralPreferencesContent(
                     isFirstItem = true,
                 )
                 ClickablePreferenceItem(
+                    modifier = Modifier.testTag("item_settings_general_restore_settings"),
                     title = stringResource(R.string.restore_settings),
                     description = stringResource(R.string.restore_settings_description),
                     icon = NextIcons.History,
                     onClick = { onEvent(GeneralPreferencesUiEvent.RestoreSettings) },
                 )
                 ClickablePreferenceItem(
+                    modifier = Modifier.testTag("item_settings_general_clear_thumbnail_cache"),
                     title = stringResource(R.string.delete_thumbnail_cache),
                     description = stringResource(R.string.delete_thumbnail_cache_description),
                     icon = NextIcons.DeleteSweep,
                     onClick = { onEvent(GeneralPreferencesUiEvent.ShowDialog(GeneralPreferencesDialog.ClearThumbnailCacheDialog)) },
                 )
                 ClickablePreferenceItem(
+                    modifier = Modifier.testTag("item_settings_general_reset_settings"),
                     title = stringResource(R.string.reset_settings),
                     description = stringResource(R.string.reset_settings_description),
                     icon = NextIcons.Delete,
@@ -165,6 +170,7 @@ private fun GeneralPreferencesContent(
                         },
                         confirmButton = {
                             TextButton(
+                                modifier = Modifier.testTag("btn_confirm_settings_general_clear_thumbnail_cache"),
                                 onClick = {
                                     onEvent(GeneralPreferencesUiEvent.ClearThumbnailCache)
                                     onEvent(GeneralPreferencesUiEvent.ShowDialog(null))
@@ -193,6 +199,7 @@ private fun GeneralPreferencesContent(
                         },
                         confirmButton = {
                             TextButton(
+                                modifier = Modifier.testTag("btn_confirm_settings_general_reset_settings"),
                                 onClick = {
                                     onEvent(GeneralPreferencesUiEvent.ResetSettings)
                                     onEvent(GeneralPreferencesUiEvent.ShowDialog(null))

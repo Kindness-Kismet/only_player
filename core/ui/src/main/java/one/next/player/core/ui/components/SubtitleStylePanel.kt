@@ -28,7 +28,7 @@ fun SubtitleStylePanel(
         verticalArrangement = Arrangement.spacedBy(ListItemDefaults.SegmentedGap),
     ) {
         PreferenceSwitch(
-            modifier = Modifier.testTag("switch_subtitle_bold"),
+            modifier = Modifier.testTag("switch_settings_subtitle_bold"),
             title = stringResource(id = R.string.subtitle_text_bold),
             description = stringResource(id = R.string.subtitle_text_bold_desc),
             icon = NextIcons.Bold,
@@ -38,7 +38,8 @@ fun SubtitleStylePanel(
             isFirstItem = true,
         )
         PreferenceSlider(
-            modifier = Modifier.testTag("slider_subtitle_text_size"),
+            modifier = Modifier.testTag("item_settings_subtitle_size"),
+            sliderModifier = Modifier.testTag("slider_settings_subtitle_size"),
             title = stringResource(id = R.string.subtitle_text_size),
             description = preferences.subtitleTextSize.toString(),
             icon = NextIcons.FontSize,
@@ -48,6 +49,7 @@ fun SubtitleStylePanel(
             onValueChange = { onPreferencesChange(preferences.copy(subtitleTextSize = it.toInt())) },
             trailingContent = {
                 FilledIconButton(
+                    modifier = Modifier.testTag("btn_reset_settings_subtitle_size"),
                     enabled = isEnabled,
                     onClick = {
                         onPreferencesChange(
@@ -63,8 +65,8 @@ fun SubtitleStylePanel(
             },
         )
         PreferenceSlider(
-            modifier = Modifier.testTag("item_subtitle_position"),
-            sliderModifier = Modifier.testTag("slider_subtitle_position"),
+            modifier = Modifier.testTag("item_settings_subtitle_bottom_padding"),
+            sliderModifier = Modifier.testTag("slider_settings_subtitle_bottom_padding"),
             title = stringResource(id = R.string.subtitle_position),
             description = "${(preferences.subtitleBottomPaddingFraction * 100).roundToInt()}%",
             icon = NextIcons.Length,
@@ -74,6 +76,7 @@ fun SubtitleStylePanel(
             onValueChange = { onPreferencesChange(preferences.copy(subtitleBottomPaddingFraction = it)) },
             trailingContent = {
                 FilledIconButton(
+                    modifier = Modifier.testTag("btn_reset_settings_subtitle_bottom_padding"),
                     enabled = isEnabled,
                     onClick = {
                         onPreferencesChange(
@@ -91,7 +94,7 @@ fun SubtitleStylePanel(
             },
         )
         PreferenceSwitch(
-            modifier = Modifier.testTag("switch_subtitle_background"),
+            modifier = Modifier.testTag("switch_settings_subtitle_background"),
             title = stringResource(id = R.string.subtitle_background),
             description = stringResource(id = R.string.subtitle_background_desc),
             icon = NextIcons.Background,
@@ -100,7 +103,7 @@ fun SubtitleStylePanel(
             onClick = { onPreferencesChange(preferences.copy(shouldShowSubtitleBackground = !preferences.shouldShowSubtitleBackground)) },
         )
         ClickablePreferenceItem(
-            modifier = Modifier.testTag("item_subtitle_text_color"),
+            modifier = Modifier.testTag("item_settings_subtitle_color"),
             title = stringResource(id = R.string.subtitle_text_color),
             description = preferences.subtitleColor.displayName(),
             icon = NextIcons.Appearance,
@@ -108,7 +111,7 @@ fun SubtitleStylePanel(
             onClick = { onPreferencesChange(preferences.copy(subtitleColor = preferences.subtitleColor.next())) },
         )
         ClickablePreferenceItem(
-            modifier = Modifier.testTag("item_subtitle_edge_style"),
+            modifier = Modifier.testTag("item_settings_subtitle_edge_style"),
             title = stringResource(id = R.string.subtitle_edge_style),
             description = preferences.subtitleEdgeStyle.displayName(),
             icon = NextIcons.Style,

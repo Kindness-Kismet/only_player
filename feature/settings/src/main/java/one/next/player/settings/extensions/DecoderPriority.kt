@@ -8,7 +8,8 @@ import one.next.player.core.ui.R
 @Composable
 fun DecoderPriority.name(): String {
     val stringRes = when (this) {
-        DecoderPriority.AUTOMATIC -> R.string.at_decoder
+        DecoderPriority.AUTOMATIC -> R.string.auto_hw_decoder
+        DecoderPriority.AUTOMATIC_PREFER_DEVICE -> R.string.auto_hw_plus_decoder
         DecoderPriority.DEVICE_ONLY -> R.string.hw_decoder
         DecoderPriority.PREFER_DEVICE -> R.string.hw_plus_decoder
         DecoderPriority.PREFER_APP -> R.string.sw_decoder

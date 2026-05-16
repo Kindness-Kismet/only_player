@@ -104,7 +104,10 @@ fun SettingsScreen(
                             {}
                         },
                         actions = {
-                            FilledTonalIconButton(onClick = { isSearchActive = true }) {
+                            FilledTonalIconButton(
+                                modifier = Modifier.testTag("btn_settings_search"),
+                                onClick = { isSearchActive = true },
+                            ) {
                                 Icon(
                                     imageVector = NextIcons.Search,
                                     contentDescription = stringResource(R.string.search),
@@ -185,10 +188,13 @@ private fun SettingsSearchBar(
         },
         actions = {
             if (query.isNotEmpty()) {
-                IconButton(onClick = { onQueryChange("") }) {
+                IconButton(
+                    modifier = Modifier.testTag("btn_settings_search_clear"),
+                    onClick = { onQueryChange("") },
+                ) {
                     Icon(
                         imageVector = NextIcons.Close,
-                        contentDescription = null,
+                        contentDescription = stringResource(R.string.search),
                     )
                 }
             }

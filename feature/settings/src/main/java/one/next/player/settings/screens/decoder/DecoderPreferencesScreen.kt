@@ -93,6 +93,7 @@ private fun DecoderPreferencesContent(
                 verticalArrangement = Arrangement.spacedBy(ListItemDefaults.SegmentedGap),
             ) {
                 ClickablePreferenceItem(
+                    modifier = Modifier.testTag("item_settings_decoder_priority"),
                     title = stringResource(R.string.decoder_priority),
                     description = preferences.decoderPriority.name(),
                     icon = NextIcons.Priority,
@@ -118,6 +119,7 @@ private fun DecoderPreferencesContent(
                     ) {
                         items(DecoderPriority.entries.toTypedArray()) {
                             RadioTextButton(
+                                modifier = Modifier.testTag("option_settings_decoder_priority_${it.name.lowercase()}"),
                                 text = it.name(),
                                 isSelected = it == preferences.decoderPriority,
                                 onClick = {

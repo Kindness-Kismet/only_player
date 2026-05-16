@@ -26,6 +26,7 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.tooling.preview.PreviewLightDark
 import androidx.compose.ui.unit.dp
@@ -106,6 +107,7 @@ private fun ThumbnailPreferencesContent(
                 verticalArrangement = Arrangement.spacedBy(ListItemDefaults.SegmentedGap),
             ) {
                 SingleSelectablePreference(
+                    modifier = Modifier.testTag("option_settings_thumbnail_strategy_first_frame"),
                     title = stringResource(id = R.string.first_frame),
                     description = stringResource(id = R.string.first_frame_desc),
                     isSelected = preferences.thumbnailGenerationStrategy == ThumbnailGenerationStrategy.FIRST_FRAME,
@@ -116,6 +118,7 @@ private fun ThumbnailPreferencesContent(
                     isFirstItem = true,
                 )
                 SingleSelectablePreference(
+                    modifier = Modifier.testTag("option_settings_thumbnail_strategy_frame_at_percentage"),
                     title = stringResource(id = R.string.frame_at_position),
                     description = stringResource(id = R.string.frame_at_position_desc),
                     isSelected = preferences.thumbnailGenerationStrategy == ThumbnailGenerationStrategy.FRAME_AT_PERCENTAGE,
@@ -125,6 +128,7 @@ private fun ThumbnailPreferencesContent(
                     },
                 )
                 SingleSelectablePreference(
+                    modifier = Modifier.testTag("option_settings_thumbnail_strategy_hybrid"),
                     title = stringResource(id = R.string.hybrid),
                     description = stringResource(id = R.string.hybrid_desc),
                     isSelected = preferences.thumbnailGenerationStrategy == ThumbnailGenerationStrategy.HYBRID,
@@ -138,7 +142,10 @@ private fun ThumbnailPreferencesContent(
 
             PreferenceSlider(
                 isEnabled = preferences.thumbnailGenerationStrategy != ThumbnailGenerationStrategy.FIRST_FRAME,
-                modifier = Modifier.padding(vertical = 16.dp),
+                modifier = Modifier
+                    .padding(vertical = 16.dp)
+                    .testTag("item_settings_thumbnail_frame_position"),
+                sliderModifier = Modifier.testTag("slider_settings_thumbnail_frame_position"),
                 title = stringResource(R.string.frame_position),
                 description = stringResource(R.string.frame_position_value, frameSliderValue),
                 icon = NextIcons.Frame,
@@ -155,6 +162,7 @@ private fun ThumbnailPreferencesContent(
                 },
                 trailingContent = {
                     FilledIconButton(
+                        modifier = Modifier.testTag("btn_reset_settings_thumbnail_frame_position"),
                         enabled = preferences.thumbnailGenerationStrategy != ThumbnailGenerationStrategy.FIRST_FRAME,
                         onClick = {
                             val defaultPosition = ApplicationPreferences.DEFAULT_THUMBNAIL_FRAME_POSITION

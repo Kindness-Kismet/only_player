@@ -563,6 +563,83 @@ internal fun MediaPlayerScreen(
         )
     }
 
+    fun handleDebugPlayerAction(action: String): Boolean {
+        if (isCustomizingControls && action != PlayerDebugCommandBridge.ACTION_TOGGLE_CUSTOMIZE_CONTROLS) return false
+        when (action) {
+            PlayerDebugCommandBridge.ACTION_BACK -> onBackClick()
+            PlayerDebugCommandBridge.ACTION_ROTATE -> rotationState.rotate()
+            PlayerDebugCommandBridge.ACTION_TOGGLE_AMBIENCE -> {
+                isAmbienceModeEnabled = !isAmbienceModeEnabled
+                controlsVisibilityState.showControls()
+            }
+            PlayerDebugCommandBridge.ACTION_SHOW_PLAYLIST -> {
+                overlayView = OverlayView.PLAYLIST
+                controlsVisibilityState.hideControls()
+            }
+            PlayerDebugCommandBridge.ACTION_SHOW_SPEED -> {
+                overlayView = OverlayView.PLAYBACK_SPEED
+                controlsVisibilityState.hideControls()
+            }
+            PlayerDebugCommandBridge.ACTION_SHOW_AUDIO -> {
+                overlayView = OverlayView.AUDIO_SELECTOR
+                controlsVisibilityState.hideControls()
+            }
+            PlayerDebugCommandBridge.ACTION_SHOW_SUBTITLE -> {
+                overlayView = OverlayView.SUBTITLE_SELECTOR
+                controlsVisibilityState.hideControls()
+            }
+            PlayerDebugCommandBridge.ACTION_LOCK -> {
+                controlsVisibilityState.showControls()
+                controlsVisibilityState.lockControls()
+            }
+            PlayerDebugCommandBridge.ACTION_UNLOCK -> {
+                controlsVisibilityState.showControls()
+                controlsVisibilityState.unlockControls()
+            }
+            PlayerDebugCommandBridge.ACTION_TOGGLE_LOCK -> {
+                controlsVisibilityState.showControls()
+                if (controlsVisibilityState.isControlsLocked) controlsVisibilityState.unlockControls() else controlsVisibilityState.lockControls()
+            }
+            PlayerDebugCommandBridge.ACTION_CYCLE_SCALE -> {
+                videoZoomAndContentScaleState.switchToNextVideoContentScale()
+                controlsVisibilityState.showControls()
+            }
+            PlayerDebugCommandBridge.ACTION_SHOW_SCALE -> {
+                overlayView = OverlayView.VIDEO_CONTENT_SCALE
+                controlsVisibilityState.hideControls()
+            }
+            PlayerDebugCommandBridge.ACTION_SHOW_DECODER -> {
+                isDecoderDialogShown = true
+                controlsVisibilityState.showControls()
+            }
+            PlayerDebugCommandBridge.ACTION_SHOW_VIDEO_FILTERS -> showVideoFilters()
+            PlayerDebugCommandBridge.ACTION_PIP -> {
+                if (!pictureInPictureState.hasPipPermission) {
+                    pictureInPictureState.openPictureInPictureSettings()
+                } else {
+                    pictureInPictureState.enterPictureInPictureMode()
+                }
+            }
+            PlayerDebugCommandBridge.ACTION_SCREENSHOT -> onScreenshotClick()
+            PlayerDebugCommandBridge.ACTION_BACKGROUND -> onPlayInBackgroundClick()
+            PlayerDebugCommandBridge.ACTION_SHOW_SLEEP_TIMER -> {
+                isSleepTimerDialogShown = true
+                controlsVisibilityState.hideControls()
+            }
+            PlayerDebugCommandBridge.ACTION_TOGGLE_CUSTOMIZE_CONTROLS -> {
+                if (isCustomizingControls) exitControlCustomization() else enterControlCustomization()
+            }
+            else -> return false
+        }
+        return true
+    }
+
+    val currentDebugActionHandler = rememberUpdatedState(::handleDebugPlayerAction)
+    DisposableEffect(Unit) {
+        val token = PlayerDebugCommandBridge.setHandler { action -> currentDebugActionHandler.value(action) }
+        onDispose { PlayerDebugCommandBridge.clearHandler(token) }
+    }
+
     CompositionLocalProvider(
         LocalControlsVisibilityState provides controlsVisibilityState,
         LocalShouldUseClassicPlayerIcons provides playerPreferences.shouldUseClassicPlayerIcons,
@@ -1199,7 +1276,8 @@ private fun DecoderPriorityDialog(
 }
 
 private fun DecoderPriority.logSuffix(): String = when (this) {
-    DecoderPriority.AUTOMATIC -> "at"
+    DecoderPriority.AUTOMATIC -> "auto_hw"
+    DecoderPriority.AUTOMATIC_PREFER_DEVICE -> "auto_hw_plus"
     DecoderPriority.DEVICE_ONLY -> "hw"
     DecoderPriority.PREFER_DEVICE -> "hw_plus"
     DecoderPriority.PREFER_APP -> "sw"
@@ -1207,7 +1285,8 @@ private fun DecoderPriority.logSuffix(): String = when (this) {
 
 @Composable
 private fun DecoderPriority.shortName(): String = when (this) {
-    DecoderPriority.AUTOMATIC -> stringResource(coreUiR.string.at_decoder)
+    DecoderPriority.AUTOMATIC -> stringResource(coreUiR.string.auto_hw_decoder)
+    DecoderPriority.AUTOMATIC_PREFER_DEVICE -> stringResource(coreUiR.string.auto_hw_plus_decoder)
     DecoderPriority.DEVICE_ONLY -> stringResource(coreUiR.string.hw_decoder)
     DecoderPriority.PREFER_DEVICE -> stringResource(coreUiR.string.hw_plus_decoder)
     DecoderPriority.PREFER_APP -> stringResource(coreUiR.string.sw_decoder)

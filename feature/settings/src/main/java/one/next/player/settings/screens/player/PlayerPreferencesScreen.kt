@@ -95,6 +95,8 @@ private fun PlayerPreferencesContent(
                 verticalArrangement = Arrangement.spacedBy(ListItemDefaults.SegmentedGap),
             ) {
                 PreferenceSlider(
+                    modifier = Modifier.testTag("item_settings_player_controller_timeout"),
+                    sliderModifier = Modifier.testTag("slider_settings_player_controller_timeout"),
                     title = stringResource(R.string.controller_timeout),
                     description = stringResource(R.string.seconds, uiState.preferences.controllerAutoHideTimeout),
                     icon = NextIcons.Timer,
@@ -103,7 +105,10 @@ private fun PlayerPreferencesContent(
                     onValueChange = { onEvent(PlayerPreferencesUiEvent.UpdateControlAutoHideTimeout(it.toInt())) },
                     isFirstItem = true,
                     trailingContent = {
-                        FilledIconButton(onClick = { onEvent(PlayerPreferencesUiEvent.UpdateControlAutoHideTimeout(PlayerPreferences.DEFAULT_CONTROLLER_AUTO_HIDE_TIMEOUT)) }) {
+                        FilledIconButton(
+                            modifier = Modifier.testTag("btn_reset_settings_player_controller_timeout"),
+                            onClick = { onEvent(PlayerPreferencesUiEvent.UpdateControlAutoHideTimeout(PlayerPreferences.DEFAULT_CONTROLLER_AUTO_HIDE_TIMEOUT)) },
+                        ) {
                             Icon(
                                 imageVector = NextIcons.History,
                                 contentDescription = stringResource(id = R.string.reset_controller_timeout),
@@ -112,6 +117,7 @@ private fun PlayerPreferencesContent(
                     },
                 )
                 ClickablePreferenceItem(
+                    modifier = Modifier.testTag("item_settings_player_screen_orientation"),
                     title = stringResource(id = R.string.player_screen_orientation),
                     description = uiState.preferences.playerScreenOrientation.name(),
                     icon = NextIcons.Rotation,
@@ -120,7 +126,7 @@ private fun PlayerPreferencesContent(
                     },
                 )
                 PreferenceSwitch(
-                    modifier = Modifier.testTag("item_settings_remember_player_screen_orientation"),
+                    modifier = Modifier.testTag("switch_settings_player_remember_orientation"),
                     title = stringResource(id = R.string.remember_player_screen_orientation),
                     description = stringResource(id = R.string.remember_player_screen_orientation_description),
                     icon = NextIcons.History,
@@ -128,7 +134,7 @@ private fun PlayerPreferencesContent(
                     onClick = { onEvent(PlayerPreferencesUiEvent.ToggleRememberPlayerScreenOrientation) },
                 )
                 PreferenceSwitch(
-                    modifier = Modifier.testTag("item_settings_classic_player_icons"),
+                    modifier = Modifier.testTag("switch_settings_player_classic_icons"),
                     title = stringResource(id = R.string.enable_classic_player_icons),
                     description = stringResource(id = R.string.enable_classic_player_icons_description),
                     icon = NextIcons.Style,
@@ -143,6 +149,7 @@ private fun PlayerPreferencesContent(
                 verticalArrangement = Arrangement.spacedBy(ListItemDefaults.SegmentedGap),
             ) {
                 PreferenceSwitch(
+                    modifier = Modifier.testTag("switch_settings_player_resume"),
                     title = stringResource(id = R.string.resume),
                     description = stringResource(id = R.string.resume_description),
                     icon = NextIcons.Resume,
@@ -151,6 +158,8 @@ private fun PlayerPreferencesContent(
                     isFirstItem = true,
                 )
                 PreferenceSlider(
+                    modifier = Modifier.testTag("item_settings_player_default_speed"),
+                    sliderModifier = Modifier.testTag("slider_settings_player_default_speed"),
                     title = stringResource(id = R.string.default_playback_speed),
                     description = uiState.preferences.defaultPlaybackSpeed.toString(),
                     icon = NextIcons.Speed,
@@ -158,7 +167,10 @@ private fun PlayerPreferencesContent(
                     valueRange = 0.2f..4.0f,
                     onValueChange = { onEvent(PlayerPreferencesUiEvent.UpdateDefaultPlaybackSpeed(it.round(2))) },
                     trailingContent = {
-                        FilledIconButton(onClick = { onEvent(PlayerPreferencesUiEvent.UpdateDefaultPlaybackSpeed(1f)) }) {
+                        FilledIconButton(
+                            modifier = Modifier.testTag("btn_reset_settings_player_default_speed"),
+                            onClick = { onEvent(PlayerPreferencesUiEvent.UpdateDefaultPlaybackSpeed(1f)) },
+                        ) {
                             Icon(
                                 imageVector = NextIcons.History,
                                 contentDescription = stringResource(id = R.string.reset_default_playback_speed),
@@ -167,6 +179,7 @@ private fun PlayerPreferencesContent(
                     },
                 )
                 PreferenceSwitch(
+                    modifier = Modifier.testTag("switch_settings_player_autoplay"),
                     title = stringResource(id = R.string.autoplay_settings),
                     description = stringResource(
                         id = R.string.autoplay_settings_description,
@@ -177,6 +190,7 @@ private fun PlayerPreferencesContent(
                 )
                 if (isPipFeatureSupported) {
                     PreferenceSwitch(
+                        modifier = Modifier.testTag("switch_settings_player_auto_pip"),
                         title = stringResource(id = R.string.pip_settings),
                         description = stringResource(
                             id = R.string.pip_settings_description,
@@ -187,6 +201,7 @@ private fun PlayerPreferencesContent(
                     )
                 }
                 PreferenceSwitch(
+                    modifier = Modifier.testTag("switch_settings_player_background_play"),
                     title = stringResource(id = R.string.background_play),
                     description = stringResource(
                         id = R.string.background_play_description,
@@ -196,6 +211,7 @@ private fun PlayerPreferencesContent(
                     onClick = { onEvent(PlayerPreferencesUiEvent.ToggleAutoBackgroundPlay) },
                 )
                 PreferenceSwitch(
+                    modifier = Modifier.testTag("switch_settings_player_remember_brightness"),
                     title = stringResource(id = R.string.remember_brightness_level),
                     description = stringResource(
                         id = R.string.remember_brightness_level_description,
@@ -212,7 +228,7 @@ private fun PlayerPreferencesContent(
                 verticalArrangement = Arrangement.spacedBy(ListItemDefaults.SegmentedGap),
             ) {
                 ClickablePreferenceItem(
-                    modifier = Modifier.testTag("item_settings_control_buttons_alignment"),
+                    modifier = Modifier.testTag("item_settings_player_control_buttons_position"),
                     title = stringResource(id = R.string.control_buttons_alignment),
                     description = uiState.preferences.controlButtonsPosition.name(),
                     icon = NextIcons.ButtonsPosition,
@@ -232,6 +248,7 @@ private fun PlayerPreferencesContent(
                     ) {
                         items(ScreenOrientation.entries.toTypedArray()) {
                             RadioTextButton(
+                                modifier = Modifier.testTag("option_settings_player_screen_orientation_${it.name.lowercase()}"),
                                 text = it.name(),
                                 isSelected = it == uiState.preferences.playerScreenOrientation,
                                 onClick = {
@@ -250,6 +267,7 @@ private fun PlayerPreferencesContent(
                     ) {
                         items(ControlButtonsPosition.entries.toTypedArray()) {
                             RadioTextButton(
+                                modifier = Modifier.testTag("option_settings_player_control_buttons_position_${it.name.lowercase()}"),
                                 text = it.name(),
                                 isSelected = it == uiState.preferences.controlButtonsPosition,
                                 onClick = {

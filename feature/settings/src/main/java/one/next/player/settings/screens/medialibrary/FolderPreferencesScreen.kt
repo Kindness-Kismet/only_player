@@ -19,6 +19,7 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.tooling.preview.PreviewLightDark
 import androidx.compose.ui.unit.dp
@@ -90,6 +91,7 @@ private fun FolderPreferencesContent(
                 ) {
                     itemsIndexed(uiState.foldersDataState.value) { index, folder ->
                         SelectablePreference(
+                            modifier = Modifier.testTag("item_settings_folder_$index"),
                             title = folder.name,
                             description = folder.path,
                             isSelected = folder.path in uiState.preferences.excludeFolders,

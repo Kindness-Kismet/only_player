@@ -19,6 +19,7 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.remember
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.tooling.preview.PreviewLightDark
 import androidx.compose.ui.unit.dp
@@ -92,6 +93,7 @@ private fun AudioPreferencesContent(
                 verticalArrangement = Arrangement.spacedBy(ListItemDefaults.SegmentedGap),
             ) {
                 ClickablePreferenceItem(
+                    modifier = Modifier.testTag("item_settings_audio_language"),
                     title = stringResource(id = R.string.preferred_audio_lang),
                     description = LocalesHelper.getLocaleDisplayLanguage(uiState.preferences.preferredAudioLanguage)
                         .takeIf { it.isNotBlank() } ?: stringResource(R.string.preferred_audio_lang_description),
@@ -107,6 +109,7 @@ private fun AudioPreferencesContent(
                 verticalArrangement = Arrangement.spacedBy(ListItemDefaults.SegmentedGap),
             ) {
                 PreferenceSwitch(
+                    modifier = Modifier.testTag("switch_settings_audio_require_focus"),
                     title = stringResource(R.string.require_audio_focus),
                     description = stringResource(R.string.require_audio_focus_desc),
                     icon = NextIcons.Focus,
@@ -115,6 +118,7 @@ private fun AudioPreferencesContent(
                     isFirstItem = true,
                 )
                 PreferenceSwitch(
+                    modifier = Modifier.testTag("switch_settings_audio_pause_on_headset_disconnect"),
                     title = stringResource(id = R.string.pause_on_headset_disconnect),
                     description = stringResource(id = R.string.pause_on_headset_disconnect_desc),
                     icon = NextIcons.HeadsetOff,
@@ -122,6 +126,7 @@ private fun AudioPreferencesContent(
                     onClick = { onEvent(AudioPreferencesUiEvent.TogglePauseOnHeadsetDisconnect) },
                 )
                 PreferenceSwitch(
+                    modifier = Modifier.testTag("switch_settings_audio_system_volume_panel"),
                     title = stringResource(id = R.string.system_volume_panel),
                     description = stringResource(id = R.string.system_volume_panel_desc),
                     icon = NextIcons.Headset,
@@ -136,6 +141,7 @@ private fun AudioPreferencesContent(
                 verticalArrangement = Arrangement.spacedBy(ListItemDefaults.SegmentedGap),
             ) {
                 PreferenceSwitch(
+                    modifier = Modifier.testTag("switch_settings_audio_remember_volume"),
                     title = stringResource(id = R.string.remember_volume_level),
                     description = stringResource(id = R.string.remember_volume_level_description),
                     icon = NextIcons.VolumeUp,
@@ -144,6 +150,8 @@ private fun AudioPreferencesContent(
                     isFirstItem = true,
                 )
                 PreferenceSlider(
+                    modifier = Modifier.testTag("item_settings_audio_initial_volume_limit"),
+                    sliderModifier = Modifier.testTag("slider_settings_audio_initial_volume_limit"),
                     title = stringResource(id = R.string.initial_volume_limit),
                     description = stringResource(id = R.string.percent, uiState.preferences.maxInitialPlayerVolumePercentage),
                     icon = NextIcons.VolumeUp,
@@ -154,6 +162,7 @@ private fun AudioPreferencesContent(
                     isLastItem = true,
                     trailingContent = {
                         FilledIconButton(
+                            modifier = Modifier.testTag("btn_reset_settings_audio_initial_volume_limit"),
                             enabled = uiState.preferences.shouldRememberPlayerVolume,
                             onClick = {
                                 onEvent(
@@ -177,6 +186,7 @@ private fun AudioPreferencesContent(
                 verticalArrangement = Arrangement.spacedBy(ListItemDefaults.SegmentedGap),
             ) {
                 PreferenceSwitch(
+                    modifier = Modifier.testTag("switch_settings_audio_normalization"),
                     title = stringResource(id = R.string.volume_normalization),
                     description = stringResource(id = R.string.volume_normalization_desc),
                     icon = NextIcons.VolumeUp,
@@ -185,6 +195,7 @@ private fun AudioPreferencesContent(
                     isFirstItem = true,
                 )
                 PreferenceSwitch(
+                    modifier = Modifier.testTag("switch_settings_audio_boost"),
                     title = stringResource(id = R.string.volume_boost),
                     description = stringResource(id = R.string.volume_boost_desc),
                     icon = NextIcons.VolumeUp,
@@ -204,6 +215,7 @@ private fun AudioPreferencesContent(
                     ) {
                         items(languages) {
                             RadioTextButton(
+                                modifier = Modifier.testTag("option_settings_audio_language_${it.second.ifBlank { "none" }}"),
                                 text = it.first,
                                 isSelected = it.second == uiState.preferences.preferredAudioLanguage,
                                 onClick = {

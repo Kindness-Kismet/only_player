@@ -90,6 +90,7 @@ private fun AppearancePreferencesContent(
                 verticalArrangement = Arrangement.spacedBy(ListItemDefaults.SegmentedGap),
             ) {
                 ClickablePreferenceItem(
+                    modifier = Modifier.testTag("item_settings_appearance_language"),
                     title = stringResource(id = R.string.app_language),
                     description = LocalesHelper.getAppLocaleDisplayName(uiState.preferences.appLanguage)
                         .takeIf { it.isNotBlank() } ?: stringResource(id = R.string.system_default),
@@ -98,6 +99,8 @@ private fun AppearancePreferencesContent(
                     isFirstItem = true,
                 )
                 PreferenceSwitchWithDivider(
+                    modifier = Modifier.testTag("item_settings_appearance_theme"),
+                    switchModifier = Modifier.testTag("switch_settings_appearance_theme"),
                     title = stringResource(id = R.string.dark_theme),
                     description = uiState.preferences.themeConfig.name(),
                     isChecked = uiState.preferences.themeConfig == ThemeConfig.ON,
@@ -107,6 +110,7 @@ private fun AppearancePreferencesContent(
                 )
                 if (supportsDynamicTheming()) {
                     PreferenceSwitch(
+                        modifier = Modifier.testTag("switch_settings_appearance_dynamic_colors"),
                         title = stringResource(id = R.string.dynamic_theme),
                         description = stringResource(id = R.string.dynamic_theme_description),
                         icon = NextIcons.Appearance,
@@ -121,7 +125,7 @@ private fun AppearancePreferencesContent(
                     isChecked = uiState.preferences.shouldNavigateHomeOnTitleLongPress,
                     onClick = { onEvent(AppearancePreferencesEvent.ToggleNavigateHomeOnTitleLongPress) },
                     isLastItem = true,
-                    modifier = Modifier.testTag("appearance_title_long_press_home"),
+                    modifier = Modifier.testTag("switch_settings_appearance_title_long_press_home"),
                 )
             }
         }
@@ -135,6 +139,7 @@ private fun AppearancePreferencesContent(
                     ) {
                         items(ThemeConfig.entries.toTypedArray()) {
                             RadioTextButton(
+                                modifier = Modifier.testTag("option_settings_appearance_theme_${it.name.lowercase()}"),
                                 text = it.name(),
                                 isSelected = (it == uiState.preferences.themeConfig),
                                 onClick = {
@@ -153,6 +158,7 @@ private fun AppearancePreferencesContent(
                     ) {
                         item {
                             RadioTextButton(
+                                modifier = Modifier.testTag("option_settings_appearance_language_system"),
                                 text = stringResource(id = R.string.system_default),
                                 isSelected = uiState.preferences.appLanguage.isEmpty(),
                                 onClick = {
@@ -163,6 +169,7 @@ private fun AppearancePreferencesContent(
                         }
                         items(appLanguages) {
                             RadioTextButton(
+                                modifier = Modifier.testTag("option_settings_appearance_language_${it.second.ifBlank { "system" }}"),
                                 text = it.first,
                                 isSelected = it.second == uiState.preferences.appLanguage,
                                 onClick = {

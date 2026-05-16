@@ -1,5 +1,6 @@
 package one.next.player
 
+import android.content.Intent
 import android.content.res.Configuration
 import android.os.Bundle
 import android.os.SystemClock
@@ -35,6 +36,7 @@ import androidx.lifecycle.compose.LifecycleEventEffect
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.lifecycle.lifecycleScope
 import androidx.lifecycle.repeatOnLifecycle
+import androidx.navigation.NavHostController
 import androidx.navigation.compose.NavHost
 import androidx.navigation.compose.rememberNavController
 import dagger.hilt.android.AndroidEntryPoint
@@ -51,11 +53,33 @@ import one.next.player.core.model.ThemeConfig
 import one.next.player.core.ui.R as UiR
 import one.next.player.core.ui.composables.rememberRuntimePermissionState
 import one.next.player.core.ui.theme.OnePlayerTheme
+import one.next.player.feature.videopicker.navigation.MediaPickerRoute
+import one.next.player.feature.videopicker.navigation.navigateToCloudHome
+import one.next.player.feature.videopicker.navigation.navigateToRecycleBinScreen
+import one.next.player.feature.videopicker.navigation.navigateToSearch
+import one.next.player.navigation.DEBUG_ACTION_OPEN_PAGE
+import one.next.player.navigation.DEBUG_EXTRA_PAGE
+import one.next.player.navigation.DebugPageRoute
 import one.next.player.navigation.MediaRootRoute
 import one.next.player.navigation.NavigationBarColorEffect
 import one.next.player.navigation.cloudNavGraph
 import one.next.player.navigation.mediaNavGraph
 import one.next.player.navigation.settingsNavGraph
+import one.next.player.settings.navigation.navigateToAboutPreferences
+import one.next.player.settings.navigation.navigateToAppearancePreferences
+import one.next.player.settings.navigation.navigateToAudioPreferences
+import one.next.player.settings.navigation.navigateToDecoderPreferences
+import one.next.player.settings.navigation.navigateToFolderPreferencesScreen
+import one.next.player.settings.navigation.navigateToGeneralPreferences
+import one.next.player.settings.navigation.navigateToGesturePreferences
+import one.next.player.settings.navigation.navigateToLibraries
+import one.next.player.settings.navigation.navigateToLogs
+import one.next.player.settings.navigation.navigateToMediaLibraryPreferencesScreen
+import one.next.player.settings.navigation.navigateToPlayerPreferences
+import one.next.player.settings.navigation.navigateToPrivacyPreferences
+import one.next.player.settings.navigation.navigateToSettings
+import one.next.player.settings.navigation.navigateToSubtitlePreferences
+import one.next.player.settings.navigation.navigateToThumbnailPreferencesScreen
 
 @AndroidEntryPoint
 class MainActivity : AppCompatActivity() {
@@ -76,6 +100,13 @@ class MainActivity : AppCompatActivity() {
     lateinit var mediaService: MediaService
 
     private val viewModel: MainViewModel by viewModels()
+    private var pendingDebugPageRoute by mutableStateOf<DebugPageRoute?>(null)
+
+    override fun onNewIntent(intent: Intent) {
+        super.onNewIntent(intent)
+        setIntent(intent)
+        consumeDebugPageRoute(intent)
+    }
 
     @OptIn(ExperimentalComposeUiApi::class)
     override fun onCreate(savedInstanceState: Bundle?) {
@@ -114,6 +145,8 @@ class MainActivity : AppCompatActivity() {
                 is MainActivityUiState.Success -> false
             }
         }
+        consumeDebugPageRoute(intent)
+
         setContent {
             val shouldUseDarkTheme = shouldUseDarkTheme(uiState = uiState)
 
@@ -177,6 +210,11 @@ class MainActivity : AppCompatActivity() {
                     }
 
                     val mainNavController = rememberNavController()
+                    LaunchedEffect(mainNavController, pendingDebugPageRoute) {
+                        val pageRoute = pendingDebugPageRoute ?: return@LaunchedEffect
+                        navigateToDebugPage(mainNavController, pageRoute)
+                        pendingDebugPageRoute = null
+                    }
                     NavigationBarColorEffect(
                         activity = this@MainActivity,
                         navController = mainNavController,
@@ -247,6 +285,41 @@ class MainActivity : AppCompatActivity() {
                     }
                 }
             }
+        }
+    }
+
+    private fun consumeDebugPageRoute(intent: Intent?) {
+        if (intent?.action != DEBUG_ACTION_OPEN_PAGE) return
+
+        // Provider 可能先于 Compose 导航树启动，先暂存到首帧后执行。
+        pendingDebugPageRoute = DebugPageRoute.from(intent.getStringExtra(DEBUG_EXTRA_PAGE))
+    }
+
+    private fun navigateToDebugPage(
+        navController: NavHostController,
+        pageRoute: DebugPageRoute,
+    ) {
+        navController.popBackStack(MediaPickerRoute(), inclusive = false)
+        when (pageRoute) {
+            DebugPageRoute.HOME -> Unit
+            DebugPageRoute.SEARCH -> navController.navigateToSearch()
+            DebugPageRoute.RECYCLE_BIN -> navController.navigateToRecycleBinScreen()
+            DebugPageRoute.CLOUD -> navController.navigateToCloudHome()
+            DebugPageRoute.SETTINGS -> navController.navigateToSettings()
+            DebugPageRoute.SETTINGS_APPEARANCE -> navController.navigateToAppearancePreferences()
+            DebugPageRoute.SETTINGS_MEDIA_LIBRARY -> navController.navigateToMediaLibraryPreferencesScreen()
+            DebugPageRoute.SETTINGS_FOLDERS -> navController.navigateToFolderPreferencesScreen()
+            DebugPageRoute.SETTINGS_THUMBNAILS -> navController.navigateToThumbnailPreferencesScreen()
+            DebugPageRoute.SETTINGS_PLAYER -> navController.navigateToPlayerPreferences()
+            DebugPageRoute.SETTINGS_GESTURES -> navController.navigateToGesturePreferences()
+            DebugPageRoute.SETTINGS_DECODER -> navController.navigateToDecoderPreferences()
+            DebugPageRoute.SETTINGS_AUDIO -> navController.navigateToAudioPreferences()
+            DebugPageRoute.SETTINGS_SUBTITLE -> navController.navigateToSubtitlePreferences()
+            DebugPageRoute.SETTINGS_PRIVACY -> navController.navigateToPrivacyPreferences()
+            DebugPageRoute.SETTINGS_GENERAL -> navController.navigateToGeneralPreferences()
+            DebugPageRoute.SETTINGS_ABOUT -> navController.navigateToAboutPreferences()
+            DebugPageRoute.SETTINGS_LIBRARIES -> navController.navigateToLibraries()
+            DebugPageRoute.SETTINGS_LOGS -> navController.navigateToLogs()
         }
     }
 

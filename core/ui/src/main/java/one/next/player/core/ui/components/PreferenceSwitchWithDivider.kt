@@ -20,6 +20,8 @@ import one.next.player.core.ui.designsystem.NextIcons
 @Composable
 fun PreferenceSwitchWithDivider(
     title: String = "",
+    modifier: Modifier = Modifier,
+    switchModifier: Modifier = Modifier,
     description: String? = null,
     icon: ImageVector? = null,
     isEnabled: Boolean = true,
@@ -30,6 +32,7 @@ fun PreferenceSwitchWithDivider(
     isLastItem: Boolean = false,
 ) {
     PreferenceItem(
+        modifier = modifier,
         title = title,
         description = description,
         icon = icon,
@@ -48,6 +51,7 @@ fun PreferenceSwitchWithDivider(
                     color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.3f),
                 )
                 NextSwitch(
+                    modifier = switchModifier,
                     isChecked = isChecked,
                     onCheckedChange = { onChecked() },
                     isEnabled = isEnabled,

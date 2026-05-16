@@ -24,6 +24,7 @@ import androidx.compose.runtime.mutableFloatStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
@@ -97,6 +98,7 @@ private fun GesturePreferencesContent(
                 verticalArrangement = Arrangement.spacedBy(ListItemDefaults.SegmentedGap),
             ) {
                 PreferenceSwitch(
+                    modifier = Modifier.testTag("switch_settings_gesture_seek"),
                     title = stringResource(id = R.string.seek_gesture),
                     description = stringResource(id = R.string.seek_gesture_description),
                     icon = NextIcons.SwipeHorizontal,
@@ -105,6 +107,8 @@ private fun GesturePreferencesContent(
                     isFirstItem = true,
                 )
                 PreferenceSlider(
+                    modifier = Modifier.testTag("item_settings_gesture_seek_sensitivity"),
+                    sliderModifier = Modifier.testTag("slider_settings_gesture_seek_sensitivity"),
                     title = stringResource(R.string.seek_gesture_sensitivity),
                     description = uiState.preferences.seekSensitivity.toString(decimalPlaces = 2),
                     icon = NextIcons.Sensitivity,
@@ -114,6 +118,7 @@ private fun GesturePreferencesContent(
                     onValueChange = { onEvent(GesturePreferencesUiEvent.UpdateSeekSensitivity(it)) },
                     trailingContent = {
                         FilledIconButton(
+                            modifier = Modifier.testTag("btn_reset_settings_gesture_seek_sensitivity"),
                             enabled = uiState.preferences.shouldUseSeekControls,
                             onClick = { onEvent(GesturePreferencesUiEvent.UpdateSeekSensitivity(PlayerPreferences.DEFAULT_SEEK_SENSITIVITY)) },
                         ) {
@@ -125,6 +130,7 @@ private fun GesturePreferencesContent(
                     },
                 )
                 PreferenceSwitch(
+                    modifier = Modifier.testTag("switch_settings_gesture_brightness"),
                     title = stringResource(id = R.string.brightness_gesture),
                     description = stringResource(id = R.string.brightness_gesture_description),
                     icon = NextIcons.SwipeVertical,
@@ -132,6 +138,8 @@ private fun GesturePreferencesContent(
                     onClick = { onEvent(GesturePreferencesUiEvent.ToggleEnableBrightnessSwipeGesture) },
                 )
                 PreferenceSlider(
+                    modifier = Modifier.testTag("item_settings_gesture_brightness_sensitivity"),
+                    sliderModifier = Modifier.testTag("slider_settings_gesture_brightness_sensitivity"),
                     title = stringResource(R.string.brightness_gesture_sensitivity),
                     description = uiState.preferences.brightnessGestureSensitivity.toString(decimalPlaces = 2),
                     icon = NextIcons.Sensitivity,
@@ -141,6 +149,7 @@ private fun GesturePreferencesContent(
                     onValueChange = { onEvent(GesturePreferencesUiEvent.UpdateBrightnessGestureSensitivity(it)) },
                     trailingContent = {
                         FilledIconButton(
+                            modifier = Modifier.testTag("btn_reset_settings_gesture_brightness_sensitivity"),
                             enabled = uiState.preferences.isBrightnessSwipeGestureEnabled,
                             onClick = { onEvent(GesturePreferencesUiEvent.UpdateBrightnessGestureSensitivity(PlayerPreferences.DEFAULT_BRIGHTNESS_GESTURE_SENSITIVITY)) },
                         ) {
@@ -152,6 +161,7 @@ private fun GesturePreferencesContent(
                     },
                 )
                 PreferenceSwitch(
+                    modifier = Modifier.testTag("switch_settings_gesture_volume"),
                     title = stringResource(id = R.string.volume_gesture),
                     description = stringResource(id = R.string.volume_gesture_description),
                     icon = NextIcons.SwipeVertical,
@@ -159,6 +169,8 @@ private fun GesturePreferencesContent(
                     onClick = { onEvent(GesturePreferencesUiEvent.ToggleEnableVolumeSwipeGesture) },
                 )
                 PreferenceSlider(
+                    modifier = Modifier.testTag("item_settings_gesture_volume_sensitivity"),
+                    sliderModifier = Modifier.testTag("slider_settings_gesture_volume_sensitivity"),
                     title = stringResource(R.string.volume_gesture_sensitivity),
                     description = uiState.preferences.volumeGestureSensitivity.toString(decimalPlaces = 2),
                     icon = NextIcons.Sensitivity,
@@ -169,6 +181,7 @@ private fun GesturePreferencesContent(
                     isLastItem = true,
                     trailingContent = {
                         FilledIconButton(
+                            modifier = Modifier.testTag("btn_reset_settings_gesture_volume_sensitivity"),
                             enabled = uiState.preferences.isVolumeSwipeGestureEnabled,
                             onClick = { onEvent(GesturePreferencesUiEvent.UpdateVolumeGestureSensitivity(PlayerPreferences.DEFAULT_VOLUME_GESTURE_SENSITIVITY)) },
                         ) {
@@ -186,6 +199,8 @@ private fun GesturePreferencesContent(
                 verticalArrangement = Arrangement.spacedBy(ListItemDefaults.SegmentedGap),
             ) {
                 PreferenceSwitchWithDivider(
+                    modifier = Modifier.testTag("item_settings_gesture_double_tap"),
+                    switchModifier = Modifier.testTag("switch_settings_gesture_double_tap"),
                     title = stringResource(id = R.string.double_tap),
                     description = stringResource(id = R.string.double_tap_description),
                     icon = NextIcons.DoubleTap,
@@ -202,6 +217,8 @@ private fun GesturePreferencesContent(
                 verticalArrangement = Arrangement.spacedBy(ListItemDefaults.SegmentedGap),
             ) {
                 PreferenceSwitchWithDivider(
+                    modifier = Modifier.testTag("item_settings_gesture_long_press"),
+                    switchModifier = Modifier.testTag("switch_settings_gesture_long_press"),
                     title = stringResource(id = R.string.long_press_gesture),
                     description = stringResource(id = R.string.long_press_gesture_desc, uiState.preferences.longPressControlsSpeed),
                     icon = NextIcons.Tap,
@@ -211,6 +228,7 @@ private fun GesturePreferencesContent(
                     isFirstItem = true,
                 )
                 PreferenceSwitch(
+                    modifier = Modifier.testTag("switch_settings_gesture_long_press_variable_speed"),
                     title = stringResource(id = R.string.long_press_variable_speed),
                     description = stringResource(id = R.string.long_press_variable_speed_desc),
                     icon = NextIcons.SwipeHorizontal,
@@ -226,6 +244,7 @@ private fun GesturePreferencesContent(
                 verticalArrangement = Arrangement.spacedBy(ListItemDefaults.SegmentedGap),
             ) {
                 PreferenceSwitch(
+                    modifier = Modifier.testTag("switch_settings_gesture_zoom"),
                     title = stringResource(id = R.string.zoom_gesture),
                     description = stringResource(id = R.string.zoom_gesture_description),
                     icon = NextIcons.Pinch,
@@ -234,6 +253,7 @@ private fun GesturePreferencesContent(
                     isFirstItem = true,
                 )
                 PreferenceSwitch(
+                    modifier = Modifier.testTag("switch_settings_gesture_pan"),
                     title = stringResource(id = R.string.pan_gesture),
                     description = stringResource(id = R.string.pan_gesture_description),
                     icon = NextIcons.Pan,
@@ -249,6 +269,8 @@ private fun GesturePreferencesContent(
                 verticalArrangement = Arrangement.spacedBy(ListItemDefaults.SegmentedGap),
             ) {
                 PreferenceSlider(
+                    modifier = Modifier.testTag("item_settings_gesture_seek_increment"),
+                    sliderModifier = Modifier.testTag("slider_settings_gesture_seek_increment"),
                     title = stringResource(R.string.seek_increment),
                     description = stringResource(R.string.seconds, uiState.preferences.seekIncrement),
                     icon = NextIcons.Replay,
@@ -258,7 +280,10 @@ private fun GesturePreferencesContent(
                     isFirstItem = true,
                     isLastItem = true,
                     trailingContent = {
-                        FilledIconButton(onClick = { onEvent(GesturePreferencesUiEvent.UpdateSeekIncrement(PlayerPreferences.DEFAULT_SEEK_INCREMENT)) }) {
+                        FilledIconButton(
+                            modifier = Modifier.testTag("btn_reset_settings_gesture_seek_increment"),
+                            onClick = { onEvent(GesturePreferencesUiEvent.UpdateSeekIncrement(PlayerPreferences.DEFAULT_SEEK_INCREMENT)) },
+                        ) {
                             Icon(
                                 imageVector = NextIcons.History,
                                 contentDescription = stringResource(id = R.string.reset_seek_increment),
@@ -278,6 +303,7 @@ private fun GesturePreferencesContent(
                     ) {
                         items(DoubleTapGesture.entries.toTypedArray()) {
                             RadioTextButton(
+                                modifier = Modifier.testTag("option_settings_gesture_double_tap_${it.name.lowercase()}"),
                                 text = it.name(),
                                 isSelected = (it == uiState.preferences.doubleTapGesture),
                                 onClick = {
@@ -311,6 +337,7 @@ private fun GesturePreferencesContent(
                                 style = MaterialTheme.typography.titleMedium,
                             )
                             Slider(
+                                modifier = Modifier.testTag("slider_settings_gesture_long_press_speed"),
                                 value = longPressControlsSpeed,
                                 onValueChange = { longPressControlsSpeed = it.round(1) },
                                 valueRange = PlayerPreferences.MIN_LONG_PRESS_CONTROLS_SPEED..PlayerPreferences.MAX_LONG_PRESS_CONTROLS_SPEED,

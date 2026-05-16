@@ -179,10 +179,11 @@
     <string name="video_software_decoders">Software video decoders</string>
     <string name="video_software_decoders_desc">Use application software video decoders (experimental)</string>
     <string name="decoder_priority">Decoder</string>
-    <string name="at_decoder">AT</string>
-    <string name="hw_decoder">HW</string>
-    <string name="hw_plus_decoder">HW+</string>
-    <string name="sw_decoder">SW</string>
+    <string name="auto_hw_decoder">Auto detect (prefer hardware decoding)</string>
+    <string name="auto_hw_plus_decoder">Auto detect (prefer hardware decoding+)</string>
+    <string name="hw_decoder">Hardware decoding</string>
+    <string name="hw_plus_decoder">Hardware decoding+</string>
+    <string name="sw_decoder">Software decoding</string>
     <string name="prefer_device_decoders">Prefer device decoders</string>
     <string name="prefer_app_decoders">Prefer app decoders</string>
     <string name="device_decoders_only">Device decoders only</string>

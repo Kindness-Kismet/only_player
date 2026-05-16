@@ -20,6 +20,7 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.tooling.preview.PreviewLightDark
 import androidx.compose.ui.unit.dp
@@ -124,6 +125,7 @@ private fun MediaLibraryPreferencesContent(
                 verticalArrangement = Arrangement.spacedBy(ListItemDefaults.SegmentedGap),
             ) {
                 PreferenceSwitch(
+                    modifier = Modifier.testTag("switch_settings_media_mark_last_played"),
                     title = stringResource(id = R.string.mark_last_played_media),
                     description = stringResource(
                         id = R.string.mark_last_played_media_desc,
@@ -135,6 +137,7 @@ private fun MediaLibraryPreferencesContent(
                     isLastItem = false,
                 )
                 PreferenceSwitch(
+                    modifier = Modifier.testTag("switch_settings_media_restore_last_played_in_folders"),
                     title = stringResource(id = R.string.restore_last_played_media_in_folders),
                     description = stringResource(id = R.string.restore_last_played_media_in_folders_desc),
                     icon = NextIcons.History,
@@ -144,6 +147,7 @@ private fun MediaLibraryPreferencesContent(
                     isLastItem = false,
                 )
                 ClickablePreferenceItem(
+                    modifier = Modifier.testTag("item_settings_media_all_files_access"),
                     title = stringResource(id = R.string.all_files_access_title),
                     description = stringResource(id = R.string.media_library_all_files_access_desc),
                     icon = NextIcons.Settings,
@@ -152,6 +156,7 @@ private fun MediaLibraryPreferencesContent(
                     isLastItem = false,
                 )
                 PreferenceSwitch(
+                    modifier = Modifier.testTag("switch_settings_media_recycle_bin"),
                     title = stringResource(id = R.string.recycle_bin),
                     description = stringResource(id = R.string.recycle_bin_desc),
                     icon = NextIcons.DeleteSweep,
@@ -168,6 +173,7 @@ private fun MediaLibraryPreferencesContent(
                 verticalArrangement = Arrangement.spacedBy(ListItemDefaults.SegmentedGap),
             ) {
                 PreferenceSwitch(
+                    modifier = Modifier.testTag("switch_settings_media_ignore_nomedia"),
                     title = stringResource(id = R.string.ignore_nomedia_files),
                     description = stringResource(id = R.string.ignore_nomedia_files_desc),
                     icon = NextIcons.HideSource,
@@ -180,6 +186,7 @@ private fun MediaLibraryPreferencesContent(
                     isLastItem = false,
                 )
                 ClickablePreferenceItem(
+                    modifier = Modifier.testTag("item_settings_media_folders"),
                     title = stringResource(id = R.string.manage_folders),
                     description = stringResource(id = R.string.manage_folders_desc),
                     icon = NextIcons.FolderOff,
@@ -194,6 +201,7 @@ private fun MediaLibraryPreferencesContent(
                 verticalArrangement = Arrangement.spacedBy(ListItemDefaults.SegmentedGap),
             ) {
                 ClickablePreferenceItem(
+                    modifier = Modifier.testTag("item_settings_media_thumbnails"),
                     title = stringResource(id = R.string.thumbnail_generation),
                     description = when (preferences.thumbnailGenerationStrategy) {
                         ThumbnailGenerationStrategy.FIRST_FRAME -> stringResource(id = R.string.first_frame)

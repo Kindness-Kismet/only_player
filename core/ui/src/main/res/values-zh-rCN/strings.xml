@@ -166,10 +166,11 @@
     <string name="play_url">输入要播放的视频网址</string>
     <string name="video_software_decoders">软件视频解码器</string>
     <string name="decoder_priority">解码器</string>
-    <string name="at_decoder">AT</string>
-    <string name="hw_decoder">HW</string>
-    <string name="hw_plus_decoder">HW+</string>
-    <string name="sw_decoder">SW</string>
+    <string name="auto_hw_decoder">自动检测（硬件解码优先）</string>
+    <string name="auto_hw_plus_decoder">自动检测（硬件解码+优先）</string>
+    <string name="hw_decoder">硬件解码</string>
+    <string name="hw_plus_decoder">硬件解码+</string>
+    <string name="sw_decoder">软解解码</string>
     <string name="prefer_device_decoders">首选设备解码器</string>
     <string name="decoder">解码器</string>
     <string name="video_software_decoders_desc">使用应用的软件视频解码器（实验性）</string>

@@ -47,6 +47,7 @@ import androidx.compose.ui.graphics.asImageBitmap
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalUriHandler
 import androidx.compose.ui.platform.UriHandler
+import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
@@ -151,6 +152,7 @@ private fun DiagnosticsSection(
         verticalArrangement = Arrangement.spacedBy(ListItemDefaults.SegmentedGap),
     ) {
         ClickablePreferenceItem(
+            modifier = Modifier.testTag("item_settings_about_logs"),
             title = stringResource(R.string.app_logs),
             description = stringResource(R.string.app_logs_description),
             icon = NextIcons.BugReport,
@@ -176,6 +178,7 @@ private fun UpdateSection(
         verticalArrangement = Arrangement.spacedBy(ListItemDefaults.SegmentedGap),
     ) {
         ClickablePreferenceItem(
+            modifier = Modifier.testTag("item_settings_about_check_updates"),
             title = stringResource(R.string.check_for_updates),
             description = updateStatusText(uiState.updateState),
             icon = NextIcons.Update,
@@ -191,6 +194,7 @@ private fun UpdateSection(
             isFirstItem = true,
         )
         PreferenceSwitch(
+            modifier = Modifier.testTag("switch_settings_about_check_updates_on_startup"),
             title = stringResource(R.string.check_updates_on_startup),
             description = stringResource(R.string.check_updates_on_startup_desc),
             isChecked = uiState.shouldCheckForUpdatesOnStartup,
@@ -331,6 +335,10 @@ fun AboutApp(
         }
 
         Button(
+            modifier = Modifier
+                .fillMaxWidth()
+                .height(52.dp)
+                .testTag("btn_settings_about_libraries"),
             onClick = onLibrariesClick,
             colors = ButtonDefaults.buttonColors(
                 contentColor = MaterialTheme.colorScheme.onPrimary,
@@ -339,9 +347,6 @@ fun AboutApp(
                 disabledContainerColor = MaterialTheme.colorScheme.primary.copy(alpha = .12f),
             ),
             shape = RoundedCornerShape(8.dp),
-            modifier = Modifier
-                .fillMaxWidth()
-                .height(52.dp),
         ) {
             Text(text = stringResource(R.string.libraries))
         }

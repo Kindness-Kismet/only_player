@@ -81,6 +81,7 @@ private fun PrivacyProtectionContent(
                 verticalArrangement = Arrangement.spacedBy(ListItemDefaults.SegmentedGap),
             ) {
                 PreferenceSwitch(
+                    modifier = Modifier.testTag("switch_settings_privacy_prevent_screenshots"),
                     title = stringResource(id = R.string.prevent_screenshots),
                     description = stringResource(id = R.string.prevent_screenshots_description),
                     icon = NextIcons.HideSource,
@@ -88,10 +89,10 @@ private fun PrivacyProtectionContent(
                     onClick = { onEvent(PrivacyProtectionUiEvent.TogglePreventScreenshots) },
                     isFirstItem = true,
                     isLastItem = !isHideInRecentsAvailable,
-                    modifier = Modifier.testTag("privacy_prevent_screenshots"),
                 )
                 if (isHideInRecentsAvailable) {
                     PreferenceSwitch(
+                        modifier = Modifier.testTag("switch_settings_privacy_hide_in_recents"),
                         title = stringResource(id = R.string.hide_in_recents),
                         description = stringResource(id = R.string.hide_in_recents_description),
                         icon = NextIcons.Background,
@@ -99,7 +100,6 @@ private fun PrivacyProtectionContent(
                         onClick = { onEvent(PrivacyProtectionUiEvent.ToggleHideInRecents) },
                         isFirstItem = false,
                         isLastItem = true,
-                        modifier = Modifier.testTag("privacy_hide_in_recents"),
                     )
                 }
             }

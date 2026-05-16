@@ -66,10 +66,11 @@
     <string name="off">關閉</string>
     <string name="pause_on_headset_disconnect">卸除時暫停</string>
     <string name="prefer_app_decoders">優先選擇應用解碼器</string>
-    <string name="at_decoder">AT</string>
-    <string name="hw_decoder">HW</string>
-    <string name="hw_plus_decoder">HW+</string>
-    <string name="sw_decoder">SW</string>
+    <string name="auto_hw_decoder">自動偵測（硬體解碼優先）</string>
+    <string name="auto_hw_plus_decoder">自動偵測（硬體解碼+優先）</string>
+    <string name="hw_decoder">硬體解碼</string>
+    <string name="hw_plus_decoder">硬體解碼+</string>
+    <string name="sw_decoder">軟體解碼</string>
     <string name="automatic">自動 (感測器)</string>
     <string name="delete">刪除</string>
     <string name="zoom_gesture">縮放手勢</string>
