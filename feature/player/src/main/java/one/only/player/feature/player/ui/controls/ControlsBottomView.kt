@@ -48,6 +48,7 @@ import androidx.compose.ui.graphics.Path
 import androidx.compose.ui.graphics.drawscope.DrawScope
 import androidx.compose.ui.platform.LocalLayoutDirection
 import androidx.compose.ui.res.painterResource
+import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.unit.LayoutDirection
@@ -108,6 +109,7 @@ fun ControlsBottomView(
     onSleepTimerClick: (() -> Unit)? = null,
     sleepTimerState: SleepTimerState? = null,
     isCustomizingControls: Boolean,
+    shouldHideLabels: Boolean,
     draggingControl: PlayerControl? = null,
     onControlDropDragged: (PlayerControl, Offset) -> Unit = { _, _ -> },
     onControlDragStarted: (PlayerControl) -> Unit = {},
@@ -235,6 +237,7 @@ fun ControlsBottomView(
                             videoContentScale = videoContentScale,
                             isPipSupported = isPipSupported,
                             isCustomizingControls = isCustomizingControls,
+                            shouldHideLabel = shouldHideLabels,
                             visiblePlayerControls = visiblePlayerControls,
                             onPlaylistClick = onPlaylistClick,
                             onPlaybackSpeedClick = onPlaybackSpeedClick,
@@ -264,7 +267,7 @@ fun ControlsBottomView(
                 PlayerButton(
                     onClick = onCustomizeControlsClick,
                     isSelected = false,
-                    label = null,
+                    label = stringResource(R.string.customize_player_controls),
                     shouldShowSelectionBadge = false,
                     shouldDimWhenUnselected = false,
                     shouldShowCustomizeFrame = false,

@@ -287,6 +287,8 @@
     <string name="control_buttons_alignment_left">左</string>
     <string name="control_buttons_alignment_right">右</string>
     <string name="control_buttons_alignment">控制按钮对齐</string>
+    <string name="player_control_labels">隐藏控制文字</string>
+    <string name="player_control_labels_description">隐藏播放器控制按钮下方的文字</string>
     <string name="player_controls">播放器控件</string>
     <string name="background_play_description">点按主屏幕按钮或屏幕锁定时在后台播放</string>
     <string name="stop_player_session">停止播放器会话</string>

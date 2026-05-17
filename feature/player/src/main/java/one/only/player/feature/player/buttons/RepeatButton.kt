@@ -20,6 +20,8 @@ fun LoopButton(
     modifier: Modifier = Modifier,
     isSelected: Boolean = false,
     label: String? = null,
+    shouldDimWhenUnselected: Boolean = false,
+    shouldShowCustomizeFrame: Boolean = false,
     isOutlineOnly: Boolean = false,
     onClick: (() -> Unit)? = null,
 ) {
@@ -31,6 +33,8 @@ fun LoopButton(
         isEnabled = onClick != null || state.isEnabled,
         isSelected = isSelected,
         label = label,
+        shouldDimWhenUnselected = shouldDimWhenUnselected,
+        shouldShowCustomizeFrame = shouldShowCustomizeFrame,
         isOutlineOnly = isOutlineOnly,
         onClick = {
             if (onClick != null) {

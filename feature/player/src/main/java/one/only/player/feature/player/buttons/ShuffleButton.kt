@@ -20,6 +20,8 @@ fun ShuffleButton(
     modifier: Modifier = Modifier,
     isSelected: Boolean = false,
     label: String? = null,
+    shouldDimWhenUnselected: Boolean = false,
+    shouldShowCustomizeFrame: Boolean = false,
     isOutlineOnly: Boolean = false,
     onClick: (() -> Unit)? = null,
 ) {
@@ -31,6 +33,8 @@ fun ShuffleButton(
         isEnabled = onClick != null || state.isEnabled,
         isSelected = isSelected,
         label = label,
+        shouldDimWhenUnselected = shouldDimWhenUnselected,
+        shouldShowCustomizeFrame = shouldShowCustomizeFrame,
         isOutlineOnly = isOutlineOnly,
         onClick = {
             if (onClick != null) {

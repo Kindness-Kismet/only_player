@@ -295,6 +295,8 @@
     <string name="control_buttons_alignment_left">Left</string>
     <string name="control_buttons_alignment_right">Right</string>
     <string name="control_buttons_alignment">Control buttons alignment</string>
+    <string name="player_control_labels">Hide control labels</string>
+    <string name="player_control_labels_description">Hide text under player control buttons</string>
     <string name="player_controls">Player controls</string>
     <string name="stop_player_session">Stop player session</string>
     <string name="background_play">Background play</string>

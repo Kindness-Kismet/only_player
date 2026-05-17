@@ -52,6 +52,7 @@ class PlayerPreferencesViewModel @Inject constructor(
             is PlayerPreferencesUiEvent.UpdateDefaultPlaybackSpeed -> updateDefaultPlaybackSpeed(event.value)
             is PlayerPreferencesUiEvent.UpdateControlAutoHideTimeout -> updateControlAutoHideTimeout(event.value)
             is PlayerPreferencesUiEvent.UpdatePlayerIconStyle -> updatePlayerIconStyle(event.value)
+            PlayerPreferencesUiEvent.TogglePlayerControlLabels -> togglePlayerControlLabels()
             is PlayerPreferencesUiEvent.UpdateHiddenPlayerControls -> updateHiddenPlayerControls(event.value)
         }
     }
@@ -162,6 +163,14 @@ class PlayerPreferencesViewModel @Inject constructor(
         }
     }
 
+    private fun togglePlayerControlLabels() {
+        viewModelScope.launch {
+            preferencesRepository.updatePlayerPreferences {
+                it.copy(shouldHidePlayerControlLabels = !it.shouldHidePlayerControlLabels)
+            }
+        }
+    }
+
     private fun updateHiddenPlayerControls(value: Set<PlayerControl>) {
         viewModelScope.launch {
             preferencesRepository.updatePlayerPreferences {
@@ -191,6 +200,7 @@ sealed interface PlayerPreferencesUiEvent {
     data object ToggleAutoBackgroundPlay : PlayerPreferencesUiEvent
     data object ToggleRememberBrightnessLevel : PlayerPreferencesUiEvent
     data object ToggleRememberPlayerScreenOrientation : PlayerPreferencesUiEvent
+    data object TogglePlayerControlLabels : PlayerPreferencesUiEvent
     data class UpdatePreferredPlayerOrientation(val value: ScreenOrientation) : PlayerPreferencesUiEvent
     data class UpdatePreferredControlButtonsPosition(val value: ControlButtonsPosition) : PlayerPreferencesUiEvent
     data class UpdateDefaultPlaybackSpeed(val value: Float) : PlayerPreferencesUiEvent

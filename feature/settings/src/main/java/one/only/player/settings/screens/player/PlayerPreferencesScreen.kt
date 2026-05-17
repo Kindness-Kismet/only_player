@@ -234,6 +234,14 @@ private fun PlayerPreferencesContent(
                     icon = NextIcons.ButtonsPosition,
                     onClick = { onEvent(PlayerPreferencesUiEvent.ShowDialog(PlayerPreferenceDialog.ControlButtonsDialog)) },
                     isFirstItem = true,
+                )
+                PreferenceSwitch(
+                    modifier = Modifier.testTag("switch_settings_player_control_labels"),
+                    title = stringResource(id = R.string.player_control_labels),
+                    description = stringResource(id = R.string.player_control_labels_description),
+                    icon = NextIcons.Title,
+                    isChecked = uiState.preferences.shouldHidePlayerControlLabels,
+                    onClick = { onEvent(PlayerPreferencesUiEvent.TogglePlayerControlLabels) },
                     isLastItem = true,
                 )
             }

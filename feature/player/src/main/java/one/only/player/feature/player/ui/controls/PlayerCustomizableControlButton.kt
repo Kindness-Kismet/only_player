@@ -34,6 +34,7 @@ internal fun PlayerCustomizableControlButton(
     visiblePlayerControls: Set<PlayerControl>,
     isBeingDragged: Boolean = false,
     isOutlineOnly: Boolean = false,
+    shouldHideLabel: Boolean = false,
     onPlaylistClick: () -> Unit,
     onPlaybackSpeedClick: () -> Unit,
     onAudioClick: () -> Unit,
@@ -60,7 +61,8 @@ internal fun PlayerCustomizableControlButton(
 
     val isSelected = isCustomizingControls && control in visiblePlayerControls
     val isPlaceholder = isBeingDragged || isOutlineOnly
-    val label = control.label().takeIf { isCustomizingControls }
+    val shouldShowLabel = isCustomizingControls || !shouldHideLabel
+    val label = control.label().takeIf { shouldShowLabel }
     val buttonModifier = modifier
 
     when (control) {
@@ -70,6 +72,8 @@ internal fun PlayerCustomizableControlButton(
                 onClick = onPlaylistClick,
                 isSelected = isSelected,
                 label = label,
+                shouldDimWhenUnselected = isCustomizingControls,
+                shouldShowCustomizeFrame = isCustomizingControls,
                 isOutlineOnly = isPlaceholder,
             ) {
                 Icon(
@@ -85,6 +89,8 @@ internal fun PlayerCustomizableControlButton(
                 onClick = onPlaybackSpeedClick,
                 isSelected = isSelected,
                 label = label,
+                shouldDimWhenUnselected = isCustomizingControls,
+                shouldShowCustomizeFrame = isCustomizingControls,
                 isOutlineOnly = isPlaceholder,
             ) {
                 Icon(
@@ -100,6 +106,8 @@ internal fun PlayerCustomizableControlButton(
                 onClick = onAudioClick,
                 isSelected = isSelected,
                 label = label,
+                shouldDimWhenUnselected = isCustomizingControls,
+                shouldShowCustomizeFrame = isCustomizingControls,
                 isOutlineOnly = isPlaceholder,
             ) {
                 Icon(
@@ -115,6 +123,8 @@ internal fun PlayerCustomizableControlButton(
                 onClick = onSubtitleClick,
                 isSelected = isSelected,
                 label = label,
+                shouldDimWhenUnselected = isCustomizingControls,
+                shouldShowCustomizeFrame = isCustomizingControls,
                 isOutlineOnly = isPlaceholder,
             ) {
                 Icon(
@@ -130,6 +140,8 @@ internal fun PlayerCustomizableControlButton(
                 onClick = onLockControlsClick,
                 isSelected = isSelected,
                 label = label,
+                shouldDimWhenUnselected = isCustomizingControls,
+                shouldShowCustomizeFrame = isCustomizingControls,
                 isOutlineOnly = isPlaceholder,
             ) {
                 Icon(
@@ -146,6 +158,8 @@ internal fun PlayerCustomizableControlButton(
                 onLongClick = onVideoContentScaleLongClick,
                 isSelected = isSelected,
                 label = label,
+                shouldDimWhenUnselected = isCustomizingControls,
+                shouldShowCustomizeFrame = isCustomizingControls,
                 isOutlineOnly = isPlaceholder,
             ) {
                 Icon(
@@ -161,6 +175,8 @@ internal fun PlayerCustomizableControlButton(
                 onClick = onDecoderClick,
                 isSelected = isSelected,
                 label = label,
+                shouldDimWhenUnselected = isCustomizingControls,
+                shouldShowCustomizeFrame = isCustomizingControls,
                 isOutlineOnly = isPlaceholder,
             ) {
                 Icon(
@@ -176,6 +192,8 @@ internal fun PlayerCustomizableControlButton(
                 onClick = onAmbienceModeClick,
                 isSelected = isSelected,
                 label = label,
+                shouldDimWhenUnselected = isCustomizingControls,
+                shouldShowCustomizeFrame = isCustomizingControls,
                 isOutlineOnly = isPlaceholder,
             ) {
                 Icon(
@@ -191,6 +209,8 @@ internal fun PlayerCustomizableControlButton(
                 onClick = onVideoFiltersClick,
                 isSelected = isSelected,
                 label = label,
+                shouldDimWhenUnselected = isCustomizingControls,
+                shouldShowCustomizeFrame = isCustomizingControls,
                 isOutlineOnly = isPlaceholder,
             ) {
                 Icon(
@@ -206,6 +226,8 @@ internal fun PlayerCustomizableControlButton(
                 onClick = onPictureInPictureClick,
                 isSelected = isSelected,
                 label = label,
+                shouldDimWhenUnselected = isCustomizingControls,
+                shouldShowCustomizeFrame = isCustomizingControls,
                 isOutlineOnly = isPlaceholder,
             ) {
                 Icon(
@@ -222,6 +244,8 @@ internal fun PlayerCustomizableControlButton(
                 isSelected = isSelected,
                 isEnabled = !isTakingScreenshot,
                 label = label,
+                shouldDimWhenUnselected = isCustomizingControls,
+                shouldShowCustomizeFrame = isCustomizingControls,
                 isOutlineOnly = isPlaceholder,
             ) {
                 if (isTakingScreenshot) {
@@ -244,6 +268,8 @@ internal fun PlayerCustomizableControlButton(
                 onClick = onPlayInBackgroundClick,
                 isSelected = isSelected,
                 label = label,
+                shouldDimWhenUnselected = isCustomizingControls,
+                shouldShowCustomizeFrame = isCustomizingControls,
                 isOutlineOnly = isPlaceholder,
             ) {
                 Icon(
@@ -259,6 +285,8 @@ internal fun PlayerCustomizableControlButton(
                 modifier = buttonModifier,
                 isSelected = isSelected,
                 label = label,
+                shouldDimWhenUnselected = isCustomizingControls,
+                shouldShowCustomizeFrame = isCustomizingControls,
                 isOutlineOnly = isPlaceholder,
                 onClick = onLoopClick.takeIf { isCustomizingControls },
             )
@@ -270,6 +298,8 @@ internal fun PlayerCustomizableControlButton(
                 modifier = buttonModifier,
                 isSelected = isSelected,
                 label = label,
+                shouldDimWhenUnselected = isCustomizingControls,
+                shouldShowCustomizeFrame = isCustomizingControls,
                 isOutlineOnly = isPlaceholder,
                 onClick = onShuffleClick.takeIf { isCustomizingControls },
             )
@@ -281,6 +311,8 @@ internal fun PlayerCustomizableControlButton(
                 modifier = buttonModifier,
                 isSelected = isSelected,
                 label = label,
+                shouldDimWhenUnselected = isCustomizingControls,
+                shouldShowCustomizeFrame = isCustomizingControls,
                 isOutlineOnly = isPlaceholder,
                 onClick = {
                     onSleepTimerClick?.invoke()
@@ -310,6 +342,8 @@ internal fun PlayerCustomizableControlButton(
                 onClick = onRotateClick,
                 isSelected = isSelected,
                 label = label,
+                shouldDimWhenUnselected = isCustomizingControls,
+                shouldShowCustomizeFrame = isCustomizingControls,
                 isOutlineOnly = isPlaceholder,
             ) {
                 Icon(

@@ -392,6 +392,9 @@ class DebugCommandProvider : ContentProvider() {
                 val position = enumValue<ControlButtonsPosition>(value.requiredString(EXTRA_VALUE))
                 preferencesRepository().updatePlayerPreferences { it.copy(controlButtonsPosition = position) }
             }
+            "player.control_labels" -> updatePlayerBoolean(value) { preferences, isEnabled ->
+                preferences.copy(shouldHidePlayerControlLabels = !isEnabled)
+            }
             "gesture.seek" -> updatePlayerBoolean(value) { preferences, isEnabled -> preferences.copy(shouldUseSeekControls = isEnabled) }
             "gesture.seek_sensitivity" -> updatePlayerFloat(value) { preferences, floatValue ->
                 preferences.copy(seekSensitivity = floatValue.coerceIn(0.1f, 2.0f))
@@ -513,6 +516,7 @@ class DebugCommandProvider : ContentProvider() {
             "player.auto_pip" -> togglePlayer { it.copy(shouldAutoEnterPip = !it.shouldAutoEnterPip) }
             "player.background_play" -> togglePlayer { it.copy(shouldAutoPlayInBackground = !it.shouldAutoPlayInBackground) }
             "player.remember_brightness" -> togglePlayer { it.copy(shouldRememberPlayerBrightness = !it.shouldRememberPlayerBrightness) }
+            "player.control_labels" -> togglePlayer { it.copy(shouldHidePlayerControlLabels = !it.shouldHidePlayerControlLabels) }
             "gesture.seek" -> togglePlayer { it.copy(shouldUseSeekControls = !it.shouldUseSeekControls) }
             "gesture.brightness" -> togglePlayer { it.copy(isBrightnessSwipeGestureEnabled = !it.isBrightnessSwipeGestureEnabled) }
             "gesture.volume" -> togglePlayer { it.copy(isVolumeSwipeGestureEnabled = !it.isVolumeSwipeGestureEnabled) }
