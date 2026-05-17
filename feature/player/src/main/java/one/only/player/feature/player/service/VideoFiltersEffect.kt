@@ -15,9 +15,16 @@ import androidx.media3.effect.GlShaderProgram
 
 @OptIn(UnstableApi::class)
 internal class VideoFiltersEffect(
-    private val transition: VideoFilterTransition,
+    private var transition: VideoFilterTransition,
     private val transitionDurationMs: Long,
 ) : GlEffect {
+
+    private var shaderProgram: VideoFiltersShaderProgram? = null
+
+    fun updateTransition(transition: VideoFilterTransition) {
+        this.transition = transition
+        shaderProgram?.updateTransition(transition)
+    }
 
     override fun toGlShaderProgram(
         context: Context,
@@ -26,7 +33,7 @@ internal class VideoFiltersEffect(
         useHdr = useHdr,
         transition = transition,
         transitionDurationMs = transitionDurationMs,
-    )
+    ).also { shaderProgram = it }
 
     override fun isNoOp(
         inputWidth: Int,
@@ -35,11 +42,17 @@ internal class VideoFiltersEffect(
 
     private class VideoFiltersShaderProgram(
         useHdr: Boolean,
-        private val transition: VideoFilterTransition,
+        private var transition: VideoFilterTransition,
         private val transitionDurationMs: Long,
     ) : BaseGlShaderProgram(useHdr, 1) {
 
         private val glProgram = createGlProgram()
+        private var inputWidth = 1
+        private var inputHeight = 1
+
+        fun updateTransition(transition: VideoFilterTransition) {
+            this.transition = transition
+        }
 
         init {
             val identityMatrix = GlUtil.create4x4IdentityMatrix()
@@ -56,6 +69,22 @@ internal class VideoFiltersEffect(
             inputWidth: Int,
             inputHeight: Int,
         ): Size {
+            this.inputWidth = inputWidth
+            this.inputHeight = inputHeight
+            val filters = transition.targetFilters
+            val outputSize = if (filters.isAmbienceModeEnabled && filters.screenAspectRatio > 0f) {
+                val inputAspectRatio = inputWidth.toFloat() / inputHeight
+                if (filters.screenAspectRatio > inputAspectRatio) {
+                    // Screen is wider than video (pillarbox)
+                    Size((inputHeight * filters.screenAspectRatio).toInt(), inputHeight)
+                } else {
+                    // Screen is taller than video (letterbox)
+                    Size(inputWidth, (inputWidth / filters.screenAspectRatio).toInt())
+                }
+            } else {
+                Size(inputWidth, inputHeight)
+            }
+
             glProgram.setFloatsUniform(
                 "uTexelSize",
                 floatArrayOf(
@@ -63,7 +92,7 @@ internal class VideoFiltersEffect(
                     1f / inputHeight,
                 ),
             )
-            return Size(inputWidth, inputHeight)
+            return outputSize
         }
 
         override fun drawFrame(
@@ -72,7 +101,18 @@ internal class VideoFiltersEffect(
         ) {
             try {
                 glProgram.use()
-                setFilterUniforms()
+                val filters = transition.currentFilters(
+                    currentMs = SystemClock.elapsedRealtime(),
+                    durationMs = transitionDurationMs,
+                )
+                setFilterUniforms(filters)
+
+                glProgram.setFloatUniform("uVideoScaleX", filters.videoScaleX)
+                glProgram.setFloatUniform("uVideoScaleY", filters.videoScaleY)
+                glProgram.setFloatUniform("uVideoOffsetX", filters.videoOffsetX)
+                glProgram.setFloatUniform("uVideoOffsetY", filters.videoOffsetY)
+                glProgram.setFloatUniform("uAmbienceEnabled", if (filters.isAmbienceModeEnabled) 1.0f else 0.0f)
+
                 glProgram.setSamplerTexIdUniform("uTexSampler", inputTexId, 0)
                 glProgram.bindAttributesAndUniforms()
                 GLES20.glDrawArrays(GLES20.GL_TRIANGLE_STRIP, 0, VERTEX_COUNT)
@@ -91,11 +131,7 @@ internal class VideoFiltersEffect(
             }
         }
 
-        private fun setFilterUniforms() {
-            val filters = transition.currentFilters(
-                currentMs = SystemClock.elapsedRealtime(),
-                durationMs = transitionDurationMs,
-            )
+        private fun setFilterUniforms(filters: VideoFilterPreferences) {
             glProgram.setFloatUniform("uBrightness", filters.brightness)
             glProgram.setFloatUniform("uContrast", filters.contrast)
             glProgram.setFloatUniform("uSaturation", filters.saturation)
@@ -143,7 +179,16 @@ internal class VideoFiltersEffect(
             uniform float uHue;
             uniform float uGamma;
             uniform float uSharpness;
+            uniform float uVideoScaleX;
+            uniform float uVideoScaleY;
+            uniform float uVideoOffsetX;
+            uniform float uVideoOffsetY;
+            uniform float uAmbienceEnabled;
             varying vec2 vTexSamplingCoord;
+
+            float hash(vec2 p) {
+              return fract(sin(dot(p, vec2(12.71, 31.17))) * 437.585453);
+            }
 
             vec3 rotateHue(vec3 color, float hue) {
               float angle = hue * 0.01745329252;
@@ -189,23 +234,59 @@ internal class VideoFiltersEffect(
             }
 
             void main() {
-              vec4 center = texture2D(uTexSampler, vTexSamplingCoord);
-              vec3 sourceColor = center.rgb;
+              vec2 video_uv = (vTexSamplingCoord - 0.5 - vec2(uVideoOffsetX, -uVideoOffsetY)) / vec2(uVideoScaleX, uVideoScaleY) + 0.5;
+              vec4 color;
 
-              if (uSharpness > 0.0) {
-                vec3 north = texture2D(uTexSampler, vTexSamplingCoord + vec2(0.0, -uTexelSize.y)).rgb;
-                vec3 south = texture2D(uTexSampler, vTexSamplingCoord + vec2(0.0, uTexelSize.y)).rgb;
-                vec3 west = texture2D(uTexSampler, vTexSamplingCoord + vec2(-uTexelSize.x, 0.0)).rgb;
-                vec3 east = texture2D(uTexSampler, vTexSamplingCoord + vec2(uTexelSize.x, 0.0)).rgb;
-                vec3 northwest = texture2D(uTexSampler, vTexSamplingCoord + vec2(-uTexelSize.x, -uTexelSize.y)).rgb;
-                vec3 northeast = texture2D(uTexSampler, vTexSamplingCoord + vec2(uTexelSize.x, -uTexelSize.y)).rgb;
-                vec3 southwest = texture2D(uTexSampler, vTexSamplingCoord + vec2(-uTexelSize.x, uTexelSize.y)).rgb;
-                vec3 southeast = texture2D(uTexSampler, vTexSamplingCoord + vec2(uTexelSize.x, uTexelSize.y)).rgb;
-                vec3 blur = center.rgb * 0.25 + (north + south + west + east) * 0.125 + (northwest + northeast + southwest + southeast) * 0.0625;
-                sourceColor = clamp(center.rgb + (center.rgb - blur) * uSharpness, 0.0, 1.0);
+              if (uAmbienceEnabled > 0.5 && (video_uv.x < 0.0 || video_uv.x > 1.0 || video_uv.y < 0.0 || video_uv.y > 1.0)) {
+                // Ambient region (Blurred dynamic glow)
+                vec3 avg_color = vec3(0.0);
+                const int samples = 16;
+                float base_seed = hash(vTexSamplingCoord + uVideoScaleX);
+                
+                // Sample from nearest edges to create a glow effect
+                vec2 center_uv = clamp(video_uv, 0.0, 1.0);
+                
+                for (int i = 0; i < samples; i++) {
+                  float angle = float(i) * (6.283185 / float(samples));
+                  float radius = 0.05 + 0.15 * hash(vec2(float(i), base_seed));
+                  vec2 offset = vec2(cos(angle), sin(angle)) * radius;
+                  avg_color += texture2D(uTexSampler, clamp(center_uv + offset, 0.0, 1.0)).rgb;
+                }
+                avg_color /= float(samples);
+
+                float luma = dot(avg_color, vec3(0.2126, 0.7152, 0.0722));
+                avg_color = mix(vec3(luma), avg_color, 1.4); // Saturation boost
+                avg_color *= 0.45; // Brightness
+
+                // Darken further from video edges
+                float dist = length(video_uv - center_uv);
+                float fade = exp(-dist * 1.8);
+                avg_color *= fade;
+
+                // Subtle noise to prevent banding
+                float noise = hash(vTexSamplingCoord * 10.0 + base_seed) * 0.01 - 0.005;
+                color = vec4(clamp(avg_color + noise, 0.0, 1.0), 1.0);
+              } else {
+                vec2 sample_uv = clamp(video_uv, 0.0, 1.0);
+                vec4 center = texture2D(uTexSampler, sample_uv);
+                vec3 sourceColor = center.rgb;
+
+                if (uSharpness > 0.0) {
+                  vec3 north = texture2D(uTexSampler, sample_uv + vec2(0.0, -uTexelSize.y)).rgb;
+                  vec3 south = texture2D(uTexSampler, sample_uv + vec2(0.0, uTexelSize.y)).rgb;
+                  vec3 west = texture2D(uTexSampler, sample_uv + vec2(-uTexelSize.x, 0.0)).rgb;
+                  vec3 east = texture2D(uTexSampler, sample_uv + vec2(uTexelSize.x, 0.0)).rgb;
+                  vec3 northwest = texture2D(uTexSampler, sample_uv + vec2(-uTexelSize.x, -uTexelSize.y)).rgb;
+                  vec3 northeast = texture2D(uTexSampler, sample_uv + vec2(uTexelSize.x, -uTexelSize.y)).rgb;
+                  vec3 southwest = texture2D(uTexSampler, sample_uv + vec2(-uTexelSize.x, uTexelSize.y)).rgb;
+                  vec3 southeast = texture2D(uTexSampler, sample_uv + vec2(uTexelSize.x, uTexelSize.y)).rgb;
+                  vec3 blur = center.rgb * 0.25 + (north + south + west + east) * 0.125 + (northwest + northeast + southwest + southeast) * 0.0625;
+                  sourceColor = clamp(center.rgb + (center.rgb - blur) * uSharpness, 0.0, 1.0);
+                }
+                color = vec4(applyColorFilters(sourceColor), center.a);
               }
 
-              gl_FragColor = vec4(applyColorFilters(sourceColor), center.a);
+              gl_FragColor = color;
             }
         """
     }

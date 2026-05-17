@@ -99,6 +99,14 @@ private fun DecoderPreferencesContent(
                     icon = NextIcons.Priority,
                     onClick = { onEvent(DecoderPreferencesUiEvent.ShowDialog(DecoderPreferenceDialog.DecoderPriorityDialog)) },
                     isFirstItem = true,
+                )
+                PreferenceSwitch(
+                    modifier = Modifier.testTag("switch_settings_ambience_mode"),
+                    title = stringResource(R.string.ambience_mode),
+                    description = stringResource(R.string.ambience_mode_description),
+                    icon = NextIcons.Background,
+                    isChecked = preferences.isAmbienceModeEnabled,
+                    onClick = { onEvent(DecoderPreferencesUiEvent.ToggleAmbienceMode) },
                     isLastItem = true,
                 )
             }

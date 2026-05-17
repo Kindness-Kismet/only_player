@@ -132,6 +132,7 @@
     <string name="portrait">Portrait</string>
     <string name="video_orientation">Video Orientation</string>
     <string name="ambience_mode">Ambience mode</string>
+    <string name="ambience_mode_description">Enable dynamic YouTube-style ambient glow around the video</string>
     <string name="remember_player_screen_orientation">Remember rotation</string>
     <string name="remember_player_screen_orientation_description">Start playback with the last manually selected rotation</string>
     <string name="newest">Newest</string>

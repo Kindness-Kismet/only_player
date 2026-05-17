@@ -30,6 +30,10 @@ import kotlin.math.min
 import kotlinx.coroutines.delay
 import one.only.player.core.common.Logger
 import one.only.player.core.model.DecoderPriority
+import androidx.media3.session.SessionCommand
+import one.only.player.core.model.PlayerPreferences
+import one.only.player.feature.player.service.CustomCommands
+import one.only.player.feature.player.service.setVideoTransform
 import one.only.player.core.model.VideoContentScale
 import one.only.player.feature.player.state.ControlsVisibilityState
 import one.only.player.feature.player.state.PictureInPictureState
@@ -53,10 +57,13 @@ fun PlayerContentFrame(
     seekGestureState: SeekGestureState,
     videoZoomAndContentScaleState: VideoZoomAndContentScaleState,
     volumeAndBrightnessGestureState: VolumeAndBrightnessGestureState,
+    playerPreferences: PlayerPreferences,
     subtitleConfiguration: SubtitleConfiguration,
     decoderPriority: DecoderPriority,
     isGesturesEnabled: Boolean = true,
 ) {
+    val isAmbienceModeEnabled = playerPreferences.isAmbienceModeEnabled
+
     // decoder 切换重建 SurfaceView，重新绑定视频输出
     var surfaceRefreshKey by remember { mutableIntStateOf(0) }
     var previousDecoderPriority by remember { mutableStateOf(decoderPriority) }
@@ -103,10 +110,12 @@ fun PlayerContentFrame(
             val surfaceWidthDp = with(density) { videoWidth.toDp() }
             val surfaceHeightDp = with(density) { videoHeight.toDp() }
 
-            PlayerSurface(
-                player = player,
-                surfaceType = SURFACE_TYPE_SURFACE_VIEW,
-                modifier = Modifier
+            // If ambient mode is enabled, the shader handles zoom/offset to fill the screen.
+            // In that case, we make the surface fill the container and disable Compose-side scaling.
+            val surfaceModifier = if (isAmbienceModeEnabled) {
+                Modifier.fillMaxSize()
+            } else {
+                Modifier
                     .requiredSize(surfaceWidthDp, surfaceHeightDp)
                     .graphicsLayer {
                         scaleX = baseScaleX * videoZoomAndContentScaleState.zoom
@@ -114,6 +123,39 @@ fun PlayerContentFrame(
                         translationX = videoZoomAndContentScaleState.offset.x
                         translationY = videoZoomAndContentScaleState.offset.y
                     }
+            }
+
+            LaunchedEffect(
+                isAmbienceModeEnabled,
+                videoZoomAndContentScaleState.zoom,
+                videoZoomAndContentScaleState.offset,
+                videoZoomAndContentScaleState.videoContentScale,
+                containerWidth,
+                containerHeight,
+                videoWidth,
+                videoHeight,
+            ) {
+                if (player is androidx.media3.session.MediaController) {
+                    if (isAmbienceModeEnabled) {
+                        val scaleX = (videoWidth * baseScaleX * videoZoomAndContentScaleState.zoom) / containerWidth
+                        val scaleY = (videoHeight * baseScaleY * videoZoomAndContentScaleState.zoom) / containerHeight
+                        player.setVideoTransform(
+                            scaleX = scaleX,
+                            scaleY = scaleY,
+                            offsetX = videoZoomAndContentScaleState.offset.x / containerWidth,
+                            offsetY = videoZoomAndContentScaleState.offset.y / containerHeight,
+                        )
+                    } else {
+                        // Reset transform in service when ambient mode is disabled
+                        player.setVideoTransform(1f, 1f, 0f, 0f)
+                    }
+                }
+            }
+
+            PlayerSurface(
+                player = player,
+                surfaceType = SURFACE_TYPE_SURFACE_VIEW,
+                modifier = surfaceModifier
                     .onGloballyPositioned {
                         val bounds = it.boundsInWindow()
                         val rect = Rect(
