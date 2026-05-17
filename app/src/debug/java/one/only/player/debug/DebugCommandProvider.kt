@@ -6,7 +6,9 @@ import android.content.ContentValues
 import android.content.Intent
 import android.database.Cursor
 import android.net.Uri
+import android.os.Binder
 import android.os.Bundle
+import android.os.Process
 import androidx.media3.common.C
 import androidx.media3.common.Player
 import androidx.media3.session.MediaController
@@ -59,18 +61,28 @@ class DebugCommandProvider : ContentProvider() {
         method: String,
         arg: String?,
         extras: Bundle?,
-    ): Bundle = when (method) {
-        METHOD_PAGE_OPEN -> openPage(arg)
-        METHOD_SETTINGS_SET -> runSettingsCommand(method, arg, extras) { setSetting(arg, extras) }
-        METHOD_SETTINGS_TOGGLE -> runSettingsCommand(method, arg, extras) { toggleSetting(arg) }
-        METHOD_SETTINGS_ACTION -> runSettingsCommand(method, arg, extras) { runSettingAction(arg) }
-        METHOD_CLOUD_SERVER -> runCloudServerCommand(arg, extras)
-        METHOD_PLAYER_ACTION -> runPlayerAction(arg, extras)
-        METHOD_PLAYER_GET -> runPlayerGet(arg)
-        else -> result(
-            isOk = false,
-            message = "Unknown method: $method",
-        )
+    ): Bundle {
+        if (!isAuthorizedCaller()) {
+            return result(
+                isOk = false,
+                message = "Unauthorized caller",
+                command = method,
+                target = arg,
+            )
+        }
+        return when (method) {
+            METHOD_PAGE_OPEN -> openPage(arg)
+            METHOD_SETTINGS_SET -> runSettingsCommand(method, arg, extras) { setSetting(arg, extras) }
+            METHOD_SETTINGS_TOGGLE -> runSettingsCommand(method, arg, extras) { toggleSetting(arg) }
+            METHOD_SETTINGS_ACTION -> runSettingsCommand(method, arg, extras) { runSettingAction(arg) }
+            METHOD_CLOUD_SERVER -> runCloudServerCommand(arg, extras)
+            METHOD_PLAYER_ACTION -> runPlayerAction(arg, extras)
+            METHOD_PLAYER_GET -> runPlayerGet(arg)
+            else -> result(
+                isOk = false,
+                message = "Unknown method: $method",
+            )
+        }
     }
 
     override fun query(
@@ -100,6 +112,13 @@ class DebugCommandProvider : ContentProvider() {
         selection: String?,
         selectionArgs: Array<out String>?,
     ): Int = 0
+
+    private fun isAuthorizedCaller(): Boolean {
+        val callingUid = Binder.getCallingUid()
+        return callingUid == Process.SHELL_UID ||
+            callingUid == Process.ROOT_UID ||
+            callingUid == Process.myUid()
+    }
 
     private fun openPage(pageId: String?): Bundle {
         val pageRoute = DebugPageRoute.from(pageId) ?: return result(

@@ -1846,6 +1846,7 @@ class PlayerService : MediaSessionService() {
 
                 val externalSubs = videoState?.externalSubs ?: emptyList()
                 val validExternalSubs = externalSubs.filter { subUri ->
+                    if (subUri.scheme in DIRECT_SUBTITLE_URI_SCHEMES) return@filter true
                     try {
                         contentResolver.openInputStream(subUri)?.close()
                         true

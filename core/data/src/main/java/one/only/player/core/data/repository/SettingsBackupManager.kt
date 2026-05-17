@@ -4,6 +4,9 @@ import java.io.InputStream
 import java.io.OutputStream
 import javax.inject.Inject
 import kotlinx.serialization.json.Json
+import kotlinx.serialization.json.jsonObject
+import kotlinx.serialization.json.jsonPrimitive
+import one.only.player.core.model.PlayerIconStyle
 import one.only.player.core.model.SettingsBackup
 
 class SettingsBackupManager @Inject constructor() {
@@ -22,8 +25,20 @@ class SettingsBackupManager @Inject constructor() {
         )
     }
 
-    fun read(inputStream: InputStream): SettingsBackup = json.decodeFromString(
-        deserializer = SettingsBackup.serializer(),
-        string = inputStream.readBytes().decodeToString(),
-    )
+    fun read(inputStream: InputStream): SettingsBackup {
+        val rawBackup = inputStream.readBytes().decodeToString()
+        val backup = json.decodeFromString(
+            deserializer = SettingsBackup.serializer(),
+            string = rawBackup,
+        )
+        return backup.upgradeLegacyDefaults(rawBackup)
+    }
+
+    private fun SettingsBackup.upgradeLegacyDefaults(rawBackup: String): SettingsBackup {
+        val root = runCatching { json.parseToJsonElement(rawBackup).jsonObject }.getOrNull() ?: return this
+        val playerRoot = root["playerPreferences"]?.jsonObject ?: return this
+        if ("playerIconStyle" in playerRoot) return this
+        if (playerRoot["shouldUseClassicPlayerIcons"]?.jsonPrimitive?.content != "true") return this
+        return copy(playerPreferences = playerPreferences.copy(playerIconStyle = PlayerIconStyle.CLASSIC))
+    }
 }
