@@ -277,6 +277,7 @@ class PlayerService : MediaSessionService() {
         filters = VideoFilterPreferences.default(),
         decoderPriority = DecoderPriority.AUTOMATIC,
     )
+    private var activeVideoFiltersEffect: VideoFiltersEffect? = null
     private var pendingVideoFiltersJob: Job? = null
     private var videoFilterTransition = VideoFilterTransition.default()
     private lateinit var fastStartMediaSourceFactory: DefaultMediaSourceFactory
@@ -1250,14 +1251,10 @@ class PlayerService : MediaSessionService() {
                 startMs = SystemClock.elapsedRealtime(),
                 durationMs = VIDEO_FILTER_TRANSITION_DURATION_MS,
             )
-            val effects = buildVideoEffects(
-                transition = transition,
-                decoderPriority = decoderPriority,
-            )
             if (hasStalePreferences()) return@launch
 
-            applyVideoEffects(player, videoFilters, decoderPriority, transition, effects)
-            Logger.debug(TAG, "$logPrefix video filters: $videoFilters effects=${effects.size}")
+            applyVideoEffects(player, videoFilters, decoderPriority, transition)
+            Logger.debug(TAG, "$logPrefix video filters: $videoFilters effect=${activeVideoFiltersEffect != null}")
         }.also { job ->
             job.invokeOnCompletion {
                 if (pendingVideoFiltersJob == job) pendingVideoFiltersJob = null
@@ -1270,14 +1267,37 @@ class PlayerService : MediaSessionService() {
         videoFilters: VideoFilterPreferences,
         decoderPriority: DecoderPriority,
         transition: VideoFilterTransition,
-        effects: List<Effect>,
     ) {
+        val effect = activeVideoFiltersEffect
+        val canUpdateActiveEffect = effect != null &&
+            shouldUseVideoFiltersEffect(
+                filters = videoFilters,
+                decoderPriority = decoderPriority,
+            )
+        if (canUpdateActiveEffect) {
+            videoFilterTransition = transition
+            effect.updateTransition(transition)
+            currentVideoEffectsState = VideoEffectsState(
+                filters = videoFilters,
+                decoderPriority = decoderPriority,
+                isPipelineInitialized = true,
+            )
+            refreshPausedVideoFrame(player)
+            updateCurrentVideoEffectsAvailability(player)
+            return
+        }
+
+        val effects = buildVideoEffects(
+            transition = transition,
+            decoderPriority = decoderPriority,
+        )
         videoFilterTransition = if (effects.isEmpty()) VideoFilterTransition.default() else transition
         currentVideoEffectsState = VideoEffectsState(
             filters = videoFilters,
             decoderPriority = decoderPriority,
             isPipelineInitialized = true,
         )
+        activeVideoFiltersEffect = effects.filterIsInstance<VideoFiltersEffect>().firstOrNull()
         player.setVideoEffects(effects)
         refreshPausedVideoFrame(player)
         updateCurrentVideoEffectsAvailability(player)
@@ -1374,8 +1394,7 @@ class PlayerService : MediaSessionService() {
         transition: VideoFilterTransition,
         decoderPriority: DecoderPriority,
     ): List<Effect> {
-        if (!shouldApplyVideoEffects(decoderPriority)) return emptyList()
-        if (!transition.targetFilters.shouldCreateEffect()) return emptyList()
+        if (!shouldUseVideoFiltersEffect(transition.targetFilters, decoderPriority)) return emptyList()
         return listOf(
             VideoFiltersEffect(
                 transition = transition,
@@ -1383,6 +1402,11 @@ class PlayerService : MediaSessionService() {
             ),
         )
     }
+
+    private fun shouldUseVideoFiltersEffect(
+        filters: VideoFilterPreferences,
+        decoderPriority: DecoderPriority,
+    ): Boolean = shouldApplyVideoEffects(decoderPriority) && filters.shouldCreateEffect()
 
     private fun String.toLogSummary(): String = Uri.parse(this).toLogSummary()
 
@@ -1679,6 +1703,7 @@ class PlayerService : MediaSessionService() {
                     filters = VideoFilterPreferences.default(),
                     decoderPriority = activeDecoderPriority,
                 )
+                activeVideoFiltersEffect = null
                 applyVideoFilters(it, preferences)
             }
     }

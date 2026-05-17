@@ -15,17 +15,25 @@ import androidx.media3.effect.GlShaderProgram
 
 @OptIn(UnstableApi::class)
 internal class VideoFiltersEffect(
-    private val transition: VideoFilterTransition,
-    private val transitionDurationMs: Long,
+    transition: VideoFilterTransition,
+    transitionDurationMs: Long,
 ) : GlEffect {
+
+    private val state = VideoFiltersEffectState(
+        initialTransition = transition,
+        transitionDurationMs = transitionDurationMs,
+    )
+
+    fun updateTransition(transition: VideoFilterTransition) {
+        state.updateTransition(transition)
+    }
 
     override fun toGlShaderProgram(
         context: Context,
         useHdr: Boolean,
     ): GlShaderProgram = VideoFiltersShaderProgram(
         useHdr = useHdr,
-        transition = transition,
-        transitionDurationMs = transitionDurationMs,
+        state = state,
     )
 
     override fun isNoOp(
@@ -35,8 +43,7 @@ internal class VideoFiltersEffect(
 
     private class VideoFiltersShaderProgram(
         useHdr: Boolean,
-        private val transition: VideoFilterTransition,
-        private val transitionDurationMs: Long,
+        private val state: VideoFiltersEffectState,
     ) : BaseGlShaderProgram(useHdr, 1) {
 
         private val glProgram = createGlProgram()
@@ -92,10 +99,7 @@ internal class VideoFiltersEffect(
         }
 
         private fun setFilterUniforms() {
-            val filters = transition.currentFilters(
-                currentMs = SystemClock.elapsedRealtime(),
-                durationMs = transitionDurationMs,
-            )
+            val filters = state.currentFilters(SystemClock.elapsedRealtime())
             glProgram.setFloatUniform("uBrightness", filters.brightness)
             glProgram.setFloatUniform("uContrast", filters.contrast)
             glProgram.setFloatUniform("uSaturation", filters.saturation)
@@ -110,6 +114,23 @@ internal class VideoFiltersEffect(
         } catch (exception: GlUtil.GlException) {
             throw VideoFrameProcessingException(exception)
         }
+    }
+
+    private class VideoFiltersEffectState(
+        initialTransition: VideoFilterTransition,
+        private val transitionDurationMs: Long,
+    ) {
+        @Volatile
+        private var transition: VideoFilterTransition = initialTransition
+
+        fun updateTransition(transition: VideoFilterTransition) {
+            this.transition = transition
+        }
+
+        fun currentFilters(currentMs: Long): VideoFilterPreferences = transition.currentFilters(
+            currentMs = currentMs,
+            durationMs = transitionDurationMs,
+        )
     }
 
     private companion object {
