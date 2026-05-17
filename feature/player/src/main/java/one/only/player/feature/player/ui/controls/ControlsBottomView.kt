@@ -267,7 +267,7 @@ fun ControlsBottomView(
                 PlayerButton(
                     onClick = onCustomizeControlsClick,
                     isSelected = false,
-                    label = stringResource(R.string.customize_player_controls),
+                    label = stringResource(R.string.customize_player_controls).takeUnless { shouldHideLabels },
                     shouldShowSelectionBadge = false,
                     shouldDimWhenUnselected = false,
                     shouldShowCustomizeFrame = false,
