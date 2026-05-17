@@ -18,6 +18,7 @@ import coil3.disk.DiskCache
 import coil3.fetch.SourceFetchResult
 import coil3.request.Options
 import coil3.toAndroidUri
+import io.github.anilbeesetti.nextlib.mediainfo.MediaInfo
 import io.github.anilbeesetti.nextlib.mediainfo.MediaInfoBuilder
 import kotlin.math.abs
 import kotlinx.coroutines.sync.Semaphore
@@ -35,6 +36,7 @@ class VideoThumbnailDecoder(
     companion object {
         // 缩略图最大尺寸，避免 4K 全分辨率 Bitmap 占用过多内存
         private const val MAX_THUMBNAIL_SIZE = 512
+        private const val THUMBNAIL_CACHE_VERSION = 2
         private val mediaInfoSemaphore = Semaphore(1)
     }
 
@@ -97,7 +99,7 @@ class VideoThumbnailDecoder(
         }
 
     private val diskCacheKey: String
-        get() = "$sourceCacheKey#thumbnail=${strategy.cacheKey}"
+        get() = "$sourceCacheKey#thumbnail=v$THUMBNAIL_CACHE_VERSION:${strategy.cacheKey}"
 
     @OptIn(ExperimentalCoilApi::class)
     override suspend fun decode(): DecodeResult {
@@ -183,23 +185,23 @@ class VideoThumbnailDecoder(
             logThumbnail { "mediaInfo built strategy=${strategy.logName} duration=$duration source=$mediaInfoSource key=$key" }
             when (strategy) {
                 is ThumbnailStrategy.FirstFrame -> {
-                    mediaInfo.getFrame().also { frame ->
+                    mediaInfo.getFrameAtMillis(0L).also { frame ->
                         logThumbnail { "mediaInfo firstFrame result=${frame != null} key=$key" }
                     }
                 }
                 is ThumbnailStrategy.FrameAtPercentage -> {
                     val timeMs = (duration * strategy.percentage).toLong()
-                    mediaInfo.getFrameAt(timeMs).also { frame ->
+                    mediaInfo.getFrameAtMillis(timeMs).also { frame ->
                         logThumbnail { "mediaInfo frameAt timeMs=$timeMs result=${frame != null} key=$key" }
                     }
                 }
                 is ThumbnailStrategy.Hybrid -> {
-                    val firstFrame = mediaInfo.getFrame()
+                    val firstFrame = mediaInfo.getFrameAtMillis(0L)
                     val isFirstFrameSolid = firstFrame != null && isSolidColor(firstFrame)
                     logThumbnail { "mediaInfo hybrid firstFrame=${firstFrame != null} solid=$isFirstFrameSolid key=$key" }
                     if (firstFrame != null && isFirstFrameSolid) {
                         val timeMs = (duration * strategy.percentage).toLong()
-                        val fallbackFrame = mediaInfo.getFrameAt(timeMs).also { frame ->
+                        val fallbackFrame = mediaInfo.getFrameAtMillis(timeMs).also { frame ->
                             logThumbnail { "mediaInfo hybrid fallback timeMs=$timeMs result=${frame != null} key=$key" }
                         }
                         if (fallbackFrame != null) {
@@ -313,6 +315,8 @@ private val ThumbnailStrategy.cacheKey: String
         is ThumbnailStrategy.FrameAtPercentage -> "frameAt:$percentage"
         is ThumbnailStrategy.Hybrid -> "hybrid:$percentage"
     }
+
+private fun MediaInfo.getFrameAtMillis(timeMs: Long): Bitmap? = getFrameAt(timeMs.coerceAtLeast(0L) * 1_000L)
 
 private inline fun logThumbnail(message: () -> String) {
     if (BuildConfig.DEBUG) {
