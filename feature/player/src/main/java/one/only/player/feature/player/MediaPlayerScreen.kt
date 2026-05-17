@@ -695,6 +695,7 @@ internal fun MediaPlayerScreen(
                     videoZoomAndContentScaleState = videoZoomAndContentScaleState,
                     volumeAndBrightnessGestureState = volumeAndBrightnessGestureState,
                     isGesturesEnabled = !isCustomizingControls,
+                    playerPreferences = playerPreferences,
                     subtitleConfiguration = SubtitleConfiguration(
                         shouldUseSystemCaptionStyle = playerPreferences.shouldUseSystemCaptionStyle,
                         shouldShowBackground = playerPreferences.shouldShowSubtitleBackground,

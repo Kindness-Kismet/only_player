@@ -279,7 +279,12 @@ class PlayerService : MediaSessionService() {
     )
     private var pendingVideoFiltersJob: Job? = null
     private var videoFilterTransition = VideoFilterTransition.default()
+    private var videoFiltersEffect: VideoFiltersEffect? = null
     private var screenAspectRatio: Float = 0f
+    private var videoScaleX: Float = 1f
+    private var videoScaleY: Float = 1f
+    private var videoOffsetX: Float = 0f
+    private var videoOffsetY: Float = 0f
     private lateinit var fastStartMediaSourceFactory: DefaultMediaSourceFactory
     private lateinit var preciseSeekMediaSourceFactory: DefaultMediaSourceFactory
     private var sessionLoadErrorHandlingPolicy: LoadErrorHandlingPolicy? = null
@@ -1251,6 +1256,16 @@ class PlayerService : MediaSessionService() {
                 startMs = SystemClock.elapsedRealtime(),
                 durationMs = VIDEO_FILTER_TRANSITION_DURATION_MS,
             )
+            
+            val currentEffect = videoFiltersEffect
+            if (currentEffect != null && decoderPriority == currentVideoEffectsState.decoderPriority) {
+                currentEffect.updateTransition(transition)
+                currentVideoEffectsState = currentVideoEffectsState.copy(filters = videoFilters)
+                videoFilterTransition = transition
+                Logger.debug(TAG, "$logPrefix video filters (updated): $videoFilters")
+                return@launch
+            }
+
             val effects = buildVideoEffects(
                 transition = transition,
                 decoderPriority = decoderPriority,
@@ -1273,7 +1288,8 @@ class PlayerService : MediaSessionService() {
         transition: VideoFilterTransition,
         effects: List<Effect>,
     ) {
-        videoFilterTransition = if (effects.isEmpty()) VideoFilterTransition.default() else transition
+        videoFilterTransition = transition
+        videoFiltersEffect = effects.filterIsInstance<VideoFiltersEffect>().firstOrNull()
         currentVideoEffectsState = VideoEffectsState(
             filters = videoFilters,
             decoderPriority = decoderPriority,
@@ -1311,10 +1327,13 @@ class PlayerService : MediaSessionService() {
     }
 
     private fun PlayerPreferences.toVideoFilterPreferences(screenAspectRatio: Float): VideoFilterPreferences {
-        if (!shouldApplyVideoFilters && !isAmbienceModeEnabled) return VideoFilterPreferences.default()
+        val hasTransform = videoScaleX != 1f || videoScaleY != 1f || videoOffsetX != 0f || videoOffsetY != 0f
+        if (!shouldApplyVideoFilters && !isAmbienceModeEnabled && !hasTransform) {
+            return VideoFilterPreferences.default()
+        }
 
         val filters = VideoFilterPreferences(
-            shouldApply = shouldApplyVideoFilters || isAmbienceModeEnabled,
+            shouldApply = true,
             isAmbienceModeEnabled = isAmbienceModeEnabled,
             screenAspectRatio = screenAspectRatio,
             isBrightnessEnabled = isVideoBrightnessFilterEnabled,
@@ -1353,6 +1372,10 @@ class PlayerService : MediaSessionService() {
             } else {
                 PlayerPreferences.DEFAULT_VIDEO_SHARPENING
             },
+            videoScaleX = videoScaleX,
+            videoScaleY = videoScaleY,
+            videoOffsetX = videoOffsetX,
+            videoOffsetY = videoOffsetY,
         )
         return if (filters.shouldCreateEffect()) filters else VideoFilterPreferences.default()
     }
@@ -1378,14 +1401,20 @@ class PlayerService : MediaSessionService() {
         transition: VideoFilterTransition,
         decoderPriority: DecoderPriority,
     ): List<Effect> {
-        if (!shouldApplyVideoEffects(decoderPriority)) return emptyList()
-        if (!transition.targetFilters.shouldCreateEffect()) return emptyList()
-        return listOf(
-            VideoFiltersEffect(
-                transition = transition,
-                transitionDurationMs = VIDEO_FILTER_TRANSITION_DURATION_MS,
-            ),
+        if (!shouldApplyVideoEffects(decoderPriority)) {
+            videoFiltersEffect = null
+            return emptyList()
+        }
+        if (!transition.targetFilters.shouldCreateEffect()) {
+            videoFiltersEffect = null
+            return emptyList()
+        }
+        val effect = VideoFiltersEffect(
+            transition = transition,
+            transitionDurationMs = VIDEO_FILTER_TRANSITION_DURATION_MS,
         )
+        videoFiltersEffect = effect
+        return listOf(effect)
     }
 
     private fun String.toLogSummary(): String = Uri.parse(this).toLogSummary()
@@ -1603,6 +1632,21 @@ class PlayerService : MediaSessionService() {
                     val aspectRatio = args.getFloat(CustomCommands.SCREEN_ASPECT_RATIO_KEY, 0f)
                     if (aspectRatio > 0f && aspectRatio != screenAspectRatio) {
                         screenAspectRatio = aspectRatio
+                        applyVideoFilters(playerPreferences)
+                    }
+                    return@future SessionResult(SessionResult.RESULT_SUCCESS)
+                }
+
+                CustomCommands.SET_VIDEO_TRANSFORM -> {
+                    val scaleX = args.getFloat(CustomCommands.VIDEO_SCALE_X_KEY, 1f)
+                    val scaleY = args.getFloat(CustomCommands.VIDEO_SCALE_Y_KEY, 1f)
+                    val offsetX = args.getFloat(CustomCommands.VIDEO_OFFSET_X_KEY, 0f)
+                    val offsetY = args.getFloat(CustomCommands.VIDEO_OFFSET_Y_KEY, 0f)
+                    if (scaleX != videoScaleX || scaleY != videoScaleY || offsetX != videoOffsetX || offsetY != videoOffsetY) {
+                        videoScaleX = scaleX
+                        videoScaleY = scaleY
+                        videoOffsetX = offsetX
+                        videoOffsetY = offsetY
                         applyVideoFilters(playerPreferences)
                     }
                     return@future SessionResult(SessionResult.RESULT_SUCCESS)

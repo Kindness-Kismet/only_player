@@ -15,9 +15,16 @@ import androidx.media3.effect.GlShaderProgram
 
 @OptIn(UnstableApi::class)
 internal class VideoFiltersEffect(
-    private val transition: VideoFilterTransition,
+    private var transition: VideoFilterTransition,
     private val transitionDurationMs: Long,
 ) : GlEffect {
+
+    private var shaderProgram: VideoFiltersShaderProgram? = null
+
+    fun updateTransition(transition: VideoFilterTransition) {
+        this.transition = transition
+        shaderProgram?.updateTransition(transition)
+    }
 
     override fun toGlShaderProgram(
         context: Context,
@@ -26,7 +33,7 @@ internal class VideoFiltersEffect(
         useHdr = useHdr,
         transition = transition,
         transitionDurationMs = transitionDurationMs,
-    )
+    ).also { shaderProgram = it }
 
     override fun isNoOp(
         inputWidth: Int,
@@ -35,13 +42,17 @@ internal class VideoFiltersEffect(
 
     private class VideoFiltersShaderProgram(
         useHdr: Boolean,
-        private val transition: VideoFilterTransition,
+        private var transition: VideoFilterTransition,
         private val transitionDurationMs: Long,
     ) : BaseGlShaderProgram(useHdr, 1) {
 
         private val glProgram = createGlProgram()
         private var inputWidth = 1
         private var inputHeight = 1
+
+        fun updateTransition(transition: VideoFilterTransition) {
+            this.transition = transition
+        }
 
         init {
             val identityMatrix = GlUtil.create4x4IdentityMatrix()
@@ -96,21 +107,11 @@ internal class VideoFiltersEffect(
                 )
                 setFilterUniforms(filters)
 
-                if (filters.isAmbienceModeEnabled && filters.screenAspectRatio > 0f) {
-                    val inputAr = inputWidth.toFloat() / inputHeight
-                    val screenAr = filters.screenAspectRatio
-                    
-                    val scaleX = if (screenAr > inputAr) screenAr / inputAr else 1.0f
-                    val scaleY = if (inputAr > screenAr) inputAr / screenAr else 1.0f
-                    
-                    glProgram.setFloatUniform("uScaleX", scaleX)
-                    glProgram.setFloatUniform("uScaleY", scaleY)
-                    glProgram.setFloatUniform("uAmbienceEnabled", 1.0f)
-                } else {
-                    glProgram.setFloatUniform("uScaleX", 1.0f)
-                    glProgram.setFloatUniform("uScaleY", 1.0f)
-                    glProgram.setFloatUniform("uAmbienceEnabled", 0.0f)
-                }
+                glProgram.setFloatUniform("uVideoScaleX", filters.videoScaleX)
+                glProgram.setFloatUniform("uVideoScaleY", filters.videoScaleY)
+                glProgram.setFloatUniform("uVideoOffsetX", filters.videoOffsetX)
+                glProgram.setFloatUniform("uVideoOffsetY", filters.videoOffsetY)
+                glProgram.setFloatUniform("uAmbienceEnabled", if (filters.isAmbienceModeEnabled) 1.0f else 0.0f)
 
                 glProgram.setSamplerTexIdUniform("uTexSampler", inputTexId, 0)
                 glProgram.bindAttributesAndUniforms()
@@ -178,13 +179,15 @@ internal class VideoFiltersEffect(
             uniform float uHue;
             uniform float uGamma;
             uniform float uSharpness;
-            uniform float uScaleX;
-            uniform float uScaleY;
+            uniform float uVideoScaleX;
+            uniform float uVideoScaleY;
+            uniform float uVideoOffsetX;
+            uniform float uVideoOffsetY;
             uniform float uAmbienceEnabled;
             varying vec2 vTexSamplingCoord;
 
             float hash(vec2 p) {
-              return fract(sin(dot(p, vec2(127.1, 311.7))) * 43758.5453);
+              return fract(sin(dot(p, vec2(12.71, 31.17))) * 437.585453);
             }
 
             vec3 rotateHue(vec3 color, float hue) {
@@ -231,34 +234,38 @@ internal class VideoFiltersEffect(
             }
 
             void main() {
-              vec2 video_uv = (vTexSamplingCoord - 0.5) * vec2(uScaleX, uScaleY) + 0.5;
+              vec2 video_uv = (vTexSamplingCoord - 0.5 - vec2(uVideoOffsetX, -uVideoOffsetY)) / vec2(uVideoScaleX, uVideoScaleY) + 0.5;
               vec4 color;
 
               if (uAmbienceEnabled > 0.5 && (video_uv.x < 0.0 || video_uv.x > 1.0 || video_uv.y < 0.0 || video_uv.y > 1.0)) {
-                // Ambient region
+                // Ambient region (Blurred dynamic glow)
                 vec3 avg_color = vec3(0.0);
-                const int samples = 20;
-                float base_seed = 42.0;
+                const int samples = 16;
+                float base_seed = hash(vTexSamplingCoord + uVideoScaleX);
+                
+                // Sample from nearest edges to create a glow effect
+                vec2 center_uv = clamp(video_uv, 0.0, 1.0);
                 
                 for (int i = 0; i < samples; i++) {
-                  float seed = base_seed + float(i) * 0.618034;
-                  float x = hash(vec2(seed, 0.123));
-                  float y = hash(vec2(seed, 0.456));
-                  avg_color += texture2D(uTexSampler, vec2(x, y)).rgb;
+                  float angle = float(i) * (6.283185 / float(samples));
+                  float radius = 0.05 + 0.15 * hash(vec2(float(i), base_seed));
+                  vec2 offset = vec2(cos(angle), sin(angle)) * radius;
+                  avg_color += texture2D(uTexSampler, clamp(center_uv + offset, 0.0, 1.0)).rgb;
                 }
                 avg_color /= float(samples);
 
                 float luma = dot(avg_color, vec3(0.2126, 0.7152, 0.0722));
-                avg_color = mix(vec3(luma), avg_color, 1.3); // Saturation boost
-                avg_color *= 0.30; // Brightness
+                avg_color = mix(vec3(luma), avg_color, 1.4); // Saturation boost
+                avg_color *= 0.45; // Brightness
 
-                vec2 edge_uv = clamp(video_uv, 0.0, 1.0);
-                float dist = length(video_uv - edge_uv);
-                float fade = exp(-dist * 2.5);
+                // Darken further from video edges
+                float dist = length(video_uv - center_uv);
+                float fade = exp(-dist * 1.8);
                 avg_color *= fade;
 
-                float dither = hash(vTexSamplingCoord * 1000.0) * 0.004 - 0.002;
-                color = vec4(clamp(avg_color + dither, 0.0, 1.0), 1.0);
+                // Subtle noise to prevent banding
+                float noise = hash(vTexSamplingCoord * 10.0 + base_seed) * 0.01 - 0.005;
+                color = vec4(clamp(avg_color + noise, 0.0, 1.0), 1.0);
               } else {
                 vec2 sample_uv = clamp(video_uv, 0.0, 1.0);
                 vec4 center = texture2D(uTexSampler, sample_uv);
