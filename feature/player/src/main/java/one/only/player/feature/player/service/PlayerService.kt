@@ -288,6 +288,7 @@ class PlayerService : MediaSessionService() {
     // mediaId 对应预解析 IndexSeekMap
     private val mkvSeekMapCache = ConcurrentHashMap<String, androidx.media3.extractor.SeekMap>()
     private val mkvCueParseJobs = ConcurrentHashMap<String, Deferred<androidx.media3.extractor.SeekMap?>>()
+    private val preciseSeekMediaIds = ConcurrentHashMap.newKeySet<String>()
 
     private var startupTimestamp = 0L
     private val startupAnalyticsListener = object : AnalyticsListener {
@@ -426,9 +427,10 @@ class PlayerService : MediaSessionService() {
                     scheduleMkvCueCache(mediaItem)
 
                     if (restoredSeekMap != null) {
+                        preciseSeekMediaIds.add(mediaItem.mediaId)
                         resumePositionMs?.takeIf { it >= STARTUP_PRECISE_RESUME_THRESHOLD_MS }?.let {
                             Logger.info(TAG, "Resume cached precise-seek media item=${mediaItem.mediaId} position=$it")
-                            promoteCurrentItemToPreciseSeek(it)
+                            mediaSession?.player?.seekTo(it)
                         }
                     } else {
                         resumePositionMs?.takeIf { it > 0L }?.let {
@@ -1408,7 +1410,9 @@ class PlayerService : MediaSessionService() {
             startIndex: Int,
             startPositionMs: Long,
         ): ListenableFuture<MediaSession.MediaItemsWithStartPosition> = serviceScope.future(Dispatchers.Default) {
+            preciseSeekMediaIds.clear()
             val updatedMediaItems = updatedMediaItemsWithMetadata(mediaItems)
+            prepareCachedPreciseSeekMediaItems(updatedMediaItems)
             loadArtworkInBackground(updatedMediaItems)
             return@future MediaSession.MediaItemsWithStartPosition(updatedMediaItems, startIndex, startPositionMs)
         }
@@ -1419,6 +1423,7 @@ class PlayerService : MediaSessionService() {
             mediaItems: MutableList<MediaItem>,
         ): ListenableFuture<MutableList<MediaItem>> = serviceScope.future(Dispatchers.Default) {
             val updatedMediaItems = updatedMediaItemsWithMetadata(mediaItems)
+            prepareCachedPreciseSeekMediaItems(updatedMediaItems)
             loadArtworkInBackground(updatedMediaItems)
             return@future updatedMediaItems.toMutableList()
         }
@@ -1788,6 +1793,16 @@ class PlayerService : MediaSessionService() {
         serviceScope.cancel()
     }
 
+    private fun prepareCachedPreciseSeekMediaItems(mediaItems: List<MediaItem>) {
+        mediaItems.forEach { mediaItem ->
+            if (!mediaItem.mediaMetadata.isApproximateSeekEnabled) return@forEach
+            restoreCachedMkvSeekMap(mediaItem)?.let { seekMap ->
+                mkvSeekMapCache[mediaItem.mediaId] = seekMap
+                preciseSeekMediaIds.add(mediaItem.mediaId)
+            }
+        }
+    }
+
     private suspend fun updatedMediaItemsWithMetadata(
         mediaItems: List<MediaItem>,
     ): List<MediaItem> = supervisorScope {
@@ -2050,7 +2065,8 @@ class PlayerService : MediaSessionService() {
         val isRemoteSource = uri?.scheme in REMOTE_SOURCE_URI_SCHEMES || requestHeaders.isNotEmpty()
         val dataSourceFactory = createDataSourceFactory(uri, requestHeaders)
         val cachedSeekMap = mkvSeekMapCache[mediaItem.mediaId]
-        if (cachedSeekMap != null) {
+        val shouldUseFastStart = mediaItem.mediaMetadata.isApproximateSeekEnabled && mediaItem.mediaId !in preciseSeekMediaIds
+        if (cachedSeekMap != null && !shouldUseFastStart) {
             // 使用预解析的 SeekMap 注入到 extractor，跳过慢速 Cues 加载
             val factory = DefaultMediaSourceFactory(
                 dataSourceFactory,
@@ -2063,7 +2079,7 @@ class PlayerService : MediaSessionService() {
 
         val currentAssHandler = assHandler
         if (!isRemoteSource && currentAssHandler == null) {
-            return if (mediaItem.mediaMetadata.isApproximateSeekEnabled) {
+            return if (shouldUseFastStart) {
                 fastStartMediaSourceFactory.createMediaSource(mediaItem)
             } else {
                 preciseSeekMediaSourceFactory.createMediaSource(mediaItem)
@@ -2076,7 +2092,7 @@ class PlayerService : MediaSessionService() {
                 createPlaybackExtractorsFactory(
                     assSubtitleParserFactory = assSubtitleParserFactory,
                     assHandler = currentAssHandler,
-                    shouldUseFastStart = mediaItem.mediaMetadata.isApproximateSeekEnabled,
+                    shouldUseFastStart = shouldUseFastStart,
                 ),
             ).setSubtitleParserFactory(assSubtitleParserFactory)
             sessionLoadErrorHandlingPolicy?.let(mediaSourceFactory::setLoadErrorHandlingPolicy)
@@ -2135,34 +2151,26 @@ class PlayerService : MediaSessionService() {
             ?: player.duration.takeIf { it != C.TIME_UNSET && it > 0L }
         val targetPosition = maxPosition?.let { targetPositionMs.coerceIn(0L, it) } ?: targetPositionMs.coerceAtLeast(0L)
 
-        if (!currentItem.mediaMetadata.isApproximateSeekEnabled) {
+        if (!currentItem.mediaMetadata.isApproximateSeekEnabled || currentItem.mediaId in preciseSeekMediaIds) {
             Logger.info(TAG, "Precise seek direct mediaId=${currentItem.mediaId} target=$targetPosition")
             player.seekTo(targetPosition)
             return SessionResult(SessionResult.RESULT_SUCCESS)
         }
 
-        val updatedMediaItems = buildList {
-            for (index in 0 until player.mediaItemCount) {
-                val mediaItem = player.getMediaItemAt(index)
-                add(
-                    if (index == currentIndex) {
-                        mediaItem.copy(
-                            positionMs = targetPosition,
-                            isApproximateSeekEnabled = false,
-                        )
-                    } else {
-                        mediaItem
-                    },
-                )
-            }
-        }
-        val updatedMediaSources = updatedMediaItems.map(::createMediaSource)
+        val updatedMediaItem = currentItem.copy(
+            positionMs = targetPosition,
+            isApproximateSeekEnabled = false,
+        )
+        preciseSeekMediaIds.add(currentItem.mediaId)
+        val mediaSource = createMediaSource(updatedMediaItem)
         val shouldPlayWhenReady = player.playWhenReady
         Logger.info(
             TAG,
             "Promote current item to precise seek mediaId=${currentItem.mediaId} target=$targetPosition hasCachedSeekMap=${mkvSeekMapCache.containsKey(currentItem.mediaId)}",
         )
-        player.setMediaSources(updatedMediaSources, currentIndex, targetPosition)
+        player.removeMediaItem(currentIndex)
+        player.addMediaSource(currentIndex, mediaSource)
+        player.seekTo(currentIndex, targetPosition)
         player.prepare()
         player.playWhenReady = shouldPlayWhenReady
         serviceScope.launch {
