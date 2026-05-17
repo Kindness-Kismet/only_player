@@ -34,17 +34,17 @@ class LocalMediaRepository @Inject constructor(
 ) : MediaRepository {
 
     override fun getVideosFlow(): Flow<List<Video>> = mediumDao.getAllWithInfo().map { media ->
-        media.map(MediumWithInfo::toVideo)
+        media.filterExistingMedia().map(MediumWithInfo::toVideo)
     }
 
     override fun getVideosFlowFromFolderPath(folderPath: String): Flow<List<Video>> = mediumDao
         .getAllWithInfoFromDirectory(folderPath)
         .map { media ->
-            media.map(MediumWithInfo::toVideo)
+            media.filterExistingMedia().map(MediumWithInfo::toVideo)
         }
 
     override fun getRecycleBinVideosFlow(): Flow<List<Video>> = mediumDao.getAllWithInfo().map { media ->
-        media.filter { it.isMarkedInRecycleBin() }.map(MediumWithInfo::toVideo)
+        media.filterExistingMedia().filter { it.isMarkedInRecycleBin() }.map(MediumWithInfo::toVideo)
     }
 
     override fun getFoldersFlow(): Flow<List<Folder>> = directoryDao.getAllWithMedia().map { it.map(DirectoryWithMedia::toFolder) }
@@ -302,6 +302,10 @@ class LocalMediaRepository @Inject constructor(
             else -> null
         } ?: return null
         return File(rawPath).path
+    }
+
+    private fun List<MediumWithInfo>.filterExistingMedia(): List<MediumWithInfo> = filter { mediumWithInfo ->
+        File(mediumWithInfo.mediumEntity.path).exists()
     }
 
     private fun MediumWithInfo.isMarkedInRecycleBin(): Boolean = mediumStateEntity?.isInRecycleBin == true

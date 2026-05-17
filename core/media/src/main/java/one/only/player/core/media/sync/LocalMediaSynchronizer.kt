@@ -71,20 +71,24 @@ class LocalMediaSynchronizer @Inject constructor(
     private var mediaSyncingJob: Job? = null
 
     override suspend fun refresh(path: String?): Boolean = withContext(dispatcher) {
-        path?.let {
-            registerManualVideoPath(it)
+        val didScan = if (path != null) {
+            registerManualVideoPath(path)
             mergePendingManualVideoPaths()
-            return@withContext context.scanPaths(listOf(it))
+            context.scanPaths(listOf(path))
+        } else {
+            mergePendingManualVideoPaths()
+            pruneHiddenManualVideoPaths()
+            val additionalScanTargets = buildRefreshScanTargets()
+            if (additionalScanTargets.isNotEmpty()) {
+                registerUnindexedPaths(additionalScanTargets)
+                context.scanPaths(additionalScanTargets)
+            } else {
+                true
+            }
         }
 
-        mergePendingManualVideoPaths()
-        pruneHiddenManualVideoPaths()
-        val additionalScanTargets = buildRefreshScanTargets()
-        if (additionalScanTargets.isNotEmpty()) {
-            registerUnindexedPaths(additionalScanTargets)
-            context.scanPaths(additionalScanTargets)
-        }
-        true
+        syncCurrentMedia()
+        didScan
     }
 
     override suspend fun registerManualVideoPath(path: String) {
@@ -181,6 +185,19 @@ class LocalMediaSynchronizer @Inject constructor(
         Logger.info(TAG, "Stopped media sync")
     }
 
+    private suspend fun syncCurrentMedia() {
+        val preferences = appPreferencesDataSource.preferences.first()
+        val media = mergeVisibleMedia(
+            mediaStoreVideos = getMediaVideo(selection = null, selectionArgs = null, sortOrder = null),
+            manuallyDiscoveredPaths = preferences.manualVideoPaths.toSet(),
+            shouldIgnoreNoMediaFiles = preferences.shouldIgnoreNoMediaFiles,
+        )
+        Logger.info(TAG, "refresh syncing ${media.size} media entries")
+        updateDirectories(media)
+        updateMedia(media)
+        scheduleMediaInfoSync()
+    }
+
     private suspend fun mergeVisibleMedia(
         mediaStoreVideos: List<MediaVideo>,
         manuallyDiscoveredPaths: Set<String>,
@@ -220,7 +237,7 @@ class LocalMediaSynchronizer @Inject constructor(
         )
         if (!shouldIgnoreNoMediaFiles || !hasAllFilesAccess) {
             return@withContext combinedVisibleMedia
-                .distinctBy(MediaVideo::data)
+                .distinctBy { mediaVideo -> mediaVideo.data.canonicalPathOrSelf() }
                 .sortedBy(MediaVideo::data)
         }
 
@@ -235,7 +252,7 @@ class LocalMediaSynchronizer @Inject constructor(
 
         Logger.info(TAG, "Found ${noMediaVideos.size} videos inside .nomedia directories")
         return@withContext (combinedVisibleMedia + noMediaVideos)
-            .distinctBy(MediaVideo::data)
+            .distinctBy { mediaVideo -> mediaVideo.data.canonicalPathOrSelf() }
             .sortedBy(MediaVideo::data)
     }
 
