@@ -27,7 +27,15 @@ import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
+import androidx.compose.runtime.snapshotFlow
+import androidx.lifecycle.lifecycleScope
 import androidx.core.app.PictureInPictureModeChangedInfo
+import kotlinx.coroutines.FlowPreview
+import kotlinx.coroutines.flow.debounce
+import kotlinx.coroutines.flow.distinctUntilChanged
+import kotlinx.coroutines.flow.filterNotNull
+import kotlinx.coroutines.launch
+import kotlin.time.Duration.Companion.milliseconds
 import androidx.core.content.ContextCompat
 import androidx.core.content.ContextCompat.getSystemService
 import androidx.core.net.toUri
@@ -68,6 +76,7 @@ class PictureInPictureState(
         private const val PIP_ACTION_PAUSE = 2
         private const val PIP_ACTION_NEXT = 3
         private const val PIP_ACTION_PREVIOUS = 4
+        private const val PIP_PARAMS_UPDATE_DEBOUNCE_MS = 500L
     }
 
     val isPipSupported: Boolean = activity.isPipFeatureSupported
@@ -98,17 +107,7 @@ class PictureInPictureState(
     fun updateVideoViewRect(rect: Rect) {
         val resolvedRect = Rect(rect)
         if (videoViewRect == resolvedRect) return
-
         videoViewRect = resolvedRect
-        if (pictureInPictureParamsBuilder == null) return
-        if (Build.VERSION.SDK_INT < Build.VERSION_CODES.O) return
-        if (resolvedRect.width() <= 0 || resolvedRect.height() <= 0) return
-
-        Rational(resolvedRect.width(), resolvedRect.height()).takeIf { it.toFloat() in 0.5f..2.39f }?.let {
-            pictureInPictureParamsBuilder.setAspectRatio(it)
-        }
-        pictureInPictureParamsBuilder.setSourceRectHint(resolvedRect)
-        activity.setPictureInPictureParams(pictureInPictureParamsBuilder.build())
     }
 
     fun enterPictureInPictureMode(): Boolean {
@@ -152,9 +151,40 @@ class PictureInPictureState(
         }
     }
 
+    @OptIn(FlowPreview::class)
     suspend fun observe() {
         updateAutoEnterEnabled()
         updatePictureInPictureActions()
+
+        val paramsFlow = snapshotFlow {
+            val builder = pictureInPictureParamsBuilder ?: return@snapshotFlow null
+            if (Build.VERSION.SDK_INT < Build.VERSION_CODES.O) return@snapshotFlow null
+
+            val width = videoViewRect?.width() ?: 0
+            val height = videoViewRect?.height() ?: 0
+            if (width > 0 && height > 0) {
+                Rational(width, height).takeIf { it.toFloat() in 0.5f..2.39f }?.let {
+                    builder.setAspectRatio(it)
+                }
+                builder.setSourceRectHint(videoViewRect)
+            }
+
+            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
+                builder.setAutoEnterEnabled(shouldAutoEnter && player.isPlaying)
+            }
+
+            builder.build()
+        }
+
+        activity.lifecycleScope.launch {
+            paramsFlow
+                .filterNotNull()
+                .distinctUntilChanged()
+                .debounce(PIP_PARAMS_UPDATE_DEBOUNCE_MS.milliseconds)
+                .collect { params ->
+                    activity.setPictureInPictureParams(params)
+                }
+        }
 
         player.listen { events ->
             if (events.contains(Player.EVENT_IS_PLAYING_CHANGED)) {

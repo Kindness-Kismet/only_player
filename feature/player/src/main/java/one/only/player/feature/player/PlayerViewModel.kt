@@ -207,6 +207,12 @@ class PlayerViewModel @Inject constructor(
         }
     }
 
+    fun updateAmbienceModeEnabled(enabled: Boolean) {
+        viewModelScope.launch {
+            preferencesRepository.updatePlayerPreferences { it.copy(isAmbienceModeEnabled = enabled) }
+        }
+    }
+
     fun updateSubtitleStyle(preferences: PlayerPreferences) {
         viewModelScope.launch {
             preferencesRepository.updatePlayerPreferences {

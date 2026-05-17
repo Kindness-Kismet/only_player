@@ -279,6 +279,7 @@ class PlayerService : MediaSessionService() {
     )
     private var pendingVideoFiltersJob: Job? = null
     private var videoFilterTransition = VideoFilterTransition.default()
+    private var screenAspectRatio: Float = 0f
     private lateinit var fastStartMediaSourceFactory: DefaultMediaSourceFactory
     private lateinit var preciseSeekMediaSourceFactory: DefaultMediaSourceFactory
     private var sessionLoadErrorHandlingPolicy: LoadErrorHandlingPolicy? = null
@@ -1205,7 +1206,7 @@ class PlayerService : MediaSessionService() {
         player: ExoPlayer,
         preferences: PlayerPreferences,
     ) {
-        val videoFilters = preferences.toVideoFilterPreferences()
+        val videoFilters = preferences.toVideoFilterPreferences(screenAspectRatio)
         scheduleVideoFilters(
             player = player,
             videoFilters = videoFilters,
@@ -1217,7 +1218,7 @@ class PlayerService : MediaSessionService() {
 
     private fun previewVideoFilters(preferences: PlayerPreferences) {
         val player = mediaSession?.player as? ExoPlayer ?: return
-        val videoFilters = preferences.toVideoFilterPreferences()
+        val videoFilters = preferences.toVideoFilterPreferences(screenAspectRatio)
         scheduleVideoFilters(
             player = player,
             videoFilters = videoFilters,
@@ -1239,7 +1240,7 @@ class PlayerService : MediaSessionService() {
 
         pendingVideoFiltersJob = serviceScope.launch {
             fun hasStalePreferences() = shouldSkipStalePreferences &&
-                preferencesRepository.playerPreferences.value.toVideoFilterPreferences() != videoFilters
+                preferencesRepository.playerPreferences.value.toVideoFilterPreferences(screenAspectRatio) != videoFilters
 
             if (delayMs > 0L) delay(delayMs)
             if (hasStalePreferences()) return@launch
@@ -1309,11 +1310,13 @@ class PlayerService : MediaSessionService() {
         Logger.debug(TAG, "Video effects availability: available=$isVideoEffectsAvailable decoder=$activeDecoderPriority")
     }
 
-    private fun PlayerPreferences.toVideoFilterPreferences(): VideoFilterPreferences {
-        if (!shouldApplyVideoFilters) return VideoFilterPreferences.default()
+    private fun PlayerPreferences.toVideoFilterPreferences(screenAspectRatio: Float): VideoFilterPreferences {
+        if (!shouldApplyVideoFilters && !isAmbienceModeEnabled) return VideoFilterPreferences.default()
 
         val filters = VideoFilterPreferences(
-            shouldApply = true,
+            shouldApply = shouldApplyVideoFilters || isAmbienceModeEnabled,
+            isAmbienceModeEnabled = isAmbienceModeEnabled,
+            screenAspectRatio = screenAspectRatio,
             isBrightnessEnabled = isVideoBrightnessFilterEnabled,
             brightness = if (isVideoBrightnessFilterEnabled) {
                 videoBrightness.coerceIn(PlayerPreferences.MIN_VIDEO_BRIGHTNESS, PlayerPreferences.MAX_VIDEO_BRIGHTNESS)
@@ -1356,6 +1359,7 @@ class PlayerService : MediaSessionService() {
 
     private fun Bundle.toPlayerPreferences(): PlayerPreferences = PlayerPreferences(
         shouldApplyVideoFilters = getBoolean(CustomCommands.SHOULD_APPLY_VIDEO_FILTERS_KEY, false),
+        isAmbienceModeEnabled = getBoolean(CustomCommands.IS_AMBIENCE_MODE_ENABLED_KEY, false),
         isVideoBrightnessFilterEnabled = getBoolean(CustomCommands.IS_VIDEO_BRIGHTNESS_FILTER_ENABLED_KEY, false),
         videoBrightness = getFloat(CustomCommands.VIDEO_BRIGHTNESS_KEY, PlayerPreferences.DEFAULT_VIDEO_BRIGHTNESS),
         isVideoContrastFilterEnabled = getBoolean(CustomCommands.IS_VIDEO_CONTRAST_FILTER_ENABLED_KEY, false),
@@ -1595,6 +1599,15 @@ class PlayerService : MediaSessionService() {
                     )
                 }
 
+                CustomCommands.SET_SCREEN_ASPECT_RATIO -> {
+                    val aspectRatio = args.getFloat(CustomCommands.SCREEN_ASPECT_RATIO_KEY, 0f)
+                    if (aspectRatio > 0f && aspectRatio != screenAspectRatio) {
+                        screenAspectRatio = aspectRatio
+                        applyVideoFilters(playerPreferences)
+                    }
+                    return@future SessionResult(SessionResult.RESULT_SUCCESS)
+                }
+
                 CustomCommands.SET_SUBTITLE_SPEED -> {
                     val subtitleSpeed = args.getFloat(CustomCommands.SUBTITLE_SPEED_KEY)
                     mediaSession?.player?.playerSpecificSubtitleSpeed = subtitleSpeed
@@ -1693,7 +1706,9 @@ class PlayerService : MediaSessionService() {
         }
         serviceScope.launch {
             preferencesRepository.playerPreferences
-                .distinctUntilChanged { old, new -> old.toVideoFilterPreferences() == new.toVideoFilterPreferences() }
+                .distinctUntilChanged { old, new ->
+                    old.toVideoFilterPreferences(screenAspectRatio) == new.toVideoFilterPreferences(screenAspectRatio)
+                }
                 .collect(::applyVideoFilters)
         }
         serviceScope.launch {

@@ -40,6 +40,8 @@ internal class VideoFiltersEffect(
     ) : BaseGlShaderProgram(useHdr, 1) {
 
         private val glProgram = createGlProgram()
+        private var inputWidth = 1
+        private var inputHeight = 1
 
         init {
             val identityMatrix = GlUtil.create4x4IdentityMatrix()
@@ -56,6 +58,22 @@ internal class VideoFiltersEffect(
             inputWidth: Int,
             inputHeight: Int,
         ): Size {
+            this.inputWidth = inputWidth
+            this.inputHeight = inputHeight
+            val filters = transition.targetFilters
+            val outputSize = if (filters.isAmbienceModeEnabled && filters.screenAspectRatio > 0f) {
+                val inputAspectRatio = inputWidth.toFloat() / inputHeight
+                if (filters.screenAspectRatio > inputAspectRatio) {
+                    // Screen is wider than video (pillarbox)
+                    Size((inputHeight * filters.screenAspectRatio).toInt(), inputHeight)
+                } else {
+                    // Screen is taller than video (letterbox)
+                    Size(inputWidth, (inputWidth / filters.screenAspectRatio).toInt())
+                }
+            } else {
+                Size(inputWidth, inputHeight)
+            }
+
             glProgram.setFloatsUniform(
                 "uTexelSize",
                 floatArrayOf(
@@ -63,7 +81,7 @@ internal class VideoFiltersEffect(
                     1f / inputHeight,
                 ),
             )
-            return Size(inputWidth, inputHeight)
+            return outputSize
         }
 
         override fun drawFrame(
@@ -72,7 +90,28 @@ internal class VideoFiltersEffect(
         ) {
             try {
                 glProgram.use()
-                setFilterUniforms()
+                val filters = transition.currentFilters(
+                    currentMs = SystemClock.elapsedRealtime(),
+                    durationMs = transitionDurationMs,
+                )
+                setFilterUniforms(filters)
+
+                if (filters.isAmbienceModeEnabled && filters.screenAspectRatio > 0f) {
+                    val inputAr = inputWidth.toFloat() / inputHeight
+                    val screenAr = filters.screenAspectRatio
+                    
+                    val scaleX = if (screenAr > inputAr) screenAr / inputAr else 1.0f
+                    val scaleY = if (inputAr > screenAr) inputAr / screenAr else 1.0f
+                    
+                    glProgram.setFloatUniform("uScaleX", scaleX)
+                    glProgram.setFloatUniform("uScaleY", scaleY)
+                    glProgram.setFloatUniform("uAmbienceEnabled", 1.0f)
+                } else {
+                    glProgram.setFloatUniform("uScaleX", 1.0f)
+                    glProgram.setFloatUniform("uScaleY", 1.0f)
+                    glProgram.setFloatUniform("uAmbienceEnabled", 0.0f)
+                }
+
                 glProgram.setSamplerTexIdUniform("uTexSampler", inputTexId, 0)
                 glProgram.bindAttributesAndUniforms()
                 GLES20.glDrawArrays(GLES20.GL_TRIANGLE_STRIP, 0, VERTEX_COUNT)
@@ -91,11 +130,7 @@ internal class VideoFiltersEffect(
             }
         }
 
-        private fun setFilterUniforms() {
-            val filters = transition.currentFilters(
-                currentMs = SystemClock.elapsedRealtime(),
-                durationMs = transitionDurationMs,
-            )
+        private fun setFilterUniforms(filters: VideoFilterPreferences) {
             glProgram.setFloatUniform("uBrightness", filters.brightness)
             glProgram.setFloatUniform("uContrast", filters.contrast)
             glProgram.setFloatUniform("uSaturation", filters.saturation)
@@ -143,7 +178,14 @@ internal class VideoFiltersEffect(
             uniform float uHue;
             uniform float uGamma;
             uniform float uSharpness;
+            uniform float uScaleX;
+            uniform float uScaleY;
+            uniform float uAmbienceEnabled;
             varying vec2 vTexSamplingCoord;
+
+            float hash(vec2 p) {
+              return fract(sin(dot(p, vec2(127.1, 311.7))) * 43758.5453);
+            }
 
             vec3 rotateHue(vec3 color, float hue) {
               float angle = hue * 0.01745329252;
@@ -189,23 +231,55 @@ internal class VideoFiltersEffect(
             }
 
             void main() {
-              vec4 center = texture2D(uTexSampler, vTexSamplingCoord);
-              vec3 sourceColor = center.rgb;
+              vec2 video_uv = (vTexSamplingCoord - 0.5) * vec2(uScaleX, uScaleY) + 0.5;
+              vec4 color;
 
-              if (uSharpness > 0.0) {
-                vec3 north = texture2D(uTexSampler, vTexSamplingCoord + vec2(0.0, -uTexelSize.y)).rgb;
-                vec3 south = texture2D(uTexSampler, vTexSamplingCoord + vec2(0.0, uTexelSize.y)).rgb;
-                vec3 west = texture2D(uTexSampler, vTexSamplingCoord + vec2(-uTexelSize.x, 0.0)).rgb;
-                vec3 east = texture2D(uTexSampler, vTexSamplingCoord + vec2(uTexelSize.x, 0.0)).rgb;
-                vec3 northwest = texture2D(uTexSampler, vTexSamplingCoord + vec2(-uTexelSize.x, -uTexelSize.y)).rgb;
-                vec3 northeast = texture2D(uTexSampler, vTexSamplingCoord + vec2(uTexelSize.x, -uTexelSize.y)).rgb;
-                vec3 southwest = texture2D(uTexSampler, vTexSamplingCoord + vec2(-uTexelSize.x, uTexelSize.y)).rgb;
-                vec3 southeast = texture2D(uTexSampler, vTexSamplingCoord + vec2(uTexelSize.x, uTexelSize.y)).rgb;
-                vec3 blur = center.rgb * 0.25 + (north + south + west + east) * 0.125 + (northwest + northeast + southwest + southeast) * 0.0625;
-                sourceColor = clamp(center.rgb + (center.rgb - blur) * uSharpness, 0.0, 1.0);
+              if (uAmbienceEnabled > 0.5 && (video_uv.x < 0.0 || video_uv.x > 1.0 || video_uv.y < 0.0 || video_uv.y > 1.0)) {
+                // Ambient region
+                vec3 avg_color = vec3(0.0);
+                const int samples = 20;
+                float base_seed = 42.0;
+                
+                for (int i = 0; i < samples; i++) {
+                  float seed = base_seed + float(i) * 0.618034;
+                  float x = hash(vec2(seed, 0.123));
+                  float y = hash(vec2(seed, 0.456));
+                  avg_color += texture2D(uTexSampler, vec2(x, y)).rgb;
+                }
+                avg_color /= float(samples);
+
+                float luma = dot(avg_color, vec3(0.2126, 0.7152, 0.0722));
+                avg_color = mix(vec3(luma), avg_color, 1.3); // Saturation boost
+                avg_color *= 0.30; // Brightness
+
+                vec2 edge_uv = clamp(video_uv, 0.0, 1.0);
+                float dist = length(video_uv - edge_uv);
+                float fade = exp(-dist * 2.5);
+                avg_color *= fade;
+
+                float dither = hash(vTexSamplingCoord * 1000.0) * 0.004 - 0.002;
+                color = vec4(clamp(avg_color + dither, 0.0, 1.0), 1.0);
+              } else {
+                vec2 sample_uv = clamp(video_uv, 0.0, 1.0);
+                vec4 center = texture2D(uTexSampler, sample_uv);
+                vec3 sourceColor = center.rgb;
+
+                if (uSharpness > 0.0) {
+                  vec3 north = texture2D(uTexSampler, sample_uv + vec2(0.0, -uTexelSize.y)).rgb;
+                  vec3 south = texture2D(uTexSampler, sample_uv + vec2(0.0, uTexelSize.y)).rgb;
+                  vec3 west = texture2D(uTexSampler, sample_uv + vec2(-uTexelSize.x, 0.0)).rgb;
+                  vec3 east = texture2D(uTexSampler, sample_uv + vec2(uTexelSize.x, 0.0)).rgb;
+                  vec3 northwest = texture2D(uTexSampler, sample_uv + vec2(-uTexelSize.x, -uTexelSize.y)).rgb;
+                  vec3 northeast = texture2D(uTexSampler, sample_uv + vec2(uTexelSize.x, -uTexelSize.y)).rgb;
+                  vec3 southwest = texture2D(uTexSampler, sample_uv + vec2(-uTexelSize.x, uTexelSize.y)).rgb;
+                  vec3 southeast = texture2D(uTexSampler, sample_uv + vec2(uTexelSize.x, uTexelSize.y)).rgb;
+                  vec3 blur = center.rgb * 0.25 + (north + south + west + east) * 0.125 + (northwest + northeast + southwest + southeast) * 0.0625;
+                  sourceColor = clamp(center.rgb + (center.rgb - blur) * uSharpness, 0.0, 1.0);
+                }
+                color = vec4(applyColorFilters(sourceColor), center.a);
               }
 
-              gl_FragColor = vec4(applyColorFilters(sourceColor), center.a);
+              gl_FragColor = color;
             }
         """
     }

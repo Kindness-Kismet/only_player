@@ -195,6 +195,7 @@
     <string name="decoder_desc">解碼器、影片濾鏡選項</string>
     <string name="video_orientation">影片方向</string>
     <string name="ambience_mode">氛圍模式</string>
+    <string name="ambience_mode_description">在影片周圍啟用動態 YouTube 風格的氛圍光效</string>
     <string name="remember_player_screen_orientation">記住旋轉方向</string>
     <string name="remember_player_screen_orientation_description">播放開始時使用上次手動選擇的方向</string>
     <string name="best_fit">最適合</string>

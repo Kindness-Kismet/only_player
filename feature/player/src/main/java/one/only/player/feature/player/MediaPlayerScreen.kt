@@ -98,6 +98,7 @@ import one.only.player.feature.player.extensions.nameRes
 import one.only.player.feature.player.extensions.seekByRequestedOffset
 import one.only.player.feature.player.input.PlayerKeyboardController
 import one.only.player.feature.player.service.previewVideoFilters
+import one.only.player.feature.player.service.setScreenAspectRatio
 import one.only.player.feature.player.state.ControlsVisibilityState
 import one.only.player.feature.player.state.VerticalGesture
 import one.only.player.feature.player.state.rememberBrightnessState
@@ -176,6 +177,10 @@ internal fun MediaPlayerScreen(
         isVolumeBoostEnabled = playerPreferences.isVolumeBoostEnabled,
     )
     player ?: return
+    val context = LocalContext.current
+    val configuration = LocalConfiguration.current
+    val isAmbienceModeEnabled = playerPreferences.isAmbienceModeEnabled
+    val shouldShowPlayerTitle = configuration.orientation != Configuration.ORIENTATION_PORTRAIT
     val metadataState = rememberMetadataState(player)
     val mediaPresentationState = rememberMediaPresentationState(player)
     val controlsVisibilityState = rememberControlsVisibilityState(
@@ -226,6 +231,13 @@ internal fun MediaPlayerScreen(
     var lastSavedVolumePercentage by remember { mutableIntStateOf(volumeState.volumePercentage) }
     var pendingRestoredVolumePercentage by remember { mutableStateOf<Int?>(null) }
     val errorState = rememberErrorState(player = player)
+
+    LaunchedEffect(isAmbienceModeEnabled, configuration.screenWidthDp, configuration.screenHeightDp) {
+        if (isAmbienceModeEnabled && player is androidx.media3.session.MediaController) {
+            val aspectRatio = configuration.screenWidthDp.toFloat() / configuration.screenHeightDp
+            player.setScreenAspectRatio(aspectRatio)
+        }
+    }
 
     LaunchedEffect(pictureInPictureState.isInPictureInPictureMode) {
         if (pictureInPictureState.isInPictureInPictureMode) {
@@ -284,9 +296,6 @@ internal fun MediaPlayerScreen(
     var draggingPlayerControlUiState by remember { mutableStateOf<DraggingPlayerControlUiState?>(null) }
     var previewPlayerControlsLayout by remember { mutableStateOf<PlayerControlsLayout?>(null) }
     val scope = rememberCoroutineScope()
-    val context = LocalContext.current
-    val configuration = LocalConfiguration.current
-    val shouldShowPlayerTitle = configuration.orientation != Configuration.ORIENTATION_PORTRAIT
     val sleepTimerState = rememberSleepTimerState(player = player)
     val permanentlyVisibleControls = remember {
         setOf(
@@ -317,7 +326,6 @@ internal fun MediaPlayerScreen(
     var isSleepTimerDialogShown by remember { mutableStateOf(false) }
     var isDecoderDialogShown by remember { mutableStateOf(false) }
     var videoFiltersInitialPreferences by remember { mutableStateOf<PlayerPreferences?>(null) }
-    var isAmbienceModeEnabled by remember { mutableStateOf(false) }
     val videoFiltersUnavailableMessage = stringResource(coreUiR.string.video_filters_unavailable_software_decoder)
     fun restoreVideoFiltersPreview() {
         videoFiltersInitialPreferences?.let { initialPreferences ->
@@ -581,7 +589,11 @@ internal fun MediaPlayerScreen(
             PlayerDebugCommandBridge.ACTION_BACK -> onBackClick()
             PlayerDebugCommandBridge.ACTION_ROTATE -> rotationState.rotate()
             PlayerDebugCommandBridge.ACTION_TOGGLE_AMBIENCE -> {
-                isAmbienceModeEnabled = !isAmbienceModeEnabled
+                if (metadataState.isVideoEffectsAvailable) {
+                    viewModel.updateAmbienceModeEnabled(!isAmbienceModeEnabled)
+                } else {
+                    Toast.makeText(context, videoFiltersUnavailableMessage, Toast.LENGTH_SHORT).show()
+                }
                 controlsVisibilityState.showControls()
             }
             PlayerDebugCommandBridge.ACTION_SHOW_CONTROLS -> controlsVisibilityState.showControls()
@@ -664,9 +676,6 @@ internal fun MediaPlayerScreen(
                     .fillMaxSize()
                     .background(Color.Black),
             ) {
-                if (isAmbienceModeEnabled) {
-                    AmbienceBackground(artworkData = metadataState.artworkData)
-                }
                 val safeDrawingTopPadding = WindowInsets.safeDrawing
                     .asPaddingValues()
                     .calculateTopPadding()
@@ -861,9 +870,10 @@ internal fun MediaPlayerScreen(
                                     onAmbienceModeClick = {
                                         if (isCustomizingControls) {
                                             toggleControlVisibility(PlayerControl.AMBIENCE_MODE)
+                                        } else if (metadataState.isVideoEffectsAvailable) {
+                                            viewModel.updateAmbienceModeEnabled(!isAmbienceModeEnabled)
                                         } else {
-                                            isAmbienceModeEnabled = !isAmbienceModeEnabled
-                                            controlsVisibilityState.showControls()
+                                            Toast.makeText(context, videoFiltersUnavailableMessage, Toast.LENGTH_SHORT).show()
                                         }
                                     },
                                     isAmbienceModeEnabled = isAmbienceModeEnabled,
@@ -1064,9 +1074,10 @@ internal fun MediaPlayerScreen(
                                     onAmbienceModeClick = {
                                         if (isCustomizingControls) {
                                             toggleControlVisibility(PlayerControl.AMBIENCE_MODE)
+                                        } else if (metadataState.isVideoEffectsAvailable) {
+                                            viewModel.updateAmbienceModeEnabled(!isAmbienceModeEnabled)
                                         } else {
-                                            isAmbienceModeEnabled = !isAmbienceModeEnabled
-                                            controlsVisibilityState.showControls()
+                                            Toast.makeText(context, videoFiltersUnavailableMessage, Toast.LENGTH_SHORT).show()
                                         }
                                     },
                                     isAmbienceModeEnabled = isAmbienceModeEnabled,
@@ -1344,34 +1355,6 @@ fun InfoView(
             textAlign = TextAlign.Center,
         )
     }
-}
-
-@Composable
-private fun AmbienceBackground(
-    artworkData: ByteArray?,
-    modifier: Modifier = Modifier,
-) {
-    artworkData ?: return
-    val imageBitmap = remember(artworkData) {
-        runCatching {
-            BitmapFactory.decodeByteArray(artworkData, 0, artworkData.size).asImageBitmap()
-        }.getOrNull()
-    } ?: return
-
-    Image(
-        bitmap = imageBitmap,
-        contentDescription = null,
-        contentScale = ContentScale.Crop,
-        modifier = modifier
-            .fillMaxSize()
-            .blur(48.dp),
-        alpha = 0.9f,
-    )
-    Box(
-        modifier = modifier
-            .fillMaxSize()
-            .background(Color.Black.copy(alpha = 0.42f)),
-    )
 }
 
 @Composable

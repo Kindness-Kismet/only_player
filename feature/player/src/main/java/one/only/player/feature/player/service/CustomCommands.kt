@@ -24,6 +24,7 @@ enum class CustomCommands(val customAction: String) {
     SET_LOUDNESS_GAIN(customAction = "SET_LOUDNESS_GAIN"),
     GET_LOUDNESS_GAIN(customAction = "GET_LOUDNESS_GAIN"),
     PREVIEW_VIDEO_FILTERS(customAction = "PREVIEW_VIDEO_FILTERS"),
+    SET_SCREEN_ASPECT_RATIO(customAction = "SET_SCREEN_ASPECT_RATIO"),
     ;
 
     val sessionCommand = SessionCommand(customAction, Bundle.EMPTY)
@@ -43,6 +44,7 @@ enum class CustomCommands(val customAction: String) {
         const val LOUDNESS_GAIN_KEY = "loudness_gain"
         const val IS_LOUDNESS_GAIN_SUPPORTED_KEY = "is_loudness_gain_supported"
         const val SHOULD_APPLY_VIDEO_FILTERS_KEY = "should_apply_video_filters"
+        const val IS_AMBIENCE_MODE_ENABLED_KEY = "is_ambience_mode_enabled"
         const val IS_VIDEO_BRIGHTNESS_FILTER_ENABLED_KEY = "is_video_brightness_filter_enabled"
         const val VIDEO_BRIGHTNESS_KEY = "video_brightness"
         const val IS_VIDEO_CONTRAST_FILTER_ENABLED_KEY = "is_video_contrast_filter_enabled"
@@ -55,6 +57,7 @@ enum class CustomCommands(val customAction: String) {
         const val VIDEO_GAMMA_KEY = "video_gamma"
         const val IS_VIDEO_SHARPENING_FILTER_ENABLED_KEY = "is_video_sharpening_filter_enabled"
         const val VIDEO_SHARPENING_KEY = "video_sharpening"
+        const val SCREEN_ASPECT_RATIO_KEY = "screen_aspect_ratio"
     }
 }
 
@@ -143,6 +146,7 @@ fun MediaController.setLoudnessGain(gain: Int) {
 fun MediaController.previewVideoFilters(preferences: PlayerPreferences) {
     val args = Bundle().apply {
         putBoolean(CustomCommands.SHOULD_APPLY_VIDEO_FILTERS_KEY, preferences.shouldApplyVideoFilters)
+        putBoolean(CustomCommands.IS_AMBIENCE_MODE_ENABLED_KEY, preferences.isAmbienceModeEnabled)
         putBoolean(CustomCommands.IS_VIDEO_BRIGHTNESS_FILTER_ENABLED_KEY, preferences.isVideoBrightnessFilterEnabled)
         putFloat(CustomCommands.VIDEO_BRIGHTNESS_KEY, preferences.videoBrightness)
         putBoolean(CustomCommands.IS_VIDEO_CONTRAST_FILTER_ENABLED_KEY, preferences.isVideoContrastFilterEnabled)
@@ -167,4 +171,11 @@ suspend fun MediaController.getLoudnessGain(): Int {
 suspend fun MediaController.isLoudnessGainSupported(): Boolean {
     val result = sendCustomCommand(CustomCommands.IS_LOUDNESS_GAIN_SUPPORTED.sessionCommand, Bundle.EMPTY)
     return result.await().extras.getBoolean(CustomCommands.IS_LOUDNESS_GAIN_SUPPORTED_KEY, false)
+}
+
+fun MediaController.setScreenAspectRatio(aspectRatio: Float) {
+    val args = Bundle().apply {
+        putFloat(CustomCommands.SCREEN_ASPECT_RATIO_KEY, aspectRatio)
+    }
+    sendCustomCommand(CustomCommands.SET_SCREEN_ASPECT_RATIO.sessionCommand, args)
 }
