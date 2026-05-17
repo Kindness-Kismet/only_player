@@ -198,12 +198,14 @@ class LocalMediaService @Inject constructor(
             mimeType = mimeType,
             fallbackUri = uri,
         )
+        val resultPath = context.getPath(resultUri) ?: newFile.path
+        val resultFile = File(resultPath)
 
         RecycleBinMoveResult(
             uri = resultUri,
-            path = newFile.path,
-            parentPath = targetDirectory.path,
-            fileName = newFile.name,
+            path = resultPath,
+            parentPath = resultFile.parent ?: targetDirectory.path,
+            fileName = resultFile.name,
         )
     }.getOrNull()
 
@@ -319,7 +321,7 @@ class LocalMediaService @Inject constructor(
 
     companion object {
         private const val TAG = "LocalMediaService"
-        private const val RECYCLE_BIN_FOLDER_NAME = ".bin"
+        private const val RECYCLE_BIN_FOLDER_NAME = ".only_player"
         private const val RECYCLE_BIN_RELATIVE_PATH = "Movies/$RECYCLE_BIN_FOLDER_NAME"
         private const val RECYCLE_BIN_EXTENSION = "optrash"
         private const val RECYCLE_BIN_MIME_TYPE = "application/octet-stream"
