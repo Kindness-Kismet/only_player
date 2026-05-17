@@ -1,6 +1,6 @@
 package one.only.player.core.data.repository
 
-import java.net.URLDecoder
+import android.net.Uri
 
 private const val REMOTE_FOLDER_PLAYBACK_ANCHOR_PREFIX = "onlyplayer://folder"
 private val SUPPORTED_REMOTE_PROTOCOLS = setOf("webdav", "ftp")
@@ -19,7 +19,7 @@ fun buildRemoteFolderPlaybackAnchorKey(
 fun String.normalizeFolderPlaybackAnchorPath(): String? {
     val raw = trim()
     if (raw.isBlank()) return null
-    val decoded = URLDecoder.decode(raw, "UTF-8")
+    val decoded = runCatching { Uri.decode(raw) }.getOrDefault(raw)
     val normalized = decoded
         .replace(Regex("/+"), "/")
         .removeSuffix("/")

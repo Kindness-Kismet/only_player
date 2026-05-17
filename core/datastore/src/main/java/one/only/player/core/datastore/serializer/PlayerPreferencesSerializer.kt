@@ -8,6 +8,7 @@ import kotlinx.serialization.SerializationException
 import kotlinx.serialization.json.Json
 import kotlinx.serialization.json.jsonObject
 import kotlinx.serialization.json.jsonPrimitive
+import one.only.player.core.model.PlayerIconStyle
 import one.only.player.core.model.PlayerPreferences
 
 object PlayerPreferencesSerializer : Serializer<PlayerPreferences> {
@@ -96,6 +97,9 @@ object PlayerPreferencesSerializer : Serializer<PlayerPreferences> {
 
         if ("shouldApplyVideoFilters" !in root && hasAdjustedVideoFilters()) {
             upgradedPreferences = upgradedPreferences.copy(shouldApplyVideoFilters = true)
+        }
+        if ("playerIconStyle" !in root && root["shouldUseClassicPlayerIcons"]?.jsonPrimitive?.content == "true") {
+            upgradedPreferences = upgradedPreferences.copy(playerIconStyle = PlayerIconStyle.CLASSIC)
         }
         if (!root.keys.containsAll(videoFilterEnabledKeys)) {
             upgradedPreferences = upgradedPreferences.copy(

@@ -35,34 +35,44 @@ class FtpDataSource private constructor(
         val ftpClient = FTPClient().apply {
             connectTimeout = FtpClient.CONNECT_TIMEOUT_MS
             dataTimeout = java.time.Duration.ofMillis(FtpClient.DATA_TIMEOUT_MS.toLong())
+            setControlEncoding(Charsets.UTF_8.name())
+            setAutodetectUTF8(true)
         }
         client = ftpClient
-        ftpClient.connect(host, port)
-        val loginOk = if (username.isBlank()) {
-            ftpClient.login("anonymous", "")
-        } else {
-            ftpClient.login(username, password)
-        }
-        if (!loginOk) throw IOException("FTP login failed")
+        try {
+            ftpClient.connect(host, port)
+            val loginOk = if (username.isBlank()) {
+                ftpClient.login("anonymous", "")
+            } else {
+                ftpClient.login(username, password)
+            }
+            if (!loginOk) throw IOException("FTP login failed")
 
-        ftpClient.enterLocalPassiveMode()
-        ftpClient.setFileType(FTPClient.BINARY_FILE_TYPE)
-        val fileSize = ftpClient.mlistFile(path)?.size ?: C.LENGTH_UNSET.toLong()
-        if (dataSpec.position > 0) {
-            ftpClient.setRestartOffset(dataSpec.position)
-        }
+            ftpClient.enterLocalPassiveMode()
+            ftpClient.setFileType(FTPClient.BINARY_FILE_TYPE)
+            val fileSize = ftpClient.mlistFile(path)?.size ?: C.LENGTH_UNSET.toLong()
+            if (dataSpec.position > 0) {
+                ftpClient.setRestartOffset(dataSpec.position)
+            }
 
-        val stream = ftpClient.retrieveFileStream(path) ?: throw IOException("FTP retrieve failed: $path")
-        inputStream = stream
-        bytesRemaining = when {
-            dataSpec.length != C.LENGTH_UNSET.toLong() -> dataSpec.length
-            fileSize != C.LENGTH_UNSET.toLong() -> fileSize - dataSpec.position
-            else -> C.LENGTH_UNSET.toLong()
-        }
+            val stream = ftpClient.retrieveFileStream(path) ?: throw IOException("FTP retrieve failed: $path")
+            inputStream = stream
+            bytesRemaining = when {
+                dataSpec.length != C.LENGTH_UNSET.toLong() -> dataSpec.length
+                fileSize != C.LENGTH_UNSET.toLong() -> fileSize - dataSpec.position
+                else -> C.LENGTH_UNSET.toLong()
+            }
 
-        transferStarted(dataSpec)
-        hasStartedTransfer = true
-        return bytesRemaining
+            transferStarted(dataSpec)
+            hasStartedTransfer = true
+            return bytesRemaining
+        } catch (exception: IOException) {
+            close()
+            throw exception
+        } catch (exception: RuntimeException) {
+            close()
+            throw exception
+        }
     }
 
     override fun read(buffer: ByteArray, offset: Int, length: Int): Int {
@@ -87,8 +97,11 @@ class FtpDataSource private constructor(
     override fun getUri(): Uri? = uri
 
     override fun close() {
+        val shouldCompletePendingCommand = inputStream != null
         runCatching { inputStream?.close() }
-        runCatching { client?.completePendingCommand() }
+        if (shouldCompletePendingCommand) {
+            runCatching { client?.completePendingCommand() }
+        }
         runCatching {
             if (client?.isConnected == true) client?.logout()
         }

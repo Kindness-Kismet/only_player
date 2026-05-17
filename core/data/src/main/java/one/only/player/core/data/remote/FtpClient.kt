@@ -49,19 +49,25 @@ class FtpClient @Inject constructor() {
             val client = FTPClient().apply {
                 connectTimeout = CONNECT_TIMEOUT_MS
                 dataTimeout = java.time.Duration.ofMillis(DATA_TIMEOUT_MS.toLong())
+                setControlEncoding(Charsets.UTF_8.name())
+                setAutodetectUTF8(true)
             }
-            client.connect(host, port ?: DEFAULT_PORT)
-            val loginOk = when {
-                username.isBlank() -> client.login("anonymous", "")
-                else -> client.login(username, password)
-            }
-            if (!loginOk) {
+            try {
+                client.connect(host, port ?: DEFAULT_PORT)
+                val loginOk = when {
+                    username.isBlank() -> client.login("anonymous", "")
+                    else -> client.login(username, password)
+                }
+                if (!loginOk) {
+                    error("FTP login failed")
+                }
+                client.enterLocalPassiveMode()
+                client.setFileType(FTPClient.BINARY_FILE_TYPE)
+                return client
+            } catch (exception: Exception) {
                 client.disconnectQuietly()
-                error("FTP login failed")
+                throw exception
             }
-            client.enterLocalPassiveMode()
-            client.setFileType(FTPClient.BINARY_FILE_TYPE)
-            return client
         }
 
         private fun FTPClient.disconnectQuietly() {

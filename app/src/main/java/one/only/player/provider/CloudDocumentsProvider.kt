@@ -435,48 +435,62 @@ class CloudDocumentsProvider : DocumentsProvider() {
         val client = org.apache.commons.net.ftp.FTPClient().apply {
             connectTimeout = FtpClient.CONNECT_TIMEOUT_MS
             dataTimeout = java.time.Duration.ofMillis(FtpClient.DATA_TIMEOUT_MS.toLong())
+            setControlEncoding(Charsets.UTF_8.name())
+            setAutodetectUTF8(true)
         }
-        client.connect(server.host, server.port ?: FtpClient.DEFAULT_PORT)
-        val loginOk = if (server.username.isBlank()) {
-            client.login("anonymous", "")
-        } else {
-            client.login(server.username, server.password)
-        }
-        if (!loginOk) {
-            runCatching { client.disconnect() }
-            throw FileNotFoundException("FTP login failed")
-        }
-
-        client.enterLocalPassiveMode()
-        client.setFileType(org.apache.commons.net.ftp.FTPClient.BINARY_FILE_TYPE)
-        val input = client.retrieveFileStream(path) ?: throw FileNotFoundException("FTP file not found")
-        val pipe = ParcelFileDescriptor.createReliablePipe()
-
-        signal?.setOnCancelListener {
-            runCatching { pipe[0].close() }
-            runCatching { pipe[1].close() }
-            runCatching { input.close() }
-            runCatching { client.completePendingCommand() }
-            runCatching { if (client.isConnected) client.logout() }
-            runCatching { if (client.isConnected) client.disconnect() }
-        }
-
-        Thread {
-            try {
-                ParcelFileDescriptor.AutoCloseOutputStream(pipe[1]).use { output ->
-                    input.use { source ->
-                        source.copyTo(output)
-                    }
-                }
-                client.completePendingCommand()
-            } catch (exception: Exception) {
-                Logger.error(TAG, "Failed to stream FTP document", exception)
-            } finally {
-                runCatching { if (client.isConnected) client.logout() }
-                runCatching { if (client.isConnected) client.disconnect() }
+        try {
+            client.connect(server.host, server.port ?: FtpClient.DEFAULT_PORT)
+            val loginOk = if (server.username.isBlank()) {
+                client.login("anonymous", "")
+            } else {
+                client.login(server.username, server.password)
             }
-        }.start()
-        return pipe[0]
+            if (!loginOk) {
+                throw FileNotFoundException("FTP login failed")
+            }
+
+            client.enterLocalPassiveMode()
+            client.setFileType(org.apache.commons.net.ftp.FTPClient.BINARY_FILE_TYPE)
+            val input = client.retrieveFileStream(path) ?: throw FileNotFoundException("FTP file not found")
+            val pipe = try {
+                ParcelFileDescriptor.createReliablePipe()
+            } catch (exception: Exception) {
+                runCatching { input.close() }
+                throw exception
+            }
+
+            signal?.setOnCancelListener {
+                runCatching { pipe[0].close() }
+                runCatching { pipe[1].close() }
+                runCatching { input.close() }
+                runCatching { client.completePendingCommand() }
+                disconnectFtpClient(client)
+            }
+
+            Thread {
+                try {
+                    ParcelFileDescriptor.AutoCloseOutputStream(pipe[1]).use { output ->
+                        input.use { source ->
+                            source.copyTo(output)
+                        }
+                    }
+                    client.completePendingCommand()
+                } catch (exception: Exception) {
+                    Logger.error(TAG, "Failed to stream FTP document", exception)
+                } finally {
+                    disconnectFtpClient(client)
+                }
+            }.start()
+            return pipe[0]
+        } catch (exception: Exception) {
+            disconnectFtpClient(client)
+            throw exception
+        }
+    }
+
+    private fun disconnectFtpClient(client: org.apache.commons.net.ftp.FTPClient) {
+        runCatching { if (client.isConnected) client.logout() }
+        runCatching { if (client.isConnected) client.disconnect() }
     }
 
     private fun openSmbDocument(

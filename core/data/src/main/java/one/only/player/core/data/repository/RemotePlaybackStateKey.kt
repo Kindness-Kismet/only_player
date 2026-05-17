@@ -1,6 +1,6 @@
 package one.only.player.core.data.repository
 
-import java.net.URLDecoder
+import android.net.Uri
 
 private const val REMOTE_PLAYBACK_STATE_PREFIX = "onlyplayer://remote"
 private val SUPPORTED_REMOTE_PROTOCOLS = setOf("webdav", "ftp")
@@ -35,7 +35,7 @@ fun String.isRemotePlaybackStateKey(): Boolean = startsWith("$REMOTE_PLAYBACK_ST
 private fun String?.normalizeRemotePlaybackPath(): String? {
     val raw = this?.trim().orEmpty()
     if (raw.isBlank()) return null
-    val decoded = URLDecoder.decode(raw, "UTF-8")
+    val decoded = runCatching { Uri.decode(raw) }.getOrDefault(raw)
     val normalized = decoded
         .replace(Regex("/+"), "/")
         .removeSuffix("/")
