@@ -133,6 +133,17 @@ fun PlayerContentFrame(
                         pictureInPictureState.updateVideoViewRect(rect)
                     },
             )
+
+            if (!presentationState.coverSurface) {
+                val subtitleWidthDp = with(density) { min(containerWidth, videoWidth * baseScaleX).toDp() }
+                val subtitleHeightDp = with(density) { min(containerHeight, videoHeight * baseScaleY).toDp() }
+                SubtitleView(
+                    modifier = Modifier.requiredSize(subtitleWidthDp, subtitleHeightDp),
+                    player = player,
+                    isInPictureInPictureMode = pictureInPictureState.isInPictureInPictureMode,
+                    configuration = subtitleConfiguration,
+                )
+            }
         }
     }
 
@@ -145,15 +156,6 @@ fun PlayerContentFrame(
         volumeAndBrightnessGestureState = volumeAndBrightnessGestureState,
         isEnabled = isGesturesEnabled,
     )
-
-    if (!presentationState.coverSurface) {
-        SubtitleView(
-            modifier = Modifier.fillMaxSize(),
-            player = player,
-            isInPictureInPictureMode = pictureInPictureState.isInPictureInPictureMode,
-            configuration = subtitleConfiguration,
-        )
-    }
 
     if (presentationState.coverSurface) {
         ShutterView()
