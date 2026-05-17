@@ -17,6 +17,7 @@ import dagger.hilt.android.EntryPointAccessors
 import dagger.hilt.components.SingletonComponent
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.delay
+import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.guava.await
 import kotlinx.coroutines.runBlocking
 import kotlinx.coroutines.withContext
@@ -24,6 +25,7 @@ import kotlinx.coroutines.withTimeout
 import one.only.player.MainActivity
 import one.only.player.core.common.AppLanguageManager
 import one.only.player.core.data.repository.PreferencesRepository
+import one.only.player.core.data.repository.RemoteServerRepository
 import one.only.player.core.data.repository.SubtitleFontRepository
 import one.only.player.core.media.sync.MediaInfoSynchronizer
 import one.only.player.core.model.ApplicationPreferences
@@ -33,8 +35,10 @@ import one.only.player.core.model.DoubleTapGesture
 import one.only.player.core.model.Font
 import one.only.player.core.model.PlayerIconStyle
 import one.only.player.core.model.PlayerPreferences
+import one.only.player.core.model.RemoteServer
 import one.only.player.core.model.Resume
 import one.only.player.core.model.ScreenOrientation
+import one.only.player.core.model.ServerProtocol
 import one.only.player.core.model.SubtitleColor
 import one.only.player.core.model.SubtitleEdgeStyle
 import one.only.player.core.model.ThemeConfig
@@ -60,6 +64,7 @@ class DebugCommandProvider : ContentProvider() {
         METHOD_SETTINGS_SET -> runSettingsCommand(method, arg, extras) { setSetting(arg, extras) }
         METHOD_SETTINGS_TOGGLE -> runSettingsCommand(method, arg, extras) { toggleSetting(arg) }
         METHOD_SETTINGS_ACTION -> runSettingsCommand(method, arg, extras) { runSettingAction(arg) }
+        METHOD_CLOUD_SERVER -> runCloudServerCommand(arg, extras)
         METHOD_PLAYER_ACTION -> runPlayerAction(arg, extras)
         METHOD_PLAYER_GET -> runPlayerGet(arg)
         else -> result(
@@ -568,6 +573,118 @@ class DebugCommandProvider : ContentProvider() {
         }
     }
 
+    private fun runCloudServerCommand(
+        action: String?,
+        extras: Bundle?,
+    ): Bundle {
+        val context = context ?: return result(
+            isOk = false,
+            message = "Context is not ready",
+            command = METHOD_CLOUD_SERVER,
+            target = action,
+        )
+        val entryPoint = EntryPointAccessors.fromApplication(
+            context.applicationContext,
+            DebugCommandEntryPoint::class.java,
+        )
+        val value = extras ?: Bundle.EMPTY
+
+        return runCatching {
+            runBlocking { entryPoint.runCloudServerAction(action, value) }
+        }.getOrElse {
+            result(
+                isOk = false,
+                message = it.message ?: "Failed to handle cloud server action: $action",
+                command = METHOD_CLOUD_SERVER,
+                target = action,
+            )
+        }
+    }
+
+    private suspend fun DebugCommandEntryPoint.runCloudServerAction(
+        action: String?,
+        extras: Bundle,
+    ): Bundle {
+        val repository = remoteServerRepository()
+        return when (action) {
+            "add" -> {
+                val server = extras.toRemoteServer()
+                val id = repository.insert(server)
+                result(
+                    isOk = true,
+                    message = "Added cloud server: $id",
+                    command = METHOD_CLOUD_SERVER,
+                    target = action,
+                    value = id.toString(),
+                )
+            }
+            "update" -> {
+                val id = extras.requiredLong(EXTRA_ID)
+                repository.update(extras.toRemoteServer(id))
+                result(
+                    isOk = true,
+                    message = "Updated cloud server: $id",
+                    command = METHOD_CLOUD_SERVER,
+                    target = action,
+                    value = id.toString(),
+                )
+            }
+            "delete" -> {
+                val id = extras.requiredLong(EXTRA_ID)
+                repository.deleteById(id)
+                result(
+                    isOk = true,
+                    message = "Deleted cloud server: $id",
+                    command = METHOD_CLOUD_SERVER,
+                    target = action,
+                    value = id.toString(),
+                )
+            }
+            "clear" -> {
+                val servers = repository.getAll().first()
+                servers.forEach { server -> repository.deleteById(server.id) }
+                result(
+                    isOk = true,
+                    message = "Cleared cloud servers: ${servers.size}",
+                    command = METHOD_CLOUD_SERVER,
+                    target = action,
+                    value = servers.size.toString(),
+                )
+            }
+            "list" -> {
+                val servers = repository.getAll().first()
+                result(
+                    isOk = true,
+                    message = servers.joinToString(separator = "; ") { server ->
+                        "${server.id}:${server.protocol.name}:${server.host}:${server.port ?: ""}${server.path}"
+                    },
+                    command = METHOD_CLOUD_SERVER,
+                    target = action,
+                    value = servers.size.toString(),
+                )
+            }
+            else -> error("Unknown cloud server action: $action")
+        }
+    }
+
+    private fun Bundle.toRemoteServer(id: Long = 0): RemoteServer {
+        val protocol = enumValue<ServerProtocol>(requiredString(EXTRA_PROTOCOL))
+        val host = requiredString(EXTRA_HOST)
+        return RemoteServer(
+            id = id,
+            name = getString(EXTRA_NAME)?.takeIf { it.isNotBlank() } ?: host,
+            protocol = protocol,
+            host = host,
+            port = optionalInt(EXTRA_PORT),
+            path = getString(EXTRA_PATH)?.ifBlank { "/" } ?: "/",
+            username = getString(EXTRA_USERNAME).orEmpty(),
+            password = getString(EXTRA_PASSWORD).orEmpty(),
+            isProxyEnabled = getBoolean(EXTRA_PROXY_ENABLED, false),
+            proxyHost = getString(EXTRA_PROXY_HOST).orEmpty(),
+            proxyPort = optionalInt(EXTRA_PROXY_PORT),
+        )
+    }
+
     private suspend fun DebugCommandEntryPoint.updateApplicationBoolean(
         extras: Bundle,
         transform: (ApplicationPreferences, Boolean) -> ApplicationPreferences,
@@ -643,6 +760,18 @@ class DebugCommandProvider : ContentProvider() {
         return getInt(key)
     }
 
+    private fun Bundle.optionalInt(key: String): Int? {
+        if (!containsKey(key)) return null
+        getString(key)?.let { return it.toIntOrNull() ?: error("Invalid int extra: $key") }
+        return getInt(key)
+    }
+
+    private fun Bundle.requiredLong(key: String): Long {
+        if (!containsKey(key)) error("Missing long extra: $key")
+        getString(key)?.let { return it.toLongOrNull() ?: error("Invalid long extra: $key") }
+        return getLong(key).takeIf { it != 0L } ?: getInt(key).toLong()
+    }
+
     private fun Bundle.requiredLongMillis(key: String): Long {
         if (!containsKey(key)) error("Missing time extra: $key")
         getString(key)?.let { return it.parseTimeMillisOrNull() ?: error("Invalid time extra: $key") }
@@ -710,13 +839,16 @@ class DebugCommandProvider : ContentProvider() {
         value: String? = null,
     ): Bundle = result(
         isOk = true,
-        message = "Player state: position=${currentPosition.safeTime()} duration=${duration.safeTime()} playing=$isPlaying",
+        message = "Player state: index=$currentMediaItemIndex count=$mediaItemCount mediaId=${currentMediaItem?.mediaId} position=${currentPosition.safeTime()} duration=${duration.safeTime()} playing=$isPlaying",
         command = command,
         target = target,
         value = value,
         durationMs = duration.safeTime(),
         positionMs = currentPosition.safeTime(),
         isPlaying = isPlaying,
+        mediaItemCount = mediaItemCount,
+        mediaItemIndex = currentMediaItemIndex,
+        mediaId = currentMediaItem?.mediaId,
     )
 
     private fun result(
@@ -728,6 +860,9 @@ class DebugCommandProvider : ContentProvider() {
         durationMs: Long? = null,
         positionMs: Long? = null,
         isPlaying: Boolean? = null,
+        mediaItemCount: Int? = null,
+        mediaItemIndex: Int? = null,
+        mediaId: String? = null,
     ): Bundle = Bundle().apply {
         putBoolean(KEY_OK, isOk)
         putString(KEY_MESSAGE, message)
@@ -737,6 +872,9 @@ class DebugCommandProvider : ContentProvider() {
         durationMs?.let { putLong(KEY_DURATION_MS, it) }
         positionMs?.let { putLong(KEY_POSITION_MS, it) }
         isPlaying?.let { putBoolean(KEY_IS_PLAYING, it) }
+        mediaItemCount?.let { putInt(KEY_MEDIA_ITEM_COUNT, it) }
+        mediaItemIndex?.let { putInt(KEY_MEDIA_ITEM_INDEX, it) }
+        mediaId?.let { putString(KEY_MEDIA_ID, it) }
     }
 
     companion object {
@@ -744,12 +882,24 @@ class DebugCommandProvider : ContentProvider() {
         private const val METHOD_SETTINGS_SET = "settings.set"
         private const val METHOD_SETTINGS_TOGGLE = "settings.toggle"
         private const val METHOD_SETTINGS_ACTION = "settings.action"
+        private const val METHOD_CLOUD_SERVER = "cloud.server"
         private const val METHOD_PLAYER_ACTION = "player.action"
         private const val METHOD_PLAYER_GET = "player.get"
 
         private const val EXTRA_VALUE = "value"
         private const val EXTRA_ENABLED = "enabled"
         private const val EXTRA_DURATION_MS = "duration_ms"
+        private const val EXTRA_ID = "id"
+        private const val EXTRA_NAME = "name"
+        private const val EXTRA_PROTOCOL = "protocol"
+        private const val EXTRA_HOST = "host"
+        private const val EXTRA_PORT = "port"
+        private const val EXTRA_PATH = "path"
+        private const val EXTRA_USERNAME = "username"
+        private const val EXTRA_PASSWORD = "password"
+        private const val EXTRA_PROXY_ENABLED = "proxy_enabled"
+        private const val EXTRA_PROXY_HOST = "proxy_host"
+        private const val EXTRA_PROXY_PORT = "proxy_port"
 
         private const val KEY_OK = "ok"
         private const val KEY_MESSAGE = "message"
@@ -759,6 +909,9 @@ class DebugCommandProvider : ContentProvider() {
         private const val KEY_DURATION_MS = "duration_ms"
         private const val KEY_POSITION_MS = "position_ms"
         private const val KEY_IS_PLAYING = "is_playing"
+        private const val KEY_MEDIA_ITEM_COUNT = "media_item_count"
+        private const val KEY_MEDIA_ITEM_INDEX = "media_item_index"
+        private const val KEY_MEDIA_ID = "media_id"
 
         private val UI_PLAYER_ACTIONS = setOf(
             PlayerDebugCommandBridge.ACTION_BACK,
@@ -790,6 +943,8 @@ class DebugCommandProvider : ContentProvider() {
 @InstallIn(SingletonComponent::class)
 interface DebugCommandEntryPoint {
     fun preferencesRepository(): PreferencesRepository
+
+    fun remoteServerRepository(): RemoteServerRepository
 
     fun mediaInfoSynchronizer(): MediaInfoSynchronizer
 
