@@ -272,6 +272,7 @@ class PlayerService : MediaSessionService() {
     private var assHandler: AssHandler? = null
     private var pendingPreciseSeekPromotionJob: Job? = null
     private var pendingStartupPreciseResumeToken: String? = null
+    private var pendingStartupPreciseResumePositionMs: Long? = null
     private var activeDecoderPriority: DecoderPriority = DecoderPriority.AUTOMATIC
     private var currentVideoEffectsState = VideoEffectsState(
         filters = VideoFilterPreferences.default(),
@@ -396,6 +397,7 @@ class PlayerService : MediaSessionService() {
             pendingPreciseSeekPromotionJob?.cancel()
             pendingPreciseSeekPromotionJob = null
             pendingStartupPreciseResumeToken = null
+            pendingStartupPreciseResumePositionMs = null
             isMediaItemReady = false
             isPendingExternalSubAutoSelect = false
             updateCurrentVideoEffectsAvailability(mediaSession?.player as? ExoPlayer ?: return)
@@ -438,6 +440,7 @@ class PlayerService : MediaSessionService() {
                         resumePositionMs?.takeIf { it > 0L }?.let {
                             Logger.info(TAG, "Resume deferred precise-seek media item=${mediaItem.mediaId} position=$it")
                             pendingStartupPreciseResumeToken = mediaItem.mediaId
+                            pendingStartupPreciseResumePositionMs = it
                         }
                     }
                     return
@@ -2204,16 +2207,14 @@ class PlayerService : MediaSessionService() {
             isApproximateSeekEnabled = false,
         )
         preciseSeekMediaIds.add(currentItem.mediaId)
-        val mediaSource = createMediaSource(updatedMediaItem)
         val shouldPlayWhenReady = player.playWhenReady
         Logger.info(
             TAG,
             "Promote current item to precise seek mediaId=${currentItem.mediaId} target=$targetPosition hasCachedSeekMap=${mkvSeekMapCache.containsKey(currentItem.mediaId)}",
         )
-        player.removeMediaItem(currentIndex)
-        player.addMediaSource(currentIndex, mediaSource)
-        player.seekTo(currentIndex, targetPosition)
+        player.replaceMediaItem(currentIndex, updatedMediaItem)
         player.prepare()
+        player.seekTo(currentIndex, targetPosition)
         player.playWhenReady = shouldPlayWhenReady
         serviceScope.launch {
             val playbackStateUri = currentItem.resolvePlaybackStateUri()
@@ -2322,16 +2323,19 @@ class PlayerService : MediaSessionService() {
         if (pendingStartupPreciseResumeToken != mediaId) return
         if (!currentMediaItem.mediaMetadata.isApproximateSeekEnabled) {
             pendingStartupPreciseResumeToken = null
+            pendingStartupPreciseResumePositionMs = null
             return
         }
 
-        val targetPosition = currentMediaItem.mediaMetadata.positionMs ?: return
+        val targetPosition = pendingStartupPreciseResumePositionMs ?: currentMediaItem.mediaMetadata.positionMs ?: return
         if (targetPosition < STARTUP_PRECISE_RESUME_THRESHOLD_MS) {
             pendingStartupPreciseResumeToken = null
+            pendingStartupPreciseResumePositionMs = null
             return
         }
         if (player.currentPosition >= targetPosition - 1_000L) {
             pendingStartupPreciseResumeToken = null
+            pendingStartupPreciseResumePositionMs = null
             return
         }
 
@@ -2349,6 +2353,7 @@ class PlayerService : MediaSessionService() {
                 if (current.mediaId != mediaId) return@withContext
                 if (pendingStartupPreciseResumeToken != mediaId) return@withContext
                 pendingStartupPreciseResumeToken = null
+                pendingStartupPreciseResumePositionMs = null
                 Logger.info(TAG, "Resume deferred precise-seek media item=$mediaId position=$targetPosition")
                 promoteCurrentItemToPreciseSeek(targetPosition)
             }
