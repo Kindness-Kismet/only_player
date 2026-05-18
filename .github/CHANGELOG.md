@@ -1,20 +1,12 @@
-- 修复部分 MKV 视频重新打开时无法恢复到上次播放位置的问题
-- 修复横屏和竖屏下字幕相对视频画面偏移的问题
-- 修复视频滤镜播放中连续调整时可能卡住的问题
-- 修复缩略图“某位置的帧”实际取到开头附近画面的问题
-- 修复本地字幕选择器显示全部文件类型的问题
-- 修复系统音量变化后播放器音量状态不同步的问题
-- 修复回收站路径记录不准确、删除或刷新后媒体库更新不及时的问题
+- 推出全新的现代播放器布局，菜单式入口加上更纤细的进度条圆点，首次启动默认使用
+- 把睡眠定时器和解码器选择改成侧边面板，不再用对话框挡住画面
+- 修复缩放或平移视频时画中画偶发的系统限频崩溃
 
 <details>
 <summary>English Version</summary>
 
-- Fix occasional MKV playback resume failures when reopening videos
-- Fix subtitle positioning being offset from the video bounds in landscape and portrait modes
-- Fix possible playback stalls when adjusting video filters during playback
-- Fix frame-at-position thumbnails seeking near the beginning instead of the requested time
-- Fix the local subtitle picker showing all file types
-- Fix player volume state getting out of sync after system volume changes
-- Fix inaccurate recycle bin paths and delayed media library refresh after file changes
+- Introduce the new modern player layout with a menu entry and a slimmer dotted seekbar, used by default on first launch
+- Switch the sleep timer and decoder pickers to side panels so they no longer block the video
+- Fix an occasional crash from the system rate-limiting picture-in-picture updates while zooming or panning the video
 
 </details>
