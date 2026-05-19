@@ -140,11 +140,11 @@ private fun GeneralPreferencesContent(
                     onClick = { onEvent(GeneralPreferencesUiEvent.RestoreSettings) },
                 )
                 ClickablePreferenceItem(
-                    modifier = Modifier.testTag("item_settings_general_clear_thumbnail_cache"),
-                    title = stringResource(R.string.delete_thumbnail_cache),
-                    description = stringResource(R.string.delete_thumbnail_cache_description),
+                    modifier = Modifier.testTag("item_settings_general_clear_video_cache"),
+                    title = stringResource(R.string.delete_video_cache),
+                    description = stringResource(R.string.delete_video_cache_description),
                     icon = NextIcons.DeleteSweep,
-                    onClick = { onEvent(GeneralPreferencesUiEvent.ShowDialog(GeneralPreferencesDialog.ClearThumbnailCacheDialog)) },
+                    onClick = { onEvent(GeneralPreferencesUiEvent.ShowDialog(GeneralPreferencesDialog.ClearVideoCacheDialog)) },
                 )
                 ClickablePreferenceItem(
                     modifier = Modifier.testTag("item_settings_general_reset_settings"),
@@ -159,20 +159,20 @@ private fun GeneralPreferencesContent(
 
         uiState.showDialog?.let { dialog ->
             when (dialog) {
-                GeneralPreferencesDialog.ClearThumbnailCacheDialog -> {
+                GeneralPreferencesDialog.ClearVideoCacheDialog -> {
                     NextDialog(
                         onDismissRequest = { onEvent(GeneralPreferencesUiEvent.ShowDialog(null)) },
                         title = {
                             Text(
-                                text = stringResource(R.string.delete_thumbnail_cache),
+                                text = stringResource(R.string.delete_video_cache),
                                 modifier = Modifier.fillMaxWidth(),
                             )
                         },
                         confirmButton = {
                             TextButton(
-                                modifier = Modifier.testTag("btn_confirm_settings_general_clear_thumbnail_cache"),
+                                modifier = Modifier.testTag("btn_confirm_settings_general_clear_video_cache"),
                                 onClick = {
-                                    onEvent(GeneralPreferencesUiEvent.ClearThumbnailCache)
+                                    onEvent(GeneralPreferencesUiEvent.ClearVideoCache)
                                     onEvent(GeneralPreferencesUiEvent.ShowDialog(null))
                                 },
                             ) {
@@ -182,7 +182,7 @@ private fun GeneralPreferencesContent(
                         dismissButton = { CancelButton(onClick = { onEvent(GeneralPreferencesUiEvent.ShowDialog(null)) }) },
                         content = {
                             Text(
-                                text = stringResource(R.string.delete_thumbnail_cache_confirmation),
+                                text = stringResource(R.string.delete_video_cache_confirmation),
                                 style = MaterialTheme.typography.titleSmall,
                             )
                         },

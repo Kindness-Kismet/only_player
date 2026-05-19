@@ -321,6 +321,7 @@ internal suspend fun DebugCommandEntryPoint.toggleSetting(target: String?) {
 internal suspend fun DebugCommandEntryPoint.runSettingAction(target: String?) {
     when (target) {
         "general.clear_thumbnail_cache" -> mediaInfoSynchronizer().clearThumbnailsCache()
+        "general.clear_video_cache" -> mediaInfoSynchronizer().clearVideoCache()
         "general.reset_settings" -> {
             preferencesRepository().resetPreferences()
             AppLanguageManager.applyToCurrent("")

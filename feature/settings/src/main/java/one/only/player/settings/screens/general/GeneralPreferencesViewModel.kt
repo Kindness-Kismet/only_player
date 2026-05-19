@@ -35,7 +35,7 @@ class GeneralPreferencesViewModel @Inject constructor(
     fun onEvent(event: GeneralPreferencesUiEvent) {
         when (event) {
             is GeneralPreferencesUiEvent.ShowDialog -> showDialog(event.value)
-            GeneralPreferencesUiEvent.ClearThumbnailCache -> clearThumbnailCache()
+            GeneralPreferencesUiEvent.ClearVideoCache -> clearVideoCache()
             GeneralPreferencesUiEvent.ResetSettings -> resetSettings()
             GeneralPreferencesUiEvent.BackupSettings -> backupSettings()
             GeneralPreferencesUiEvent.RestoreSettings -> restoreSettings()
@@ -49,9 +49,9 @@ class GeneralPreferencesViewModel @Inject constructor(
         uiStateInternal.update { it.copy(showDialog = value) }
     }
 
-    private fun clearThumbnailCache() {
+    private fun clearVideoCache() {
         viewModelScope.launch {
-            mediaInfoSynchronizer.clearThumbnailsCache()
+            mediaInfoSynchronizer.clearVideoCache()
         }
     }
 
@@ -136,7 +136,7 @@ sealed interface GeneralPreferencesResultMessage {
 }
 
 sealed interface GeneralPreferencesDialog {
-    data object ClearThumbnailCacheDialog : GeneralPreferencesDialog
+    data object ClearVideoCacheDialog : GeneralPreferencesDialog
     data object ResetSettingsDialog : GeneralPreferencesDialog
 }
 
@@ -144,7 +144,7 @@ sealed interface GeneralPreferencesUiEvent {
     data class ShowDialog(val value: GeneralPreferencesDialog?) : GeneralPreferencesUiEvent
     data class OnBackupFileSelected(val context: Context, val uri: Uri?) : GeneralPreferencesUiEvent
     data class OnRestoreFileSelected(val context: Context, val uri: Uri?) : GeneralPreferencesUiEvent
-    data object ClearThumbnailCache : GeneralPreferencesUiEvent
+    data object ClearVideoCache : GeneralPreferencesUiEvent
     data object ResetSettings : GeneralPreferencesUiEvent
     data object BackupSettings : GeneralPreferencesUiEvent
     data object RestoreSettings : GeneralPreferencesUiEvent

@@ -399,9 +399,9 @@
     <string name="general_name">General</string>
     <string name="general_description">User data options</string>
     <string name="user_data">User data</string>
-    <string name="delete_thumbnail_cache">Delete thumbnail cache</string>
-    <string name="delete_thumbnail_cache_description">Delete all thumbnails cached in storage. Thumbnails will be generated again when media list is opened</string>
-    <string name="delete_thumbnail_cache_confirmation">Are you sure you want to delete all thumbnails?</string>
+    <string name="delete_video_cache">Delete video cache</string>
+    <string name="delete_video_cache_description">Delete cached thumbnails, media list snapshots, subtitles, and MKV seek data</string>
+    <string name="delete_video_cache_confirmation">Are you sure you want to delete all video cache?</string>
     <string name="reset_settings">Reset settings</string>
     <string name="reset_settings_description">Reset all settings to their default state</string>
     <string name="reset_settings_confirmation">Are you sure you want to reset all settings to their default state?</string>

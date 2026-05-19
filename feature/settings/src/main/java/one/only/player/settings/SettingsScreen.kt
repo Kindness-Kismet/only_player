@@ -368,7 +368,7 @@ internal enum class SettingRow(
         icon = NextIcons.ExtraSettings,
         setting = Setting.GENERAL,
         subSettingResIds = listOf(
-            R.string.delete_thumbnail_cache,
+            R.string.delete_video_cache,
             R.string.reset_settings,
             R.string.backup_settings,
             R.string.restore_settings,

@@ -271,6 +271,7 @@ class PlayerService : MediaSessionService() {
     private var isPendingExternalSubAutoSelect = false
     private var assHandler: AssHandler? = null
     private var pendingPreciseSeekPromotionJob: Job? = null
+    private var preciseSeekRequestId = 0L
     private var pendingStartupPreciseResumeToken: String? = null
     private var pendingStartupPreciseResumePositionMs: Long? = null
     private var activeDecoderPriority: DecoderPriority = DecoderPriority.AUTOMATIC
@@ -400,6 +401,7 @@ class PlayerService : MediaSessionService() {
             hasRenderedFirstFrameForCurrentItem = false
             pendingPreciseSeekPromotionJob?.cancel()
             pendingPreciseSeekPromotionJob = null
+            preciseSeekRequestId++
             pendingStartupPreciseResumeToken = null
             pendingStartupPreciseResumePositionMs = null
             isMediaItemReady = false
@@ -1203,9 +1205,11 @@ class PlayerService : MediaSessionService() {
     ) {
         val currentItem = player.currentMediaItem ?: return
         if (currentItem.mediaMetadata.isApproximateSeekEnabled) {
-            promoteCurrentItemToPreciseSeek(targetPositionMs)
+            val requestId = ++preciseSeekRequestId
+            serviceScope.launch { promoteCurrentItemToPreciseSeek(targetPositionMs, requestId) }
             return
         }
+        preciseSeekRequestId++
         player.seekTo(targetPositionMs)
     }
 
@@ -1848,6 +1852,7 @@ class PlayerService : MediaSessionService() {
         releaseLoudnessEnhancer()
         pendingPreciseSeekPromotionJob?.cancel()
         pendingPreciseSeekPromotionJob = null
+        preciseSeekRequestId++
         assHandler?.let(AssHandlerRegistry::unregister)
         assHandler = null
         mediaSession?.run {
@@ -2211,24 +2216,45 @@ class PlayerService : MediaSessionService() {
         return DefaultDataSource.Factory(applicationContext, httpFactory)
     }
 
-    private fun promoteCurrentItemToPreciseSeek(targetPositionMs: Long): SessionResult {
+    private suspend fun promoteCurrentItemToPreciseSeek(
+        targetPositionMs: Long,
+        requestId: Long = ++preciseSeekRequestId,
+    ): SessionResult {
         val player = mediaSession?.player as? ExoPlayer ?: return SessionResult(SessionError.ERROR_BAD_VALUE)
-        val currentItem = player.currentMediaItem ?: return SessionResult(SessionError.ERROR_BAD_VALUE)
-        val currentIndex = player.currentMediaItemIndex
-        if (currentIndex !in 0 until player.mediaItemCount) {
-            return SessionResult(SessionError.ERROR_BAD_VALUE)
-        }
-
-        val maxPosition = currentItem.mediaMetadata.durationMs
+        val initialItem = player.currentMediaItem ?: return SessionResult(SessionError.ERROR_BAD_VALUE)
+        val maxPosition = initialItem.mediaMetadata.durationMs
             ?.takeIf { it > 0L }
             ?: player.duration.takeIf { it != C.TIME_UNSET && it > 0L }
         val targetPosition = maxPosition?.let { targetPositionMs.coerceIn(0L, it) } ?: targetPositionMs.coerceAtLeast(0L)
 
+        if (!initialItem.mediaMetadata.isApproximateSeekEnabled || initialItem.mediaId in preciseSeekMediaIds) {
+            Logger.info(TAG, "Precise seek direct mediaId=${initialItem.mediaId} target=$targetPosition")
+            player.seekTo(targetPosition)
+            return SessionResult(SessionResult.RESULT_SUCCESS)
+        }
+
+        val seekMap = mkvSeekMapCache[initialItem.mediaId]
+            ?: withContext(Dispatchers.IO) { scheduleMkvCueCache(initialItem).await() }
+        if (requestId != preciseSeekRequestId) {
+            return SessionResult(SessionError.ERROR_BAD_VALUE)
+        }
+
+        val currentItem = player.currentMediaItem ?: return SessionResult(SessionError.ERROR_BAD_VALUE)
+        val currentIndex = player.currentMediaItemIndex
+        if (currentItem.mediaId != initialItem.mediaId || currentIndex !in 0 until player.mediaItemCount) {
+            return SessionResult(SessionError.ERROR_BAD_VALUE)
+        }
         if (!currentItem.mediaMetadata.isApproximateSeekEnabled || currentItem.mediaId in preciseSeekMediaIds) {
             Logger.info(TAG, "Precise seek direct mediaId=${currentItem.mediaId} target=$targetPosition")
             player.seekTo(targetPosition)
             return SessionResult(SessionResult.RESULT_SUCCESS)
         }
+        if (seekMap == null) {
+            Logger.info(TAG, "Precise seek postponed mediaId=${currentItem.mediaId} target=$targetPosition")
+            player.seekTo(targetPosition)
+            return SessionResult(SessionResult.RESULT_SUCCESS)
+        }
+        mkvSeekMapCache[currentItem.mediaId] = seekMap
 
         val updatedMediaItem = currentItem.copy(
             positionMs = targetPosition,
@@ -2238,11 +2264,12 @@ class PlayerService : MediaSessionService() {
         val shouldPlayWhenReady = player.playWhenReady
         Logger.info(
             TAG,
-            "Promote current item to precise seek mediaId=${currentItem.mediaId} target=$targetPosition hasCachedSeekMap=${mkvSeekMapCache.containsKey(currentItem.mediaId)}",
+            "Promote current item to precise seek mediaId=${currentItem.mediaId} target=$targetPosition hasCachedSeekMap=true",
         )
-        player.replaceMediaItem(currentIndex, updatedMediaItem)
+        player.addMediaSource(currentIndex + 1, createMediaSource(updatedMediaItem))
+        player.seekTo(currentIndex + 1, targetPosition)
+        player.removeMediaItem(currentIndex)
         player.prepare()
-        player.seekTo(currentIndex, targetPosition)
         player.playWhenReady = shouldPlayWhenReady
         serviceScope.launch {
             val playbackStateUri = currentItem.resolvePlaybackStateUri()
@@ -2269,7 +2296,7 @@ class PlayerService : MediaSessionService() {
         ) ?: mediaId,
     )
 
-    private fun requestSeekForCurrentItem(targetPositionMs: Long): SessionResult {
+    private suspend fun requestSeekForCurrentItem(targetPositionMs: Long): SessionResult {
         val player = mediaSession?.player as? ExoPlayer ?: return SessionResult(SessionError.ERROR_BAD_VALUE)
         val currentItem = player.currentMediaItem ?: return SessionResult(SessionError.ERROR_BAD_VALUE)
         val maxPosition = currentItem.mediaMetadata.durationMs
@@ -2298,8 +2325,7 @@ class PlayerService : MediaSessionService() {
             TAG,
             "Promote to precise seek mediaId=${currentItem.mediaId} start=$startPosition target=$targetPosition",
         )
-        promoteCurrentItemToPreciseSeek(targetPosition)
-        return SessionResult(SessionResult.RESULT_SUCCESS)
+        return promoteCurrentItemToPreciseSeek(targetPosition)
     }
 
     // 后台预解析 MKV Cues，为后续 seek 构建快速 SeekMap

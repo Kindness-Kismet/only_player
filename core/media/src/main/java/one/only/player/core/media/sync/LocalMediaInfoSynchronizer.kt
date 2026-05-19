@@ -9,6 +9,7 @@ import io.github.anilbeesetti.nextlib.mediainfo.AudioStream
 import io.github.anilbeesetti.nextlib.mediainfo.MediaInfoBuilder
 import io.github.anilbeesetti.nextlib.mediainfo.SubtitleStream
 import io.github.anilbeesetti.nextlib.mediainfo.VideoStream
+import java.io.File
 import javax.inject.Inject
 import kotlinx.coroutines.CoroutineDispatcher
 import kotlinx.coroutines.CoroutineScope
@@ -16,6 +17,7 @@ import kotlinx.coroutines.Job
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.sync.Mutex
 import kotlinx.coroutines.sync.withLock
+import kotlinx.coroutines.withContext
 import one.only.player.core.common.Dispatcher
 import one.only.player.core.common.Logger
 import one.only.player.core.common.NextDispatchers
@@ -61,6 +63,16 @@ class LocalMediaInfoSynchronizer @Inject constructor(
     override suspend fun clearThumbnailsCache() {
         imageLoader.diskCache?.clear()
         imageLoader.memoryCache?.clear()
+    }
+
+    override suspend fun clearVideoCache() {
+        clearThumbnailsCache()
+        withContext(dispatcher) {
+            VIDEO_CACHE_DIR_NAMES.forEach { dirName ->
+                File(context.cacheDir, dirName).deleteRecursively()
+            }
+            File(context.filesDir, "thumbnails").deleteRecursively()
+        }
     }
 
     private suspend fun processPendingSyncs() {
@@ -142,6 +154,12 @@ class LocalMediaInfoSynchronizer @Inject constructor(
 
     companion object {
         private const val TAG = "MediaInfoSynchronizer"
+        private val VIDEO_CACHE_DIR_NAMES = setOf(
+            "mkv-cues",
+            "media_snapshots",
+            "online_subtitles",
+            "subtitles",
+        )
     }
 }
 

@@ -3,9 +3,11 @@ package one.only.player.debug
 import android.content.ComponentName
 import android.content.Context
 import android.os.Bundle
+import android.os.SystemClock
 import androidx.media3.common.C
 import androidx.media3.common.Player
 import androidx.media3.session.MediaController
+import androidx.media3.session.SessionResult
 import androidx.media3.session.SessionToken
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.delay
@@ -15,6 +17,7 @@ import kotlinx.coroutines.withContext
 import kotlinx.coroutines.withTimeout
 import one.only.player.core.model.PlayerPreferences
 import one.only.player.feature.player.PlayerDebugCommandBridge
+import one.only.player.feature.player.extensions.isApproximateSeekEnabled
 import one.only.player.feature.player.service.CustomCommands
 import one.only.player.feature.player.service.PlayerService
 import one.only.player.feature.player.service.setTransientPlaybackSpeed
@@ -25,9 +28,9 @@ internal fun Context.runPlayerAction(
     extras: Bundle?,
 ): Bundle {
     val command = "player.$action"
-    if (action in UI_PLAYER_ACTIONS) return runPlayerUiAction(action, extras.withTarget(target))
-
     val value = extras.withTarget(target)
+    if (action in UI_PLAYER_ACTIONS) return runPlayerUiAction(action, value)
+
     return runCatching {
         runBlocking {
             withMediaController { controller ->
@@ -114,10 +117,41 @@ private fun runPlayerUiAction(action: String, extras: Bundle? = null): Bundle {
 }
 
 private suspend fun MediaController.awaitSeekTo(positionMs: Long) {
+    if (!awaitMediaReady()) {
+        error("Player is not ready for seek")
+    }
     val args = Bundle().apply {
         putLong(CustomCommands.SEEK_POSITION_MS_KEY, positionMs)
     }
-    sendCustomCommand(CustomCommands.PRECISE_SEEK_TO.sessionCommand, args).await()
+    val result = sendCustomCommand(CustomCommands.PRECISE_SEEK_TO.sessionCommand, args).await()
+    if (result.resultCode != SessionResult.RESULT_SUCCESS) {
+        error("Precise seek command failed: ${result.resultCode}")
+    }
+    if (!awaitSettledSeek(positionMs)) {
+        error("Seek did not settle: target=$positionMs position=${currentPosition.safeTime()} state=$playbackState")
+    }
+}
+
+private suspend fun MediaController.awaitMediaReady(): Boolean {
+    val startedAtMs = SystemClock.elapsedRealtime()
+    while (SystemClock.elapsedRealtime() - startedAtMs < MEDIA_READY_TIMEOUT_MS) {
+        if (mediaItemCount > 0 && currentMediaItem != null && duration != C.TIME_UNSET) return true
+        delay(SEEK_SETTLE_POLL_INTERVAL_MS)
+    }
+    return false
+}
+
+private suspend fun MediaController.awaitSettledSeek(targetPositionMs: Long): Boolean {
+    val startedAtMs = SystemClock.elapsedRealtime()
+    while (SystemClock.elapsedRealtime() - startedAtMs < SEEK_SETTLE_TIMEOUT_MS) {
+        val position = currentPosition.safeTime()
+        val duration = duration.safeTime().takeIf { it > 0L }
+        val targetPosition = duration?.let { targetPositionMs.coerceIn(0L, it) } ?: targetPositionMs.coerceAtLeast(0L)
+        val isPositionReady = kotlin.math.abs(position - targetPosition) <= SEEK_SETTLE_TOLERANCE_MS
+        if (isPositionReady && playbackState != Player.STATE_BUFFERING) return true
+        delay(SEEK_SETTLE_POLL_INTERVAL_MS)
+    }
+    return false
 }
 
 private suspend fun runLongPressSpeed(
@@ -140,7 +174,7 @@ private suspend fun runLongPressSpeed(
 }
 
 private suspend fun <T> Context.withMediaController(block: suspend (MediaController) -> T): T = withContext(Dispatchers.Main) {
-    withTimeout(3_000L) {
+    withTimeout(CONTROLLER_ACTION_TIMEOUT_MS) {
         val token = SessionToken(applicationContext, ComponentName(applicationContext, PlayerService::class.java))
         val future = MediaController.Builder(applicationContext, token).buildAsync()
         try {
@@ -157,7 +191,7 @@ private fun MediaController.debugStateBundle(
     value: String? = null,
 ): Bundle = debugResult(
     isOk = true,
-    message = "Player state: index=$currentMediaItemIndex count=$mediaItemCount mediaId=${currentMediaItem?.mediaId} position=${currentPosition.safeTime()} duration=${duration.safeTime()} playing=$isPlaying",
+    message = "Player state: index=$currentMediaItemIndex count=$mediaItemCount mediaId=${currentMediaItem?.mediaId} position=${currentPosition.safeTime()} duration=${duration.safeTime()} playing=$isPlaying approximate=${currentMediaItem?.mediaMetadata?.isApproximateSeekEnabled}",
     command = command,
     target = target,
     value = value,
@@ -187,3 +221,9 @@ private fun Int.nextRepeatMode(): Int = when (this) {
 }
 
 private fun Long.safeTime(): Long = takeIf { it != C.TIME_UNSET } ?: 0L
+
+private const val CONTROLLER_ACTION_TIMEOUT_MS = 25_000L
+private const val MEDIA_READY_TIMEOUT_MS = 8_000L
+private const val SEEK_SETTLE_TIMEOUT_MS = 20_000L
+private const val SEEK_SETTLE_POLL_INTERVAL_MS = 100L
+private const val SEEK_SETTLE_TOLERANCE_MS = 1_500L
