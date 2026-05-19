@@ -20,6 +20,8 @@ import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.layout.boundsInWindow
 import androidx.compose.ui.layout.onGloballyPositioned
 import androidx.compose.ui.platform.LocalDensity
+import androidx.media3.common.C
+import androidx.media3.common.MimeTypes
 import androidx.media3.common.Player
 import androidx.media3.common.util.UnstableApi
 import androidx.media3.ui.compose.PlayerSurface
@@ -37,6 +39,7 @@ import one.only.player.feature.player.state.SeekGestureState
 import one.only.player.feature.player.state.TapGestureState
 import one.only.player.feature.player.state.VideoZoomAndContentScaleState
 import one.only.player.feature.player.state.VolumeAndBrightnessGestureState
+import one.only.player.feature.player.state.rememberTracksState
 import one.only.player.feature.player.ui.PlayerGestures
 import one.only.player.feature.player.ui.ShutterView
 import one.only.player.feature.player.ui.SubtitleConfiguration
@@ -70,6 +73,14 @@ fun PlayerContentFrame(
 
     val presentationState = rememberPresentationState(player)
     val density = LocalDensity.current
+    val textTracksState = rememberTracksState(player = player, trackType = C.TRACK_TYPE_TEXT)
+    val isAssSubtitleSelected = textTracksState.tracks.any { track ->
+        track.isSelected &&
+            (0 until track.mediaTrackGroup.length).any { index ->
+                val format = track.mediaTrackGroup.getFormat(index)
+                format.sampleMimeType == MimeTypes.TEXT_SSA || format.codecs == MimeTypes.TEXT_SSA
+            }
+    }
     var lastLoggedSurfaceLayout by remember { mutableStateOf("") }
 
     // Media3 1.10.1 的 videoSizeDp 名带 Dp 但实际存视频原始 px；ASS wrapper 不触发 onVideoSizeChanged，回退 metadata
@@ -135,10 +146,22 @@ fun PlayerContentFrame(
             )
 
             if (!presentationState.coverSurface) {
-                val subtitleWidthDp = with(density) { min(containerWidth, videoWidth * baseScaleX).toDp() }
-                val subtitleHeightDp = with(density) { min(containerHeight, videoHeight * baseScaleY).toDp() }
+                val subtitleModifier = if (isAssSubtitleSelected) {
+                    Modifier
+                        .requiredSize(surfaceWidthDp, surfaceHeightDp)
+                        .graphicsLayer {
+                            scaleX = baseScaleX * videoZoomAndContentScaleState.zoom
+                            scaleY = baseScaleY * videoZoomAndContentScaleState.zoom
+                            translationX = videoZoomAndContentScaleState.offset.x
+                            translationY = videoZoomAndContentScaleState.offset.y
+                        }
+                } else {
+                    val subtitleWidthDp = with(density) { min(containerWidth, videoWidth * baseScaleX).toDp() }
+                    val subtitleHeightDp = with(density) { min(containerHeight, videoHeight * baseScaleY).toDp() }
+                    Modifier.requiredSize(subtitleWidthDp, subtitleHeightDp)
+                }
                 SubtitleView(
-                    modifier = Modifier.requiredSize(subtitleWidthDp, subtitleHeightDp),
+                    modifier = subtitleModifier,
                     player = player,
                     isInPictureInPictureMode = pictureInPictureState.isInPictureInPictureMode,
                     configuration = subtitleConfiguration,
