@@ -67,7 +67,7 @@ fun DoubleTapIndicator(modifier: Modifier = Modifier, tapGestureState: TapGestur
             ) {
                 DoubleTapSeekTriangles(isForward = tapGestureState.seekMillis > 0)
                 Text(
-                    text = "${tapGestureState.seekMillis.milliseconds.inWholeSeconds} seconds",
+                    text = "%+ds".format(tapGestureState.seekMillis.milliseconds.inWholeSeconds),
                     style = MaterialTheme.typography.labelMedium,
                     color = Color.White,
                 )
