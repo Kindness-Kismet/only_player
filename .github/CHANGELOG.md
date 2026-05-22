@@ -1,12 +1,10 @@
-- 改进媒体库多选操作，移动、删除、分享等操作收纳到顶部菜单
-- 新增本地视频和文件夹移动功能，并支持移动进度与取消剩余移动
-- 调整媒体选中背景色，提升亮色和暗色主题下的可读性
+- 修复从第三方文件管理器打开私有目录 MKV 时无法拖动进度条的问题
+- 修复从第三方文件管理器打开私有目录 MKV 时可能一直黑屏加载的问题
 
 <details>
 <summary>English Version</summary>
 
-- Improve media library multi-select actions by moving actions into the top menu
-- Add local video and folder move support with progress and cancel-remaining controls
-- Adjust selected media background color for better readability in light and dark themes
+- Fix progress bar seeking when opening private-folder MKV files from third-party file managers
+- Fix private-folder MKV files getting stuck on a black loading screen when opened from third-party file managers
 
 </details>
