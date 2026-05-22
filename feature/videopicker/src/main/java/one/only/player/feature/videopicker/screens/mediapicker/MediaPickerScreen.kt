@@ -1,6 +1,7 @@
 package one.only.player.feature.videopicker.screens.mediapicker
 
 import android.net.Uri
+import android.widget.Toast
 import androidx.activity.compose.BackHandler
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
@@ -25,6 +26,7 @@ import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.lazy.grid.rememberLazyGridState
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.DropdownMenu
 import androidx.compose.material3.DropdownMenuItem
 import androidx.compose.material3.ExperimentalMaterial3Api
@@ -36,8 +38,6 @@ import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Scaffold
-import androidx.compose.material3.SnackbarHost
-import androidx.compose.material3.SnackbarHostState
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
@@ -46,13 +46,13 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
-import androidx.compose.runtime.remember
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.vector.ImageVector
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalLayoutDirection
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.res.stringResource
@@ -158,7 +158,7 @@ internal fun MediaPickerScreen(
     val selectionManager = rememberSelectionManager()
     val permissionState = rememberRuntimePermissionState(permission = storagePermission)
     val lazyGridState = rememberLazyGridState()
-    val snackbarHostState = remember { SnackbarHostState() }
+    val context = LocalContext.current
     var restoredPlaybackAnchor by rememberSaveable { mutableStateOf<String?>(null) }
     val selectVideoFileLauncher = rememberLauncherForActivityResult(
         contract = ActivityResultContracts.GetContent(),
@@ -173,6 +173,7 @@ internal fun MediaPickerScreen(
     var showRenameActionFor: Video? by rememberSaveable { mutableStateOf(null) }
     var showInfoActionFor: Video? by rememberSaveable { mutableStateOf(null) }
     var shouldShowDeleteVideosConfirmation by rememberSaveable { mutableStateOf(false) }
+    var shouldShowMoveProgressDialog by rememberSaveable { mutableStateOf(false) }
 
     val isLibraryMode = uiState.screenMode == MediaPickerScreenMode.LIBRARY
     val isTitleLongPressHomeNavigationEnabled = shouldEnableTitleLongPressHomeNavigation(
@@ -197,6 +198,7 @@ internal fun MediaPickerScreen(
     val moveResult = uiState.moveResult
     val moveResultMessage = when {
         moveResult == null -> null
+        moveResult.canceledCount > 0 -> stringResource(R.string.move_cancelled, moveResult.movedCount, moveResult.failedCount)
         moveResult.movedCount > 0 && moveResult.failedCount > 0 -> stringResource(
             R.string.move_partial_success,
             moveResult.movedCount,
@@ -211,9 +213,9 @@ internal fun MediaPickerScreen(
         uiState.folderPath == null -> false
         else -> uiState.moveSelection?.canMoveTo(uiState.folderPath) == true
     }
+    val moveProgress = uiState.moveProgress
 
     Scaffold(
-        snackbarHost = { SnackbarHost(hostState = snackbarHostState) },
         topBar = {
             NextTopAppBar(
                 title = (
@@ -577,13 +579,24 @@ internal fun MediaPickerScreen(
                         }
                     }
                 }
+
+                if (moveProgress != null) {
+                    MoveProgressButton(
+                        progress = moveProgress.completedCount.toFloat() / moveProgress.totalCount.coerceAtLeast(1),
+                        onClick = { shouldShowMoveProgressDialog = true },
+                        modifier = Modifier
+                            .align(Alignment.BottomEnd)
+                            .padding(scaffoldPadding.withBottomFallback())
+                            .padding(end = 21.dp, bottom = 16.dp),
+                    )
+                }
             }
         }
     }
 
     LaunchedEffect(moveResultMessage) {
         val message = moveResultMessage ?: return@LaunchedEffect
-        snackbarHostState.showSnackbar(message)
+        Toast.makeText(context, message, Toast.LENGTH_SHORT).show()
         onEvent(MediaPickerUiEvent.ClearMoveResult)
     }
 
@@ -665,6 +678,18 @@ internal fun MediaPickerScreen(
         )
     }
 
+    if (shouldShowMoveProgressDialog && moveProgress != null) {
+        MoveProgressDialog(
+            movedCount = moveProgress.completedCount,
+            totalCount = moveProgress.totalCount,
+            onCancelRemaining = {
+                onEvent(MediaPickerUiEvent.CancelRemainingMoveSelection)
+                shouldShowMoveProgressDialog = false
+            },
+            onContinue = { shouldShowMoveProgressDialog = false },
+        )
+    }
+
     if (shouldShowDeleteVideosConfirmation) {
         DeleteConfirmationDialog(
             selectedVideos = selectionManager.selectedVideos,
@@ -717,6 +742,59 @@ private fun MainMenuItem(
             .semantics { contentDescription = testTag }
             .testTag(testTag),
         contentPadding = PaddingValues(horizontal = 14.dp, vertical = 6.dp),
+    )
+}
+
+@OptIn(ExperimentalMaterial3ExpressiveApi::class)
+@Composable
+private fun MoveProgressButton(
+    progress: Float,
+    onClick: () -> Unit,
+    modifier: Modifier = Modifier,
+) {
+    FilledTonalIconButton(
+        onClick = onClick,
+        modifier = modifier
+            .size(56.dp)
+            .testTag("btn_move_progress"),
+    ) {
+        CircularProgressIndicator(
+            progress = { progress },
+            modifier = Modifier.size(26.dp),
+            strokeWidth = 3.dp,
+        )
+    }
+}
+
+@Composable
+private fun MoveProgressDialog(
+    movedCount: Int,
+    totalCount: Int,
+    onCancelRemaining: () -> Unit,
+    onContinue: () -> Unit,
+) {
+    NextDialog(
+        onDismissRequest = onContinue,
+        title = { Text(stringResource(R.string.move_progress_title)) },
+        content = {
+            Text(
+                text = stringResource(
+                    R.string.move_progress_message,
+                    movedCount,
+                    totalCount,
+                ),
+            )
+        },
+        confirmButton = {
+            TextButton(onClick = onCancelRemaining) {
+                Text(stringResource(R.string.cancel_remaining_move))
+            }
+        },
+        dismissButton = {
+            TextButton(onClick = onContinue) {
+                Text(stringResource(R.string.continue_move))
+            }
+        },
     )
 }
 

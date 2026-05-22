@@ -441,6 +441,11 @@
     <string name="move_success">已移動 %1$d 個項目</string>
     <string name="move_failed">移動失敗</string>
     <string name="move_partial_success">已移動 %1$d 個，%2$d 個失敗</string>
+    <string name="move_cancelled">已取消，已移動 %1$d 個，%2$d 個失敗</string>
+    <string name="move_progress_title">正在移動</string>
+    <string name="move_progress_message">已處理 %1$d/%2$d 個項目</string>
+    <string name="cancel_remaining_move">取消剩餘移動</string>
+    <string name="continue_move">繼續</string>
     <string name="restore">還原</string>
     <string name="delete_permanently">永久刪除</string>
     <string name="settings_backup_file_name">onlyplayer-settings.json</string>

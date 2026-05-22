@@ -242,37 +242,69 @@ class LocalMediaRepository @Inject constructor(
     override suspend fun moveVideosToFolder(
         uris: List<String>,
         targetFolderPath: String,
+        shouldCancel: () -> Boolean,
+        onProgress: (Int) -> Unit,
     ): MediaMoveSummary {
         val distinctUris = uris.distinct()
         if (distinctUris.isEmpty()) return MediaMoveSummary()
         if (targetFolderPath.isBlank()) return MediaMoveSummary(failedCount = distinctUris.size)
 
         var movedCount = 0
+        var failedCount = 0
         distinctUris.forEach { uriString ->
-            val moved = mediaService.moveMediaToFolder(uriString.toUri(), targetFolderPath) ?: return@forEach
+            if (shouldCancel()) {
+                return MediaMoveSummary(
+                    movedCount = movedCount,
+                    failedCount = failedCount,
+                    canceledCount = distinctUris.size - movedCount - failedCount,
+                )
+            }
+
+            val moved = mediaService.moveMediaToFolder(uriString.toUri(), targetFolderPath)
+            if (moved == null) {
+                failedCount++
+                onProgress(movedCount + failedCount)
+                return@forEach
+            }
             updateMovedMedium(uriString, moved)
             mediaSynchronizer.registerManualVideoPath(moved.path)
             mediaSynchronizer.refresh(moved.path)
             movedCount++
+            onProgress(movedCount + failedCount)
         }
         return MediaMoveSummary(
             movedCount = movedCount,
-            failedCount = distinctUris.size - movedCount,
+            failedCount = failedCount,
         )
     }
 
     override suspend fun moveFoldersToFolder(
         folderPaths: List<String>,
         targetFolderPath: String,
+        shouldCancel: () -> Boolean,
+        onProgress: (Int) -> Unit,
     ): MediaMoveSummary {
         val distinctFolderPaths = folderPaths.distinct()
         if (distinctFolderPaths.isEmpty()) return MediaMoveSummary()
         if (targetFolderPath.isBlank()) return MediaMoveSummary(failedCount = distinctFolderPaths.size)
 
         var movedCount = 0
+        var failedCount = 0
         distinctFolderPaths.forEach { folderPath ->
+            if (shouldCancel()) {
+                return MediaMoveSummary(
+                    movedCount = movedCount,
+                    failedCount = failedCount,
+                    canceledCount = distinctFolderPaths.size - movedCount - failedCount,
+                )
+            }
+
             val movedMedia = mediaService.moveFolderToFolder(folderPath, targetFolderPath)
-            if (movedMedia.isEmpty()) return@forEach
+            if (movedMedia.isEmpty()) {
+                failedCount++
+                onProgress(movedCount + failedCount)
+                return@forEach
+            }
 
             movedMedia.forEach { moved ->
                 val uriString = moved.originalPath?.let { originalPath -> mediumDao.getByPath(originalPath)?.uriString } ?: return@forEach
@@ -281,10 +313,11 @@ class LocalMediaRepository @Inject constructor(
             }
             mediaSynchronizer.refresh()
             movedCount++
+            onProgress(movedCount + failedCount)
         }
         return MediaMoveSummary(
             movedCount = movedCount,
-            failedCount = distinctFolderPaths.size - movedCount,
+            failedCount = failedCount,
         )
     }
 

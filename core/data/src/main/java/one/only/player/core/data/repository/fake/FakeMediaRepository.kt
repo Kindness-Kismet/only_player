@@ -102,12 +102,24 @@ class FakeMediaRepository : MediaRepository {
     override suspend fun moveVideosToFolder(
         uris: List<String>,
         targetFolderPath: String,
-    ): MediaMoveSummary = MediaMoveSummary(movedCount = uris.distinct().size)
+        shouldCancel: () -> Boolean,
+        onProgress: (Int) -> Unit,
+    ): MediaMoveSummary {
+        val count = uris.distinct().size
+        onProgress(count)
+        return MediaMoveSummary(movedCount = count)
+    }
 
     override suspend fun moveFoldersToFolder(
         folderPaths: List<String>,
         targetFolderPath: String,
-    ): MediaMoveSummary = MediaMoveSummary(movedCount = folderPaths.distinct().size)
+        shouldCancel: () -> Boolean,
+        onProgress: (Int) -> Unit,
+    ): MediaMoveSummary {
+        val count = folderPaths.distinct().size
+        onProgress(count)
+        return MediaMoveSummary(movedCount = count)
+    }
 
     override suspend fun restoreVideosFromRecycleBin(uris: List<String>) {
         recycleBinUris.removeAll(uris.toSet())

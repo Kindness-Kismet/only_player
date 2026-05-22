@@ -30,17 +30,30 @@ interface MediaRepository {
     suspend fun updateSubtitleDelay(uri: String, delay: Long)
     suspend fun updateSubtitleSpeed(uri: String, speed: Float)
     suspend fun moveVideosToRecycleBin(uris: List<String>)
-    suspend fun moveVideosToFolder(uris: List<String>, targetFolderPath: String): MediaMoveSummary
-    suspend fun moveFoldersToFolder(folderPaths: List<String>, targetFolderPath: String): MediaMoveSummary
+    suspend fun moveVideosToFolder(
+        uris: List<String>,
+        targetFolderPath: String,
+        shouldCancel: () -> Boolean = { false },
+        onProgress: (Int) -> Unit = {},
+    ): MediaMoveSummary
+
+    suspend fun moveFoldersToFolder(
+        folderPaths: List<String>,
+        targetFolderPath: String,
+        shouldCancel: () -> Boolean = { false },
+        onProgress: (Int) -> Unit = {},
+    ): MediaMoveSummary
     suspend fun restoreVideosFromRecycleBin(uris: List<String>)
 }
 
 data class MediaMoveSummary(
     val movedCount: Int = 0,
     val failedCount: Int = 0,
+    val canceledCount: Int = 0,
 ) {
     operator fun plus(other: MediaMoveSummary): MediaMoveSummary = MediaMoveSummary(
         movedCount = movedCount + other.movedCount,
         failedCount = failedCount + other.failedCount,
+        canceledCount = canceledCount + other.canceledCount,
     )
 }

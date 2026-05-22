@@ -49,6 +49,8 @@ class MediaPickerViewModel @Inject constructor(
     val folderPath = folderArgs.folderId
     private val screenMode = folderArgs.screenMode
 
+    private var shouldCancelMoveSelection = false
+
     private val initialPreferences = preferencesRepository.applicationPreferences.value
     private val initialMediaDataState: DataState<Folder?> = snapshotCache.get(
         folderPath = folderPath,
@@ -121,6 +123,7 @@ class MediaPickerViewModel @Inject constructor(
             is MediaPickerUiEvent.StartMoveSelection -> startMoveSelection(event.videoUris, event.folderPaths)
             is MediaPickerUiEvent.MoveSelectionToFolder -> moveSelectionToFolder(event.targetFolderPath)
             is MediaPickerUiEvent.CancelMoveSelection -> cancelMoveSelection()
+            is MediaPickerUiEvent.CancelRemainingMoveSelection -> cancelRemainingMoveSelection()
             is MediaPickerUiEvent.ClearMoveResult -> clearMoveResult()
             is MediaPickerUiEvent.RestoreVideos -> restoreVideos(event.videos)
             is MediaPickerUiEvent.PermanentlyDeleteVideos -> permanentlyDeleteVideos(event.videos)
@@ -189,9 +192,21 @@ class MediaPickerViewModel @Inject constructor(
         moveSelectionStore.clear()
     }
 
+    private fun cancelRemainingMoveSelection() {
+        shouldCancelMoveSelection = true
+    }
+
     private fun clearMoveResult() {
         uiStateInternal.update { currentState ->
             currentState.copy(moveResult = null)
+        }
+    }
+
+    private fun updateMoveProgress(completedCount: Int) {
+        uiStateInternal.update { currentState ->
+            currentState.copy(
+                moveProgress = currentState.moveProgress?.copy(completedCount = completedCount),
+            )
         }
     }
 
@@ -199,20 +214,40 @@ class MediaPickerViewModel @Inject constructor(
         val selection = uiStateInternal.value.moveSelection ?: return
         if (uiStateInternal.value.isMovingSelection) return
         viewModelScope.launch {
+            shouldCancelMoveSelection = false
             uiStateInternal.update { currentState ->
                 currentState.copy(
                     isMovingSelection = true,
+                    moveProgress = MediaPickerMoveProgress(totalCount = selection.totalCount),
                     moveResult = null,
                 )
             }
-            val summary = mediaRepository.moveVideosToFolder(selection.videoUris, targetFolderPath) +
-                mediaRepository.moveFoldersToFolder(selection.folderPaths, targetFolderPath)
+            val videoSummary = mediaRepository.moveVideosToFolder(
+                uris = selection.videoUris,
+                targetFolderPath = targetFolderPath,
+                shouldCancel = { shouldCancelMoveSelection },
+                onProgress = ::updateMoveProgress,
+            )
+            val folderSummary = if (videoSummary.canceledCount > 0) {
+                MediaMoveSummary(canceledCount = selection.folderPaths.distinct().size)
+            } else {
+                mediaRepository.moveFoldersToFolder(
+                    folderPaths = selection.folderPaths,
+                    targetFolderPath = targetFolderPath,
+                    shouldCancel = { shouldCancelMoveSelection },
+                    onProgress = { completedCount ->
+                        updateMoveProgress(selection.videoUris.distinct().size + completedCount)
+                    },
+                )
+            }
+            val summary = videoSummary + folderSummary
             if (summary.movedCount > 0) {
                 moveSelectionStore.clear()
             }
             uiStateInternal.update { currentState ->
                 currentState.copy(
                     isMovingSelection = false,
+                    moveProgress = null,
                     moveResult = summary,
                 )
             }
@@ -283,6 +318,7 @@ data class MediaPickerUiState(
     val screenMode: MediaPickerScreenMode = MediaPickerScreenMode.LIBRARY,
     val moveSelection: MediaPickerMoveSelection? = null,
     val isMovingSelection: Boolean = false,
+    val moveProgress: MediaPickerMoveProgress? = null,
     val moveResult: MediaMoveSummary? = null,
 )
 
@@ -296,6 +332,7 @@ sealed interface MediaPickerUiEvent {
     ) : MediaPickerUiEvent
     data class MoveSelectionToFolder(val targetFolderPath: String) : MediaPickerUiEvent
     data object CancelMoveSelection : MediaPickerUiEvent
+    data object CancelRemainingMoveSelection : MediaPickerUiEvent
     data object ClearMoveResult : MediaPickerUiEvent
     data class RestoreVideos(val videos: List<String>) : MediaPickerUiEvent
     data class PermanentlyDeleteVideos(val videos: List<String>) : MediaPickerUiEvent
@@ -309,6 +346,12 @@ sealed interface MediaPickerUiEvent {
 }
 
 @Stable
+data class MediaPickerMoveProgress(
+    val completedCount: Int = 0,
+    val totalCount: Int = 0,
+)
+
+@Stable
 data class MediaPickerMoveSelection(
     val videoUris: List<String> = emptyList(),
     val videoParentPaths: List<String> = emptyList(),
@@ -316,6 +359,7 @@ data class MediaPickerMoveSelection(
     val folderParentPaths: List<String> = emptyList(),
 ) {
     val isEmpty: Boolean = videoUris.isEmpty() && folderPaths.isEmpty()
+    val totalCount: Int = videoUris.distinct().size + folderPaths.distinct().size
 
     fun canMoveTo(targetFolderPath: String): Boolean {
         val targetPath = targetFolderPath.canonicalPathOrSelf()
