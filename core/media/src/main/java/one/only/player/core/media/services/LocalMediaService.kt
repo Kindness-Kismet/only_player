@@ -130,45 +130,19 @@ class LocalMediaService @Inject constructor(
             .toList()
         val movedFolder = File(targetFolder, folder.name)
         if (movedFolder.exists()) return@withContext emptyList()
-        if (!folder.renameTo(movedFolder)) return@withContext emptyList()
-
-        originalFiles.mapNotNull { (originalPath, fileName) ->
-            val movedFile = File(movedFolder, originalPath.removePrefix(folder.path).trimStart(File.separatorChar))
-            val uri = context.getMediaContentUri(File(originalPath).toUri())
-                ?: context.getMediaFileContentUri(originalPath)
-            val parentPath = movedFile.parent ?: return@mapNotNull null
-            val mimeType = uri?.let { resolveMimeType(it, fileName) }
-                ?: MimeTypeMap.getSingleton().getMimeTypeFromExtension(fileName.substringAfterLast('.', "").lowercase())
-                ?: "video/*"
-            val didUpdateMediaStore = uri?.let { mediaUri ->
-                contentResolver.updateMedia(
-                    uri = mediaUri,
-                    contentValues = ContentValues().apply {
-                        put(MediaStore.Files.FileColumns.DISPLAY_NAME, fileName)
-                        put(MediaStore.Files.FileColumns.TITLE, movedFile.nameWithoutExtension)
-                        put(MediaStore.Files.FileColumns.MIME_TYPE, mimeType)
-                        put(MediaStore.Files.FileColumns.DATA, movedFile.path)
-                    },
-                )
-            } ?: false
-            val resultUri = if (didUpdateMediaStore && uri != null) {
-                resolveResultUri(
-                    path = movedFile.path,
-                    mimeType = mimeType,
-                    fallbackUri = uri,
-                )
-            } else {
-                movedFile.toUri()
-            }
-
-            MediaMoveResult(
-                uri = resultUri,
-                path = movedFile.path,
-                parentPath = parentPath,
-                fileName = fileName,
-                originalPath = originalPath,
+        if (!folder.renameTo(movedFolder)) {
+            return@withContext moveFolderFilesWithMediaStore(
+                folder = folder,
+                movedFolder = movedFolder,
+                originalFiles = originalFiles,
             )
         }
+
+        buildMovedFolderResults(
+            folder = folder,
+            movedFolder = movedFolder,
+            originalFiles = originalFiles,
+        )
     }
 
     override suspend fun restoreMediaFromRecycleBin(
@@ -202,21 +176,85 @@ class LocalMediaService @Inject constructor(
     private suspend fun launchMediaRequest(
         createRequest: () -> PendingIntent,
     ): Boolean = mediaRequestMutex.withLock {
+        val launcher = mediaRequestLauncher ?: return@withLock false
         suspendCoroutine { continuation ->
             resultCallback = { isApproved ->
                 resultCallback = null
                 continuation.resume(isApproved)
             }
             runCatching {
-                createRequest()
-            }.onSuccess { intent ->
-                mediaRequestLauncher?.launch(IntentSenderRequest.Builder(intent).build())
+                val intent = createRequest()
+                launcher.launch(IntentSenderRequest.Builder(intent).build())
             }.onFailure { throwable ->
                 Logger.error(TAG, "Failed to launch media request", throwable)
                 resultCallback = null
                 continuation.resume(false)
             }
         }
+    }
+
+    private suspend fun moveFolderFilesWithMediaStore(
+        folder: File,
+        movedFolder: File,
+        originalFiles: List<Pair<String, String>>,
+    ): List<MediaMoveResult> {
+        val movedMedia = originalFiles.mapNotNull { (originalPath, fileName) ->
+            val movedFile = File(movedFolder, originalPath.removePrefix(folder.path).trimStart(File.separatorChar))
+            val relativePath = buildRelativePath(movedFile.parent ?: return@mapNotNull null) ?: return@mapNotNull null
+            val uri = context.getMediaContentUri(File(originalPath).toUri())
+                ?: context.getMediaFileContentUri(originalPath)
+                ?: return@mapNotNull null
+
+            moveMedia(
+                uri = uri,
+                displayName = fileName,
+                mimeType = resolveMimeType(uri, fileName),
+                relativePath = relativePath,
+            )
+        }
+        return movedMedia.takeIf { it.size == originalFiles.size }.orEmpty()
+    }
+
+    private suspend fun buildMovedFolderResults(
+        folder: File,
+        movedFolder: File,
+        originalFiles: List<Pair<String, String>>,
+    ): List<MediaMoveResult> = originalFiles.mapNotNull { (originalPath, fileName) ->
+        val movedFile = File(movedFolder, originalPath.removePrefix(folder.path).trimStart(File.separatorChar))
+        val uri = context.getMediaContentUri(File(originalPath).toUri())
+            ?: context.getMediaFileContentUri(originalPath)
+        val parentPath = movedFile.parent ?: return@mapNotNull null
+        val mimeType = uri?.let { resolveMimeType(it, fileName) }
+            ?: MimeTypeMap.getSingleton().getMimeTypeFromExtension(fileName.substringAfterLast('.', "").lowercase())
+            ?: "video/*"
+        val didUpdateMediaStore = uri?.let { mediaUri ->
+            contentResolver.updateMedia(
+                uri = mediaUri,
+                contentValues = ContentValues().apply {
+                    put(MediaStore.Files.FileColumns.DISPLAY_NAME, fileName)
+                    put(MediaStore.Files.FileColumns.TITLE, movedFile.nameWithoutExtension)
+                    put(MediaStore.Files.FileColumns.MIME_TYPE, mimeType)
+                    put(MediaStore.Files.FileColumns.DATA, movedFile.path)
+                },
+            )
+        } ?: false
+        val resultUri = if (didUpdateMediaStore) {
+            resolveResultUri(
+                path = movedFile.path,
+                mimeType = mimeType,
+                fallbackUri = uri,
+            )
+        } else {
+            movedFile.toUri()
+        }
+
+        MediaMoveResult(
+            uri = resultUri,
+            path = movedFile.path,
+            parentPath = parentPath,
+            fileName = fileName,
+            originalPath = originalPath,
+        )
     }
 
     private suspend fun moveMedia(
@@ -227,16 +265,67 @@ class LocalMediaService @Inject constructor(
     ): MediaMoveResult? {
         val currentPath = context.getPath(uri) ?: return null
         val currentFile = File(currentPath)
-        val writableUri = buildWritableMediaUri(uri)
+        val mediaStoreUri = ensureMediaStoreUri(uri)
+        moveMediaFile(
+            uri = mediaStoreUri?.let(::buildWritableMediaUri) ?: uri,
+            currentFile = currentFile,
+            displayName = displayName,
+            mimeType = mimeType,
+            relativePath = relativePath,
+        )?.let { return it }
 
-        return moveMediaFile(
-            uri = writableUri,
+        if (mediaStoreUri == null) return null
+        val isWriteApproved = launchMediaRequest {
+            MediaStore.createWriteRequest(contentResolver, listOf(mediaStoreUri))
+        }
+        if (!isWriteApproved) return null
+
+        return moveMediaWithMediaStore(
+            uri = mediaStoreUri,
             currentFile = currentFile,
             displayName = displayName,
             mimeType = mimeType,
             relativePath = relativePath,
         )
     }
+
+    private suspend fun moveMediaWithMediaStore(
+        uri: Uri,
+        currentFile: File,
+        displayName: String,
+        mimeType: String,
+        relativePath: String,
+    ): MediaMoveResult? = runCatching {
+        val updated = contentResolver.updateMedia(
+            uri = uri,
+            contentValues = ContentValues().apply {
+                put(MediaStore.Files.FileColumns.DISPLAY_NAME, displayName)
+                put(MediaStore.Files.FileColumns.TITLE, displayName.substringBeforeLast('.'))
+                put(MediaStore.Files.FileColumns.MIME_TYPE, mimeType)
+                put(MediaStore.Files.FileColumns.RELATIVE_PATH, relativePath)
+            },
+        )
+        if (!updated) return@runCatching null
+
+        val expectedFile = File(EXTERNAL_STORAGE_PATH, relativePath.removeSuffix("/")).resolve(displayName)
+        val resultUri = resolveMovedMediaUri(
+            uri = uri,
+            path = expectedFile.path,
+            mimeType = mimeType,
+        ) ?: return@runCatching null
+        val resultPath = context.getPath(resultUri) ?: expectedFile.path
+        val resultFile = File(resultPath)
+        if (resultFile.canonicalPath != expectedFile.canonicalPath) return@runCatching null
+        if (!resultFile.exists()) return@runCatching null
+
+        MediaMoveResult(
+            uri = resultUri,
+            path = resultPath,
+            parentPath = resultFile.parent ?: expectedFile.parent.orEmpty(),
+            fileName = resultFile.name,
+            originalPath = currentFile.path,
+        )
+    }.getOrNull()
 
     private suspend fun moveMediaFile(
         uri: Uri,
@@ -256,7 +345,7 @@ class LocalMediaService @Inject constructor(
             return@runCatching null
         }
 
-        val updated = contentResolver.updateMedia(
+        val didUpdateMediaStore = contentResolver.updateMedia(
             uri = uri,
             contentValues = ContentValues().apply {
                 put(MediaStore.Files.FileColumns.DISPLAY_NAME, newFile.name)
@@ -265,7 +354,7 @@ class LocalMediaService @Inject constructor(
                 put(MediaStore.Files.FileColumns.DATA, newFile.path)
             },
         )
-        if (!updated) {
+        if (!didUpdateMediaStore) {
             newFile.renameTo(currentFile)
             return@runCatching null
         }
@@ -275,7 +364,7 @@ class LocalMediaService @Inject constructor(
             mimeType = mimeType,
             fallbackUri = uri,
         )
-        val resultPath = context.getPath(resultUri) ?: newFile.path
+        val resultPath = context.getPath(resultUri)?.takeIf { path -> File(path).exists() } ?: newFile.path
         val resultFile = File(resultPath)
 
         MediaMoveResult(
@@ -288,9 +377,9 @@ class LocalMediaService @Inject constructor(
     }.getOrNull()
 
     private fun buildRelativePath(parentPath: String): String? {
-        val normalizedExternalPath = EXTERNAL_STORAGE_PATH.path.replace('\\', '/')
-        val normalizedParentPath = parentPath.replace('\\', '/')
-        if (!normalizedParentPath.startsWith(normalizedExternalPath)) {
+        val normalizedExternalPath = EXTERNAL_STORAGE_PATH.path.replace('\\', '/').trimEnd('/')
+        val normalizedParentPath = parentPath.replace('\\', '/').trimEnd('/')
+        if (normalizedParentPath != normalizedExternalPath && !normalizedParentPath.startsWith("$normalizedExternalPath/")) {
             return null
         }
 
@@ -315,6 +404,27 @@ class LocalMediaService @Inject constructor(
             ContentUris.parseId(uri),
         )
     }.getOrElse { uri }
+
+    private fun resolveMovedMediaUri(
+        uri: Uri,
+        path: String,
+        mimeType: String,
+    ): Uri? {
+        val resolvedUri = resolveResultUri(
+            path = path,
+            mimeType = mimeType,
+            fallbackUri = uri,
+        )
+        if (context.getPath(resolvedUri) != null) return resolvedUri
+
+        val id = runCatching { ContentUris.parseId(uri) }.getOrNull() ?: return null
+        val collectionUri = if (mimeType.startsWith("video/")) {
+            VIDEO_COLLECTION_URI
+        } else {
+            MediaStore.Files.getContentUri(MediaStore.VOLUME_EXTERNAL)
+        }
+        return ContentUris.withAppendedId(collectionUri, id)
+    }
 
     private fun deleteLocalFiles(files: List<File>): Boolean {
         if (files.isEmpty()) return false
