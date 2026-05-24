@@ -25,6 +25,9 @@ fun SubtitleStylePanel(
     onPreferencesChange: (PlayerPreferences) -> Unit,
 ) {
     val isEnabled = preferences.shouldUseSystemCaptionStyle.not()
+    val subtitleBottomPaddingFraction = preferences.subtitleBottomPaddingFraction
+        .coerceIn(SUBTITLE_POSITION_RANGE)
+        .roundToStep(PlayerPreferences.SUBTITLE_BOTTOM_PADDING_FRACTION_STEP)
     Column(
         verticalArrangement = Arrangement.spacedBy(ListItemDefaults.SegmentedGap),
     ) {
@@ -69,12 +72,20 @@ fun SubtitleStylePanel(
             modifier = Modifier.testTag("item_settings_subtitle_bottom_padding"),
             sliderModifier = Modifier.testTag("slider_settings_subtitle_bottom_padding"),
             title = stringResource(id = R.string.subtitle_position),
-            description = "${(preferences.subtitleBottomPaddingFraction * 100).roundToInt()}%",
+            description = subtitleBottomPaddingFraction.toSubtitlePositionDisplayText(),
             icon = NextIcons.Length,
             isEnabled = isEnabled,
-            value = preferences.subtitleBottomPaddingFraction,
+            value = subtitleBottomPaddingFraction,
             valueRange = SUBTITLE_POSITION_RANGE,
-            onValueChange = { onPreferencesChange(preferences.copy(subtitleBottomPaddingFraction = it)) },
+            onValueChange = {
+                onPreferencesChange(
+                    preferences.copy(
+                        subtitleBottomPaddingFraction = it
+                            .coerceIn(SUBTITLE_POSITION_RANGE)
+                            .roundToStep(PlayerPreferences.SUBTITLE_BOTTOM_PADDING_FRACTION_STEP),
+                    ),
+                )
+            },
             trailingContent = {
                 FilledIconButton(
                     modifier = Modifier.testTag("btn_reset_settings_subtitle_bottom_padding"),
@@ -208,6 +219,8 @@ private fun SubtitleEdgeStyle.next(): SubtitleEdgeStyle = when (this) {
 }
 
 private fun Float.toDisplayText(): String = String.format(Locale.US, "%.1f", this).removeSuffix(".0")
+
+private fun Float.toSubtitlePositionDisplayText(): String = String.format(Locale.US, "%.1f%%", this * 100)
 
 private fun Float.roundToStep(step: Float): Float {
     val scale = (1f / step).roundToInt().toFloat()
