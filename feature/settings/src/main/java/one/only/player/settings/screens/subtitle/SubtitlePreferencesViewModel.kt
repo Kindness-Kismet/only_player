@@ -107,7 +107,7 @@ class SubtitlePreferencesViewModel @Inject constructor(
         }
     }
 
-    private fun updateSubtitleFontSize(value: Int) {
+    private fun updateSubtitleFontSize(value: Float) {
         viewModelScope.launch {
             preferencesRepository.updatePlayerPreferences {
                 it.copy(subtitleTextSize = value)
@@ -216,7 +216,7 @@ sealed interface SubtitlePreferencesUiEvent {
     data class UpdateSubtitleLanguage(val value: String) : SubtitlePreferencesUiEvent
     data class UpdateSubtitleFont(val value: Font) : SubtitlePreferencesUiEvent
     data object ToggleSubtitleTextBold : SubtitlePreferencesUiEvent
-    data class UpdateSubtitleFontSize(val value: Int) : SubtitlePreferencesUiEvent
+    data class UpdateSubtitleFontSize(val value: Float) : SubtitlePreferencesUiEvent
     data class UpdateSubtitleStyle(val preferences: PlayerPreferences) : SubtitlePreferencesUiEvent
     data object ToggleSubtitleBackground : SubtitlePreferencesUiEvent
     data object ToggleApplyEmbeddedStyles : SubtitlePreferencesUiEvent

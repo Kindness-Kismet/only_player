@@ -76,7 +76,7 @@ data class PlayerPreferences(
     val shouldUseSystemCaptionStyle: Boolean = false,
     val preferredSubtitleLanguage: String = "",
     val subtitleTextEncoding: String = "",
-    val subtitleTextSize: Int = DEFAULT_SUBTITLE_TEXT_SIZE,
+    val subtitleTextSize: Float = DEFAULT_SUBTITLE_TEXT_SIZE,
     val shouldShowSubtitleBackground: Boolean = false,
     val subtitleFont: Font = Font.DEFAULT,
     val shouldUseBoldSubtitleText: Boolean = true,
@@ -116,7 +116,10 @@ data class PlayerPreferences(
         const val MAX_VIDEO_SHARPENING = 1f
         const val MIN_LONG_PRESS_CONTROLS_SPEED = 0.2f
         const val MAX_LONG_PRESS_CONTROLS_SPEED = 4.0f
-        const val DEFAULT_SUBTITLE_TEXT_SIZE = 20
+        const val DEFAULT_SUBTITLE_TEXT_SIZE = 16f
+        const val MIN_SUBTITLE_TEXT_SIZE = 10f
+        const val MAX_SUBTITLE_TEXT_SIZE = 60f
+        const val SUBTITLE_TEXT_SIZE_STEP = 0.1f
         const val DEFAULT_SUBTITLE_OUTLINE_THICKNESS = 2f
         const val MIN_SUBTITLE_OUTLINE_THICKNESS = 0f
         const val MAX_SUBTITLE_OUTLINE_THICKNESS = 8f

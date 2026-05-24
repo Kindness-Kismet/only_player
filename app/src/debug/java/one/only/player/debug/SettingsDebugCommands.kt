@@ -244,7 +244,7 @@ internal suspend fun DebugCommandEntryPoint.setSetting(
             preferencesRepository().updatePlayerPreferences { it.copy(subtitleFont = font) }
         }
         "subtitle.bold" -> updatePlayerBoolean(value) { preferences, isEnabled -> preferences.copy(shouldUseBoldSubtitleText = isEnabled) }
-        "subtitle.size" -> updatePlayerInt(value) { preferences, intValue -> preferences.copy(subtitleTextSize = intValue) }
+        "subtitle.size" -> updatePlayerFloat(value) { preferences, floatValue -> preferences.copy(subtitleTextSize = floatValue) }
         "subtitle.background" -> updatePlayerBoolean(value) { preferences, isEnabled -> preferences.copy(shouldShowSubtitleBackground = isEnabled) }
         "subtitle.embedded_styles" -> updatePlayerBoolean(value) { preferences, isEnabled -> preferences.copy(shouldApplyEmbeddedStyles = isEnabled) }
         "subtitle.encoding" -> updatePlayerString(value) { preferences, stringValue -> preferences.copy(subtitleTextEncoding = stringValue) }

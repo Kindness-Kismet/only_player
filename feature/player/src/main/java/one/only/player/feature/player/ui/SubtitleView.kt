@@ -99,7 +99,7 @@ fun SubtitleView(
                 if (isInPictureInPictureMode) {
                     subtitleView.setFractionalTextSize(SubtitleView.DEFAULT_TEXT_SIZE_FRACTION)
                 } else {
-                    subtitleView.setFixedTextSize(TypedValue.COMPLEX_UNIT_SP, configuration.textSize.toFloat())
+                    subtitleView.setFixedTextSize(TypedValue.COMPLEX_UNIT_SP, configuration.textSize)
                 }
             } else {
                 subtitleView.applyDefaultSubtitleStyle()
@@ -129,7 +129,7 @@ data class SubtitleConfiguration(
     val shouldUseSystemCaptionStyle: Boolean,
     val shouldShowBackground: Boolean,
     val font: Font,
-    val textSize: Int,
+    val textSize: Float,
     val shouldUseBoldText: Boolean,
     val color: SubtitleColor,
     val edgeStyle: SubtitleEdgeStyle,
@@ -221,7 +221,7 @@ private fun SubtitleContainer.applyAdvancedSubtitle(
             ?.let { it * SubtitleView.DEFAULT_TEXT_SIZE_FRACTION }
             ?: (configuration.textSize * advancedSubtitleView.resources.displayMetrics.scaledDensity)
     } else {
-        configuration.textSize.toFloat()
+        configuration.textSize
     }
     val baseTypeface = configuration.resolveTypeface()
     val subtitleText = cues.first().text?.toString().orEmpty()
@@ -280,7 +280,7 @@ private fun SubtitleView.applySubtitleStyle(
                 ),
             )
             setStyle(userStyle)
-            setFixedTextSize(TypedValue.COMPLEX_UNIT_SP, configuration.textSize.toFloat())
+            setFixedTextSize(TypedValue.COMPLEX_UNIT_SP, configuration.textSize)
         }
     }
 }

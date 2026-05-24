@@ -139,6 +139,6 @@ object PlayerPreferencesSerializer : Serializer<PlayerPreferences> {
         if (root.keys.any(legacyKeys::contains)) return true
 
         val subtitleTextSize = root["subtitleTextSize"]?.jsonPrimitive ?: return false
-        return subtitleTextSize.content.toIntOrNull() == null
+        return subtitleTextSize.content.toFloatOrNull() == null
     }
 }

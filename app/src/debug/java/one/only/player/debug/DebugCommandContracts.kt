@@ -192,7 +192,7 @@ internal fun Bundle.requiredBoolean(key: String): Boolean {
 internal fun Bundle.requiredFloat(key: String): Float {
     if (!containsKey(key)) error("Missing float extra: $key")
     getString(key)?.let { return it.toFloatOrNull() ?: error("Invalid float extra: $key") }
-    return getFloat(key)
+    return getFloat(key).takeIf { it != 0f } ?: getInt(key).toFloat()
 }
 
 internal fun Bundle.requiredInt(key: String): Int {

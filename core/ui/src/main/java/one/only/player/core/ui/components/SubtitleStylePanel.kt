@@ -10,6 +10,7 @@ import androidx.compose.runtime.Composable
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.res.stringResource
+import java.util.Locale
 import kotlin.math.roundToInt
 import one.only.player.core.model.PlayerPreferences
 import one.only.player.core.model.SubtitleColor
@@ -41,12 +42,12 @@ fun SubtitleStylePanel(
             modifier = Modifier.testTag("item_settings_subtitle_size"),
             sliderModifier = Modifier.testTag("slider_settings_subtitle_size"),
             title = stringResource(id = R.string.subtitle_text_size),
-            description = preferences.subtitleTextSize.toString(),
+            description = preferences.subtitleTextSize.toDisplayText(),
             icon = NextIcons.FontSize,
             isEnabled = isEnabled,
-            value = preferences.subtitleTextSize.toFloat(),
+            value = preferences.subtitleTextSize,
             valueRange = SUBTITLE_TEXT_SIZE_RANGE,
-            onValueChange = { onPreferencesChange(preferences.copy(subtitleTextSize = it.toInt())) },
+            onValueChange = { onPreferencesChange(preferences.copy(subtitleTextSize = it.roundToStep(PlayerPreferences.SUBTITLE_TEXT_SIZE_STEP))) },
             trailingContent = {
                 FilledIconButton(
                     modifier = Modifier.testTag("btn_reset_settings_subtitle_size"),
@@ -206,7 +207,14 @@ private fun SubtitleEdgeStyle.next(): SubtitleEdgeStyle = when (this) {
     SubtitleEdgeStyle.OUTLINE_AND_DROP_SHADOW -> SubtitleEdgeStyle.NONE
 }
 
-private val SUBTITLE_TEXT_SIZE_RANGE = 10f..60f
+private fun Float.toDisplayText(): String = String.format(Locale.US, "%.1f", this).removeSuffix(".0")
+
+private fun Float.roundToStep(step: Float): Float {
+    val scale = (1f / step).roundToInt().toFloat()
+    return (this * scale).roundToInt() / scale
+}
+
+private val SUBTITLE_TEXT_SIZE_RANGE = PlayerPreferences.MIN_SUBTITLE_TEXT_SIZE..PlayerPreferences.MAX_SUBTITLE_TEXT_SIZE
 private val SUBTITLE_OUTLINE_THICKNESS_RANGE = PlayerPreferences.MIN_SUBTITLE_OUTLINE_THICKNESS..PlayerPreferences.MAX_SUBTITLE_OUTLINE_THICKNESS
 private val SUBTITLE_SHADOW_STRENGTH_RANGE = PlayerPreferences.MIN_SUBTITLE_SHADOW_STRENGTH..PlayerPreferences.MAX_SUBTITLE_SHADOW_STRENGTH
 private val SUBTITLE_POSITION_RANGE = PlayerPreferences.MIN_SUBTITLE_BOTTOM_PADDING_FRACTION..PlayerPreferences.MAX_SUBTITLE_BOTTOM_PADDING_FRACTION
