@@ -362,8 +362,13 @@ class PlayerService : MediaSessionService() {
             format: Format,
             decoderReuseEvaluation: DecoderReuseEvaluation?,
         ) {
+            val wasVideoHdr = isCurrentVideoHdr
             currentVideoFormat = format
+            isCurrentVideoHdr = format.isHdrVideoFormat()
             Logger.info(TAG, "startup videoFormat transfer=${format.colorInfo?.colorTransfer} standard=${format.colorInfo?.colorSpace} range=${format.colorInfo?.colorRange}")
+            if (wasVideoHdr != isCurrentVideoHdr || activeVideoFiltersEffect != null) {
+                (mediaSession?.player as? ExoPlayer)?.let { applyVideoFilters(it, playerPreferences, force = true) }
+            }
         }
 
         override fun onAudioDecoderInitialized(
@@ -668,7 +673,7 @@ class PlayerService : MediaSessionService() {
             val height = format?.height ?: 0
             val rotation = format?.rotationDegrees ?: 0
             val transfer = format?.colorInfo?.colorTransfer
-            isCurrentVideoHdr = transfer == C.COLOR_TRANSFER_ST2084 || transfer == C.COLOR_TRANSFER_HLG
+            isCurrentVideoHdr = format?.isHdrVideoFormat() == true
             Logger.info(
                 TAG,
                 "startup firstFrameReady format=${width}x$height rot=$rotation duration=${player.duration} seekable=${player.isCurrentMediaItemSeekable} transfer=$transfer hdr=$isCurrentVideoHdr",
@@ -1459,6 +1464,11 @@ class PlayerService : MediaSessionService() {
         filters: VideoFilterPreferences,
         decoderPriority: DecoderPriority,
     ): Boolean = shouldApplyVideoEffects(decoderPriority) && !isCurrentVideoHdr && filters.shouldCreateEffect()
+
+    private fun Format.isHdrVideoFormat(): Boolean {
+        val transfer = colorInfo?.colorTransfer
+        return transfer == C.COLOR_TRANSFER_ST2084 || transfer == C.COLOR_TRANSFER_HLG
+    }
 
     private fun String.toLogSummary(): String = Uri.parse(this).toLogSummary()
 

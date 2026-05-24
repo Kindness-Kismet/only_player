@@ -186,10 +186,12 @@ private class AdvancedSubtitleTextView(context: Context) : TextView(context) {
 
     private fun drawTextLayout(canvas: Canvas) {
         val layout = layout ?: return
+        val contentHeight = height - compoundPaddingTop - compoundPaddingBottom
+        val verticalOffset = (contentHeight - layout.height).coerceAtLeast(0)
         canvas.save()
         canvas.translate(
-            totalPaddingLeft.toFloat(),
-            (height - totalPaddingBottom - layout.height).toFloat(),
+            compoundPaddingLeft.toFloat(),
+            (compoundPaddingTop + verticalOffset).toFloat(),
         )
         layout.draw(canvas)
         canvas.restore()
