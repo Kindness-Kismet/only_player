@@ -82,6 +82,8 @@ data class PlayerPreferences(
     val shouldUseBoldSubtitleText: Boolean = true,
     val subtitleColor: SubtitleColor = SubtitleColor.WHITE,
     val subtitleEdgeStyle: SubtitleEdgeStyle = SubtitleEdgeStyle.DROP_SHADOW,
+    val subtitleOutlineThickness: Float = DEFAULT_SUBTITLE_OUTLINE_THICKNESS,
+    val subtitleShadowStrength: Float = DEFAULT_SUBTITLE_SHADOW_STRENGTH,
     val subtitleBottomPaddingFraction: Float = DEFAULT_SUBTITLE_BOTTOM_PADDING_FRACTION,
     val shouldApplyEmbeddedStyles: Boolean = true,
 
@@ -115,6 +117,12 @@ data class PlayerPreferences(
         const val MIN_LONG_PRESS_CONTROLS_SPEED = 0.2f
         const val MAX_LONG_PRESS_CONTROLS_SPEED = 4.0f
         const val DEFAULT_SUBTITLE_TEXT_SIZE = 20
+        const val DEFAULT_SUBTITLE_OUTLINE_THICKNESS = 2f
+        const val MIN_SUBTITLE_OUTLINE_THICKNESS = 0f
+        const val MAX_SUBTITLE_OUTLINE_THICKNESS = 8f
+        const val DEFAULT_SUBTITLE_SHADOW_STRENGTH = 4f
+        const val MIN_SUBTITLE_SHADOW_STRENGTH = 0f
+        const val MAX_SUBTITLE_SHADOW_STRENGTH = 12f
         const val DEFAULT_SUBTITLE_BOTTOM_PADDING_FRACTION = 0.08f
         const val MIN_SUBTITLE_BOTTOM_PADDING_FRACTION = 0f
         const val MAX_SUBTITLE_BOTTOM_PADDING_FRACTION = 0.4f
@@ -134,6 +142,8 @@ fun PlayerPreferences.withSubtitleStyleFrom(preferences: PlayerPreferences): Pla
     shouldShowSubtitleBackground = preferences.shouldShowSubtitleBackground,
     subtitleColor = preferences.subtitleColor,
     subtitleEdgeStyle = preferences.subtitleEdgeStyle,
+    subtitleOutlineThickness = preferences.subtitleOutlineThickness,
+    subtitleShadowStrength = preferences.subtitleShadowStrength,
     subtitleBottomPaddingFraction = preferences.subtitleBottomPaddingFraction,
 )
 

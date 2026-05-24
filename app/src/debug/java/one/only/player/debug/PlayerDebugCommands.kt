@@ -91,6 +91,17 @@ internal fun Context.runPlayerGet(target: String): Bundle {
                         durationMs = controller.duration.safeTime(),
                         positionMs = controller.currentPosition.safeTime(),
                     )
+                    "cues" -> debugResult(
+                        isOk = true,
+                        message = controller.currentCues.cues.joinToString(separator = " | ") { cue ->
+                            cue.text?.toString().orEmpty().ifBlank { "<non-text>" }
+                        },
+                        command = command,
+                        target = target,
+                        value = controller.currentCues.cues.size.toString(),
+                        durationMs = controller.duration.safeTime(),
+                        positionMs = controller.currentPosition.safeTime(),
+                    )
                     else -> error("Unknown player info target: $target")
                 }
             }

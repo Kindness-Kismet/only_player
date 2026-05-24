@@ -107,6 +107,7 @@ internal val PLAYER_GET_METHODS = setOf(
     "player.state",
     "player.position",
     "player.duration",
+    "player.cues",
 )
 
 internal val UI_PLAYER_ACTIONS = setOf(

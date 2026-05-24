@@ -177,6 +177,11 @@
     <string name="subtitle_edge_none">None</string>
     <string name="subtitle_edge_outline">Outline</string>
     <string name="subtitle_edge_shadow">Drop shadow</string>
+    <string name="subtitle_edge_outline_shadow">Outline + drop shadow</string>
+    <string name="subtitle_outline_thickness">Subtitle outline thickness</string>
+    <string name="reset_subtitle_outline_thickness">Reset subtitle outline thickness</string>
+    <string name="subtitle_shadow_strength">Subtitle shadow strength</string>
+    <string name="reset_subtitle_shadow_strength">Reset subtitle shadow strength</string>
     <string name="decoder">Decoder</string>
     <string name="decoder_desc">Decoder priority and video filter options</string>
     <string name="video_software_decoders">Software video decoders</string>

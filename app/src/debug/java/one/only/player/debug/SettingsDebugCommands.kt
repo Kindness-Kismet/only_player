@@ -257,6 +257,22 @@ internal suspend fun DebugCommandEntryPoint.setSetting(
             val edgeStyle = enumValue<SubtitleEdgeStyle>(value.requiredString(EXTRA_VALUE))
             preferencesRepository().updatePlayerPreferences { it.copy(subtitleEdgeStyle = edgeStyle) }
         }
+        "subtitle.outline_thickness" -> updatePlayerFloat(value) { preferences, floatValue ->
+            preferences.copy(
+                subtitleOutlineThickness = floatValue.coerceIn(
+                    PlayerPreferences.MIN_SUBTITLE_OUTLINE_THICKNESS,
+                    PlayerPreferences.MAX_SUBTITLE_OUTLINE_THICKNESS,
+                ),
+            )
+        }
+        "subtitle.shadow_strength" -> updatePlayerFloat(value) { preferences, floatValue ->
+            preferences.copy(
+                subtitleShadowStrength = floatValue.coerceIn(
+                    PlayerPreferences.MIN_SUBTITLE_SHADOW_STRENGTH,
+                    PlayerPreferences.MAX_SUBTITLE_SHADOW_STRENGTH,
+                ),
+            )
+        }
         "subtitle.bottom_padding" -> updatePlayerFloat(value) { preferences, floatValue ->
             preferences.copy(subtitleBottomPaddingFraction = floatValue.coerceIn(PlayerPreferences.MIN_SUBTITLE_BOTTOM_PADDING_FRACTION, PlayerPreferences.MAX_SUBTITLE_BOTTOM_PADDING_FRACTION))
         }

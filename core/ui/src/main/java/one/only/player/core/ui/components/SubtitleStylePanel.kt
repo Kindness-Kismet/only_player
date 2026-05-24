@@ -117,7 +117,61 @@ fun SubtitleStylePanel(
             icon = NextIcons.Style,
             isEnabled = isEnabled,
             onClick = { onPreferencesChange(preferences.copy(subtitleEdgeStyle = preferences.subtitleEdgeStyle.next())) },
+        )
+        PreferenceSlider(
+            modifier = Modifier.testTag("item_settings_subtitle_outline_thickness"),
+            sliderModifier = Modifier.testTag("slider_settings_subtitle_outline_thickness"),
+            title = stringResource(id = R.string.subtitle_outline_thickness),
+            description = preferences.subtitleOutlineThickness.toString(),
+            icon = NextIcons.Style,
+            isEnabled = isEnabled,
+            value = preferences.subtitleOutlineThickness,
+            valueRange = SUBTITLE_OUTLINE_THICKNESS_RANGE,
+            onValueChange = { onPreferencesChange(preferences.copy(subtitleOutlineThickness = it)) },
+            trailingContent = {
+                FilledIconButton(
+                    modifier = Modifier.testTag("btn_reset_settings_subtitle_outline_thickness"),
+                    enabled = isEnabled,
+                    onClick = {
+                        onPreferencesChange(
+                            preferences.copy(subtitleOutlineThickness = PlayerPreferences.DEFAULT_SUBTITLE_OUTLINE_THICKNESS),
+                        )
+                    },
+                ) {
+                    Icon(
+                        imageVector = NextIcons.History,
+                        contentDescription = stringResource(id = R.string.reset_subtitle_outline_thickness),
+                    )
+                }
+            },
+        )
+        PreferenceSlider(
+            modifier = Modifier.testTag("item_settings_subtitle_shadow_strength"),
+            sliderModifier = Modifier.testTag("slider_settings_subtitle_shadow_strength"),
+            title = stringResource(id = R.string.subtitle_shadow_strength),
+            description = preferences.subtitleShadowStrength.toString(),
+            icon = NextIcons.Style,
+            isEnabled = isEnabled,
+            value = preferences.subtitleShadowStrength,
+            valueRange = SUBTITLE_SHADOW_STRENGTH_RANGE,
+            onValueChange = { onPreferencesChange(preferences.copy(subtitleShadowStrength = it)) },
             isLastItem = true,
+            trailingContent = {
+                FilledIconButton(
+                    modifier = Modifier.testTag("btn_reset_settings_subtitle_shadow_strength"),
+                    enabled = isEnabled,
+                    onClick = {
+                        onPreferencesChange(
+                            preferences.copy(subtitleShadowStrength = PlayerPreferences.DEFAULT_SUBTITLE_SHADOW_STRENGTH),
+                        )
+                    },
+                ) {
+                    Icon(
+                        imageVector = NextIcons.History,
+                        contentDescription = stringResource(id = R.string.reset_subtitle_shadow_strength),
+                    )
+                }
+            },
         )
     }
 }
@@ -142,13 +196,17 @@ private fun SubtitleEdgeStyle.displayName(): String = when (this) {
     SubtitleEdgeStyle.NONE -> stringResource(R.string.subtitle_edge_none)
     SubtitleEdgeStyle.OUTLINE -> stringResource(R.string.subtitle_edge_outline)
     SubtitleEdgeStyle.DROP_SHADOW -> stringResource(R.string.subtitle_edge_shadow)
+    SubtitleEdgeStyle.OUTLINE_AND_DROP_SHADOW -> stringResource(R.string.subtitle_edge_outline_shadow)
 }
 
 private fun SubtitleEdgeStyle.next(): SubtitleEdgeStyle = when (this) {
     SubtitleEdgeStyle.NONE -> SubtitleEdgeStyle.OUTLINE
     SubtitleEdgeStyle.OUTLINE -> SubtitleEdgeStyle.DROP_SHADOW
-    SubtitleEdgeStyle.DROP_SHADOW -> SubtitleEdgeStyle.NONE
+    SubtitleEdgeStyle.DROP_SHADOW -> SubtitleEdgeStyle.OUTLINE_AND_DROP_SHADOW
+    SubtitleEdgeStyle.OUTLINE_AND_DROP_SHADOW -> SubtitleEdgeStyle.NONE
 }
 
 private val SUBTITLE_TEXT_SIZE_RANGE = 10f..60f
+private val SUBTITLE_OUTLINE_THICKNESS_RANGE = PlayerPreferences.MIN_SUBTITLE_OUTLINE_THICKNESS..PlayerPreferences.MAX_SUBTITLE_OUTLINE_THICKNESS
+private val SUBTITLE_SHADOW_STRENGTH_RANGE = PlayerPreferences.MIN_SUBTITLE_SHADOW_STRENGTH..PlayerPreferences.MAX_SUBTITLE_SHADOW_STRENGTH
 private val SUBTITLE_POSITION_RANGE = PlayerPreferences.MIN_SUBTITLE_BOTTOM_PADDING_FRACTION..PlayerPreferences.MAX_SUBTITLE_BOTTOM_PADDING_FRACTION

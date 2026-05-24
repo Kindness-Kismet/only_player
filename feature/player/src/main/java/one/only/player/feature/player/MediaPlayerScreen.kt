@@ -329,13 +329,19 @@ internal fun MediaPlayerScreen(
     }
     var shouldShowOverlay by remember { mutableStateOf(false) }
     var videoFiltersInitialPreferences by remember { mutableStateOf<PlayerPreferences?>(null) }
+    var subtitleStylePreviewPreferences by remember { mutableStateOf<PlayerPreferences?>(null) }
     var isAmbienceModeEnabled by remember { mutableStateOf(false) }
+    val activePlayerPreferences = subtitleStylePreviewPreferences ?: playerPreferences
     val videoFiltersUnavailableMessage = stringResource(coreUiR.string.video_filters_unavailable_software_decoder)
     fun restoreVideoFiltersPreview() {
         videoFiltersInitialPreferences?.let { initialPreferences ->
             (player as? androidx.media3.session.MediaController)?.previewVideoFilters(initialPreferences)
         }
         videoFiltersInitialPreferences = null
+    }
+    fun updateSubtitleStyle(preferences: PlayerPreferences) {
+        subtitleStylePreviewPreferences = preferences
+        viewModel.updateSubtitleStyle(preferences)
     }
     fun overlayViewToMenuRoute(view: OverlayView): MenuRoute = when (view) {
         OverlayView.AUDIO_SELECTOR -> MenuRoute.Audio
@@ -459,6 +465,12 @@ internal fun MediaPlayerScreen(
         longPressSpeed = tapGestureState.currentLongPressSpeed,
         shouldShowOverlay = shouldShowOverlay,
     )
+
+    LaunchedEffect(playerPreferences) {
+        if (subtitleStylePreviewPreferences?.hasSameSubtitleStyle(playerPreferences) == true) {
+            subtitleStylePreviewPreferences = null
+        }
+    }
 
     LaunchedEffect(
         playerPreferences.hiddenPlayerControls,
@@ -754,15 +766,17 @@ internal fun MediaPlayerScreen(
                     volumeAndBrightnessGestureState = volumeAndBrightnessGestureState,
                     isGesturesEnabled = !isCustomizingControls,
                     subtitleConfiguration = SubtitleConfiguration(
-                        shouldUseSystemCaptionStyle = playerPreferences.shouldUseSystemCaptionStyle,
-                        shouldShowBackground = playerPreferences.shouldShowSubtitleBackground,
-                        font = playerPreferences.subtitleFont,
-                        textSize = playerPreferences.subtitleTextSize,
-                        shouldUseBoldText = playerPreferences.shouldUseBoldSubtitleText,
-                        color = playerPreferences.subtitleColor,
-                        edgeStyle = playerPreferences.subtitleEdgeStyle,
-                        bottomPaddingFraction = playerPreferences.subtitleBottomPaddingFraction,
-                        shouldApplyEmbeddedStyles = playerPreferences.shouldApplyEmbeddedStyles,
+                        shouldUseSystemCaptionStyle = activePlayerPreferences.shouldUseSystemCaptionStyle,
+                        shouldShowBackground = activePlayerPreferences.shouldShowSubtitleBackground,
+                        font = activePlayerPreferences.subtitleFont,
+                        textSize = activePlayerPreferences.subtitleTextSize,
+                        shouldUseBoldText = activePlayerPreferences.shouldUseBoldSubtitleText,
+                        color = activePlayerPreferences.subtitleColor,
+                        edgeStyle = activePlayerPreferences.subtitleEdgeStyle,
+                        outlineThickness = activePlayerPreferences.subtitleOutlineThickness,
+                        shadowStrength = activePlayerPreferences.subtitleShadowStrength,
+                        bottomPaddingFraction = activePlayerPreferences.subtitleBottomPaddingFraction,
+                        shouldApplyEmbeddedStyles = activePlayerPreferences.shouldApplyEmbeddedStyles,
                         externalSubtitleFontSource = externalSubtitleFontSource,
                     ),
                     decoderPriority = playerPreferences.decoderPriority,
@@ -1350,8 +1364,8 @@ internal fun MediaPlayerScreen(
                             player = player,
                             onSelectSubtitleClick = onSelectSubtitleClick,
                             onAddOnlineSubtitleClick = onAddOnlineSubtitleClick,
-                            preferences = playerPreferences,
-                            onPreferencesChange = viewModel::updateSubtitleStyle,
+                            preferences = activePlayerPreferences,
+                            onPreferencesChange = ::updateSubtitleStyle,
                             onEvent = viewModel::onSubtitleOptionEvent,
                             onDismiss = ::dismissOverlay,
                         )
@@ -1396,13 +1410,13 @@ internal fun MediaPlayerScreen(
                     player = player,
                     overlayView = overlayView,
                     videoContentScale = videoZoomAndContentScaleState.videoContentScale,
-                    playerPreferences = playerPreferences,
+                    playerPreferences = activePlayerPreferences,
                     sleepTimerState = sleepTimerState,
                     onDismiss = ::dismissOverlay,
                     onSelectSubtitleClick = onSelectSubtitleClick,
                     onAddOnlineSubtitleClick = onAddOnlineSubtitleClick,
                     onSubtitleOptionEvent = viewModel::onSubtitleOptionEvent,
-                    onSubtitleStyleChanged = viewModel::updateSubtitleStyle,
+                    onSubtitleStyleChanged = ::updateSubtitleStyle,
                     onVideoContentScaleChanged = { videoZoomAndContentScaleState.onVideoContentScaleChanged(it) },
                     onPreviewVideoFilters = { previewPreferences ->
                         (player as? androidx.media3.session.MediaController)?.previewVideoFilters(previewPreferences)
@@ -1467,6 +1481,15 @@ internal fun MediaPlayerScreen(
         }
     }
 }
+
+private fun PlayerPreferences.hasSameSubtitleStyle(other: PlayerPreferences): Boolean = shouldUseBoldSubtitleText == other.shouldUseBoldSubtitleText &&
+    subtitleTextSize == other.subtitleTextSize &&
+    shouldShowSubtitleBackground == other.shouldShowSubtitleBackground &&
+    subtitleColor == other.subtitleColor &&
+    subtitleEdgeStyle == other.subtitleEdgeStyle &&
+    subtitleOutlineThickness == other.subtitleOutlineThickness &&
+    subtitleShadowStrength == other.subtitleShadowStrength &&
+    subtitleBottomPaddingFraction == other.subtitleBottomPaddingFraction
 
 @Composable
 private fun titleForMenuRoute(route: MenuRoute?): String = when (route) {

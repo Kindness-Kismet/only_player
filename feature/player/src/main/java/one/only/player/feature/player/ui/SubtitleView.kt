@@ -1,9 +1,20 @@
 package one.only.player.feature.player.ui
 
+import android.content.Context
+import android.graphics.Canvas
 import android.graphics.Color
+import android.graphics.Paint
 import android.graphics.Typeface
+import android.text.Layout
+import android.text.SpannableString
+import android.text.Spanned
+import android.text.style.BackgroundColorSpan
 import android.util.TypedValue
+import android.view.Gravity
+import android.view.View
 import android.view.accessibility.CaptioningManager
+import android.widget.FrameLayout
+import android.widget.TextView
 import androidx.annotation.OptIn
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.runtime.Composable
@@ -16,6 +27,7 @@ import androidx.core.content.ContextCompat.getSystemService
 import androidx.media3.common.C
 import androidx.media3.common.MimeTypes
 import androidx.media3.common.Player
+import androidx.media3.common.text.Cue
 import androidx.media3.common.util.UnstableApi
 import androidx.media3.ui.CaptionStyleCompat
 import androidx.media3.ui.SubtitleView
@@ -24,6 +36,7 @@ import io.github.peerless2012.ass.media.kt.withAssSupport
 import io.github.peerless2012.ass.media.widget.AssSubtitleView as AssMediaSubtitleView
 import one.only.player.core.data.repository.ExternalSubtitleFontSource
 import one.only.player.core.model.Font
+import one.only.player.core.model.PlayerPreferences
 import one.only.player.core.model.SubtitleColor
 import one.only.player.core.model.SubtitleEdgeStyle
 import one.only.player.feature.player.extensions.toTypeface
@@ -61,42 +74,51 @@ fun SubtitleView(
     AndroidView(
         modifier = modifier.fillMaxSize(),
         factory = { context ->
-            SubtitleView(context).apply {
-                applySubtitleStyle(
-                    configuration = configuration,
-                    subtitleFontPolicy = subtitleFontPolicy,
-                )
-                setApplyEmbeddedStyles(configuration.shouldApplyEmbeddedStyles)
-                applySubtitlePosition(
-                    configuration = configuration,
-                    subtitleFontPolicy = subtitleFontPolicy,
-                )
+            SubtitleContainer(context).apply {
+                subtitleView.applyDefaultSubtitleStyle()
             }
         },
-        update = { subtitleView ->
+        update = { container ->
+            val subtitleView = container.subtitleView
+            val shouldUseTextSubtitleStyle = !isAssSubtitleSelected && cuesState.cues.canUseTextSubtitleStyle()
+            val shouldUseAdvancedTextSubtitle = shouldUseTextSubtitleStyle &&
+                subtitleFontPolicy == SubtitleFontPolicy.ExternalOrFallback &&
+                configuration.shouldUseAdvancedEdgeStyle()
+
+            if (shouldUseTextSubtitleStyle) {
+                subtitleView.applySubtitleStyle(
+                    configuration = configuration,
+                    subtitleFontPolicy = subtitleFontPolicy,
+                )
+                subtitleView.setApplyEmbeddedStyles(configuration.shouldApplyEmbeddedStyles)
+                subtitleView.applySubtitlePosition(
+                    configuration = configuration,
+                    subtitleFontPolicy = subtitleFontPolicy,
+                )
+
+                if (isInPictureInPictureMode) {
+                    subtitleView.setFractionalTextSize(SubtitleView.DEFAULT_TEXT_SIZE_FRACTION)
+                } else {
+                    subtitleView.setFixedTextSize(TypedValue.COMPLEX_UNIT_SP, configuration.textSize.toFloat())
+                }
+            } else {
+                subtitleView.applyDefaultSubtitleStyle()
+            }
+
             if (isAssSubtitleSelected) {
                 assHandler?.let(subtitleView::syncAssSupport)
                     ?: subtitleView.clearAssSupport()
                 subtitleView.setCues(emptyList())
+                container.advancedSubtitleView.visibility = View.GONE
             } else {
                 subtitleView.clearAssSupport()
-                subtitleView.setCues(cuesState.cues)
-            }
-
-            subtitleView.applySubtitleStyle(
-                configuration = configuration,
-                subtitleFontPolicy = subtitleFontPolicy,
-            )
-            subtitleView.setApplyEmbeddedStyles(configuration.shouldApplyEmbeddedStyles)
-            subtitleView.applySubtitlePosition(
-                configuration = configuration,
-                subtitleFontPolicy = subtitleFontPolicy,
-            )
-
-            if (isInPictureInPictureMode) {
-                subtitleView.setFractionalTextSize(SubtitleView.DEFAULT_TEXT_SIZE_FRACTION)
-            } else {
-                subtitleView.setFixedTextSize(TypedValue.COMPLEX_UNIT_SP, configuration.textSize.toFloat())
+                subtitleView.setCues(cuesState.cues.takeUnless { shouldUseAdvancedTextSubtitle }.orEmpty())
+                container.applyAdvancedSubtitle(
+                    cues = cuesState.cues,
+                    configuration = configuration,
+                    isVisible = shouldUseAdvancedTextSubtitle,
+                    isInPictureInPictureMode = isInPictureInPictureMode,
+                )
             }
         },
     )
@@ -111,10 +133,101 @@ data class SubtitleConfiguration(
     val shouldUseBoldText: Boolean,
     val color: SubtitleColor,
     val edgeStyle: SubtitleEdgeStyle,
+    val outlineThickness: Float,
+    val shadowStrength: Float,
     val bottomPaddingFraction: Float,
     val shouldApplyEmbeddedStyles: Boolean,
     val externalSubtitleFontSource: ExternalSubtitleFontSource?,
 )
+
+private class SubtitleContainer(context: Context) : FrameLayout(context) {
+    val subtitleView = SubtitleView(context)
+    val advancedSubtitleView = AdvancedSubtitleTextView(context)
+
+    init {
+        addView(subtitleView, LayoutParams(LayoutParams.MATCH_PARENT, LayoutParams.MATCH_PARENT))
+        addView(advancedSubtitleView, LayoutParams(LayoutParams.MATCH_PARENT, LayoutParams.MATCH_PARENT))
+    }
+}
+
+private class AdvancedSubtitleTextView(context: Context) : TextView(context) {
+    var outlineThickness: Float = 0f
+        set(value) {
+            if (field == value) return
+            field = value
+            invalidate()
+        }
+    var hasOutline: Boolean = false
+        set(value) {
+            if (field == value) return
+            field = value
+            invalidate()
+        }
+
+    init {
+        gravity = Gravity.CENTER or Gravity.BOTTOM
+        includeFontPadding = false
+        textAlignment = TEXT_ALIGNMENT_CENTER
+        visibility = View.GONE
+    }
+
+    override fun onDraw(canvas: Canvas) {
+        if (hasOutline && outlineThickness > 0f) {
+            paint.style = Paint.Style.STROKE
+            paint.strokeWidth = outlineThickness
+            paint.color = Color.BLACK
+            super.onDraw(canvas)
+        }
+
+        paint.style = Paint.Style.FILL
+        paint.color = currentTextColor
+        super.onDraw(canvas)
+    }
+}
+
+@OptIn(UnstableApi::class)
+private fun SubtitleContainer.applyAdvancedSubtitle(
+    cues: List<Cue>,
+    configuration: SubtitleConfiguration,
+    isVisible: Boolean,
+    isInPictureInPictureMode: Boolean,
+) {
+    if (!isVisible) {
+        advancedSubtitleView.visibility = View.GONE
+        return
+    }
+
+    val shadowStrength = configuration.shadowStrength.takeIf { configuration.edgeStyle.hasShadow() } ?: 0f
+    val textSizeUnit = if (isInPictureInPictureMode) {
+        TypedValue.COMPLEX_UNIT_PX
+    } else {
+        TypedValue.COMPLEX_UNIT_SP
+    }
+    val textSize = if (isInPictureInPictureMode) {
+        height.takeIf { it > 0 }
+            ?.let { it * SubtitleView.DEFAULT_TEXT_SIZE_FRACTION }
+            ?: (configuration.textSize * advancedSubtitleView.resources.displayMetrics.scaledDensity)
+    } else {
+        configuration.textSize.toFloat()
+    }
+    val baseTypeface = configuration.resolveTypeface()
+    val subtitleText = cues.first().text?.toString().orEmpty()
+    advancedSubtitleView.visibility = View.VISIBLE
+    advancedSubtitleView.text = subtitleText.withBackground(configuration.shouldShowBackground)
+    advancedSubtitleView.setTextColor(configuration.color.toArgb())
+    advancedSubtitleView.setTextSize(textSizeUnit, textSize)
+    advancedSubtitleView.typeface = Typeface.create(
+        baseTypeface,
+        Typeface.BOLD.takeIf { configuration.shouldUseBoldText } ?: Typeface.NORMAL,
+    )
+    advancedSubtitleView.setPadding(0, 0, 0, (height * configuration.bottomPaddingFraction).toInt())
+    advancedSubtitleView.setBackgroundColor(Color.TRANSPARENT)
+    advancedSubtitleView.hasOutline = configuration.edgeStyle.hasOutline()
+    advancedSubtitleView.outlineThickness = configuration.outlineThickness
+    advancedSubtitleView.paint.strokeJoin = Paint.Join.ROUND
+    advancedSubtitleView.setShadowLayer(shadowStrength, shadowStrength, shadowStrength, Color.BLACK)
+    advancedSubtitleView.invalidate()
+}
 
 @OptIn(UnstableApi::class)
 private fun SubtitleView.syncAssSupport(handler: AssHandler) {
@@ -135,22 +248,13 @@ private fun SubtitleView.applySubtitleStyle(
     configuration: SubtitleConfiguration,
     subtitleFontPolicy: SubtitleFontPolicy,
 ) {
-    val context = context
-    val captioningManager = getSystemService(context, CaptioningManager::class.java) ?: return
     when (subtitleFontPolicy) {
         SubtitleFontPolicy.Ass,
         SubtitleFontPolicy.SystemCaptionStyle,
-        -> {
-            val systemCaptionStyle = CaptionStyleCompat.createFromCaptionStyle(captioningManager.userStyle)
-            setStyle(systemCaptionStyle)
-        }
+        -> applyDefaultSubtitleStyle()
 
         SubtitleFontPolicy.ExternalOrFallback -> {
-            val baseTypeface = runCatching {
-                configuration.externalSubtitleFontSource
-                    ?.absolutePath
-                    ?.let(Typeface::createFromFile)
-            }.getOrNull() ?: configuration.font.toTypeface()
+            val baseTypeface = configuration.resolveTypeface()
             val userStyle = CaptionStyleCompat(
                 configuration.color.toArgb(),
                 Color.BLACK.takeIf { configuration.shouldShowBackground } ?: Color.TRANSPARENT,
@@ -168,6 +272,16 @@ private fun SubtitleView.applySubtitleStyle(
     }
 }
 
+private fun SubtitleView.applyDefaultSubtitleStyle() {
+    val context = context
+    val captioningManager = getSystemService(context, CaptioningManager::class.java) ?: return
+    val systemCaptionStyle = CaptionStyleCompat.createFromCaptionStyle(captioningManager.userStyle)
+    setStyle(systemCaptionStyle)
+    setApplyEmbeddedStyles(true)
+    setFractionalTextSize(SubtitleView.DEFAULT_TEXT_SIZE_FRACTION)
+    setBottomPaddingFraction(SubtitleView.DEFAULT_BOTTOM_PADDING_FRACTION)
+}
+
 @OptIn(UnstableApi::class)
 private fun SubtitleView.applySubtitlePosition(
     configuration: SubtitleConfiguration,
@@ -182,6 +296,12 @@ private fun SubtitleView.applySubtitlePosition(
     setBottomPaddingFraction(bottomPaddingFraction)
 }
 
+private fun SubtitleConfiguration.resolveTypeface(): Typeface = runCatching {
+    externalSubtitleFontSource
+        ?.absolutePath
+        ?.let(Typeface::createFromFile)
+}.getOrNull() ?: font.toTypeface()
+
 private fun SubtitleColor.toArgb(): Int = when (this) {
     SubtitleColor.WHITE -> Color.WHITE
     SubtitleColor.YELLOW -> Color.YELLOW
@@ -193,7 +313,47 @@ private fun SubtitleEdgeStyle.toCaptionEdgeType(): Int = when (this) {
     SubtitleEdgeStyle.NONE -> CaptionStyleCompat.EDGE_TYPE_NONE
     SubtitleEdgeStyle.OUTLINE -> CaptionStyleCompat.EDGE_TYPE_OUTLINE
     SubtitleEdgeStyle.DROP_SHADOW -> CaptionStyleCompat.EDGE_TYPE_DROP_SHADOW
+    SubtitleEdgeStyle.OUTLINE_AND_DROP_SHADOW -> CaptionStyleCompat.EDGE_TYPE_OUTLINE
 }
+
+private fun SubtitleConfiguration.shouldUseAdvancedEdgeStyle(): Boolean = when (edgeStyle) {
+    SubtitleEdgeStyle.NONE -> false
+    SubtitleEdgeStyle.OUTLINE -> outlineThickness != PlayerPreferences.DEFAULT_SUBTITLE_OUTLINE_THICKNESS
+    SubtitleEdgeStyle.DROP_SHADOW -> shadowStrength != PlayerPreferences.DEFAULT_SUBTITLE_SHADOW_STRENGTH
+    SubtitleEdgeStyle.OUTLINE_AND_DROP_SHADOW -> true
+}
+
+private fun List<Cue>.canUseTextSubtitleStyle(): Boolean = size == 1 && first().isDefaultTextCue()
+
+private fun Cue.isDefaultTextCue(): Boolean = text?.hasNoSpans() == true &&
+    bitmap == null &&
+    textAlignment in setOf(null, Layout.Alignment.ALIGN_CENTER) &&
+    multiRowAlignment == null &&
+    line == Cue.DIMEN_UNSET &&
+    lineType == Cue.TYPE_UNSET &&
+    lineAnchor == Cue.TYPE_UNSET &&
+    position == Cue.DIMEN_UNSET &&
+    positionAnchor == Cue.TYPE_UNSET &&
+    textSize == Cue.DIMEN_UNSET &&
+    textSizeType == Cue.TYPE_UNSET &&
+    size == Cue.DIMEN_UNSET &&
+    bitmapHeight == Cue.DIMEN_UNSET &&
+    !windowColorSet &&
+    verticalType == Cue.TYPE_UNSET &&
+    shearDegrees == 0f
+
+private fun CharSequence.hasNoSpans(): Boolean = this !is Spanned || getSpans(0, length, Any::class.java).isEmpty()
+
+private fun String.withBackground(shouldShowBackground: Boolean): CharSequence {
+    if (!shouldShowBackground) return this
+    return SpannableString(this).apply {
+        setSpan(BackgroundColorSpan(Color.BLACK), 0, length, Spanned.SPAN_EXCLUSIVE_EXCLUSIVE)
+    }
+}
+
+private fun SubtitleEdgeStyle.hasOutline(): Boolean = this == SubtitleEdgeStyle.OUTLINE || this == SubtitleEdgeStyle.OUTLINE_AND_DROP_SHADOW
+
+private fun SubtitleEdgeStyle.hasShadow(): Boolean = this == SubtitleEdgeStyle.DROP_SHADOW || this == SubtitleEdgeStyle.OUTLINE_AND_DROP_SHADOW
 
 private fun SubtitleView.findAssSupportView(): AssMediaSubtitleView? = (0 until childCount).firstNotNullOfOrNull { index ->
     getChildAt(index) as? AssMediaSubtitleView

@@ -216,6 +216,11 @@
     <string name="subtitle_edge_none">無</string>
     <string name="subtitle_edge_outline">描邊</string>
     <string name="subtitle_edge_shadow">陰影</string>
+    <string name="subtitle_edge_outline_shadow">描邊 + 陰影</string>
+    <string name="subtitle_outline_thickness">字幕描邊粗細</string>
+    <string name="reset_subtitle_outline_thickness">重設字幕描邊粗細</string>
+    <string name="subtitle_shadow_strength">字幕陰影強度</string>
+    <string name="reset_subtitle_shadow_strength">重設字幕陰影強度</string>
     <string name="player_controls_next">播放下一個</string>
     <string name="stretch">延伸</string>
     <string name="ff_rewind">快進/快退</string>

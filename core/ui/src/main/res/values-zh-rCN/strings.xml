@@ -149,6 +149,11 @@
     <string name="subtitle_edge_none">无</string>
     <string name="subtitle_edge_outline">描边</string>
     <string name="subtitle_edge_shadow">阴影</string>
+    <string name="subtitle_edge_outline_shadow">描边 + 阴影</string>
+    <string name="subtitle_outline_thickness">字幕描边粗细</string>
+    <string name="reset_subtitle_outline_thickness">重置字幕描边粗细</string>
+    <string name="subtitle_shadow_strength">字幕阴影强度</string>
+    <string name="reset_subtitle_shadow_strength">重置字幕阴影强度</string>
     <string name="subtitle_font">字幕字体</string>
     <string name="external_subtitle_font_import">导入外部字幕字体</string>
     <string name="external_subtitle_font_import_desc">导入一个用于普通文本字幕的 .ttf 或 .otf 字体文件</string>

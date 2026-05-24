@@ -15,4 +15,5 @@ enum class SubtitleEdgeStyle {
     NONE,
     OUTLINE,
     DROP_SHADOW,
+    OUTLINE_AND_DROP_SHADOW,
 }
