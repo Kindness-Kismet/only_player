@@ -88,7 +88,7 @@ import one.only.player.core.ui.extensions.withBottomFallback
 import one.only.player.core.ui.preview.DayNightPreview
 import one.only.player.core.ui.preview.VideoPickerPreviewParameterProvider
 import one.only.player.core.ui.theme.OnlyPlayerTheme
-import one.only.player.feature.videopicker.composables.CenterCircularProgressBar
+import one.only.player.feature.videopicker.composables.MediaSkeletonLoading
 import one.only.player.feature.videopicker.composables.MediaView
 import one.only.player.feature.videopicker.composables.NoVideosFound
 import one.only.player.feature.videopicker.composables.QuickSettingsDialog
@@ -532,7 +532,11 @@ internal fun MediaPickerScreen(
                 ) {
                     when (uiState.mediaDataState) {
                         DataState.Loading -> {
-                            CenterCircularProgressBar(modifier = Modifier.fillMaxSize())
+                            MediaSkeletonLoading(
+                                preferences = uiState.preferences,
+                                contentPadding = scaffoldPadding.copy(top = 0.dp, start = 0.dp).withBottomFallback(),
+                                modifier = Modifier.fillMaxSize(),
+                            )
                         }
 
                         is DataState.Error -> {
