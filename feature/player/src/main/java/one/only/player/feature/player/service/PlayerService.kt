@@ -11,7 +11,6 @@ import androidx.annotation.OptIn
 import androidx.core.net.toUri
 import androidx.media3.common.AudioAttributes
 import androidx.media3.common.C
-import androidx.media3.common.Format
 import androidx.media3.common.MediaItem
 import androidx.media3.common.MediaMetadata
 import androidx.media3.common.MimeTypes
@@ -28,10 +27,8 @@ import androidx.media3.datasource.DataSource
 import androidx.media3.datasource.DataSpec
 import androidx.media3.datasource.DefaultDataSource
 import androidx.media3.datasource.okhttp.OkHttpDataSource
-import androidx.media3.exoplayer.DecoderReuseEvaluation
 import androidx.media3.exoplayer.ExoPlaybackException
 import androidx.media3.exoplayer.ExoPlayer
-import androidx.media3.exoplayer.analytics.AnalyticsListener
 import androidx.media3.exoplayer.drm.DrmSessionManagerProvider
 import androidx.media3.exoplayer.mediacodec.MediaCodecRenderer
 import androidx.media3.exoplayer.mediacodec.MediaCodecUtil
@@ -89,10 +86,6 @@ import one.only.player.core.data.remote.SmbClient
 import one.only.player.core.data.remote.WebDavClient
 import one.only.player.core.data.repository.MediaRepository
 import one.only.player.core.data.repository.PreferencesRepository
-import one.only.player.core.data.repository.buildPlaybackStateCandidates
-import one.only.player.core.data.repository.buildRemoteFolderPlaybackAnchorKey
-import one.only.player.core.data.repository.buildRemotePlaybackStateKey
-import one.only.player.core.data.repository.isRemotePlaybackStateKey
 import one.only.player.core.model.DecoderPriority
 import one.only.player.core.model.LoopMode
 import one.only.player.core.model.PlayerPreferences
@@ -108,9 +101,7 @@ import one.only.player.feature.player.extensions.copy
 import one.only.player.feature.player.extensions.getManuallySelectedTrackIndex
 import one.only.player.feature.player.extensions.isApproximateSeekEnabled
 import one.only.player.feature.player.extensions.isVideoEffectsAvailable
-import one.only.player.feature.player.extensions.localParentPath
 import one.only.player.feature.player.extensions.positionMs
-import one.only.player.feature.player.extensions.remoteDirectoryPath
 import one.only.player.feature.player.extensions.remoteFilePath
 import one.only.player.feature.player.extensions.remoteProtocol
 import one.only.player.feature.player.extensions.remoteServerId
@@ -135,6 +126,9 @@ import one.only.player.feature.player.service.effects.VideoEffectsCoordinator
 import one.only.player.feature.player.service.effects.isHdrVideoFormat
 import one.only.player.feature.player.service.effects.shouldApplyVideoEffects
 import one.only.player.feature.player.service.effects.toVideoFilterPreferences
+import one.only.player.feature.player.service.playback.FolderPlaybackAnchorUpdater
+import one.only.player.feature.player.service.playback.PlaybackStartupAnalyticsListener
+import one.only.player.feature.player.service.playback.PlaybackStateCoordinator
 import one.only.player.feature.player.service.seek.PreciseSeekCoordinator
 import one.only.player.feature.player.service.subtitle.ExternalSubtitleLoader
 import one.only.player.feature.player.service.subtitle.SubtitleTrackSelector
@@ -187,42 +181,17 @@ class PlayerService : MediaSessionService() {
         )
     }
 
-    private fun updateFolderPlaybackAnchor(mediaItem: MediaItem) {
-        val preferences = preferencesRepository.applicationPreferences.value
-        if (!preferences.shouldRestoreLastPlayedMediaInFolders) return
+    private val playbackStateCoordinator by lazy {
+        PlaybackStateCoordinator(mediaRepository)
+    }
 
-        serviceScope.launch {
-            val playbackStateUri = mediaItem.resolvePlaybackStateUri()
-            val localParentPath = mediaItem.mediaMetadata.localParentPath
-                ?: mediaRepository.getVideoByUri(playbackStateUri)?.parentPath
-                    ?.takeIf { it.isNotBlank() }
-            val remoteAnchorKey = buildRemoteFolderPlaybackAnchorKey(
-                remoteProtocol = mediaItem.mediaMetadata.remoteProtocol,
-                remoteServerId = mediaItem.mediaMetadata.remoteServerId,
-                directoryPath = mediaItem.mediaMetadata.remoteDirectoryPath,
-            )
-
-            preferencesRepository.updateApplicationPreferences { currentPreferences ->
-                var updatedPreferences = currentPreferences
-
-                if (!localParentPath.isNullOrBlank()) {
-                    updatedPreferences = updatedPreferences.copy(
-                        localFolderLastPlayedMediaUris = updatedPreferences.localFolderLastPlayedMediaUris +
-                            (localParentPath to playbackStateUri),
-                    )
-                }
-
-                if (remoteAnchorKey != null) {
-                    val remoteFilePath = mediaItem.mediaMetadata.remoteFilePath ?: return@updateApplicationPreferences updatedPreferences
-                    updatedPreferences = updatedPreferences.copy(
-                        remoteFolderLastPlayedMediaPaths = updatedPreferences.remoteFolderLastPlayedMediaPaths +
-                            (remoteAnchorKey to remoteFilePath),
-                    )
-                }
-
-                updatedPreferences
-            }
-        }
+    private val folderPlaybackAnchorUpdater by lazy {
+        FolderPlaybackAnchorUpdater(
+            scope = serviceScope,
+            preferencesRepository = preferencesRepository,
+            mediaRepository = mediaRepository,
+            resolvePlaybackStateUri = playbackStateCoordinator::resolvePlaybackStateUri,
+        )
     }
 
     private val customCommands = CustomCommands.asSessionCommands()
@@ -263,7 +232,7 @@ class PlayerService : MediaSessionService() {
             scope = serviceScope,
             currentPlayerProvider = { mediaSession?.player as? ExoPlayer },
             createMediaSource = ::createMediaSource,
-            resolvePlaybackStateUri = { mediaItem -> mediaItem.resolvePlaybackStateUri() },
+            resolvePlaybackStateUri = playbackStateCoordinator::resolvePlaybackStateUri,
             updatePlaybackPosition = { uri, position ->
                 mediaRepository.updateMediumPosition(
                     uri = uri,
@@ -274,97 +243,13 @@ class PlayerService : MediaSessionService() {
         )
     }
 
-    private var startupTimestamp = 0L
-    private val startupAnalyticsListener = object : AnalyticsListener {
-        override fun onPlaybackStateChanged(
-            eventTime: AnalyticsListener.EventTime,
-            state: Int,
-        ) {
-            if (state == Player.STATE_BUFFERING) {
-                startupTimestamp = System.currentTimeMillis()
-            }
-            val label = when (state) {
-                Player.STATE_IDLE -> "IDLE"
-                Player.STATE_BUFFERING -> "BUFFERING"
-                Player.STATE_READY -> "READY"
-                Player.STATE_ENDED -> "ENDED"
-                else -> "UNKNOWN($state)"
-            }
-            Logger.info(TAG, "startup state=$label t=${elapsed()}ms")
-        }
-
-        override fun onLoadStarted(
-            eventTime: AnalyticsListener.EventTime,
-            loadEventInfo: androidx.media3.exoplayer.source.LoadEventInfo,
-            mediaLoadData: androidx.media3.exoplayer.source.MediaLoadData,
-            retryCount: Int,
-        ) {
-            Logger.info(TAG, "startup loadStart t=${elapsed()}ms type=${mediaLoadData.dataType}")
-        }
-
-        override fun onLoadCompleted(
-            eventTime: AnalyticsListener.EventTime,
-            loadEventInfo: androidx.media3.exoplayer.source.LoadEventInfo,
-            mediaLoadData: androidx.media3.exoplayer.source.MediaLoadData,
-        ) {
-            Logger.info(
-                TAG,
-                "startup loadDone t=${elapsed()}ms type=${mediaLoadData.dataType} bytes=${loadEventInfo.bytesLoaded}",
-            )
-        }
-
-        override fun onRenderedFirstFrame(
-            eventTime: AnalyticsListener.EventTime,
-            output: Any,
-            renderTimeMs: Long,
-        ) {
-            Logger.info(TAG, "startup firstFrame t=${elapsed()}ms")
-        }
-
-        override fun onVideoDecoderInitialized(
-            eventTime: AnalyticsListener.EventTime,
-            decoderName: String,
-            initializedTimestampMs: Long,
-            initializationDurationMs: Long,
-        ) {
-            videoEffectsCoordinator.setDecoderName(decoderName)
-            Logger.info(TAG, "startup decoderInit=$decoderName dur=${initializationDurationMs}ms t=${elapsed()}ms")
-        }
-
-        override fun onVideoInputFormatChanged(
-            eventTime: AnalyticsListener.EventTime,
-            format: Format,
-            decoderReuseEvaluation: DecoderReuseEvaluation?,
-        ) {
-            videoEffectsCoordinator.onVideoInputFormatChanged(
-                player = mediaSession?.player as? ExoPlayer,
-                format = format,
-            )
-            Logger.info(TAG, "startup videoFormat transfer=${format.colorInfo?.colorTransfer} standard=${format.colorInfo?.colorSpace} range=${format.colorInfo?.colorRange}")
-        }
-
-        override fun onAudioDecoderInitialized(
-            eventTime: AnalyticsListener.EventTime,
-            decoderName: String,
-            initializedTimestampMs: Long,
-            initializationDurationMs: Long,
-        ) {
-            Logger.info(TAG, "startup audioDecoder=$decoderName dur=${initializationDurationMs}ms t=${elapsed()}ms")
-        }
-
-        override fun onTracksChanged(
-            eventTime: AnalyticsListener.EventTime,
-            tracks: androidx.media3.common.Tracks,
-        ) {
-            val player = mediaSession?.player
-            Logger.info(
-                TAG,
-                "startup tracksChanged t=${elapsed()}ms groups=${tracks.groups.size} seekable=${player?.isCurrentMediaItemSeekable} duration=${player?.duration}",
-            )
-        }
+    private val startupAnalyticsListener by lazy {
+        PlaybackStartupAnalyticsListener(
+            tag = TAG,
+            currentPlayerProvider = { mediaSession?.player as? ExoPlayer },
+            videoEffectsCoordinator = videoEffectsCoordinator,
+        )
     }
-
-    private fun elapsed(): Long = System.currentTimeMillis() - startupTimestamp
 
     private fun resolveTransitionPlaybackSpeed(
         transitionReason: Int,
@@ -395,7 +280,7 @@ class PlayerService : MediaSessionService() {
             pendingRememberedSubtitleSelection = null
             if (mediaItem != null) {
                 serviceScope.launch {
-                    val playbackStateUri = mediaItem.resolvePlaybackStateUri()
+                    val playbackStateUri = playbackStateCoordinator.resolvePlaybackStateUri(mediaItem)
                     mediaRepository.updateMediumLastPlayedTime(
                         uri = playbackStateUri,
                         lastPlayedTime = System.currentTimeMillis(),
@@ -468,7 +353,7 @@ class PlayerService : MediaSessionService() {
                         mediaItemToUpdate.copy(positionMs = updatedPosition),
                     )
                     serviceScope.launch {
-                        val playbackStateUri = oldMediaItem.resolvePlaybackStateUri()
+                        val playbackStateUri = playbackStateCoordinator.resolvePlaybackStateUri(oldMediaItem)
                         mediaRepository.updateMediumPosition(
                             uri = playbackStateUri,
                             position = updatedPosition,
@@ -480,7 +365,7 @@ class PlayerService : MediaSessionService() {
                     serviceScope.launch {
                         val durationMs = oldMediaItem.mediaMetadata.durationMs
                         val isAtEnd = durationMs != null && oldPosition.positionMs >= durationMs - 1000
-                        val playbackStateUri = oldMediaItem.resolvePlaybackStateUri()
+                        val playbackStateUri = playbackStateCoordinator.resolvePlaybackStateUri(oldMediaItem)
                         mediaRepository.updateMediumPosition(
                             uri = playbackStateUri,
                             position = if (isAtEnd) C.TIME_UNSET else oldPosition.positionMs,
@@ -595,7 +480,7 @@ class PlayerService : MediaSessionService() {
             val subtitleTrackIndex = player.getManuallySelectedTrackIndex(C.TRACK_TYPE_TEXT)
 
             serviceScope.launch {
-                val playbackStateUri = currentMediaItem.resolvePlaybackStateUri()
+                val playbackStateUri = playbackStateCoordinator.resolvePlaybackStateUri(currentMediaItem)
                 if (playerPreferences.shouldRememberAudioTrack && audioTrackIndex != null) {
                     mediaRepository.updateMediumAudioTrack(
                         uri = playbackStateUri,
@@ -638,13 +523,13 @@ class PlayerService : MediaSessionService() {
                 val player = mediaSession?.player ?: return
                 val currentMediaItem = player.currentMediaItem ?: return
                 serviceScope.launch {
-                    val playbackStateUri = currentMediaItem.resolvePlaybackStateUri()
+                    val playbackStateUri = playbackStateCoordinator.resolvePlaybackStateUri(currentMediaItem)
                     mediaRepository.updateMediumLastPlayedTime(
                         uri = playbackStateUri,
                         lastPlayedTime = System.currentTimeMillis(),
                     )
                 }
-                updateFolderPlaybackAnchor(currentMediaItem)
+                folderPlaybackAnchorUpdater.update(currentMediaItem)
             }
         }
 
@@ -714,7 +599,7 @@ class PlayerService : MediaSessionService() {
             mediaSession?.run {
                 serviceScope.launch {
                     val currentMediaItem = player.currentMediaItem ?: return@launch
-                    val playbackStateUri = currentMediaItem.resolvePlaybackStateUri()
+                    val playbackStateUri = playbackStateCoordinator.resolvePlaybackStateUri(currentMediaItem)
                     mediaRepository.updateMediumPosition(
                         uri = playbackStateUri,
                         position = player.currentPosition,
@@ -1300,7 +1185,7 @@ class PlayerService : MediaSessionService() {
                         uri = subtitleUri,
                         subtitleEncoding = playerPreferences.subtitleTextEncoding,
                     )
-                    val playbackStateUri = currentMediaItem.resolvePlaybackStateUri()
+                    val playbackStateUri = playbackStateCoordinator.resolvePlaybackStateUri(currentMediaItem)
                     mediaRepository.updateMediumPosition(
                         uri = playbackStateUri,
                         position = player.currentPosition,
@@ -1451,7 +1336,7 @@ class PlayerService : MediaSessionService() {
                     mediaSession?.run {
                         serviceScope.launch {
                             val currentMediaItem = player.currentMediaItem ?: return@launch
-                            val playbackStateUri = currentMediaItem.resolvePlaybackStateUri()
+                            val playbackStateUri = playbackStateCoordinator.resolvePlaybackStateUri(currentMediaItem)
                             mediaRepository.updateMediumPosition(
                                 uri = playbackStateUri,
                                 position = player.currentPosition,
@@ -1659,21 +1544,21 @@ class PlayerService : MediaSessionService() {
         mediaItems.map { mediaItem ->
             async {
                 val uri = mediaItem.mediaId.toUri()
-                val playbackStateUri = mediaItem.resolvePlaybackStateUri()
-                val playbackStateCandidates = mediaItem.playbackStateCandidates()
+                val playbackStateUri = playbackStateCoordinator.resolvePlaybackStateUri(mediaItem)
+                val playbackStateCandidates = playbackStateCoordinator.playbackStateCandidates(mediaItem)
                 val primaryVideoState = mediaRepository.getVideoState(uri = playbackStateUri)
                 val fallbackVideoState = playbackStateCandidates
                     .firstOrNull { candidate -> candidate != playbackStateUri }
                     ?.let { fallbackUri ->
                         mediaRepository.getVideoState(uri = fallbackUri)
                     }
-                migrateFallbackStateToPlaybackStateUri(
+                playbackStateCoordinator.migrateFallbackStateToPlaybackStateUri(
                     playbackStateUri = playbackStateUri,
                     primaryVideoState = primaryVideoState,
                     fallbackVideoState = fallbackVideoState,
                 )
                 val video = mediaRepository.getVideoByUri(uri = playbackStateUri)
-                val videoState = mergeVideoState(
+                val videoState = playbackStateCoordinator.mergeVideoState(
                     primaryVideoState = primaryVideoState,
                     fallbackVideoState = fallbackVideoState,
                 )
@@ -1826,93 +1711,6 @@ class PlayerService : MediaSessionService() {
 
     private fun Uri.isNonMediaStoreContentUri(): Boolean = scheme == ContentResolver.SCHEME_CONTENT && authority != MediaStore.AUTHORITY
 
-    private suspend fun migrateFallbackStateToPlaybackStateUri(
-        playbackStateUri: String,
-        primaryVideoState: one.only.player.core.data.models.VideoState?,
-        fallbackVideoState: one.only.player.core.data.models.VideoState?,
-    ) {
-        if (fallbackVideoState == null) return
-        if (fallbackVideoState.path == playbackStateUri) return
-        if (fallbackVideoState.path.isRemotePlaybackStateKey()) return
-
-        if (primaryVideoState?.position == null) {
-            fallbackVideoState.position?.let { position ->
-                mediaRepository.updateMediumPosition(
-                    uri = playbackStateUri,
-                    position = position,
-                )
-            }
-        }
-        if (primaryVideoState?.audioTrackIndex == null) {
-            fallbackVideoState.audioTrackIndex?.let { audioTrackIndex ->
-                mediaRepository.updateMediumAudioTrack(
-                    uri = playbackStateUri,
-                    audioTrackIndex = audioTrackIndex,
-                )
-            }
-        }
-        if (primaryVideoState?.subtitleTrackIndex == null) {
-            fallbackVideoState.subtitleTrackIndex?.let { subtitleTrackIndex ->
-                mediaRepository.updateMediumSubtitleTrack(
-                    uri = playbackStateUri,
-                    subtitleTrackIndex = subtitleTrackIndex,
-                )
-            }
-        }
-        if (primaryVideoState?.externalSubs.isNullOrEmpty() && fallbackVideoState.externalSubs.isNotEmpty()) {
-            mediaRepository.updateExternalSubs(
-                uri = playbackStateUri,
-                externalSubs = fallbackVideoState.externalSubs,
-            )
-        }
-        if ((primaryVideoState?.subtitleDelayMilliseconds ?: 0L) == 0L && fallbackVideoState.subtitleDelayMilliseconds != 0L) {
-            mediaRepository.updateSubtitleDelay(
-                uri = playbackStateUri,
-                delay = fallbackVideoState.subtitleDelayMilliseconds,
-            )
-        }
-        if (
-            kotlin.math.abs((primaryVideoState?.subtitleSpeed ?: 1f) - 1f) <= 0.001f &&
-            kotlin.math.abs(fallbackVideoState.subtitleSpeed - 1f) > 0.001f
-        ) {
-            mediaRepository.updateSubtitleSpeed(
-                uri = playbackStateUri,
-                speed = fallbackVideoState.subtitleSpeed,
-            )
-        }
-        if (
-            kotlin.math.abs((primaryVideoState?.videoScale ?: 1f) - 1f) <= 0.001f &&
-            kotlin.math.abs(fallbackVideoState.videoScale - 1f) > 0.001f
-        ) {
-            mediaRepository.updateMediumZoom(
-                uri = playbackStateUri,
-                zoom = fallbackVideoState.videoScale,
-            )
-        }
-    }
-
-    private fun mergeVideoState(
-        primaryVideoState: one.only.player.core.data.models.VideoState?,
-        fallbackVideoState: one.only.player.core.data.models.VideoState?,
-    ): one.only.player.core.data.models.VideoState? {
-        if (primaryVideoState == null) return fallbackVideoState
-        if (fallbackVideoState == null) return primaryVideoState
-
-        return primaryVideoState.copy(
-            position = primaryVideoState.position ?: fallbackVideoState.position,
-            audioTrackIndex = primaryVideoState.audioTrackIndex ?: fallbackVideoState.audioTrackIndex,
-            subtitleTrackIndex = primaryVideoState.subtitleTrackIndex ?: fallbackVideoState.subtitleTrackIndex,
-            playbackSpeed = primaryVideoState.playbackSpeed ?: fallbackVideoState.playbackSpeed,
-            externalSubs = primaryVideoState.externalSubs.ifEmpty { fallbackVideoState.externalSubs },
-            videoScale = primaryVideoState.videoScale.takeUnless { kotlin.math.abs(it - 1f) <= 0.001f }
-                ?: fallbackVideoState.videoScale,
-            subtitleDelayMilliseconds = primaryVideoState.subtitleDelayMilliseconds.takeUnless { it == 0L }
-                ?: fallbackVideoState.subtitleDelayMilliseconds,
-            subtitleSpeed = primaryVideoState.subtitleSpeed.takeUnless { kotlin.math.abs(it - 1f) <= 0.001f }
-                ?: fallbackVideoState.subtitleSpeed,
-        )
-    }
-
     private fun createMediaSource(mediaItem: MediaItem): MediaSource {
         val requestHeaders = mediaItem.mediaMetadata.requestHeaders
         val uri = mediaItem.localConfiguration?.uri
@@ -1992,21 +1790,6 @@ class PlayerService : MediaSessionService() {
         return DefaultDataSource.Factory(applicationContext, httpFactory)
     }
 
-    private fun MediaItem.playbackStateCandidates(): List<String> = buildPlaybackStateCandidates(
-        originalUri = mediaId,
-        remoteProtocol = mediaMetadata.remoteProtocol,
-        remoteServerId = mediaMetadata.remoteServerId,
-        remoteFilePath = mediaMetadata.remoteFilePath,
-    )
-
-    private suspend fun MediaItem.resolvePlaybackStateUri(): String = mediaRepository.getCanonicalMediaUri(
-        uri = buildRemotePlaybackStateKey(
-            remoteProtocol = mediaMetadata.remoteProtocol,
-            remoteServerId = mediaMetadata.remoteServerId,
-            remoteFilePath = mediaMetadata.remoteFilePath,
-        ) ?: mediaId,
-    )
-
     // 创建注入了预解析 SeekMap 的 ExtractorsFactory
     private fun createSeekMapInjectedExtractorsFactory(
         seekMap: androidx.media3.extractor.SeekMap,
@@ -2042,9 +1825,9 @@ class PlayerService : MediaSessionService() {
     ) {
         serviceScope.launch(Dispatchers.IO) {
             val currentMediaItem = findMediaItemInSession(mediaId)?.third
-            val playbackStateUri = currentMediaItem?.resolvePlaybackStateUri()
+            val playbackStateUri = currentMediaItem?.let { playbackStateCoordinator.resolvePlaybackStateUri(it) }
                 ?: mediaRepository.getCanonicalMediaUri(uri = mediaId)
-            val playbackStateCandidates = currentMediaItem?.playbackStateCandidates()
+            val playbackStateCandidates = currentMediaItem?.let(playbackStateCoordinator::playbackStateCandidates)
                 ?: listOf(mediaId, playbackStateUri).distinct()
             val configurations = externalSubtitleLoader.buildConfigurations(
                 mediaId = mediaId,
