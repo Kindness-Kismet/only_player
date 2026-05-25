@@ -42,7 +42,9 @@ object Logger {
         runCatching { fileLogStore?.clear() }
     }
 
-    fun exportFile() = runCatching { fileLogStore?.exportFile(readLogs()) }.getOrNull()
+    fun exportFile() = exportFile(readLogs())
+
+    fun exportFile(content: String) = runCatching { fileLogStore?.exportFile(sanitize(content)) }.getOrNull()
 
     private fun writeToFile(
         level: String,

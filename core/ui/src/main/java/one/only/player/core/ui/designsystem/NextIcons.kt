@@ -66,6 +66,7 @@ import androidx.compose.material.icons.rounded.RadioButtonUnchecked
 import androidx.compose.material.icons.rounded.Remove
 import androidx.compose.material.icons.rounded.Replay10
 import androidx.compose.material.icons.rounded.ResetTv
+import androidx.compose.material.icons.rounded.Save
 import androidx.compose.material.icons.rounded.ScreenRotationAlt
 import androidx.compose.material.icons.rounded.Search
 import androidx.compose.material.icons.rounded.SelectAll
@@ -137,6 +138,7 @@ object NextIcons {
     val Resume = Icons.Rounded.ResetTv
     val Rotation = Icons.Rounded.ScreenRotationAlt
     val Search = Icons.Rounded.Search
+    val Save = Icons.Rounded.Save
     val Selection = Icons.Rounded.DoneAll
     val Settings = Icons.Rounded.Settings
     val Share = Icons.Rounded.Share

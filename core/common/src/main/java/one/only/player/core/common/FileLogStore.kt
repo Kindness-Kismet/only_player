@@ -72,6 +72,6 @@ class FileLogStore(
     companion object {
         private const val LOG_FILE_NAME = "only_player.log"
         private const val EXPORT_LOG_FILE_NAME = "only_player_sanitized.log"
-        const val MAX_LOG_SIZE_BYTES = 10L * 1024L * 1024L
+        const val MAX_LOG_SIZE_BYTES = 1L * 1024L * 1024L
     }
 }
