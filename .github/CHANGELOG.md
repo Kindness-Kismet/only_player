@@ -1,14 +1,12 @@
-- 重做启动页，让冷启动画面更贴近应用图标和系统明暗主题
-- 修复部分视频开启氛围模式后仍然一片黑的问题
-- 支持更细地调整字幕垂直位置
-- 改善播放列表里拖拽排序和删除当前视频时的稳定性
+- 修复关于页应用图标显示不全的问题
+- 改善应用日志页打开速度，并把日志文件大小控制在 1MB
+- 重做应用日志页底部操作栏，支持分享、保存和清空日志
 
 <details>
 <summary>English Version</summary>
 
-- Refresh the splash screen so cold starts better match the app icon and system theme
-- Fix ambience mode still looking black on some videos
-- Support finer subtitle vertical position adjustment
-- Improve playlist drag sorting and current-video removal stability
+- Fix the app icon being clipped on the About page
+- Improve App logs page opening speed and keep the log file size within 1 MB
+- Redesign the App logs bottom bar with share, save, and clear actions
 
 </details>
