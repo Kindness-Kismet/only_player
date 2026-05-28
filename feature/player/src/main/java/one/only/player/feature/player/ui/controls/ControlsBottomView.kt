@@ -181,6 +181,12 @@ fun ControlsBottomView(
             }
         }
         PlayerSeekbar(
+            modifier = Modifier.padding(
+                playerProgressHorizontalPadding(
+                    containerHorizontalPadding = 8.dp,
+                    trackEdgeInset = 2.dp,
+                ),
+            ),
             position = displayedPosition.toFloat(),
             duration = mediaPresentationState.duration.toFloat(),
             onSeek = {

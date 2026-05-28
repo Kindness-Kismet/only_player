@@ -21,6 +21,7 @@
         tools:targetApi="s">
         <activity
             android:name=".MainActivity"
+            android:configChanges="orientation|screenSize|smallestScreenSize|screenLayout|uiMode|keyboard|keyboardHidden|navigation"
             android:exported="true"
             android:theme="@style/Theme.OnlyPlayer.Splash">
             <intent-filter>

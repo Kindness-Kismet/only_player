@@ -76,6 +76,12 @@ fun ControlsBottomModernView(
         verticalArrangement = Arrangement.spacedBy(4.dp),
     ) {
         ModernSeekbar(
+            modifier = Modifier.padding(
+                playerProgressHorizontalPadding(
+                    containerHorizontalPadding = 8.dp,
+                    trackEdgeInset = 7.dp,
+                ),
+            ),
             position = displayedPosition.toFloat(),
             duration = mediaPresentationState.duration.toFloat(),
             onSeek = {

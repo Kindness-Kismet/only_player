@@ -1,10 +1,10 @@
-- 加快本地长视频跳转后的加载速度
-- 减少大 MKV 视频第一次跳转时的等待时间
+- 修复播放器旋转后播放结束返回媒体库根目录的问题
+- 优化播放器进度条左右边距
 
 <details>
 <summary>English Version</summary>
 
-- Speed up loading after seeking in long local videos
-- Reduce the wait on the first seek in large MKV videos
+- Fix returning to the media library root after playback ends following player rotation
+- Refine horizontal padding for the player progress bar
 
 </details>
