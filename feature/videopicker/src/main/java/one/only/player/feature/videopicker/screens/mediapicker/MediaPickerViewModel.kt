@@ -277,10 +277,14 @@ class MediaPickerViewModel @Inject constructor(
     }
 
     private fun refresh() {
+        if (uiStateInternal.value.isRefreshing) return
         viewModelScope.launch {
             uiStateInternal.update { it.copy(isRefreshing = true) }
-            mediaSynchronizer.refresh()
-            uiStateInternal.update { it.copy(isRefreshing = false) }
+            try {
+                mediaSynchronizer.refresh()
+            } finally {
+                uiStateInternal.update { it.copy(isRefreshing = false) }
+            }
         }
     }
 
