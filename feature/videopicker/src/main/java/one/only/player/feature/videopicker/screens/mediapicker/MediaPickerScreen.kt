@@ -88,7 +88,6 @@ import one.only.player.core.ui.extensions.withBottomFallback
 import one.only.player.core.ui.preview.DayNightPreview
 import one.only.player.core.ui.preview.VideoPickerPreviewParameterProvider
 import one.only.player.core.ui.theme.OnlyPlayerTheme
-import one.only.player.feature.videopicker.composables.MediaSkeletonLoading
 import one.only.player.feature.videopicker.composables.MediaView
 import one.only.player.feature.videopicker.composables.NoVideosFound
 import one.only.player.feature.videopicker.composables.QuickSettingsDialog
@@ -530,35 +529,32 @@ internal fun MediaPickerScreen(
                     permission = permissionState.permission,
                     launchPermissionRequest = { permissionState.launchPermissionRequest() },
                 ) {
-                    when (uiState.mediaDataState) {
-                        DataState.Loading -> {
-                            MediaSkeletonLoading(
-                                preferences = uiState.preferences,
-                                contentPadding = scaffoldPadding.copy(top = 0.dp, start = 0.dp).withBottomFallback(),
-                                modifier = Modifier.fillMaxSize(),
-                            )
-                        }
-
-                        is DataState.Error -> {
-                            Surface(
-                                modifier = Modifier.fillMaxSize(),
-                                color = MaterialTheme.colorScheme.background,
-                            ) {
-                                Text(
-                                    text = stringResource(id = R.string.unknown_error),
-                                    modifier = Modifier.padding(16.dp),
-                                    style = MaterialTheme.typography.bodyMedium,
-                                )
+                    val shouldShowRefreshIndicator = uiState.isRefreshing || uiState.mediaDataState is DataState.Loading
+                    val updatedScaffoldPadding = scaffoldPadding.copy(top = 0.dp, start = 0.dp).withBottomFallback()
+                    PullToRefreshBox(
+                        modifier = Modifier.fillMaxSize(),
+                        isRefreshing = shouldShowRefreshIndicator,
+                        onRefresh = { onEvent(MediaPickerUiEvent.Refresh) },
+                    ) {
+                        when (uiState.mediaDataState) {
+                            DataState.Loading -> {
+                                Box(modifier = Modifier.fillMaxSize())
                             }
-                        }
 
-                        is DataState.Success -> {
-                            PullToRefreshBox(
-                                modifier = Modifier.fillMaxSize(),
-                                isRefreshing = uiState.isRefreshing,
-                                onRefresh = { onEvent(MediaPickerUiEvent.Refresh) },
-                            ) {
-                                val updatedScaffoldPadding = scaffoldPadding.copy(top = 0.dp, start = 0.dp).withBottomFallback()
+                            is DataState.Error -> {
+                                Surface(
+                                    modifier = Modifier.fillMaxSize(),
+                                    color = MaterialTheme.colorScheme.background,
+                                ) {
+                                    Text(
+                                        text = stringResource(id = R.string.unknown_error),
+                                        modifier = Modifier.padding(16.dp),
+                                        style = MaterialTheme.typography.bodyMedium,
+                                    )
+                                }
+                            }
+
+                            is DataState.Success -> {
                                 val rootFolder = uiState.mediaDataState.value
                                 if (rootFolder == null || rootFolder.folderList.isEmpty() && rootFolder.mediaList.isEmpty()) {
                                     NoVideosFound(contentPadding = updatedScaffoldPadding)
