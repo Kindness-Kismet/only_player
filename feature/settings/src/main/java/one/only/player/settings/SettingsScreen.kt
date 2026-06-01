@@ -40,6 +40,7 @@ import androidx.compose.ui.text.input.ImeAction
 import androidx.compose.ui.unit.dp
 import one.only.player.core.ui.R
 import one.only.player.core.ui.components.ClickablePreferenceItem
+import one.only.player.core.ui.components.ListSectionTitle
 import one.only.player.core.ui.components.NextTopAppBar
 import one.only.player.core.ui.designsystem.NextIcons
 import one.only.player.core.ui.extensions.withBottomFallback
@@ -71,6 +72,13 @@ fun SettingsScreen(
             val query = searchQuery.lowercase()
             resolvedRows.filter { it.matches(query) }
         }
+    }
+    val filteredRowsByType = remember(filteredRows) {
+        filteredRows.associateBy { it.row }
+    }
+    val visibleSections = SettingSection.entries.mapNotNull { section ->
+        val sectionRows = section.rows.mapNotNull { filteredRowsByType[it] }
+        ResolvedSettingSection(section = section, rows = sectionRows).takeIf { sectionRows.isNotEmpty() }
     }
 
     Scaffold(
@@ -126,18 +134,24 @@ fun SettingsScreen(
                 .verticalScroll(state = rememberScrollState())
                 .padding(innerPadding.withBottomFallback())
                 .padding(horizontal = 16.dp),
-            verticalArrangement = Arrangement.spacedBy(ListItemDefaults.SegmentedGap),
         ) {
-            filteredRows.forEachIndexed { index, resolved ->
-                ClickablePreferenceItem(
-                    modifier = Modifier.testTag("item_settings_${resolved.row.setting.name.lowercase()}"),
-                    title = resolved.title,
-                    description = resolved.description,
-                    icon = resolved.row.icon,
-                    onClick = { onItemClick(resolved.row.setting) },
-                    isFirstItem = index == 0,
-                    isLastItem = index == filteredRows.lastIndex,
-                )
+            visibleSections.forEach { section ->
+                ListSectionTitle(text = stringResource(id = section.section.titleResId))
+                Column(
+                    verticalArrangement = Arrangement.spacedBy(ListItemDefaults.SegmentedGap),
+                ) {
+                    section.rows.forEachIndexed { index, resolved ->
+                        ClickablePreferenceItem(
+                            modifier = Modifier.testTag("item_settings_${resolved.row.setting.name.lowercase()}"),
+                            title = resolved.title,
+                            description = resolved.description,
+                            icon = resolved.row.icon,
+                            onClick = { onItemClick(resolved.row.setting) },
+                            isFirstItem = index == 0,
+                            isLastItem = index == section.rows.lastIndex,
+                        )
+                    }
+                }
             }
         }
     }
@@ -213,6 +227,11 @@ private data class ResolvedSettingRow(
         searchableTexts.any { it.lowercase().contains(query) }
 }
 
+private data class ResolvedSettingSection(
+    val section: SettingSection,
+    val rows: List<ResolvedSettingRow>,
+)
+
 enum class Setting {
     APPEARANCE,
     MEDIA_LIBRARY,
@@ -226,6 +245,37 @@ enum class Setting {
     ABOUT,
 }
 
+private enum class SettingSection(
+    val titleResId: Int,
+    val rows: List<SettingRow>,
+) {
+    APP_AND_LIBRARY(
+        titleResId = R.string.settings_section_app_library,
+        rows = listOf(
+            SettingRow.APPEARANCE,
+            SettingRow.MEDIA_LIBRARY,
+        ),
+    ),
+    PLAYBACK(
+        titleResId = R.string.playback,
+        rows = listOf(
+            SettingRow.PLAYER,
+            SettingRow.GESTURES,
+            SettingRow.DECODER,
+            SettingRow.AUDIO,
+            SettingRow.SUBTITLE,
+        ),
+    ),
+    SYSTEM_AND_SUPPORT(
+        titleResId = R.string.settings_section_system_support,
+        rows = listOf(
+            SettingRow.PRIVACY,
+            SettingRow.GENERAL,
+            SettingRow.ABOUT,
+        ),
+    ),
+}
+
 // 子设置项的字符串资源 ID，用于搜索索引
 internal enum class SettingRow(
     val titleResId: Int,
@@ -235,7 +285,7 @@ internal enum class SettingRow(
     val subSettingResIds: List<Int> = emptyList(),
 ) {
     APPEARANCE(
-        titleResId = R.string.appearance_and_general_name,
+        titleResId = R.string.appearance_name,
         descriptionResId = R.string.appearance_description,
         icon = NextIcons.Appearance,
         setting = Setting.APPEARANCE,

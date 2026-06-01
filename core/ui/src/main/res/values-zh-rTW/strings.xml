@@ -193,6 +193,8 @@
     <string name="require_audio_focus_desc">當此播放器播放影片時，暫停其他播放器，反之亦然。</string>
     <string name="permission_info">Only Player 應用程式需要 \"%1$s\" 權限以存取或播放媒體。沒有它，媒體存取與播放功能將無法工作。要完整地使用此應用程式，請授予權限。</string>
     <string name="settings">設定</string>
+    <string name="settings_section_app_library">應用程式與媒體庫</string>
+    <string name="settings_section_system_support">系統與支援</string>
     <string name="z_a">Z-A</string>
     <string name="decoder_desc">解碼器、影片濾鏡選項</string>
     <string name="video_orientation">影片方向</string>

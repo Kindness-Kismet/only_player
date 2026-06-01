@@ -4,6 +4,8 @@
     <string name="menu">菜单</string>
     <string name="player_name">播放器</string>
     <string name="settings">设置</string>
+    <string name="settings_section_app_library">应用与媒体库</string>
+    <string name="settings_section_system_support">系统与支持</string>
     <string name="done">确定</string>
     <string name="appearance_name">外观</string>
     <string name="appearance_and_general_name">外观与通用</string>

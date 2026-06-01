@@ -64,7 +64,7 @@ private fun AppearancePreferencesContent(
     Scaffold(
         topBar = {
             NextTopAppBar(
-                title = stringResource(id = R.string.appearance_and_general_name),
+                title = stringResource(id = R.string.appearance_name),
                 navigationIcon = {
                     FilledTonalIconButton(onClick = onNavigateUp) {
                         Icon(
@@ -84,7 +84,7 @@ private fun AppearancePreferencesContent(
                 .padding(innerPadding.withBottomFallback())
                 .padding(horizontal = 16.dp),
         ) {
-            ListSectionTitle(text = stringResource(id = R.string.appearance_and_general_name))
+            ListSectionTitle(text = stringResource(id = R.string.appearance_name))
             Column(
                 verticalArrangement = Arrangement.spacedBy(ListItemDefaults.SegmentedGap),
             ) {
