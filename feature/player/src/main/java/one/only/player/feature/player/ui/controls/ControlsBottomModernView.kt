@@ -106,31 +106,29 @@ fun ControlsBottomModernView(
                 )
             }
             var shouldShowPendingPosition by rememberSaveable { mutableStateOf(false) }
-            Row(
-                verticalAlignment = Alignment.CenterVertically,
+            val positionText = when (shouldShowPendingPosition) {
+                true -> "-${displayedPendingPosition.milliseconds.formatted()}"
+                false -> displayedPosition.milliseconds.formatted()
+            }
+            Column(
                 modifier = Modifier
                     .padding(horizontal = 4.dp)
                     .noRippleClickable {
                         shouldShowPendingPosition = !shouldShowPendingPosition
                     },
+                verticalArrangement = Arrangement.Center,
             ) {
                 Text(
-                    text = when (shouldShowPendingPosition) {
-                        true -> "-${displayedPendingPosition.milliseconds.formatted()}"
-                        false -> displayedPosition.milliseconds.formatted()
-                    },
-                    style = MaterialTheme.typography.bodyMedium,
+                    text = positionText,
+                    style = MaterialTheme.typography.bodySmall,
                     color = Color.White,
-                )
-                Text(
-                    text = " / ",
-                    style = MaterialTheme.typography.bodyMedium,
-                    color = Color.White,
+                    maxLines = 1,
                 )
                 Text(
                     text = mediaPresentationState.durationFormatted,
-                    style = MaterialTheme.typography.bodyMedium,
-                    color = Color.White,
+                    style = MaterialTheme.typography.bodySmall,
+                    color = Color.White.copy(alpha = 0.6f),
+                    maxLines = 1,
                 )
             }
             IconButton(
