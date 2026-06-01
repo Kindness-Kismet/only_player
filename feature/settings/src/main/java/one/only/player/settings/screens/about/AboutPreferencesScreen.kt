@@ -10,19 +10,17 @@ import androidx.compose.animation.core.rememberInfiniteTransition
 import androidx.compose.animation.core.tween
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
-import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.rememberScrollState
-import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Button
-import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.ExperimentalMaterial3ExpressiveApi
 import androidx.compose.material3.FilledTonalIconButton
@@ -43,12 +41,14 @@ import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.asImageBitmap
 import androidx.compose.ui.graphics.painter.Painter
+import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalUriHandler
 import androidx.compose.ui.platform.UriHandler
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.res.stringResource
+import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.core.content.pm.PackageInfoCompat
@@ -272,7 +272,7 @@ fun AboutApp(
     )
     val cornerRadius = 24.dp
 
-    Column(
+    Box(
         modifier = modifier
             .padding(
                 vertical = 16.dp,
@@ -300,10 +300,11 @@ fun AboutApp(
             }
             .padding(all = 24.dp)
             .fillMaxWidth(),
-        verticalArrangement = Arrangement.spacedBy(24.dp),
     ) {
         Row(
-            modifier = Modifier.fillMaxWidth(),
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(bottom = 64.dp),
             verticalAlignment = Alignment.CenterVertically,
             horizontalArrangement = Arrangement.spacedBy(16.dp),
         ) {
@@ -321,6 +322,8 @@ fun AboutApp(
                     text = stringResource(id = R.string.app_name),
                     fontSize = 22.sp,
                     color = MaterialTheme.colorScheme.onSurface,
+                    maxLines = 1,
+                    overflow = TextOverflow.Clip,
                 )
 
                 Row(
@@ -335,29 +338,31 @@ fun AboutApp(
                     )
                 }
             }
-            Row(
-                horizontalArrangement = Arrangement.spacedBy(8.dp),
-            ) {
-                AboutIconButton(
-                    icon = painterResource(R.drawable.ic_brand_github),
-                    contentDescription = stringResource(R.string.project_repository),
-                    testTag = "btn_settings_about_repository",
-                    onClick = { uriHandler.openUriOrShowToast(PROJECT_REPOSITORY_URL, context) },
-                )
-                AboutIconButton(
-                    icon = painterResource(R.drawable.ic_brand_telegram),
-                    contentDescription = stringResource(R.string.telegram_group),
-                    testTag = "btn_settings_about_telegram",
-                    onClick = { uriHandler.openUriOrShowToast(TELEGRAM_GROUP_URL, context) },
-                )
-            }
         }
 
-        AboutLinkButton(
-            text = stringResource(R.string.libraries),
-            testTag = "btn_settings_about_libraries",
-            onClick = onLibrariesClick,
-        )
+        Row(
+            modifier = Modifier.align(Alignment.BottomEnd),
+            horizontalArrangement = Arrangement.spacedBy(8.dp),
+        ) {
+            AboutIconButton(
+                icon = NextIcons.Link,
+                contentDescription = stringResource(R.string.libraries),
+                testTag = "btn_settings_about_libraries",
+                onClick = onLibrariesClick,
+            )
+            AboutIconButton(
+                icon = painterResource(R.drawable.ic_brand_github),
+                contentDescription = stringResource(R.string.project_repository),
+                testTag = "btn_settings_about_repository",
+                onClick = { uriHandler.openUriOrShowToast(PROJECT_REPOSITORY_URL, context) },
+            )
+            AboutIconButton(
+                icon = painterResource(R.drawable.ic_brand_telegram),
+                contentDescription = stringResource(R.string.telegram_group),
+                testTag = "btn_settings_about_telegram",
+                onClick = { uriHandler.openUriOrShowToast(TELEGRAM_GROUP_URL, context) },
+            )
+        }
     }
 }
 
@@ -380,27 +385,20 @@ private fun AboutIconButton(
 }
 
 @Composable
-private fun AboutLinkButton(
-    text: String,
+private fun AboutIconButton(
+    icon: ImageVector,
+    contentDescription: String,
     testTag: String,
     onClick: () -> Unit,
-    modifier: Modifier = Modifier,
 ) {
-    Button(
-        modifier = modifier
-            .fillMaxWidth()
-            .height(52.dp)
-            .testTag(testTag),
+    FilledTonalIconButton(
+        modifier = Modifier.testTag(testTag),
         onClick = onClick,
-        colors = ButtonDefaults.buttonColors(
-            contentColor = MaterialTheme.colorScheme.onPrimary,
-            disabledContentColor = MaterialTheme.colorScheme.onPrimary.copy(alpha = .12f),
-            containerColor = MaterialTheme.colorScheme.primary.copy(alpha = 0.8f),
-            disabledContainerColor = MaterialTheme.colorScheme.primary.copy(alpha = .12f),
-        ),
-        shape = RoundedCornerShape(8.dp),
     ) {
-        Text(text = text)
+        Icon(
+            imageVector = icon,
+            contentDescription = contentDescription,
+        )
     }
 }
 
