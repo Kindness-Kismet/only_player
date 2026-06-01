@@ -345,7 +345,7 @@ fun AboutApp(
             horizontalArrangement = Arrangement.spacedBy(8.dp),
         ) {
             AboutIconButton(
-                icon = NextIcons.Link,
+                icon = NextIcons.LibraryBooks,
                 contentDescription = stringResource(R.string.libraries),
                 testTag = "btn_settings_about_libraries",
                 onClick = onLibrariesClick,

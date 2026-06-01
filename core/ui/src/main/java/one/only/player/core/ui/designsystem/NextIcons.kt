@@ -3,6 +3,7 @@ package one.only.player.core.ui.designsystem
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.rounded.ArrowBack
 import androidx.compose.material.icons.automirrored.rounded.CompareArrows
+import androidx.compose.material.icons.automirrored.rounded.LibraryBooks
 import androidx.compose.material.icons.automirrored.rounded.PlaylistPlay
 import androidx.compose.material.icons.automirrored.rounded.VolumeUp
 import androidx.compose.material.icons.rounded.Add
@@ -122,6 +123,7 @@ object NextIcons {
     val HeadsetOff = Icons.Rounded.HeadsetOff
     val Info = Icons.Rounded.Info
     val Language = Icons.Rounded.Translate
+    val LibraryBooks = Icons.AutoMirrored.Rounded.LibraryBooks
     val Length = Icons.Rounded.Straighten
     val Link = Icons.Rounded.Link
     val Location = Icons.Rounded.LocationOn
