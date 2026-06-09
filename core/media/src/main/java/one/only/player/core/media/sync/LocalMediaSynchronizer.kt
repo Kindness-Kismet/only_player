@@ -396,15 +396,14 @@ class LocalMediaSynchronizer @Inject constructor(
         }
     }
 
-    // 对缺少元数据的媒体自动排队 MediaInfo 同步
+    // 只补齐列表必需元数据，避免全库 FFmpeg 流信息拖慢扫描。
     private suspend fun scheduleMediaInfoSync() {
         val allWithInfo = mediumDao.getAllWithInfo().first()
         var count = 0
         allWithInfo.forEach { mediumWithInfo ->
             val entity = mediumWithInfo.mediumEntity
             val needsMetadata = entity.duration <= 0 || entity.width <= 0 || entity.height <= 0
-            val needsStreamInfo = mediumWithInfo.videoStreamInfo == null
-            if (needsMetadata || needsStreamInfo) {
+            if (needsMetadata) {
                 mediaInfoSynchronizer.sync(entity.uriString.toUri())
                 count++
             }

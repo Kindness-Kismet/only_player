@@ -160,7 +160,7 @@ fun MediaView(
                         selectionManager.toggleVideoSelection(video)
                     },
                     modifier = Modifier.onVideoFirstVisible {
-                        if (video.duration <= 0 || video.width <= 0 || video.height <= 0) {
+                        if (video.duration <= 0 || video.width <= 0 || video.height <= 0 || video.videoStream == null) {
                             onVideoLoaded(video.uriString.toUri())
                         }
                     },
