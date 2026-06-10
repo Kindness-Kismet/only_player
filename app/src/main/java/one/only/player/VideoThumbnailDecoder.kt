@@ -41,6 +41,11 @@ class VideoThumbnailDecoder(
         private const val MAX_THUMBNAIL_SIZE = 512
         private const val THUMBNAIL_CACHE_VERSION = 4
         private const val LARGE_CONTAINER_ARTWORK_LIMIT_BYTES = 256L * 1024L * 1024L
+        private val VIDEO_CONTAINER_MIME_TYPES = setOf(
+            "application/matroska",
+            "application/x-matroska",
+            "application/webm",
+        )
         private val mediaInfoSemaphore = Semaphore(1)
     }
 
@@ -407,7 +412,10 @@ class VideoThumbnailDecoder(
             )
         }
 
-        private fun isApplicable(mimeType: String?): Boolean = mimeType != null && mimeType.startsWith("video/")
+        private fun isApplicable(mimeType: String?): Boolean {
+            val normalizedMimeType = mimeType?.lowercase() ?: return false
+            return normalizedMimeType.startsWith("video/") || normalizedMimeType in VIDEO_CONTAINER_MIME_TYPES
+        }
     }
 }
 
@@ -434,6 +442,9 @@ private val ThumbnailStrategy.cacheKey: String
 private fun MediaInfo.getFrameAtMillis(timeMs: Long): Bitmap? = getFrameAt(timeMs.coerceAtLeast(0L) * 1_000L)
 
 private fun String?.isLargeContainerMimeType(): Boolean = when (this?.lowercase()) {
+    "application/matroska" -> true
+    "application/x-matroska" -> true
+    "application/webm" -> true
     "video/x-matroska" -> true
     "video/webm" -> true
     else -> false
