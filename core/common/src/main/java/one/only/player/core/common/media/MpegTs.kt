@@ -127,10 +127,10 @@ private fun createPatPacketPatches(
     forEachTsPacket(buffer, bytesRead) { packetStart, packetEnd ->
         val patSection = findPatSection(buffer, packetStart, packetEnd) ?: return@forEachTsPacket
         val declaredPmtPid = patSection.programMapPids
-            .filterNot { it == actualPmtPid }
             .distinct()
             .singleOrNull()
             ?: return@forEachTsPacket
+        if (declaredPmtPid == actualPmtPid) return@forEachTsPacket
         if (declaredPmtPid == TS_PAT_PID || declaredPmtPid == TS_NULL_PACKET_PID) return@forEachTsPacket
 
         createPatPacketPatch(
@@ -198,6 +198,13 @@ private fun createPatPacketPatch(
     val crcOffset = sectionEnd - 4
     if (crcOffset < localSection) return null
 
+    val expectedCrc = readPsiSectionCrc(packet, crcOffset)
+    val originalCrc = mpegCrc32(
+        buffer = packet,
+        start = localSection,
+        endExclusive = crcOffset,
+    )
+    val hasValidOriginalCrc = originalCrc == expectedCrc
     var entryOffset = localSection + 8
     val entryEnd = crcOffset
     var hasPatChanged = false
@@ -212,13 +219,15 @@ private fun createPatPacketPatch(
     }
     if (!hasPatChanged) return null
 
-    val expectedCrc = readPsiSectionCrc(packet, crcOffset)
     val patchedCrc = mpegCrc32(
         buffer = packet,
         start = localSection,
         endExclusive = crcOffset,
     )
-    if (patchedCrc != expectedCrc) return null
+    if (!hasValidOriginalCrc && patchedCrc != expectedCrc) return null
+    if (patchedCrc != expectedCrc) {
+        writePsiSectionCrc(packet, crcOffset, patchedCrc)
+    }
 
     return MpegTsPacketPatch(
         packetStart = packetStart.toLong(),
@@ -286,10 +295,7 @@ private fun patchProgramMapPid(
             start = section,
             endExclusive = crcOffset,
         )
-        buffer[crcOffset] = ((crc ushr 24) and 0xFF).toByte()
-        buffer[crcOffset + 1] = ((crc ushr 16) and 0xFF).toByte()
-        buffer[crcOffset + 2] = ((crc ushr 8) and 0xFF).toByte()
-        buffer[crcOffset + 3] = (crc and 0xFF).toByte()
+        writePsiSectionCrc(buffer, crcOffset, crc)
     }
     return hasPatChanged
 }
@@ -361,6 +367,17 @@ private fun readPsiSectionCrc(buffer: ByteArray, crcOffset: Int): Int = (buffer[
     (buffer[crcOffset + 1].toUnsignedInt() shl 16) or
     (buffer[crcOffset + 2].toUnsignedInt() shl 8) or
     buffer[crcOffset + 3].toUnsignedInt()
+
+private fun writePsiSectionCrc(
+    buffer: ByteArray,
+    crcOffset: Int,
+    crc: Int,
+) {
+    buffer[crcOffset] = ((crc ushr 24) and 0xFF).toByte()
+    buffer[crcOffset + 1] = ((crc ushr 16) and 0xFF).toByte()
+    buffer[crcOffset + 2] = ((crc ushr 8) and 0xFF).toByte()
+    buffer[crcOffset + 3] = (crc and 0xFF).toByte()
+}
 
 private fun packetPid(buffer: ByteArray, packetStart: Int): Int = readPid(buffer, packetStart + 1)
 
