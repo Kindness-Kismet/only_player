@@ -3,6 +3,9 @@ package one.only.player
 import android.content.ContentUris
 import android.graphics.Bitmap
 import android.graphics.BitmapFactory
+import android.media.MediaDataSource
+import android.media.MediaMetadataRetriever
+import android.os.ParcelFileDescriptor
 import android.provider.MediaStore
 import android.provider.OpenableColumns
 import android.util.Size
@@ -22,11 +25,19 @@ import coil3.toAndroidUri
 import io.github.anilbeesetti.nextlib.mediainfo.MediaInfo
 import io.github.anilbeesetti.nextlib.mediainfo.MediaInfoBuilder
 import io.github.anilbeesetti.nextlib.mediainfo.MediaThumbnailRetriever
+import java.io.FileInputStream
+import java.nio.ByteBuffer
 import kotlin.math.abs
 import kotlinx.coroutines.sync.Semaphore
 import kotlinx.coroutines.sync.withPermit
 import okio.FileSystem
 import one.only.player.core.common.Logger
+import one.only.player.core.common.media.MpegTsProgramMapPidFix
+import one.only.player.core.common.media.detectMpegTsProgramMapPidFix
+import one.only.player.core.common.media.patchMpegTsProgramMapPid
+import one.only.player.core.common.media.toMpegTsPidHex
+
+private const val MPEG_TS_PACKET_SIZE_BYTES = 188
 
 class VideoThumbnailDecoder(
     private val source: ImageSource,
@@ -39,8 +50,10 @@ class VideoThumbnailDecoder(
     companion object {
         // 缩略图最大尺寸，避免 4K 全分辨率 Bitmap 占用过多内存
         private const val MAX_THUMBNAIL_SIZE = 512
-        private const val THUMBNAIL_CACHE_VERSION = 4
+        private const val THUMBNAIL_CACHE_VERSION = 5
         private const val LARGE_CONTAINER_ARTWORK_LIMIT_BYTES = 256L * 1024L * 1024L
+        private const val MIN_MPEG_TS_THUMBNAIL_SCORE = 80f
+        private const val GOOD_MPEG_TS_THUMBNAIL_SCORE = 120f
         private val VIDEO_CONTAINER_MIME_TYPES = setOf(
             "application/matroska",
             "application/x-matroska",
@@ -222,6 +235,13 @@ class VideoThumbnailDecoder(
         logThumbnail { "diskCache miss strategy=${strategy.logName} key=$key" }
 
         val shouldSkipArtwork = shouldSkipEmbeddedArtwork()
+        var mpegTsProgramMapPidFix = if (mimeType.isMpegTsMimeType()) {
+            detectMpegTsProgramMapPidFix()
+        } else {
+            null
+        }
+        val shouldPreferMediaInfo = shouldSkipArtwork || mpegTsProgramMapPidFix != null
+        var hasTriedPatchedMpegTsThumbnail = false
         tryLoadEmbeddedArtwork(shouldSkipArtwork)?.scaleToFit()?.let { artworkBitmap ->
             logThumbnail { "embeddedArtwork ok strategy=${strategy.logName} key=$key" }
             val bitmap = writeToDiskCache(artworkBitmap)
@@ -231,11 +251,26 @@ class VideoThumbnailDecoder(
             )
         }
 
-        if (shouldSkipArtwork) {
-            tryDecodeMediaInfoThumbnail()?.let { return it }
+        if (shouldPreferMediaInfo) {
+            hasTriedPatchedMpegTsThumbnail = mpegTsProgramMapPidFix != null
+            tryDecodeMediaInfoThumbnail(
+                shouldRejectNearBlack = mpegTsProgramMapPidFix != null,
+                mpegTsProgramMapPidFix = mpegTsProgramMapPidFix,
+            )?.let { return it }
         }
 
-        tryLoadSystemThumbnail()?.let { systemBitmap ->
+        tryLoadSystemThumbnail()?.takeUnless { systemBitmap ->
+            val isNearBlackThumbnail = isNearBlackFrame(systemBitmap)
+            if (mpegTsProgramMapPidFix == null && isNearBlackThumbnail && mimeType.shouldSniffMpegTsAfterBlackThumbnail()) {
+                mpegTsProgramMapPidFix = detectMpegTsProgramMapPidFix()
+            }
+            val isBlackMpegTsThumbnail = mpegTsProgramMapPidFix != null && isNearBlackThumbnail
+            if (isBlackMpegTsThumbnail) {
+                logThumbnail { "systemThumbnail skip nearBlack patchedTs key=$key" }
+                systemBitmap.recycle()
+            }
+            isBlackMpegTsThumbnail
+        }?.let { systemBitmap ->
             logThumbnail { "systemThumbnail ok strategy=${strategy.logName} key=$key" }
             val bitmap = writeToDiskCache(systemBitmap)
             return DecodeResult(
@@ -244,22 +279,38 @@ class VideoThumbnailDecoder(
             )
         }
 
-        if (shouldSkipArtwork) {
-            logThumbnail { "decode fail strategy=${strategy.logName} key=$key" }
-            throw IllegalStateException("Failed to get video thumbnail for key=$key")
+        if (mpegTsProgramMapPidFix != null && !hasTriedPatchedMpegTsThumbnail) {
+            tryDecodeMediaInfoThumbnail(
+                shouldRejectNearBlack = true,
+                mpegTsProgramMapPidFix = mpegTsProgramMapPidFix,
+            )?.let { return it }
         }
 
-        tryDecodeMediaInfoThumbnail()?.let { return it }
+        if (!shouldPreferMediaInfo) {
+            tryDecodeMediaInfoThumbnail(shouldRejectNearBlack = false)?.let { return it }
+        }
 
         logThumbnail { "decode fail strategy=${strategy.logName} key=$key" }
         throw IllegalStateException("Failed to get video thumbnail for key=$key")
     }
 
-    private suspend fun tryDecodeMediaInfoThumbnail(): DecodeResult? {
+    private suspend fun tryDecodeMediaInfoThumbnail(
+        shouldRejectNearBlack: Boolean,
+        mpegTsProgramMapPidFix: MpegTsProgramMapPidFix? = null,
+    ): DecodeResult? {
         val key = diskCacheKey
         val mediaInfoStart = System.currentTimeMillis()
         mediaInfoSemaphore.withPermit {
-            getThumbnailFromMediaInfo()
+            if (mpegTsProgramMapPidFix != null) {
+                getThumbnailFromPatchedMpegTsRetriever(mpegTsProgramMapPidFix)
+                    ?: getThumbnailFromMediaInfo(shouldRejectNearBlack = true)
+                    ?: getThumbnailFromRetriever(shouldRejectNearBlack = true)
+            } else if (shouldRejectNearBlack) {
+                getThumbnailFromMediaInfo(shouldRejectNearBlack = true)
+                    ?: getThumbnailFromRetriever(shouldRejectNearBlack = true)
+            } else {
+                getThumbnailFromMediaInfo(shouldRejectNearBlack = false)
+            }
         }?.scaleToFit()?.let { rawBitmap ->
             logThumbnail { "mediaInfo ok ${System.currentTimeMillis() - mediaInfoStart}ms strategy=${strategy.logName} key=$key" }
             val bitmap = writeToDiskCache(rawBitmap)
@@ -271,7 +322,94 @@ class VideoThumbnailDecoder(
         return null
     }
 
-    private fun getThumbnailFromMediaInfo(): Bitmap? {
+    private fun detectMpegTsProgramMapPidFix(): MpegTsProgramMapPidFix? {
+        val metadata = source.metadata
+        return when {
+            metadata is ContentMetadata -> metadata.uri.toAndroidUri().detectMpegTsProgramMapPidFix(options.context)
+            source.fileSystem === FileSystem.SYSTEM -> source.file().toFile().detectMpegTsProgramMapPidFix()
+            else -> null
+        }
+    }
+
+    private fun getThumbnailFromPatchedMpegTsRetriever(fix: MpegTsProgramMapPidFix): Bitmap? {
+        val key = diskCacheKey
+        val sourceSize = getSourceSize() ?: return null
+        val sourceFileDescriptor = openSourceFileDescriptor() ?: return null
+        val dataSource = PatchedMpegTsMediaDataSource(
+            sourceFileDescriptor = sourceFileDescriptor,
+            sourceSize = sourceSize,
+            fix = fix,
+        )
+        val retriever = MediaMetadataRetriever()
+        return try {
+            retriever.setDataSource(dataSource)
+            val duration = retriever.extractMetadata(MediaMetadataRetriever.METADATA_KEY_DURATION)?.toLongOrNull() ?: 0L
+            logThumbnail {
+                "platformRetriever patchedTs built duration=$duration pmt=${fix.declaredPmtPid.toMpegTsPidHex()}->${fix.actualPmtPid.toMpegTsPidHex()} key=$key"
+            }
+            getMpegTsFrameFromPlatformRetriever(retriever, duration, key)
+        } catch (e: Exception) {
+            logThumbnail { "platformRetriever patchedTs fail key=$key err=${e.message}" }
+            null
+        } finally {
+            runCatching { retriever.release() }
+            runCatching { dataSource.close() }
+        }
+    }
+
+    private fun getMpegTsFrameFromPlatformRetriever(
+        retriever: MediaMetadataRetriever,
+        duration: Long,
+        key: String,
+    ): Bitmap? {
+        var bestFrame: Bitmap? = null
+        var bestScore = 0f
+        mpegTsCandidateTimesMs(duration).forEach { timeMs ->
+            val frame = runCatching {
+                retriever.getFrameAtTime(timeMs * 1_000L, MediaMetadataRetriever.OPTION_CLOSEST)
+            }.getOrNull()
+            val isNearBlack = frame != null && isNearBlackFrame(frame)
+            val visibilityScore = frame?.visibilityScore() ?: 0f
+            logThumbnail { "platformRetriever patchedTs timeMs=$timeMs result=${frame != null} nearBlack=$isNearBlack score=$visibilityScore key=$key" }
+            if (frame != null && !isNearBlack && visibilityScore > bestScore) {
+                if (visibilityScore >= GOOD_MPEG_TS_THUMBNAIL_SCORE) {
+                    bestFrame?.recycle()
+                    return frame
+                }
+                bestFrame?.recycle()
+                bestFrame = frame
+                bestScore = visibilityScore
+            } else {
+                frame?.recycle()
+            }
+        }
+        if (bestScore >= MIN_MPEG_TS_THUMBNAIL_SCORE) return bestFrame
+
+        bestFrame?.recycle()
+        logThumbnail { "platformRetriever patchedTs noVisibleFrame bestScore=$bestScore key=$key" }
+        return null
+    }
+
+    private fun openSourceFileDescriptor(): ParcelFileDescriptor? {
+        val metadata = source.metadata
+        return try {
+            when {
+                metadata is ContentMetadata -> options.context.contentResolver.openFileDescriptor(
+                    metadata.uri.toAndroidUri(),
+                    "r",
+                )
+                source.fileSystem === FileSystem.SYSTEM -> ParcelFileDescriptor.open(
+                    source.file().toFile(),
+                    ParcelFileDescriptor.MODE_READ_ONLY,
+                )
+                else -> null
+            }
+        } catch (_: Exception) {
+            null
+        }
+    }
+
+    private fun getThumbnailFromMediaInfo(shouldRejectNearBlack: Boolean): Bitmap? {
         val key = diskCacheKey
         val metadata = source.metadata
         val mediaInfoSource = when {
@@ -302,35 +440,43 @@ class VideoThumbnailDecoder(
         return try {
             val duration = mediaInfo.duration
             logThumbnail { "mediaInfo built strategy=${strategy.logName} duration=$duration source=$mediaInfoSource key=$key" }
-            when (strategy) {
-                is ThumbnailStrategy.FirstFrame -> {
-                    mediaInfo.getFrameAtMillis(0L).also { frame ->
-                        logThumbnail { "mediaInfo firstFrame result=${frame != null} key=$key" }
-                    }
-                }
-                is ThumbnailStrategy.FrameAtPercentage -> {
-                    val timeMs = (duration * strategy.percentage).toLong()
-                    mediaInfo.getFrameAtMillis(timeMs).also { frame ->
-                        logThumbnail { "mediaInfo frameAt timeMs=$timeMs result=${frame != null} key=$key" }
-                    }
-                }
-                is ThumbnailStrategy.Hybrid -> {
-                    val firstFrame = mediaInfo.getFrameAtMillis(0L)
-                    val isFirstFrameSolid = firstFrame != null && isSolidColor(firstFrame)
-                    logThumbnail { "mediaInfo hybrid firstFrame=${firstFrame != null} solid=$isFirstFrameSolid key=$key" }
-                    if (firstFrame != null && isFirstFrameSolid) {
-                        val timeMs = (duration * strategy.percentage).toLong()
-                        val fallbackFrame = mediaInfo.getFrameAtMillis(timeMs).also { frame ->
-                            logThumbnail { "mediaInfo hybrid fallback timeMs=$timeMs result=${frame != null} key=$key" }
+            if (shouldRejectNearBlack) {
+                getMpegTsFrameFromMediaInfo(
+                    mediaInfo = mediaInfo,
+                    duration = duration,
+                    key = key,
+                )
+            } else {
+                when (strategy) {
+                    is ThumbnailStrategy.FirstFrame -> {
+                        mediaInfo.getFrameAtMillis(0L).also { frame ->
+                            logThumbnail { "mediaInfo firstFrame result=${frame != null} key=$key" }
                         }
-                        if (fallbackFrame != null) {
-                            firstFrame.recycle()
-                            fallbackFrame
+                    }
+                    is ThumbnailStrategy.FrameAtPercentage -> {
+                        val timeMs = (duration * strategy.percentage).toLong()
+                        mediaInfo.getFrameAtMillis(timeMs).also { frame ->
+                            logThumbnail { "mediaInfo frameAt timeMs=$timeMs result=${frame != null} key=$key" }
+                        }
+                    }
+                    is ThumbnailStrategy.Hybrid -> {
+                        val firstFrame = mediaInfo.getFrameAtMillis(0L)
+                        val isFirstFrameSolid = firstFrame != null && isSolidColor(firstFrame)
+                        logThumbnail { "mediaInfo hybrid firstFrame=${firstFrame != null} solid=$isFirstFrameSolid key=$key" }
+                        if (firstFrame != null && isFirstFrameSolid) {
+                            val timeMs = (duration * strategy.percentage).toLong()
+                            val fallbackFrame = mediaInfo.getFrameAtMillis(timeMs).also { frame ->
+                                logThumbnail { "mediaInfo hybrid fallback timeMs=$timeMs result=${frame != null} key=$key" }
+                            }
+                            if (fallbackFrame != null) {
+                                firstFrame.recycle()
+                                fallbackFrame
+                            } else {
+                                firstFrame
+                            }
                         } else {
                             firstFrame
                         }
-                    } else {
-                        firstFrame
                     }
                 }
             }
@@ -341,6 +487,158 @@ class VideoThumbnailDecoder(
             mediaInfo.release()
         }
     }
+
+    private fun getMpegTsFrameFromMediaInfo(
+        mediaInfo: MediaInfo,
+        duration: Long,
+        key: String,
+    ): Bitmap? {
+        mpegTsCandidateTimesMs(duration).forEach { timeMs ->
+            val frameAt = mediaInfo.getFrameAtMillis(timeMs)
+            val isFrameAtNearBlack = frameAt != null && isNearBlackFrame(frameAt)
+            logThumbnail { "mediaInfo mpegTs frameAt timeMs=$timeMs result=${frameAt != null} nearBlack=$isFrameAtNearBlack key=$key" }
+            if (frameAt != null && !isFrameAtNearBlack) return frameAt
+            frameAt?.recycle()
+
+            val frame = mediaInfo.getDecodedFrameAtMillis(timeMs)
+            val isFrameNearBlack = frame != null && isNearBlackFrame(frame)
+            logThumbnail { "mediaInfo mpegTs frame timeMs=$timeMs result=${frame != null} nearBlack=$isFrameNearBlack key=$key" }
+            if (frame != null && !isFrameNearBlack) return frame
+            frame?.recycle()
+        }
+        return null
+    }
+
+    private fun getThumbnailFromRetriever(shouldRejectNearBlack: Boolean): Bitmap? {
+        val key = diskCacheKey
+        val retriever = MediaThumbnailRetriever()
+        val mediaInfoSource = try {
+            val metadata = source.metadata
+            when {
+                metadata is ContentMetadata -> {
+                    val uri = metadata.uri.toAndroidUri()
+                    retriever.setDataSource(options.context, uri)
+                    "contentUri=$uri"
+                }
+                source.fileSystem === FileSystem.SYSTEM -> {
+                    val path = source.file().toFile().path
+                    retriever.setDataSource(path)
+                    "filePath=$path"
+                }
+                else -> null
+            }
+        } catch (e: Exception) {
+            logThumbnail { "retriever build fail strategy=${strategy.logName} key=$key err=${e.message}" }
+            null
+        }
+        if (mediaInfoSource == null) {
+            runCatching { retriever.release() }
+            return null
+        }
+
+        return try {
+            if (shouldRejectNearBlack) {
+                getMpegTsFrameFromRetriever(retriever, key)
+            } else {
+                val timeUs = strategy.primaryTimeMs(duration = 0L) * 1_000L
+                retriever.getFrameAtTime(timeUs).also { frame ->
+                    logThumbnail { "retriever frameAt source=$mediaInfoSource result=${frame != null} key=$key" }
+                }
+            }
+        } catch (e: Exception) {
+            logThumbnail { "retriever frame fail source=$mediaInfoSource strategy=${strategy.logName} key=$key err=${e.message}" }
+            null
+        } finally {
+            runCatching { retriever.release() }
+        }
+    }
+
+    private fun getMpegTsFrameFromRetriever(
+        retriever: MediaThumbnailRetriever,
+        key: String,
+    ): Bitmap? {
+        var bestFrame: Bitmap? = null
+        var bestScore = 0f
+
+        fun acceptCandidate(
+            frame: Bitmap?,
+            label: String,
+        ): Bitmap? {
+            if (frame == null) {
+                logThumbnail { "retriever mpegTs $label result=false key=$key" }
+                return null
+            }
+
+            val isNearBlack = isNearBlackFrame(frame)
+            val visibilityScore = frame.visibilityScore()
+            logThumbnail { "retriever mpegTs $label result=true nearBlack=$isNearBlack score=$visibilityScore key=$key" }
+            if (!isNearBlack && visibilityScore > bestScore) {
+                if (visibilityScore >= GOOD_MPEG_TS_THUMBNAIL_SCORE) {
+                    bestFrame?.recycle()
+                    return frame
+                }
+                bestFrame?.recycle()
+                bestFrame = frame
+                bestScore = visibilityScore
+            } else {
+                frame.recycle()
+            }
+            return null
+        }
+
+        mpegTsCandidateFrameIndexes().forEach { frameIndex ->
+            acceptCandidate(
+                frame = runCatching { retriever.getFrameAtIndex(frameIndex) }.getOrNull(),
+                label = "frameIndex=$frameIndex",
+            )?.let { return it }
+        }
+
+        mpegTsCandidateTimesMs(duration = 0L).forEach { timeMs ->
+            acceptCandidate(
+                frame = runCatching { retriever.getFrameAtTime(timeMs * 1_000L) }.getOrNull(),
+                label = "timeMs=$timeMs",
+            )?.let { return it }
+        }
+        if (bestScore >= MIN_MPEG_TS_THUMBNAIL_SCORE) return bestFrame
+
+        bestFrame?.recycle()
+        logThumbnail { "retriever mpegTs noVisibleFrame bestScore=$bestScore key=$key" }
+        return null
+    }
+
+    private fun mpegTsCandidateTimesMs(duration: Long): List<Long> {
+        val preferredTimeMs = strategy.primaryTimeMs(duration)
+            .takeIf { duration <= 0L || it in 0..duration }
+        return listOfNotNull(
+            preferredTimeMs,
+            20_000L,
+            30_000L,
+            45_000L,
+            60_000L,
+            120_000L,
+            300_000L,
+            600_000L,
+            1_000L,
+            3_000L,
+            5_000L,
+            10_000L,
+            0L,
+        ).filter { duration <= 0L || it <= duration }
+            .distinct()
+    }
+
+    private fun mpegTsCandidateFrameIndexes(): List<Int> = listOf(
+        0,
+        1,
+        5,
+        15,
+        30,
+        60,
+        120,
+        240,
+        480,
+        900,
+    )
 
     private fun calculateInSampleSize(width: Int, height: Int): Int {
         if (width <= MAX_THUMBNAIL_SIZE && height <= MAX_THUMBNAIL_SIZE) return 1
@@ -419,6 +717,105 @@ class VideoThumbnailDecoder(
     }
 }
 
+private class PatchedMpegTsMediaDataSource(
+    private val sourceFileDescriptor: ParcelFileDescriptor,
+    private val sourceSize: Long,
+    private val fix: MpegTsProgramMapPidFix,
+) : MediaDataSource() {
+
+    private val inputStream = FileInputStream(sourceFileDescriptor.fileDescriptor)
+    private val channel = inputStream.channel
+    private var isClosed = false
+
+    override fun readAt(
+        position: Long,
+        buffer: ByteArray,
+        offset: Int,
+        size: Int,
+    ): Int {
+        if (size == 0) return 0
+        if (position >= sourceSize) return -1
+
+        val readSize = minOf(size.toLong(), sourceSize - position).toInt()
+        val bytesRead = channel.read(ByteBuffer.wrap(buffer, offset, readSize), position)
+        if (bytesRead <= 0) return -1
+
+        patchOverlappedPackets(
+            buffer = buffer,
+            bufferOffset = offset,
+            readStart = position,
+            bytesRead = bytesRead,
+        )
+        return bytesRead
+    }
+
+    override fun getSize(): Long = sourceSize
+
+    override fun close() {
+        if (isClosed) return
+        isClosed = true
+        runCatching { channel.close() }
+        runCatching { inputStream.close() }
+        runCatching { sourceFileDescriptor.close() }
+    }
+
+    private fun patchOverlappedPackets(
+        buffer: ByteArray,
+        bufferOffset: Int,
+        readStart: Long,
+        bytesRead: Int,
+    ) {
+        val readEnd = readStart + bytesRead
+        var packetStart = readStart - (readStart % MPEG_TS_PACKET_SIZE_BYTES)
+        while (packetStart < readEnd) {
+            val packetEnd = packetStart + MPEG_TS_PACKET_SIZE_BYTES
+            if (packetEnd > 0L && packetStart < sourceSize) {
+                patchOverlappedPacket(
+                    buffer = buffer,
+                    bufferOffset = bufferOffset,
+                    readStart = readStart,
+                    readEnd = readEnd,
+                    packetStart = packetStart,
+                    packetEnd = packetEnd,
+                )
+            }
+            packetStart += MPEG_TS_PACKET_SIZE_BYTES
+        }
+    }
+
+    private fun patchOverlappedPacket(
+        buffer: ByteArray,
+        bufferOffset: Int,
+        readStart: Long,
+        readEnd: Long,
+        packetStart: Long,
+        packetEnd: Long,
+    ) {
+        val packet = ByteArray(MPEG_TS_PACKET_SIZE_BYTES)
+        val packetBytesRead = channel.read(ByteBuffer.wrap(packet), packetStart)
+        if (packetBytesRead != MPEG_TS_PACKET_SIZE_BYTES) return
+
+        packet.patchMpegTsProgramMapPid(
+            bufferOffset = 0,
+            readStart = packetStart,
+            readEnd = packetEnd,
+            fix = fix,
+        )
+
+        val copyStart = maxOf(readStart, packetStart)
+        val copyEnd = minOf(readEnd, packetEnd)
+        if (copyStart >= copyEnd) return
+
+        System.arraycopy(
+            packet,
+            (copyStart - packetStart).toInt(),
+            buffer,
+            bufferOffset + (copyStart - readStart).toInt(),
+            (copyEnd - copyStart).toInt(),
+        )
+    }
+}
+
 sealed class ThumbnailStrategy {
     data object FirstFrame : ThumbnailStrategy()
     data class FrameAtPercentage(val percentage: Float = 0.5f) : ThumbnailStrategy()
@@ -439,7 +836,15 @@ private val ThumbnailStrategy.cacheKey: String
         is ThumbnailStrategy.Hybrid -> "hybrid:$percentage"
     }
 
+private fun ThumbnailStrategy.primaryTimeMs(duration: Long): Long = when (this) {
+    ThumbnailStrategy.FirstFrame -> 0L
+    is ThumbnailStrategy.FrameAtPercentage -> (duration * percentage).toLong()
+    is ThumbnailStrategy.Hybrid -> (duration * percentage).toLong()
+}
+
 private fun MediaInfo.getFrameAtMillis(timeMs: Long): Bitmap? = getFrameAt(timeMs.coerceAtLeast(0L) * 1_000L)
+
+private fun MediaInfo.getDecodedFrameAtMillis(timeMs: Long): Bitmap? = getFrame(timeMs.coerceAtLeast(0L) * 1_000L)
 
 private fun String?.isLargeContainerMimeType(): Boolean = when (this?.lowercase()) {
     "application/matroska" -> true
@@ -448,6 +853,22 @@ private fun String?.isLargeContainerMimeType(): Boolean = when (this?.lowercase(
     "video/x-matroska" -> true
     "video/webm" -> true
     else -> false
+}
+
+private fun String?.isMpegTsMimeType(): Boolean = when (this?.lowercase()) {
+    "video/mp2t" -> true
+    "video/mp2ts" -> true
+    "video/mpeg2ts" -> true
+    "video/vnd.dlna.mpeg-tts" -> true
+    else -> false
+}
+
+private fun String?.shouldSniffMpegTsAfterBlackThumbnail(): Boolean = when (this?.lowercase()) {
+    null -> true
+    "application/mp4" -> true
+    "application/octet-stream" -> true
+    "video/mp4" -> true
+    else -> isMpegTsMimeType()
 }
 
 private inline fun logThumbnail(message: () -> String) {
@@ -508,4 +929,74 @@ private fun isSolidColor(bitmap: Bitmap, threshold: Float = 0.7f): Boolean {
 
     val similarityRatio = similarCount.toFloat() / sampledColors.size
     return similarityRatio >= threshold
+}
+
+private fun isNearBlackFrame(
+    bitmap: Bitmap,
+    threshold: Float = 0.96f,
+): Boolean {
+    val width = bitmap.width
+    val height = bitmap.height
+    val gridSize = 40
+    val stepX = width / gridSize
+    val stepY = height / gridSize
+
+    if (stepX <= 0 || stepY <= 0) return false
+
+    var sampleCount = 0
+    var nearBlackCount = 0
+    for (x in 0 until gridSize) {
+        for (y in 0 until gridSize) {
+            val pixelX = x * stepX + stepX / 2
+            val pixelY = y * stepY + stepY / 2
+            if (pixelX >= width || pixelY >= height) continue
+
+            val color = bitmap[pixelX, pixelY]
+            val r = (color shr 16) and 0xFF
+            val g = (color shr 8) and 0xFF
+            val b = color and 0xFF
+            val luminance = (0.299f * r) + (0.587f * g) + (0.114f * b)
+            sampleCount++
+            if (luminance <= 18f) {
+                nearBlackCount++
+            }
+        }
+    }
+
+    if (sampleCount == 0) return false
+    return nearBlackCount.toFloat() / sampleCount >= threshold
+}
+
+private fun Bitmap.visibilityScore(): Float {
+    val gridSize = 40
+    val stepX = width / gridSize
+    val stepY = height / gridSize
+    if (stepX <= 0 || stepY <= 0) return 0f
+
+    var sampleCount = 0
+    var luminanceSum = 0f
+    var visibleSampleCount = 0
+    for (x in 0 until gridSize) {
+        for (y in 0 until gridSize) {
+            val pixelX = x * stepX + stepX / 2
+            val pixelY = y * stepY + stepY / 2
+            if (pixelX >= width || pixelY >= height) continue
+
+            val color = this[pixelX, pixelY]
+            val r = (color shr 16) and 0xFF
+            val g = (color shr 8) and 0xFF
+            val b = color and 0xFF
+            val luminance = (0.299f * r) + (0.587f * g) + (0.114f * b)
+            sampleCount++
+            luminanceSum += luminance
+            if (luminance >= 42f || maxOf(r, g, b) >= 56) {
+                visibleSampleCount++
+            }
+        }
+    }
+
+    if (sampleCount == 0) return 0f
+    val averageLuminance = luminanceSum / sampleCount
+    val visibleRatio = visibleSampleCount.toFloat() / sampleCount
+    return averageLuminance + visibleRatio * 100f
 }

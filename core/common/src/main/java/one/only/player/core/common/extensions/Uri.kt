@@ -1,6 +1,10 @@
 package one.only.player.core.common.extensions
 
+import android.content.ContentResolver
+import android.content.Context
 import android.net.Uri
+import java.io.File
+import one.only.player.core.common.media.hasMpegTsPacketSync
 
 val Uri.isExternalStorageDocument: Boolean
     get() = "com.android.externalstorage.documents" == authority
@@ -27,3 +31,16 @@ fun Uri.toPrivateLogSummary(): String {
 }
 
 fun String.toPrivateLogSummary(): String = Uri.parse(this).toPrivateLogSummary()
+
+fun Uri.isMpegTsStream(context: Context): Boolean = runCatching {
+    when (scheme) {
+        ContentResolver.SCHEME_CONTENT -> context.contentResolver.openInputStream(this)?.use(::hasMpegTsPacketSync) == true
+        ContentResolver.SCHEME_FILE -> path?.let { File(it).isMpegTsStream() } == true
+        else -> false
+    }
+}.getOrDefault(false)
+
+fun File.isMpegTsStream(): Boolean = runCatching {
+    val file = takeIf(File::isFile) ?: return@runCatching false
+    file.inputStream().use(::hasMpegTsPacketSync)
+}.getOrDefault(false)

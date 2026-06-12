@@ -13,6 +13,7 @@ import androidx.media3.common.AudioAttributes
 import androidx.media3.common.C
 import androidx.media3.common.MediaItem
 import androidx.media3.common.MediaMetadata
+import androidx.media3.common.MimeTypes
 import androidx.media3.common.ParserException
 import androidx.media3.common.PlaybackException
 import androidx.media3.common.Player
@@ -45,6 +46,7 @@ import androidx.media3.extractor.PositionHolder
 import androidx.media3.extractor.mkv.MatroskaExtractor
 import androidx.media3.extractor.mp4.Mp4Extractor
 import androidx.media3.extractor.text.SubtitleParser
+import androidx.media3.extractor.ts.TsExtractor
 import androidx.media3.session.CommandButton
 import androidx.media3.session.CommandButton.ICON_UNDEFINED
 import androidx.media3.session.MediaSession
@@ -80,7 +82,12 @@ import one.only.player.core.common.Logger
 import one.only.player.core.common.extensions.deleteFiles
 import one.only.player.core.common.extensions.getFilenameFromUri
 import one.only.player.core.common.extensions.getPath
+import one.only.player.core.common.extensions.isMpegTsStream
 import one.only.player.core.common.extensions.subtitleCacheDir
+import one.only.player.core.common.media.MpegTsProgramMapPidFix
+import one.only.player.core.common.media.detectMpegTsProgramMapPidFix
+import one.only.player.core.common.media.patchMpegTsProgramMapPid
+import one.only.player.core.common.media.toMpegTsPidHex
 import one.only.player.core.data.remote.FtpClient
 import one.only.player.core.data.remote.SmbClient
 import one.only.player.core.data.remote.WebDavClient
@@ -820,7 +827,7 @@ class PlayerService : MediaSessionService() {
         return true
     }
 
-    // MP4 容器解析失败时，检测并修复结构问题后以容错模式重试
+    // 解析失败后只对已识别的结构异常做定向容错重试
     private fun retryWithFixedSource(error: PlaybackException) {
         if (!hasParserExceptionCause(error)) return
         val player = mediaSession?.player as? ExoPlayer ?: return
@@ -830,46 +837,87 @@ class PlayerService : MediaSessionService() {
         val mediaId = currentItem.mediaId
         serviceScope.launch {
             val uri = mediaId.toUri()
-            val skipRegion = withContext(Dispatchers.IO) { detectDuplicateMoov(uri) }
+            val isMpegTsStream = withContext(Dispatchers.IO) { uri.isMpegTsStream(applicationContext) }
+            val sourceFix = if (isMpegTsStream) {
+                withContext(Dispatchers.IO) {
+                    SourceFix(tsProgramMapPidFix = uri.detectMpegTsProgramMapPidFix(applicationContext))
+                }
+            } else {
+                withContext(Dispatchers.IO) {
+                    SourceFix(skipRegion = detectDuplicateMoov(uri))
+                }
+            }
 
             withContext(Dispatchers.Main) {
                 val currentPlayer = mediaSession?.player as? ExoPlayer ?: return@withContext
-                if (currentPlayer.playerError == null) return@withContext
+                if (currentPlayer.currentMediaItem?.mediaId != mediaId) return@withContext
 
                 val index = (0 until currentPlayer.mediaItemCount).firstOrNull {
                     currentPlayer.getMediaItemAt(it).mediaId == mediaId
                 } ?: return@withContext
+                val shouldPlayWhenReady = currentPlayer.playWhenReady
 
                 val item = currentPlayer.getMediaItemAt(index)
-                val dataSourceFactory = if (skipRegion != null) {
+                val baseDataSourceFactory = createDataSourceFactory(
+                    uri = item.localConfiguration?.uri ?: uri,
+                    requestHeaders = item.mediaMetadata.requestHeaders,
+                )
+                if (isMpegTsStream && sourceFix.tsProgramMapPidFix == null) return@withContext
+
+                val dataSourceFactory = if (sourceFix.tsProgramMapPidFix != null) {
                     Logger.debug(
                         TAG,
-                        "Duplicate moov at ${skipRegion.start}+${skipRegion.length}, retrying: ${mediaId.toPrivateMediaLogSummary()}",
+                        "TS PMT PID ${sourceFix.tsProgramMapPidFix.declaredPmtPid.toMpegTsPidHex()} -> ${sourceFix.tsProgramMapPidFix.actualPmtPid.toMpegTsPidHex()}, retrying: ${mediaId.toPrivateMediaLogSummary()}",
+                    )
+                    DataSource.Factory {
+                        TsProgramMapPidPatchDataSource(
+                            upstream = baseDataSourceFactory.createDataSource(),
+                            fix = sourceFix.tsProgramMapPidFix,
+                        )
+                    }
+                } else if (sourceFix.skipRegion != null) {
+                    Logger.debug(
+                        TAG,
+                        "Duplicate moov at ${sourceFix.skipRegion.start}+${sourceFix.skipRegion.length}, retrying: ${mediaId.toPrivateMediaLogSummary()}",
                     )
                     DataSource.Factory {
                         GapSkipDataSource(
-                            upstream = DefaultDataSource.Factory(applicationContext)
-                                .createDataSource(),
+                            upstream = baseDataSourceFactory.createDataSource(),
                             targetUri = uri,
-                            gapStart = skipRegion.start,
-                            gapLength = skipRegion.length,
+                            gapStart = sourceFix.skipRegion.start,
+                            gapLength = sourceFix.skipRegion.length,
                         )
                     }
                 } else {
                     Logger.debug(TAG, "Retrying with lenient extractor: ${mediaId.toPrivateMediaLogSummary()}")
-                    DefaultDataSource.Factory(applicationContext)
+                    baseDataSourceFactory
                 }
 
-                val mediaSource = DefaultMediaSourceFactory(
+                val retryItem = if (sourceFix.tsProgramMapPidFix != null) {
+                    item.buildUpon()
+                        .setMimeType(MimeTypes.VIDEO_MP2T)
+                        .build()
+                } else {
+                    item
+                }
+                val extractorsFactory = if (sourceFix.tsProgramMapPidFix != null) {
+                    MpegTsExtractorsFactory(assSubtitleParserFactory)
+                } else {
+                    LenientExtractorsFactory()
+                }
+                val mediaSourceFactory = DefaultMediaSourceFactory(
                     dataSourceFactory,
-                    LenientExtractorsFactory(),
-                ).createMediaSource(item)
+                    extractorsFactory,
+                ).setSubtitleParserFactory(assSubtitleParserFactory)
+                sessionLoadErrorHandlingPolicy?.let(mediaSourceFactory::setLoadErrorHandlingPolicy)
+                sessionDrmSessionManagerProvider?.let(mediaSourceFactory::setDrmSessionManagerProvider)
+                val mediaSource = mediaSourceFactory.createMediaSource(retryItem)
 
                 currentPlayer.removeMediaItem(index)
                 currentPlayer.addMediaSource(index, mediaSource)
                 currentPlayer.seekTo(index, 0)
                 currentPlayer.prepare()
-                currentPlayer.playWhenReady = true
+                currentPlayer.playWhenReady = shouldPlayWhenReady
             }
         }
     }
@@ -885,6 +933,11 @@ class PlayerService : MediaSessionService() {
     }
 
     private data class SkipRegion(val start: Long, val length: Long)
+
+    private data class SourceFix(
+        val skipRegion: SkipRegion? = null,
+        val tsProgramMapPidFix: MpegTsProgramMapPidFix? = null,
+    )
 
     private data class PendingSubtitleSelection(
         val mediaId: String,
@@ -984,6 +1037,40 @@ class PlayerService : MediaSessionService() {
         return null
     }
 
+    private class TsProgramMapPidPatchDataSource(
+        private val upstream: DataSource,
+        private val fix: MpegTsProgramMapPidFix,
+    ) : DataSource by upstream {
+
+        private var readPosition = 0L
+
+        override fun open(dataSpec: DataSpec): Long {
+            readPosition = dataSpec.uriPositionOffset + dataSpec.position
+            return upstream.open(dataSpec)
+        }
+
+        override fun read(buffer: ByteArray, offset: Int, length: Int): Int {
+            val bytesRead = upstream.read(buffer, offset, length)
+            if (bytesRead <= 0) return bytesRead
+
+            val readStart = readPosition
+            val readEnd = readStart + bytesRead
+            buffer.patchMpegTsProgramMapPid(
+                bufferOffset = offset,
+                readStart = readStart,
+                readEnd = readEnd,
+                fix = fix,
+            )
+            readPosition += bytesRead
+            return bytesRead
+        }
+
+        override fun close() {
+            readPosition = 0L
+            upstream.close()
+        }
+    }
+
     // DataSource 包装器，读取时透明跳过 [gapStart, gapStart + gapLength) 区间
     private class GapSkipDataSource(
         private val upstream: DataSource,
@@ -1065,6 +1152,12 @@ class PlayerService : MediaSessionService() {
                 if (i == 0) LenientMp4Extractor() else defaults[i - 1]
             }
         }
+    }
+
+    private class MpegTsExtractorsFactory(
+        private val subtitleParserFactory: SubtitleParser.Factory,
+    ) : ExtractorsFactory {
+        override fun createExtractors(): Array<Extractor> = arrayOf(TsExtractor(subtitleParserFactory))
     }
 
     // 包装 Mp4Extractor，捕获 sample 级别的 ParserException

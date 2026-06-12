@@ -43,6 +43,7 @@ import androidx.lifecycle.lifecycleScope
 import androidx.media3.common.C
 import androidx.media3.common.MediaItem
 import androidx.media3.common.MediaMetadata
+import androidx.media3.common.MimeTypes
 import androidx.media3.common.Player
 import androidx.media3.session.MediaController
 import androidx.media3.session.SessionToken
@@ -68,6 +69,7 @@ import one.only.player.core.common.extensions.applyPrivacyProtection
 import one.only.player.core.common.extensions.canonicalPathOrSelf
 import one.only.player.core.common.extensions.getFilenameFromUri
 import one.only.player.core.common.extensions.getMediaContentUri
+import one.only.player.core.common.extensions.isMpegTsStream
 import one.only.player.core.common.extensions.isSubtitleExtension
 import one.only.player.core.common.extensions.resolvePrivacyPreviewScrim
 import one.only.player.core.common.extensions.scanFileForContentUri
@@ -599,8 +601,13 @@ open class PlayerActivity : AppCompatActivity() {
         isCurrentItem: Boolean,
         localParentPath: String?,
     ): MediaItem = MediaItem.Builder().apply {
+        val uri = Uri.parse(uriString)
         setUri(uriString)
         setMediaId(uriString)
+        if (withContext(Dispatchers.IO) { uri.isMpegTsStream(applicationContext) }) {
+            setMimeType(MimeTypes.VIDEO_MP2T)
+            Logger.info(TAG, "playVideo detectedMpegTs uri=${uri.toPrivateLogSummary()}")
+        }
         val remoteServerId = requestHeaders["_remote_server_id"]?.toLongOrNull()
         val remoteProtocol = requestHeaders["_remote_protocol"]
         val hasRemoteMetadata = remoteServerId != null && remoteProtocol != null
