@@ -56,11 +56,14 @@ import one.only.player.core.model.ThemeConfig
 import one.only.player.core.ui.R as UiR
 import one.only.player.core.ui.composables.rememberRuntimePermissionState
 import one.only.player.core.ui.theme.OnlyPlayerTheme
+import one.only.player.feature.player.PlayerActivity
 import one.only.player.feature.videopicker.navigation.MediaPickerRoute
 import one.only.player.feature.videopicker.navigation.navigateToCloudHome
+import one.only.player.feature.videopicker.navigation.navigateToFavorites
 import one.only.player.feature.videopicker.navigation.navigateToRecycleBinScreen
 import one.only.player.feature.videopicker.navigation.navigateToSearch
 import one.only.player.navigation.DEBUG_ACTION_OPEN_PAGE
+import one.only.player.navigation.DEBUG_ACTION_OPEN_PLAYER
 import one.only.player.navigation.DEBUG_EXTRA_PAGE
 import one.only.player.navigation.DebugPageRoute
 import one.only.player.navigation.MediaRootRoute
@@ -105,11 +108,12 @@ class MainActivity : AppCompatActivity() {
 
     private val viewModel: MainViewModel by viewModels()
     private var pendingDebugPageRoute by mutableStateOf<DebugPageRoute?>(null)
+    private var pendingDebugPlayerIntent by mutableStateOf<Intent?>(null)
 
     override fun onNewIntent(intent: Intent) {
         super.onNewIntent(intent)
         setIntent(intent)
-        consumeDebugPageRoute(intent)
+        consumeDebugIntent(intent)
     }
 
     @OptIn(ExperimentalComposeUiApi::class)
@@ -150,7 +154,7 @@ class MainActivity : AppCompatActivity() {
         splashScreen.setKeepOnScreenCondition {
             SystemClock.elapsedRealtime() - splashScreenStartedAt < STARTUP_SPLASH_MIN_DURATION_MILLIS
         }
-        consumeDebugPageRoute(intent)
+        consumeDebugIntent(intent)
 
         setContent {
             val shouldUseDarkTheme = shouldUseDarkTheme(
@@ -229,11 +233,28 @@ class MainActivity : AppCompatActivity() {
         }
     }
 
+    private fun consumeDebugIntent(intent: Intent?) {
+        consumeDebugPageRoute(intent)
+        consumeDebugPlayerIntent(intent)
+    }
+
     private fun consumeDebugPageRoute(intent: Intent?) {
         if (intent?.action != DEBUG_ACTION_OPEN_PAGE) return
 
         // Provider 可能先于 Compose 导航树启动，先暂存到首帧后执行。
         pendingDebugPageRoute = DebugPageRoute.from(intent.getStringExtra(DEBUG_EXTRA_PAGE))
+    }
+
+    private fun consumeDebugPlayerIntent(intent: Intent?) {
+        if (intent?.action != DEBUG_ACTION_OPEN_PLAYER) return
+        val uri = intent.data ?: return
+
+        pendingDebugPlayerIntent = Intent(this, PlayerActivity::class.java).apply {
+            action = Intent.ACTION_VIEW
+            data = uri
+            replaceExtras(intent.extras)
+            addFlags(Intent.FLAG_ACTIVITY_CLEAR_TOP or Intent.FLAG_ACTIVITY_SINGLE_TOP)
+        }
     }
 
     private fun navigateToDebugPage(
@@ -245,6 +266,7 @@ class MainActivity : AppCompatActivity() {
             DebugPageRoute.HOME -> Unit
             DebugPageRoute.SEARCH -> navController.navigateToSearch()
             DebugPageRoute.RECYCLE_BIN -> navController.navigateToRecycleBinScreen()
+            DebugPageRoute.FAVORITES -> navController.navigateToFavorites()
             DebugPageRoute.CLOUD -> navController.navigateToCloudHome()
             DebugPageRoute.SETTINGS -> navController.navigateToSettings()
             DebugPageRoute.SETTINGS_APPEARANCE -> navController.navigateToAppearancePreferences()
@@ -291,6 +313,11 @@ class MainActivity : AppCompatActivity() {
             val pageRoute = pendingDebugPageRoute ?: return@LaunchedEffect
             navigateToDebugPage(mainNavController, pageRoute)
             pendingDebugPageRoute = null
+        }
+        LaunchedEffect(pendingDebugPlayerIntent) {
+            val playerIntent = pendingDebugPlayerIntent ?: return@LaunchedEffect
+            pendingDebugPlayerIntent = null
+            startActivity(playerIntent)
         }
         NavigationBarColorEffect(
             activity = this@MainActivity,

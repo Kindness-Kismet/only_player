@@ -4,7 +4,10 @@ import android.os.Bundle
 import dagger.hilt.EntryPoint
 import dagger.hilt.InstallIn
 import dagger.hilt.components.SingletonComponent
+import one.only.player.core.data.remote.RemoteMediaResolver
+import one.only.player.core.data.repository.FavoriteRepository
 import one.only.player.core.data.repository.MediaRepository
+import one.only.player.core.data.repository.PlaybackMarkRepository
 import one.only.player.core.data.repository.PreferencesRepository
 import one.only.player.core.data.repository.RemoteServerRepository
 import one.only.player.core.data.repository.SubtitleFontRepository
@@ -32,6 +35,7 @@ internal const val EXTRA_PASSWORD = "password"
 internal const val EXTRA_PROXY_ENABLED = "proxy_enabled"
 internal const val EXTRA_PROXY_HOST = "proxy_host"
 internal const val EXTRA_PROXY_PORT = "proxy_port"
+internal const val EXTRA_DIRECTORY_PATH = "directory_path"
 
 private const val KEY_OK = "ok"
 private const val KEY_MESSAGE = "message"
@@ -53,8 +57,22 @@ internal val CLOUD_SERVER_METHODS = setOf(
     "cloud.server.list",
 )
 
+internal val CLOUD_MEDIA_METHODS = setOf(
+    "cloud.media.list",
+    "cloud.media.open",
+)
+
+internal val FAVORITE_METHODS = setOf(
+    "favorite.add",
+    "favorite.list",
+    "favorite.delete",
+    "favorite.move",
+    "favorite.clear",
+)
+
 internal val MEDIA_METHODS = setOf(
     "media.list",
+    "media.open",
     "media.move_to_recycle_bin",
     "media.move_to_folder",
     "media.move_folder_to_folder",
@@ -97,6 +115,11 @@ internal val PLAYER_ACTION_METHODS = setOf(
     "player.screenshot",
     "player.background",
     "player.show_sleep_timer",
+    "player.show_marks",
+    "player.mark.add",
+    "player.mark.list",
+    "player.mark.seek",
+    "player.mark.delete",
     "player.show_menu",
     "player.menu_back",
     "player.toggle_customize_controls",
@@ -134,6 +157,11 @@ internal val UI_PLAYER_ACTIONS = setOf(
     PlayerDebugCommandBridge.ACTION_SCREENSHOT,
     PlayerDebugCommandBridge.ACTION_BACKGROUND,
     PlayerDebugCommandBridge.ACTION_SHOW_SLEEP_TIMER,
+    PlayerDebugCommandBridge.ACTION_SHOW_MARKS,
+    PlayerDebugCommandBridge.ACTION_MARK_ADD,
+    PlayerDebugCommandBridge.ACTION_MARK_LIST,
+    PlayerDebugCommandBridge.ACTION_MARK_SEEK,
+    PlayerDebugCommandBridge.ACTION_MARK_DELETE,
     PlayerDebugCommandBridge.ACTION_SHOW_MENU,
     PlayerDebugCommandBridge.ACTION_MENU_BACK,
     PlayerDebugCommandBridge.ACTION_TOGGLE_CUSTOMIZE_CONTROLS,
@@ -253,6 +281,12 @@ interface DebugCommandEntryPoint {
     fun remoteServerRepository(): RemoteServerRepository
 
     fun mediaRepository(): MediaRepository
+
+    fun favoriteRepository(): FavoriteRepository
+
+    fun playbackMarkRepository(): PlaybackMarkRepository
+
+    fun remoteMediaResolver(): RemoteMediaResolver
 
     fun mediaService(): MediaService
 

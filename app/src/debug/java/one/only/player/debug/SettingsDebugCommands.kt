@@ -9,6 +9,7 @@ import one.only.player.core.common.AppThemeMode
 import one.only.player.core.common.AppThemeModeManager
 import one.only.player.core.model.ApplicationPreferences
 import one.only.player.core.model.ControlButtonsPosition
+import one.only.player.core.model.ControllerAutoHidePreset
 import one.only.player.core.model.DecoderPriority
 import one.only.player.core.model.DoubleTapGesture
 import one.only.player.core.model.Font
@@ -121,8 +122,13 @@ internal suspend fun DebugCommandEntryPoint.setSetting(
             preferencesRepository().updateApplicationPreferences { it.copy(thumbnailFramePosition = position) }
             if (shouldClearCache) mediaInfoSynchronizer().clearThumbnailsCache()
         }
-        "player.controller_timeout" -> updatePlayerInt(value) { preferences, intValue ->
-            preferences.copy(controllerAutoHideTimeout = intValue.coerceIn(1, 60))
+        "player.controller_timeout" -> updateControllerAutoHideTimeout(value)
+        "player.controller_timeout_preset" -> {
+            val preset = enumValue<ControllerAutoHidePreset>(value.requiredString(EXTRA_VALUE))
+            preferencesRepository().updatePlayerPreferences { it.copy(controllerAutoHidePreset = preset) }
+        }
+        "player.dim_video_controls" -> updatePlayerBoolean(value) { preferences, isEnabled ->
+            preferences.copy(shouldDimVideoWhenControlsVisible = isEnabled)
         }
         "player.screen_orientation" -> {
             val orientation = enumValue<ScreenOrientation>(value.requiredString(EXTRA_VALUE))
@@ -307,6 +313,7 @@ internal suspend fun DebugCommandEntryPoint.toggleSetting(target: String?) {
         "player.background_play" -> togglePlayer { it.copy(shouldAutoPlayInBackground = !it.shouldAutoPlayInBackground) }
         "player.remember_brightness" -> togglePlayer { it.copy(shouldRememberPlayerBrightness = !it.shouldRememberPlayerBrightness) }
         "player.control_labels" -> togglePlayer { it.copy(shouldHidePlayerControlLabels = !it.shouldHidePlayerControlLabels) }
+        "player.dim_video_controls" -> togglePlayer { it.copy(shouldDimVideoWhenControlsVisible = !it.shouldDimVideoWhenControlsVisible) }
         "gesture.seek" -> togglePlayer { it.copy(shouldUseSeekControls = !it.shouldUseSeekControls) }
         "gesture.brightness" -> togglePlayer { it.copy(isBrightnessSwipeGestureEnabled = !it.isBrightnessSwipeGestureEnabled) }
         "gesture.volume" -> togglePlayer { it.copy(isVolumeSwipeGestureEnabled = !it.isVolumeSwipeGestureEnabled) }
@@ -412,6 +419,55 @@ private suspend fun DebugCommandEntryPoint.updatePlayerInt(
 ) {
     val value = extras.requiredInt(EXTRA_VALUE)
     preferencesRepository().updatePlayerPreferences { transform(it, value) }
+}
+
+private suspend fun DebugCommandEntryPoint.updateControllerAutoHideTimeout(extras: Bundle) {
+    val rawValue = extras.getString(EXTRA_VALUE)?.trim().orEmpty()
+    if (rawValue.isBlank()) {
+        updateCustomControllerAutoHideTimeout(extras.requiredInt(EXTRA_VALUE).toString())
+        return
+    }
+    val normalizedValue = rawValue.lowercase().replace("-", "_")
+    if (normalizedValue.startsWith("custom:") || normalizedValue.startsWith("custom_")) {
+        updateCustomControllerAutoHideTimeout(rawValue.substringAfter(':').substringAfter('_'))
+        return
+    }
+
+    val preset = when (normalizedValue) {
+        "disabled",
+        "disable",
+        "off",
+        "none",
+        -> ControllerAutoHidePreset.DISABLED
+        "15",
+        "15s",
+        "fifteen_seconds",
+        -> ControllerAutoHidePreset.FIFTEEN_SECONDS
+        "60",
+        "60s",
+        "1m",
+        "one_minute",
+        -> ControllerAutoHidePreset.ONE_MINUTE
+        "custom",
+        -> ControllerAutoHidePreset.CUSTOM
+        else -> null
+    }
+    if (preset != null) {
+        preferencesRepository().updatePlayerPreferences { it.copy(controllerAutoHidePreset = preset) }
+        return
+    }
+
+    updateCustomControllerAutoHideTimeout(rawValue)
+}
+
+private suspend fun DebugCommandEntryPoint.updateCustomControllerAutoHideTimeout(rawValue: String) {
+    val seconds = rawValue.toIntOrNull()?.coerceAtLeast(1) ?: error("Invalid custom controller timeout: $rawValue")
+    preferencesRepository().updatePlayerPreferences {
+        it.copy(
+            controllerAutoHidePreset = ControllerAutoHidePreset.CUSTOM,
+            controllerAutoHideTimeout = seconds,
+        )
+    }
 }
 
 private suspend fun DebugCommandEntryPoint.updatePlayerString(

@@ -129,6 +129,7 @@ private fun runPlayerUiAction(action: String, extras: Bundle? = null): Bundle {
         message = if (didHandle) "Handled player UI action: $action" else "Player screen is not ready for action: $action",
         command = command,
         target = action,
+        value = extras?.getString(EXTRA_VALUE),
     )
 }
 

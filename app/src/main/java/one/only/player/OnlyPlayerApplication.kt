@@ -21,6 +21,7 @@ class OnlyPlayerApplication :
 
     override fun onCreate() {
         super.onCreate()
+        AppForegroundTracker.register(this)
         AppThemeModeManager.applyPlatformToCurrent(
             context = applicationContext,
             mode = readPersistedThemeConfig(dataDir = applicationInfo.dataDir).toAppThemeMode(),

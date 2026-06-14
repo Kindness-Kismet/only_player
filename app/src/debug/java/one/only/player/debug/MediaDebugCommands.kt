@@ -24,7 +24,7 @@ internal fun Context.runMediaCommand(
     val value = extras.withTarget(target)
 
     return runCatching {
-        runBlocking { entryPoint.runMediaAction(action, value) }
+        runBlocking { entryPoint.runMediaAction(context = applicationContext, action = action, extras = value) }
     }.getOrElse {
         debugResult(
             isOk = false,
@@ -36,6 +36,7 @@ internal fun Context.runMediaCommand(
 }
 
 private suspend fun DebugCommandEntryPoint.runMediaAction(
+    context: Context,
     action: String,
     extras: Bundle,
 ): Bundle {
@@ -50,6 +51,21 @@ private suspend fun DebugCommandEntryPoint.runMediaAction(
                 command = command,
                 target = action,
                 value = videos.size.toString(),
+            )
+        }
+        "open" -> {
+            val video = repository.requireDebugVideo(extras.requiredMediaTarget())
+            context.startDebugPlayerActivity(
+                debugPlayerIntent(context) {
+                    data = video.uriString.toUri()
+                },
+            )
+            debugResult(
+                isOk = true,
+                message = "Opened media: ${video.debugSummary()}",
+                command = command,
+                target = action,
+                value = video.uriString,
             )
         }
         "move_to_folder" -> {
