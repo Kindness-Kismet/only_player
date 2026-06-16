@@ -993,6 +993,7 @@ private fun RemoteFile.parentDirectoryPath(): String = path
     .trimEnd('/')
     .substringBeforeLast("/", missingDelimiterValue = "/")
     .ifBlank { "/" }
+    .let(Uri::decode)
 
 private fun formatFileSize(bytes: Long): String {
     if (bytes < 1024) return "$bytes B"
