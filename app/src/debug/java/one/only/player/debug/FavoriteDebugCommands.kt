@@ -147,18 +147,8 @@ private suspend fun DebugCommandEntryPoint.addFavorite(extras: Bundle): Long {
 }
 
 private fun Bundle.requiredFavoriteServerId(): Long {
-    getString("server_id")?.toLongOrNull()?.let { return it }
-    getString(EXTRA_ID)?.toLongOrNull()?.let { return it }
-    getLong("server_id", 0L).takeIf { it > 0L }?.let { return it }
-    getLong(EXTRA_ID, 0L).takeIf { it > 0L }?.let { return it }
-    getInt("server_id", 0).takeIf { it > 0 }?.let { return it.toLong() }
+    optionalLong("server_id")?.takeIf { it > 0L }?.let { return it }
     return requiredLong(EXTRA_ID)
-}
-
-private fun Bundle.optionalLong(key: String): Long? {
-    if (!containsKey(key)) return null
-    getString(key)?.toLongOrNull()?.let { return it }
-    return getLong(key, 0L).takeIf { it > 0L } ?: getInt(key, 0).toLong().takeIf { it > 0L }
 }
 
 private suspend fun DebugCommandEntryPoint.requireDebugVideo(target: String): Video {

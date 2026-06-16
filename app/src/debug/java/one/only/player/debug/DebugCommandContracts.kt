@@ -231,36 +231,63 @@ internal fun Bundle.requiredBoolean(key: String): Boolean {
 
 internal fun Bundle.requiredFloat(key: String): Float {
     if (!containsKey(key)) error("Missing float extra: $key")
-    getString(key)?.let { return it.toFloatOrNull() ?: error("Invalid float extra: $key") }
-    return getFloat(key).takeIf { it != 0f } ?: getInt(key).toFloat()
+    return when (val value = rawExtra(key)) {
+        is Float -> value
+        is Double -> value.toFloat()
+        is Int -> value.toFloat()
+        is Long -> value.toFloat()
+        is String -> value.toFloatOrNull() ?: error("Invalid float extra: $key")
+        else -> error("Invalid float extra: $key")
+    }
 }
 
 internal fun Bundle.requiredInt(key: String): Int {
     if (!containsKey(key)) error("Missing int extra: $key")
-    getString(key)?.let { return it.toIntOrNull() ?: error("Invalid int extra: $key") }
-    return getInt(key)
+    return when (val value = rawExtra(key)) {
+        is Int -> value
+        is Long -> value.toInt()
+        is String -> value.toIntOrNull() ?: error("Invalid int extra: $key")
+        else -> error("Invalid int extra: $key")
+    }
 }
 
 internal fun Bundle.optionalInt(key: String): Int? {
     if (!containsKey(key)) return null
-    getString(key)?.let { return it.toIntOrNull() ?: error("Invalid int extra: $key") }
-    return getInt(key)
+    return when (val value = rawExtra(key)) {
+        is Int -> value
+        is Long -> value.toInt()
+        is String -> value.toIntOrNull() ?: error("Invalid int extra: $key")
+        else -> error("Invalid int extra: $key")
+    }
 }
 
 internal fun Bundle.requiredLong(key: String): Long {
     if (!containsKey(key)) error("Missing long extra: $key")
-    getString(key)?.let { return it.toLongOrNull() ?: error("Invalid long extra: $key") }
-    return getLong(key).takeIf { it != 0L } ?: getInt(key).toLong()
+    return optionalLong(key) ?: error("Invalid long extra: $key")
+}
+
+internal fun Bundle.optionalLong(key: String): Long? {
+    if (!containsKey(key)) return null
+    return when (val value = rawExtra(key)) {
+        is Long -> value
+        is Int -> value.toLong()
+        is String -> value.toLongOrNull() ?: error("Invalid long extra: $key")
+        else -> error("Invalid long extra: $key")
+    }
 }
 
 internal fun Bundle.requiredLongMillis(key: String): Long {
     if (!containsKey(key)) error("Missing time extra: $key")
-    getString(key)?.let { return it.parseTimeMillisOrNull() ?: error("Invalid time extra: $key") }
-    return getLong(key).takeIf { it != 0L } ?: getInt(key).toLong()
+    return when (val value = rawExtra(key)) {
+        is Long -> value
+        is Int -> value.toLong()
+        is String -> value.parseTimeMillisOrNull() ?: error("Invalid time extra: $key")
+        else -> error("Invalid time extra: $key")
+    }
 }
 
 internal fun Bundle.debugValue(): String? = when {
-    containsKey(EXTRA_VALUE) -> getString(EXTRA_VALUE) ?: getInt(EXTRA_VALUE).takeIf { it != 0 }?.toString() ?: getFloat(EXTRA_VALUE).toString()
+    containsKey(EXTRA_VALUE) -> rawExtra(EXTRA_VALUE)?.toString()
     containsKey(EXTRA_ENABLED) -> getBoolean(EXTRA_ENABLED).toString()
     else -> null
 }
@@ -269,6 +296,9 @@ internal inline fun <reified T : Enum<T>> enumValue(rawValue: String): T {
     val normalizedValue = rawValue.trim().replace('-', '_').uppercase()
     return enumValues<T>().firstOrNull { it.name == normalizedValue } ?: error("Unknown ${T::class.simpleName}: $rawValue")
 }
+
+@Suppress("DEPRECATION")
+private fun Bundle.rawExtra(key: String): Any? = get(key)
 
 private fun String.parseTimeMillisOrNull(): Long? {
     val rawValue = trim()

@@ -173,11 +173,7 @@ private suspend fun DebugCommandEntryPoint.runCloudQuickSettingsAction(
 }
 
 private fun Bundle.requiredServerId(): Long {
-    getString("server_id")?.toLongOrNull()?.let { return it }
-    getString(EXTRA_ID)?.toLongOrNull()?.let { return it }
-    getLong("server_id", 0L).takeIf { it > 0L }?.let { return it }
-    getLong(EXTRA_ID, 0L).takeIf { it > 0L }?.let { return it }
-    getInt("server_id", 0).takeIf { it > 0 }?.let { return it.toLong() }
+    optionalLong("server_id")?.takeIf { it > 0L }?.let { return it }
     return requiredLong(EXTRA_ID)
 }
 
@@ -198,6 +194,7 @@ private fun CloudQuickSettings.updated(
     "field.extension" -> copy(shouldShowExtensionField = extras.requiredBoolean(EXTRA_ENABLED))
     "field.path" -> copy(shouldShowPathField = extras.requiredBoolean(EXTRA_ENABLED))
     "field.size" -> copy(shouldShowSizeField = extras.requiredBoolean(EXTRA_ENABLED))
+    "field.thumbnail" -> copy(shouldShowThumbnailField = extras.requiredBoolean(EXTRA_ENABLED))
     "field.played_progress" -> copy(shouldShowPlayedProgress = extras.requiredBoolean(EXTRA_ENABLED))
     else -> error("Unknown cloud quick setting target: $target")
 }
@@ -242,7 +239,7 @@ private fun List<RemoteFile>.requireTargetFile(extras: Bundle): RemoteFile {
 private fun RemoteFile.debugSummary(): String = "name=$name path=$path size=$size"
 
 private fun CloudQuickSettings.debugSummary(serverId: Long): String {
-    val fields = "extension:$shouldShowExtensionField,path:$shouldShowPathField,size:$shouldShowSizeField,played:$shouldShowPlayedProgress"
+    val fields = "extension:$shouldShowExtensionField,path:$shouldShowPathField,size:$shouldShowSizeField,thumbnail:$shouldShowThumbnailField,played:$shouldShowPlayedProgress"
     return "server_id=$serverId layout=$mediaLayoutMode scale=${normalizedMediaLayoutScale()} sort=$sortBy/$sortOrder fields=$fields"
 }
 
