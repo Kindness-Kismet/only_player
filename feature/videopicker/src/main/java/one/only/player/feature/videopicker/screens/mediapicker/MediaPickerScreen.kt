@@ -11,12 +11,10 @@ import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
-import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.WindowInsets
 import androidx.compose.foundation.layout.calculateStartPadding
-import androidx.compose.foundation.layout.defaultMinSize
 import androidx.compose.foundation.layout.displayCutout
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
@@ -28,7 +26,6 @@ import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.DropdownMenu
-import androidx.compose.material3.DropdownMenuItem
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.ExperimentalMaterial3ExpressiveApi
 import androidx.compose.material3.FilledTonalIconButton
@@ -51,13 +48,10 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
-import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalLayoutDirection
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.res.stringResource
-import androidx.compose.ui.semantics.contentDescription
-import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.tooling.preview.PreviewLightDark
@@ -93,6 +87,7 @@ import one.only.player.feature.videopicker.composables.MediaView
 import one.only.player.feature.videopicker.composables.NoVideosFound
 import one.only.player.feature.videopicker.composables.QuickSettingsDialog
 import one.only.player.feature.videopicker.composables.RenameDialog
+import one.only.player.feature.videopicker.composables.SelectionMenuItem
 import one.only.player.feature.videopicker.composables.TextIconToggleButton
 import one.only.player.feature.videopicker.composables.VideoInfoDialog
 import one.only.player.feature.videopicker.navigation.MediaPickerScreenMode
@@ -461,7 +456,7 @@ internal fun MediaPickerScreen(
                                         color = MaterialTheme.colorScheme.outline.copy(alpha = 0.15f),
                                     ),
                                 ) {
-                                    MainMenuItem(
+                                    SelectionMenuItem(
                                         text = stringResource(id = R.string.open_network_stream),
                                         icon = NextIcons.Link,
                                         testTag = "item_main_menu_network_stream",
@@ -470,7 +465,7 @@ internal fun MediaPickerScreen(
                                             shouldShowUrlDialog = true
                                         },
                                     )
-                                    MainMenuItem(
+                                    SelectionMenuItem(
                                         text = stringResource(id = R.string.open_local_video),
                                         icon = NextIcons.FileOpen,
                                         testTag = "item_main_menu_local_video",
@@ -480,7 +475,7 @@ internal fun MediaPickerScreen(
                                         },
                                     )
                                     recentlyPlayedVideo?.let { video ->
-                                        MainMenuItem(
+                                        SelectionMenuItem(
                                             text = stringResource(id = R.string.recently_played),
                                             icon = NextIcons.History,
                                             testTag = "item_main_menu_recently_played",
@@ -495,7 +490,7 @@ internal fun MediaPickerScreen(
                                         thickness = 1.dp,
                                         color = MaterialTheme.colorScheme.outline.copy(alpha = 0.16f),
                                     )
-                                    MainMenuItem(
+                                    SelectionMenuItem(
                                         text = stringResource(id = R.string.favorites),
                                         icon = NextIcons.LibraryBooks,
                                         testTag = "item_main_menu_favorites",
@@ -504,7 +499,7 @@ internal fun MediaPickerScreen(
                                             onFavoritesClick()
                                         },
                                     )
-                                    MainMenuItem(
+                                    SelectionMenuItem(
                                         text = stringResource(id = R.string.cloud_servers),
                                         icon = NextIcons.Cloud,
                                         testTag = "item_main_menu_cloud",
@@ -513,7 +508,7 @@ internal fun MediaPickerScreen(
                                             onCloudClick()
                                         },
                                     )
-                                    MainMenuItem(
+                                    SelectionMenuItem(
                                         text = stringResource(id = R.string.settings),
                                         icon = NextIcons.Settings,
                                         testTag = "item_main_menu_settings",
@@ -527,7 +522,7 @@ internal fun MediaPickerScreen(
                                         thickness = 1.dp,
                                         color = MaterialTheme.colorScheme.outline.copy(alpha = 0.16f),
                                     )
-                                    MainMenuItem(
+                                    SelectionMenuItem(
                                         text = stringResource(id = R.string.exit),
                                         icon = NextIcons.Close,
                                         testTag = "item_main_menu_exit_app",
@@ -754,38 +749,6 @@ internal fun MediaPickerScreen(
     }
 }
 
-@Composable
-private fun MainMenuItem(
-    text: String,
-    icon: ImageVector,
-    testTag: String,
-    onClick: () -> Unit,
-) {
-    DropdownMenuItem(
-        text = {
-            Text(
-                text = text,
-                style = MaterialTheme.typography.bodyMedium,
-            )
-        },
-        onClick = onClick,
-        leadingIcon = {
-            Icon(
-                imageVector = icon,
-                contentDescription = null,
-                modifier = Modifier.size(18.dp),
-            )
-        },
-        modifier = Modifier
-            .defaultMinSize(minHeight = 40.dp)
-            .padding(horizontal = 8.dp, vertical = 1.dp)
-            .clip(RoundedCornerShape(6.dp))
-            .semantics { contentDescription = testTag }
-            .testTag(testTag),
-        contentPadding = PaddingValues(horizontal = 14.dp, vertical = 6.dp),
-    )
-}
-
 @OptIn(ExperimentalMaterial3ExpressiveApi::class)
 @Composable
 private fun MoveProgressButton(
@@ -986,7 +949,7 @@ private fun SelectionActionsMenu(
         ),
     ) {
         if (shouldShowRestoreAction) {
-            MainMenuItem(
+            SelectionMenuItem(
                 text = stringResource(id = R.string.restore),
                 icon = NextIcons.ArrowUpward,
                 testTag = "item_selection_restore",
@@ -994,7 +957,7 @@ private fun SelectionActionsMenu(
             )
         }
         if (shouldShowMoveAction) {
-            MainMenuItem(
+            SelectionMenuItem(
                 text = stringResource(id = R.string.move),
                 icon = NextIcons.Folder,
                 testTag = "item_selection_move",
@@ -1002,7 +965,7 @@ private fun SelectionActionsMenu(
             )
         }
         if (shouldShowFavoriteAction) {
-            MainMenuItem(
+            SelectionMenuItem(
                 text = stringResource(id = R.string.add_to_favorites),
                 icon = NextIcons.LibraryBooks,
                 testTag = "item_selection_add_favorites",
@@ -1010,7 +973,7 @@ private fun SelectionActionsMenu(
             )
         }
         if (shouldShowRenameAction) {
-            MainMenuItem(
+            SelectionMenuItem(
                 text = stringResource(id = R.string.rename),
                 icon = NextIcons.Edit,
                 testTag = "item_selection_rename",
@@ -1018,28 +981,28 @@ private fun SelectionActionsMenu(
             )
         }
         if (shouldShowInfoAction) {
-            MainMenuItem(
+            SelectionMenuItem(
                 text = stringResource(id = R.string.info),
                 icon = NextIcons.Info,
                 testTag = "item_selection_info",
                 onClick = onInfoAction,
             )
         }
-        MainMenuItem(
+        SelectionMenuItem(
             text = stringResource(id = R.string.share),
             icon = NextIcons.Share,
             testTag = "item_selection_share",
             onClick = onShareAction,
         )
         if (shouldShowExcludeAction) {
-            MainMenuItem(
+            SelectionMenuItem(
                 text = stringResource(id = R.string.exclude),
                 icon = NextIcons.FolderOff,
                 testTag = "item_selection_exclude",
                 onClick = onExcludeAction,
             )
         }
-        MainMenuItem(
+        SelectionMenuItem(
             text = stringResource(
                 id = when (deleteAction) {
                     MediaPickerDeleteAction.MoveToRecycleBin -> R.string.move_to_recycle_bin

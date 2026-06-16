@@ -32,7 +32,6 @@ import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.DropdownMenu
-import androidx.compose.material3.DropdownMenuItem
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.ExperimentalMaterial3ExpressiveApi
 import androidx.compose.material3.FilledTonalIconButton
@@ -97,6 +96,7 @@ import one.only.player.core.ui.extensions.withBottomFallback
 import one.only.player.feature.videopicker.composables.InfoChip
 import one.only.player.feature.videopicker.composables.QuickSettingsDialog
 import one.only.player.feature.videopicker.composables.QuickSettingsTarget
+import one.only.player.feature.videopicker.composables.SelectionMenuItem
 import one.only.player.feature.videopicker.composables.VideoInfoDialog
 
 @Composable
@@ -293,7 +293,6 @@ internal fun CloudBrowseScreen(
                         Box {
                             FilledTonalIconButton(
                                 onClick = { shouldShowSelectionMenu = true },
-                                enabled = selectedItemsSize == 1,
                                 modifier = Modifier.testTag("btn_cloud_selection_actions"),
                             ) {
                                 Icon(
@@ -925,14 +924,14 @@ private fun CloudSelectionActionsMenu(
             color = MaterialTheme.colorScheme.outline.copy(alpha = 0.15f),
         ),
     ) {
-        CloudSelectionMenuItem(
+        SelectionMenuItem(
             text = stringResource(id = R.string.add_to_favorites),
             icon = NextIcons.LibraryBooks,
             testTag = "item_cloud_selection_add_favorites",
             onClick = onFavoriteAction,
         )
         if (shouldShowInfoAction) {
-            CloudSelectionMenuItem(
+            SelectionMenuItem(
                 text = stringResource(id = R.string.info),
                 icon = NextIcons.Info,
                 testTag = "item_cloud_selection_info",
@@ -940,26 +939,6 @@ private fun CloudSelectionActionsMenu(
             )
         }
     }
-}
-
-@Composable
-private fun CloudSelectionMenuItem(
-    text: String,
-    icon: ImageVector,
-    testTag: String,
-    onClick: () -> Unit,
-) {
-    DropdownMenuItem(
-        text = { Text(text = text) },
-        leadingIcon = {
-            Icon(
-                imageVector = icon,
-                contentDescription = null,
-            )
-        },
-        modifier = Modifier.testTag(testTag),
-        onClick = onClick,
-    )
 }
 
 private fun resolveCloudRestoreScrollIndex(

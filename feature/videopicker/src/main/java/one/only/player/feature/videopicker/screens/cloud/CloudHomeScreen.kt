@@ -7,7 +7,6 @@ import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.WindowInsets
 import androidx.compose.foundation.layout.calculateStartPadding
-import androidx.compose.foundation.layout.defaultMinSize
 import androidx.compose.foundation.layout.displayCutout
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
@@ -53,6 +52,7 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.text.input.PasswordVisualTransformation
 import androidx.compose.ui.text.style.TextAlign
+import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.hilt.lifecycle.viewmodel.compose.hiltViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
@@ -256,15 +256,8 @@ private fun ServerListItem(
         onClick = onClick,
         isFirstItem = isFirstItem,
         isLastItem = isLastItem,
-        contentPadding = PaddingValues(
-            start = 24.dp,
-            top = 16.dp,
-            end = 16.dp,
-            bottom = 16.dp,
-        ),
-        modifier = Modifier
-            .defaultMinSize(minHeight = 96.dp)
-            .testTag("cloud_server_item_${server.id}"),
+        contentPadding = PaddingValues(8.dp),
+        modifier = Modifier.testTag("cloud_server_item_${server.id}"),
         leadingContent = {
             Icon(
                 imageVector = NextIcons.Cloud,
@@ -291,13 +284,17 @@ private fun ServerListItem(
         supportingContent = {
             Text(
                 text = "${server.protocol.name} · ${server.host}${server.port?.let { ":$it" } ?: ""}",
-                style = MaterialTheme.typography.bodyLarge,
+                maxLines = 2,
+                style = MaterialTheme.typography.bodySmall,
+                overflow = TextOverflow.Ellipsis,
             )
         },
         content = {
             Text(
                 text = server.name.ifBlank { server.host },
-                style = MaterialTheme.typography.titleLarge,
+                maxLines = 2,
+                style = MaterialTheme.typography.titleMedium,
+                overflow = TextOverflow.Ellipsis,
             )
         },
     )

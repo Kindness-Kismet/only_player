@@ -214,12 +214,12 @@ internal fun FavoritesScreen(
                         EmptyFavoritesContent(
                             modifier = Modifier
                                 .fillMaxSize()
-                                .padding(innerPadding.copy(top = 0.dp, start = 0.dp).withBottomFallback()),
+                                .padding(innerPadding.copy(top = 8.dp, start = 0.dp).withBottomFallback()),
                         )
                     } else {
                         LazyColumn(
                             modifier = Modifier.fillMaxSize(),
-                            contentPadding = innerPadding.copy(top = 0.dp, start = 0.dp).withBottomFallback(),
+                            contentPadding = innerPadding.copy(top = 8.dp, start = 0.dp).withBottomFallback(),
                             verticalArrangement = Arrangement.spacedBy(ListItemDefaults.SegmentedGap),
                         ) {
                             itemsIndexed(
@@ -332,7 +332,7 @@ private fun FavoriteListItem(
             Row {
                 IconButton(onClick = onMoveClick) {
                     Icon(
-                        imageVector = NextIcons.Folder,
+                        imageVector = NextIcons.DriveFileMove,
                         contentDescription = stringResource(R.string.move),
                     )
                 }

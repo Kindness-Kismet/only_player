@@ -3,6 +3,7 @@ package one.only.player.core.ui.designsystem
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.rounded.ArrowBack
 import androidx.compose.material.icons.automirrored.rounded.CompareArrows
+import androidx.compose.material.icons.automirrored.rounded.DriveFileMove
 import androidx.compose.material.icons.automirrored.rounded.LibraryBooks
 import androidx.compose.material.icons.automirrored.rounded.PlaylistPlay
 import androidx.compose.material.icons.automirrored.rounded.VolumeOff
@@ -111,6 +112,7 @@ object NextIcons {
     val Decoder = Icons.Rounded.DeveloperBoard
     val Delete = Icons.Rounded.Delete
     val DoubleTap = Icons.Rounded.DoubleArrow
+    val DriveFileMove = Icons.AutoMirrored.Rounded.DriveFileMove
     val Edit = Icons.Rounded.Edit
     val ExpandMore = Icons.Rounded.ExpandMore
     val Fast = Icons.Rounded.FastForward
