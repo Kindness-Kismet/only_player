@@ -10,9 +10,12 @@ import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.BoxWithConstraints
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.ExperimentalLayoutApi
+import androidx.compose.foundation.layout.FlowRow
 import androidx.compose.foundation.layout.IntrinsicSize
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.aspectRatio
 import androidx.compose.foundation.layout.calculateStartPadding
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
@@ -35,13 +38,14 @@ import androidx.compose.material3.ExperimentalMaterial3ExpressiveApi
 import androidx.compose.material3.FilledTonalIconButton
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
-import androidx.compose.material3.LocalContentColor
+import androidx.compose.material3.ListItemDefaults
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.material3.pulltorefresh.PullToRefreshBox
+import androidx.compose.material3.surfaceColorAtElevation
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
@@ -53,24 +57,34 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.luminance
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.hapticfeedback.HapticFeedbackType
+import androidx.compose.ui.layout.ContentScale
+import androidx.compose.ui.platform.LocalConfiguration
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalHapticFeedback
 import androidx.compose.ui.platform.LocalLayoutDirection
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.res.stringResource
+import androidx.compose.ui.res.vectorResource
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.unit.min
 import androidx.hilt.lifecycle.viewmodel.compose.hiltViewModel
 import androidx.lifecycle.compose.LifecycleResumeEffect
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
+import coil3.compose.AsyncImage
+import coil3.request.ImageRequest
+import coil3.request.crossfade
+import java.security.MessageDigest
 import kotlin.math.abs
 import one.only.player.core.data.models.RemotePlaybackInfo
 import one.only.player.core.model.CloudQuickSettings
 import one.only.player.core.model.MediaLayoutMode
 import one.only.player.core.model.RemoteFile
+import one.only.player.core.model.RemoteServer
 import one.only.player.core.ui.R
 import one.only.player.core.ui.components.ListSectionTitle
 import one.only.player.core.ui.components.NextDialog
@@ -78,6 +92,7 @@ import one.only.player.core.ui.components.NextSegmentedListItem
 import one.only.player.core.ui.components.NextTopAppBar
 import one.only.player.core.ui.designsystem.NextIcons
 import one.only.player.core.ui.extensions.copy
+import one.only.player.core.ui.extensions.plus
 import one.only.player.core.ui.extensions.withBottomFallback
 import one.only.player.feature.videopicker.composables.InfoChip
 import one.only.player.feature.videopicker.composables.QuickSettingsDialog
@@ -126,11 +141,13 @@ fun CloudBrowseRoute(
                 } ?: return@CloudBrowseScreen
             viewModel.onEvent(CloudBrowseEvent.LoadFileInfo(file, documentUri))
         },
-        onFavoriteCurrentDirectory = {
-            viewModel.onEvent(CloudBrowseEvent.AddCurrentDirectoryFavorite)
-        },
-        onFavoriteFile = { file ->
-            viewModel.onEvent(CloudBrowseEvent.AddFavorite(file))
+        buildFileThumbnailUri = { file ->
+            val server = uiState.server ?: return@CloudBrowseScreen null
+            viewModel.buildFileDocumentId(file)
+                ?.let { documentId ->
+                    DocumentsContract.buildDocumentUri("${context.packageName}.documents", documentId)
+                        .withRemoteThumbnailCacheIdentity(server)
+                }
         },
     )
 }
@@ -144,8 +161,7 @@ internal fun CloudBrowseScreen(
     onDirectoryClick: (String) -> Unit = {},
     onFileClick: (RemoteFile) -> Unit = {},
     onFileInfoClick: (RemoteFile) -> Unit = {},
-    onFavoriteCurrentDirectory: () -> Unit = {},
-    onFavoriteFile: (RemoteFile) -> Unit = {},
+    buildFileThumbnailUri: (RemoteFile) -> Uri? = { null },
 ) {
     val serverName = uiState.server?.name?.takeIf { it.isNotBlank() }
         ?: uiState.server?.host
@@ -290,13 +306,6 @@ internal fun CloudBrowseScreen(
                             CloudSelectionActionsMenu(
                                 expanded = shouldShowSelectionMenu,
                                 onDismissRequest = { shouldShowSelectionMenu = false },
-                                onFavoriteAction = {
-                                    shouldShowSelectionMenu = false
-                                    val selectedPath = selectedFilePaths.firstOrNull() ?: return@CloudSelectionActionsMenu
-                                    val file = uiState.files.firstOrNull { it.path == selectedPath } ?: return@CloudSelectionActionsMenu
-                                    onFavoriteFile(file)
-                                    clearSelection()
-                                },
                                 onInfoAction = {
                                     shouldShowSelectionMenu = false
                                     val selectedPath = selectedFilePaths.firstOrNull() ?: return@CloudSelectionActionsMenu
@@ -314,15 +323,6 @@ internal fun CloudBrowseScreen(
                             Icon(
                                 imageVector = NextIcons.DashBoard,
                                 contentDescription = stringResource(R.string.cloud_quick_settings),
-                            )
-                        }
-                        IconButton(
-                            onClick = onFavoriteCurrentDirectory,
-                            modifier = Modifier.testTag("btn_cloud_favorite_current_directory"),
-                        ) {
-                            Icon(
-                                imageVector = NextIcons.LibraryBooks,
-                                contentDescription = stringResource(R.string.add_to_favorites),
                             )
                         }
                     }
@@ -395,6 +395,7 @@ internal fun CloudBrowseScreen(
                                 contentPadding = contentPadding,
                                 onDirectoryClick = onDirectoryClick,
                                 onFileClick = onFileClick,
+                                buildFileThumbnailUri = buildFileThumbnailUri,
                                 onToggleFileSelection = { file ->
                                     haptic.performHapticFeedback(HapticFeedbackType.VirtualKey)
                                     toggleFileSelection(file)
@@ -448,6 +449,7 @@ private fun CloudRemoteMediaView(
     contentPadding: PaddingValues,
     onDirectoryClick: (String) -> Unit,
     onFileClick: (RemoteFile) -> Unit,
+    buildFileThumbnailUri: (RemoteFile) -> Uri?,
     onToggleFileSelection: (RemoteFile) -> Unit,
     onLongClickFile: (RemoteFile) -> Unit,
 ) {
@@ -480,7 +482,7 @@ private fun CloudRemoteMediaView(
             modifier = Modifier.fillMaxSize(),
             state = lazyGridState,
             columns = GridCells.Fixed(spans),
-            contentPadding = contentPadding.copy(start = contentHorizontalPadding, end = contentHorizontalPadding),
+            contentPadding = contentPadding + PaddingValues(horizontal = contentHorizontalPadding, vertical = 8.dp),
             verticalArrangement = Arrangement.spacedBy(itemSpacing),
             horizontalArrangement = Arrangement.spacedBy(itemSpacing),
         ) {
@@ -497,6 +499,7 @@ private fun CloudRemoteMediaView(
                 RemoteFileItem(
                     file = file,
                     settings = settings,
+                    thumbnailUri = null,
                     shouldMarkLastPlayedMedia = shouldMarkLastPlayedMedia,
                     isRecentlyPlayed = false,
                     hasBeenPlayed = false,
@@ -528,6 +531,7 @@ private fun CloudRemoteMediaView(
                 RemoteFileItem(
                     file = file,
                     settings = settings,
+                    thumbnailUri = if (settings.shouldShowThumbnailField) buildFileThumbnailUri(file) else null,
                     shouldMarkLastPlayedMedia = shouldMarkLastPlayedMedia,
                     isRecentlyPlayed = isRecentlyPlayed,
                     hasBeenPlayed = hasBeenPlayed,
@@ -602,6 +606,7 @@ private fun CloudBrowseMessageState(
 private fun RemoteFileItem(
     file: RemoteFile,
     settings: CloudQuickSettings,
+    thumbnailUri: Uri?,
     shouldMarkLastPlayedMedia: Boolean,
     isFirstItem: Boolean,
     isLastItem: Boolean,
@@ -615,6 +620,7 @@ private fun RemoteFileItem(
         MediaLayoutMode.LIST -> RemoteFileListItem(
             file = file,
             settings = settings,
+            thumbnailUri = thumbnailUri,
             shouldMarkLastPlayedMedia = shouldMarkLastPlayedMedia,
             isFirstItem = isFirstItem,
             isLastItem = isLastItem,
@@ -627,6 +633,7 @@ private fun RemoteFileItem(
         MediaLayoutMode.GRID -> RemoteFileGridItem(
             file = file,
             settings = settings,
+            thumbnailUri = thumbnailUri,
             shouldMarkLastPlayedMedia = shouldMarkLastPlayedMedia,
             isFirstItem = isFirstItem,
             isLastItem = isLastItem,
@@ -639,11 +646,12 @@ private fun RemoteFileItem(
     }
 }
 
-@OptIn(ExperimentalMaterial3ExpressiveApi::class)
+@OptIn(ExperimentalLayoutApi::class, ExperimentalMaterial3ExpressiveApi::class)
 @Composable
 private fun RemoteFileListItem(
     file: RemoteFile,
     settings: CloudQuickSettings,
+    thumbnailUri: Uri?,
     shouldMarkLastPlayedMedia: Boolean,
     isFirstItem: Boolean,
     isLastItem: Boolean,
@@ -656,18 +664,46 @@ private fun RemoteFileListItem(
     val shouldHighlight = isRecentlyPlayed && shouldMarkLastPlayedMedia
     val highlightColor = MaterialTheme.colorScheme.primary
     NextSegmentedListItem(
-        onClick = onClick,
-        onLongClick = onLongClick,
+        modifier = Modifier.testTag("remote_file_${file.name}"),
         isSelected = isSelected,
         isFirstItem = isFirstItem,
         isLastItem = isLastItem,
-        modifier = Modifier.testTag("remote_file_${file.name}"),
+        contentPadding = PaddingValues(8.dp),
+        colors = ListItemDefaults.segmentedColors(
+            contentColor = if (shouldHighlight) {
+                highlightColor
+            } else {
+                ListItemDefaults.segmentedColors().contentColor
+            },
+            supportingContentColor = if (shouldHighlight) {
+                highlightColor
+            } else {
+                ListItemDefaults.colors().supportingContentColor
+            },
+            selectedContainerColor = selectedRemoteMediaContainerColor(),
+        ),
+        onClick = onClick,
+        onLongClick = onLongClick,
         leadingContent = {
-            Icon(
-                imageVector = if (file.isDirectory) NextIcons.Folder else NextIcons.Video,
-                contentDescription = null,
-                modifier = Modifier.size(24.dp),
-                tint = if (isRecentlyPlayed) highlightColor else LocalContentColor.current,
+            if (file.isDirectory) {
+                RemoteFolderThumbnail(
+                    modifier = Modifier.padding(horizontal = 8.dp),
+                )
+            } else {
+                RemoteThumbnailView(
+                    file = file,
+                    thumbnailUri = thumbnailUri,
+                    shouldShowThumbnail = settings.shouldShowThumbnailField,
+                    modifier = Modifier.width(min(150.dp, LocalConfiguration.current.screenWidthDp.dp * 0.35f)),
+                )
+            }
+        },
+        content = {
+            Text(
+                text = file.displayName(settings),
+                maxLines = 2,
+                style = MaterialTheme.typography.titleMedium,
+                overflow = TextOverflow.Ellipsis,
             )
         },
         supportingContent = {
@@ -680,12 +716,12 @@ private fun RemoteFileListItem(
                         maxLines = 2,
                         style = MaterialTheme.typography.bodySmall,
                         overflow = TextOverflow.Ellipsis,
-                        color = if (shouldHighlight) highlightColor else Color.Unspecified,
                     )
                 }
-                Row(
-                    horizontalArrangement = Arrangement.spacedBy(8.dp),
-                    verticalAlignment = Alignment.CenterVertically,
+                FlowRow(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.spacedBy(5.dp),
+                    verticalArrangement = Arrangement.spacedBy(5.dp),
                 ) {
                     if (!file.isDirectory && settings.shouldShowSizeField && file.size > 0) {
                         InfoChip(text = formatFileSize(file.size))
@@ -700,12 +736,6 @@ private fun RemoteFileListItem(
                 }
             }
         },
-        content = {
-            Text(
-                text = file.displayName(settings),
-                color = if (shouldHighlight) highlightColor else Color.Unspecified,
-            )
-        },
     )
 }
 
@@ -714,6 +744,7 @@ private fun RemoteFileListItem(
 private fun RemoteFileGridItem(
     file: RemoteFile,
     settings: CloudQuickSettings,
+    thumbnailUri: Uri?,
     shouldMarkLastPlayedMedia: Boolean,
     isFirstItem: Boolean,
     isLastItem: Boolean,
@@ -726,60 +757,55 @@ private fun RemoteFileGridItem(
     val shouldHighlight = isRecentlyPlayed && shouldMarkLastPlayedMedia
     val highlightColor = MaterialTheme.colorScheme.primary
     NextSegmentedListItem(
-        onClick = onClick,
-        onLongClick = onLongClick,
-        isSelected = isSelected,
-        isFirstItem = isFirstItem,
-        isLastItem = isLastItem,
         modifier = Modifier
             .width(IntrinsicSize.Min)
             .testTag("remote_file_${file.name}"),
+        isSelected = isSelected,
+        isFirstItem = isFirstItem,
+        isLastItem = isLastItem,
+        contentPadding = PaddingValues(8.dp),
+        colors = ListItemDefaults.segmentedColors(
+            contentColor = if (shouldHighlight) {
+                highlightColor
+            } else {
+                ListItemDefaults.segmentedColors().contentColor
+            },
+            supportingContentColor = if (shouldHighlight) {
+                highlightColor
+            } else {
+                ListItemDefaults.colors().supportingContentColor
+            },
+            selectedContainerColor = selectedRemoteMediaContainerColor(),
+        ),
+        onClick = onClick,
+        onLongClick = onLongClick,
         content = {
             Column(
-                modifier = Modifier.fillMaxWidth(),
                 horizontalAlignment = Alignment.CenterHorizontally,
                 verticalArrangement = Arrangement.spacedBy(8.dp),
             ) {
-                Icon(
-                    imageVector = if (file.isDirectory) NextIcons.Folder else NextIcons.Video,
-                    contentDescription = null,
-                    modifier = Modifier.size(56.dp),
-                    tint = if (shouldHighlight) highlightColor else MaterialTheme.colorScheme.surfaceContainerHigh,
-                )
+                if (file.isDirectory) {
+                    RemoteFolderThumbnail()
+                } else {
+                    RemoteThumbnailView(
+                        file = file,
+                        thumbnailUri = thumbnailUri,
+                        shouldShowThumbnail = settings.shouldShowThumbnailField,
+                    )
+                }
                 Text(
                     text = file.displayName(settings),
                     maxLines = 2,
                     style = MaterialTheme.typography.titleMedium,
                     overflow = TextOverflow.Ellipsis,
                     textAlign = TextAlign.Center,
-                    color = if (shouldHighlight) highlightColor else Color.Unspecified,
                 )
-                if (settings.shouldShowPathField) {
-                    Text(
-                        text = file.parentDirectoryPath(),
-                        maxLines = 1,
-                        style = MaterialTheme.typography.bodySmall,
-                        overflow = TextOverflow.Ellipsis,
-                        textAlign = TextAlign.Center,
-                        color = if (shouldHighlight) highlightColor else Color.Unspecified,
+                if (!file.isDirectory && settings.shouldShowPlayedProgress && hasBeenPlayed) {
+                    Box(
+                        modifier = Modifier
+                            .size(6.dp)
+                            .background(highlightColor, CircleShape),
                     )
-                }
-                if (!file.isDirectory && (settings.shouldShowSizeField || settings.shouldShowPlayedProgress && hasBeenPlayed)) {
-                    Row(
-                        horizontalArrangement = Arrangement.spacedBy(6.dp),
-                        verticalAlignment = Alignment.CenterVertically,
-                    ) {
-                        if (settings.shouldShowSizeField && file.size > 0) {
-                            InfoChip(text = formatFileSize(file.size))
-                        }
-                        if (settings.shouldShowPlayedProgress && hasBeenPlayed) {
-                            Box(
-                                modifier = Modifier
-                                    .size(6.dp)
-                                    .background(highlightColor, CircleShape),
-                            )
-                        }
-                    }
                 }
             }
         },
@@ -787,10 +813,92 @@ private fun RemoteFileGridItem(
 }
 
 @Composable
+private fun RemoteThumbnailView(
+    file: RemoteFile,
+    thumbnailUri: Uri?,
+    shouldShowThumbnail: Boolean,
+    modifier: Modifier = Modifier,
+) {
+    val context = LocalContext.current
+    val cacheKey = thumbnailUri?.let(file::remoteThumbnailCacheKey)
+    Box(
+        modifier = modifier
+            .clip(MaterialTheme.shapes.small)
+            .background(MaterialTheme.colorScheme.surfaceColorAtElevation(1.dp))
+            .testTag("remote_thumbnail_${thumbnailUri?.scheme ?: "none"}")
+            .aspectRatio(16f / 10f),
+    ) {
+        Icon(
+            imageVector = NextIcons.Video,
+            contentDescription = null,
+            tint = MaterialTheme.colorScheme.surfaceColorAtElevation(100.dp),
+            modifier = Modifier
+                .align(Alignment.Center)
+                .fillMaxSize(0.5f),
+        )
+        if (shouldShowThumbnail && thumbnailUri != null) {
+            AsyncImage(
+                model = ImageRequest.Builder(context)
+                    .data(thumbnailUri)
+                    .memoryCacheKey(cacheKey)
+                    .diskCacheKey(cacheKey)
+                    .crossfade(true)
+                    .build(),
+                contentDescription = null,
+                alignment = Alignment.Center,
+                contentScale = ContentScale.Crop,
+                modifier = Modifier.fillMaxSize(),
+            )
+        }
+    }
+}
+
+private fun RemoteFile.remoteThumbnailCacheKey(thumbnailUri: Uri): String = "$thumbnailUri#remoteSize=$size#remoteType=$contentType"
+
+private fun Uri.withRemoteThumbnailCacheIdentity(server: RemoteServer): Uri = buildUpon()
+    .appendQueryParameter("remoteKey", server.remoteThumbnailCacheIdentity())
+    .build()
+
+private fun RemoteServer.remoteThumbnailCacheIdentity(): String {
+    val value = listOf(
+        protocol.name,
+        host,
+        port?.toString().orEmpty(),
+        path,
+        username,
+        isProxyEnabled.toString(),
+        proxyHost,
+        proxyPort?.toString().orEmpty(),
+    ).joinToString(separator = "\u0000")
+    val bytes = MessageDigest.getInstance("SHA-256").digest(value.toByteArray(Charsets.UTF_8))
+    return bytes.joinToString(separator = "") { byte -> "%02x".format(byte) }
+}
+
+@Composable
+private fun RemoteFolderThumbnail(
+    modifier: Modifier = Modifier,
+) {
+    Icon(
+        imageVector = ImageVector.vectorResource(id = R.drawable.folder_thumb),
+        contentDescription = null,
+        tint = MaterialTheme.colorScheme.surfaceContainerHigh,
+        modifier = modifier
+            .width(min(90.dp, LocalConfiguration.current.screenWidthDp.dp * 0.3f))
+            .aspectRatio(20 / 17f),
+    )
+}
+
+@Composable
+private fun selectedRemoteMediaContainerColor(): Color = if (MaterialTheme.colorScheme.background.luminance() < 0.5f) {
+    Color(0xFFFFFFFF).copy(alpha = 0.20f)
+} else {
+    Color(0xFF212121).copy(alpha = 0.30f)
+}
+
+@Composable
 private fun CloudSelectionActionsMenu(
     expanded: Boolean,
     onDismissRequest: () -> Unit,
-    onFavoriteAction: () -> Unit,
     onInfoAction: () -> Unit,
 ) {
     DropdownMenu(
@@ -806,12 +914,6 @@ private fun CloudSelectionActionsMenu(
             color = MaterialTheme.colorScheme.outline.copy(alpha = 0.15f),
         ),
     ) {
-        CloudSelectionMenuItem(
-            text = stringResource(id = R.string.add_to_favorites),
-            icon = NextIcons.LibraryBooks,
-            testTag = "item_cloud_selection_add_favorites",
-            onClick = onFavoriteAction,
-        )
         CloudSelectionMenuItem(
             text = stringResource(id = R.string.info),
             icon = NextIcons.Info,

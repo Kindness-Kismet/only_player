@@ -97,6 +97,7 @@ data class CloudQuickSettings(
     val shouldShowExtensionField: Boolean = false,
     val shouldShowPathField: Boolean = true,
     val shouldShowSizeField: Boolean = true,
+    val shouldShowThumbnailField: Boolean = true,
     val shouldShowPlayedProgress: Boolean = true,
 ) {
     fun normalizedMediaLayoutScale(): Float = mediaLayoutScale

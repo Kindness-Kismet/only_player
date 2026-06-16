@@ -3,9 +3,11 @@ package one.only.player.feature.videopicker.screens.cloud
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.WindowInsets
 import androidx.compose.foundation.layout.calculateStartPadding
+import androidx.compose.foundation.layout.defaultMinSize
 import androidx.compose.foundation.layout.displayCutout
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
@@ -138,7 +140,7 @@ internal fun CloudHomeScreen(
                 color = MaterialTheme.colorScheme.background,
                 shape = RoundedCornerShape(topStart = 24.dp, topEnd = 24.dp),
             ) {
-                val contentPadding = innerPadding.copy(top = 0.dp, start = 0.dp).withBottomFallback()
+                val contentPadding = innerPadding.copy(top = 8.dp, start = 0.dp).withBottomFallback()
                 if (uiState.servers.isEmpty()) {
                     EmptyCloudHomeContent(contentPadding = contentPadding)
                 } else {
@@ -156,7 +158,6 @@ internal fun CloudHomeScreen(
                                 isFirstItem = index == 0,
                                 isLastItem = index == uiState.servers.lastIndex,
                                 onClick = { onServerClick(server.id) },
-                                onFavoriteClick = { onEvent(CloudHomeEvent.AddServerRootFavorite(server)) },
                                 onEditClick = { editingServer = server },
                                 onDeleteClick = { deletingServer = server },
                             )
@@ -248,7 +249,6 @@ private fun ServerListItem(
     isFirstItem: Boolean,
     isLastItem: Boolean,
     onClick: () -> Unit,
-    onFavoriteClick: () -> Unit,
     onEditClick: () -> Unit,
     onDeleteClick: () -> Unit,
 ) {
@@ -256,7 +256,15 @@ private fun ServerListItem(
         onClick = onClick,
         isFirstItem = isFirstItem,
         isLastItem = isLastItem,
-        modifier = Modifier.testTag("cloud_server_item_${server.id}"),
+        contentPadding = PaddingValues(
+            start = 24.dp,
+            top = 16.dp,
+            end = 16.dp,
+            bottom = 16.dp,
+        ),
+        modifier = Modifier
+            .defaultMinSize(minHeight = 96.dp)
+            .testTag("cloud_server_item_${server.id}"),
         leadingContent = {
             Icon(
                 imageVector = NextIcons.Cloud,
@@ -264,19 +272,8 @@ private fun ServerListItem(
                 modifier = Modifier.size(24.dp),
             )
         },
-        supportingContent = {
-            Text(
-                text = "${server.protocol.name} · ${server.host}${server.port?.let { ":$it" } ?: ""}",
-            )
-        },
         trailingContent = {
             Row {
-                IconButton(onClick = onFavoriteClick) {
-                    Icon(
-                        imageVector = NextIcons.LibraryBooks,
-                        contentDescription = stringResource(R.string.add_to_favorites),
-                    )
-                }
                 IconButton(onClick = onEditClick) {
                     Icon(
                         imageVector = NextIcons.Edit,
@@ -291,8 +288,17 @@ private fun ServerListItem(
                 }
             }
         },
+        supportingContent = {
+            Text(
+                text = "${server.protocol.name} · ${server.host}${server.port?.let { ":$it" } ?: ""}",
+                style = MaterialTheme.typography.bodyLarge,
+            )
+        },
         content = {
-            Text(text = server.name.ifBlank { server.host })
+            Text(
+                text = server.name.ifBlank { server.host },
+                style = MaterialTheme.typography.titleLarge,
+            )
         },
     )
 }

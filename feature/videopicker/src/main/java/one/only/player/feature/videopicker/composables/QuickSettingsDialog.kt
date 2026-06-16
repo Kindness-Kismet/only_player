@@ -355,6 +355,18 @@ private fun QuickSettingsFields(
                     )
                 },
             )
+            FieldChip(
+                label = stringResource(id = R.string.thumbnail),
+                isSelected = cloudSettings.shouldShowThumbnailField,
+                onClick = {
+                    onPreferencesChange(
+                        preferences.withCloudQuickSettings(
+                            serverId = cloudServerId,
+                            settings = cloudSettings.copy(shouldShowThumbnailField = !cloudSettings.shouldShowThumbnailField),
+                        ),
+                    )
+                },
+            )
         }
     }
 }

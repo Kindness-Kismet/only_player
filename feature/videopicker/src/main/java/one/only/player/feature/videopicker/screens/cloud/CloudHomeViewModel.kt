@@ -10,17 +10,14 @@ import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.launch
-import one.only.player.core.data.repository.FavoriteRepository
 import one.only.player.core.data.repository.PreferencesRepository
 import one.only.player.core.data.repository.RemoteServerRepository
-import one.only.player.core.data.repository.toFavoriteRootItem
 import one.only.player.core.model.RemoteServer
 import one.only.player.core.model.ServerProtocol
 
 @HiltViewModel
 class CloudHomeViewModel @Inject constructor(
     private val repository: RemoteServerRepository,
-    private val favoriteRepository: FavoriteRepository,
     private val preferencesRepository: PreferencesRepository,
 ) : ViewModel() {
 
@@ -36,7 +33,6 @@ class CloudHomeViewModel @Inject constructor(
         when (event) {
             is CloudHomeEvent.SaveServer -> saveServer(event.server)
             is CloudHomeEvent.DeleteServer -> deleteServer(event.id)
-            is CloudHomeEvent.AddServerRootFavorite -> addServerRootFavorite(event.server)
         }
     }
 
@@ -56,12 +52,6 @@ class CloudHomeViewModel @Inject constructor(
             preferencesRepository.updateApplicationPreferences { it.withoutCloudQuickSettings(id) }
         }
     }
-
-    private fun addServerRootFavorite(server: RemoteServer) {
-        viewModelScope.launch {
-            favoriteRepository.upsert(server.toFavoriteRootItem())
-        }
-    }
 }
 
 @Stable
@@ -72,7 +62,6 @@ data class CloudHomeUiState(
 sealed interface CloudHomeEvent {
     data class SaveServer(val server: RemoteServer) : CloudHomeEvent
     data class DeleteServer(val id: Long) : CloudHomeEvent
-    data class AddServerRootFavorite(val server: RemoteServer) : CloudHomeEvent
 }
 
 // 新建服务器的默认模板

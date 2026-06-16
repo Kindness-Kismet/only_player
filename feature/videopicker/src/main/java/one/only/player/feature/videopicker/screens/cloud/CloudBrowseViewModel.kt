@@ -19,15 +19,11 @@ import one.only.player.core.common.NextDispatchers
 import one.only.player.core.common.Utils
 import one.only.player.core.data.models.RemotePlaybackInfo
 import one.only.player.core.data.remote.RemoteMediaResolver
-import one.only.player.core.data.repository.FavoriteRepository
 import one.only.player.core.data.repository.MediaRepository
 import one.only.player.core.data.repository.PreferencesRepository
 import one.only.player.core.data.repository.RemoteServerRepository
 import one.only.player.core.data.repository.buildRemoteFolderPlaybackAnchorKey
 import one.only.player.core.data.repository.buildRemotePlaybackStateKey
-import one.only.player.core.data.repository.toFavoriteRootItem
-import one.only.player.core.data.repository.toRemoteDirectoryFavoriteItem
-import one.only.player.core.data.repository.toRemoteFavoriteItem
 import one.only.player.core.media.info.RemoteMediaInfo
 import one.only.player.core.media.info.RemoteMediaInfoReader
 import one.only.player.core.model.ApplicationPreferences
@@ -42,7 +38,6 @@ class CloudBrowseViewModel @Inject constructor(
     savedStateHandle: SavedStateHandle,
     private val repository: RemoteServerRepository,
     private val mediaRepository: MediaRepository,
-    private val favoriteRepository: FavoriteRepository,
     private val preferencesRepository: PreferencesRepository,
     private val remoteMediaResolver: RemoteMediaResolver,
     private val remoteMediaInfoReader: RemoteMediaInfoReader,
@@ -80,8 +75,6 @@ class CloudBrowseViewModel @Inject constructor(
             CloudBrowseEvent.DismissFileInfo -> dismissFileInfo()
             CloudBrowseEvent.Retry -> loadCurrentDirectory(forceRefresh = true)
             CloudBrowseEvent.RefreshPlaybackStates -> loadPlaybackStates()
-            CloudBrowseEvent.AddCurrentDirectoryFavorite -> addCurrentDirectoryFavorite()
-            is CloudBrowseEvent.AddFavorite -> addFavorite(event.file)
             is CloudBrowseEvent.UpdateQuickSettings -> updateQuickSettings(event.preferences)
         }
     }
@@ -293,30 +286,6 @@ class CloudBrowseViewModel @Inject constructor(
         }
     }
 
-    private fun addCurrentDirectoryFavorite() {
-        val server = _uiState.value.server ?: return
-        val currentPath = _uiState.value.currentPath
-        viewModelScope.launch {
-            if (remoteMediaResolver.isAtServerRoot(currentPath, server)) {
-                favoriteRepository.upsert(server.toFavoriteRootItem())
-            } else {
-                favoriteRepository.upsert(
-                    server.toRemoteDirectoryFavoriteItem(
-                        path = currentPath,
-                        title = currentPath.trimEnd('/').substringAfterLast('/').ifBlank { currentPath },
-                    ),
-                )
-            }
-        }
-    }
-
-    private fun addFavorite(file: RemoteFile) {
-        val server = _uiState.value.server ?: return
-        viewModelScope.launch {
-            favoriteRepository.upsert(file.toRemoteFavoriteItem(server))
-        }
-    }
-
     private fun updateQuickSettings(preferences: ApplicationPreferences) {
         val currentServerId = _uiState.value.server?.id ?: return
         val settings = preferences.cloudQuickSettings(currentServerId)
@@ -423,7 +392,5 @@ sealed interface CloudBrowseEvent {
     data object DismissFileInfo : CloudBrowseEvent
     data object Retry : CloudBrowseEvent
     data object RefreshPlaybackStates : CloudBrowseEvent
-    data object AddCurrentDirectoryFavorite : CloudBrowseEvent
-    data class AddFavorite(val file: RemoteFile) : CloudBrowseEvent
     data class UpdateQuickSettings(val preferences: ApplicationPreferences) : CloudBrowseEvent
 }
