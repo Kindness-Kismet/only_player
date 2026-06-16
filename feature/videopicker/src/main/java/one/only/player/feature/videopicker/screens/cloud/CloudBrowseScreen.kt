@@ -293,7 +293,6 @@ internal fun CloudBrowseScreen(
                         Box {
                             FilledTonalIconButton(
                                 onClick = { shouldShowSelectionMenu = true },
-                                enabled = selectedItemsSize == 1,
                                 modifier = Modifier.testTag("btn_cloud_selection_actions"),
                             ) {
                                 Icon(
