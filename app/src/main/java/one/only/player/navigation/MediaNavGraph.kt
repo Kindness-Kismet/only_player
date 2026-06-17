@@ -74,10 +74,11 @@ fun NavGraphBuilder.mediaNavGraph(
 
         searchScreen(
             onNavigateUp = navController::navigateUp,
-            onPlayVideo = { video, playerPreferences ->
+            onPlayVideo = { video, playerPreferences, playlist ->
                 context.startPlayerActivity(
                     uri = video.uriString.toUri(),
                     launchOrientation = video.resolveLaunchOrientation(playerPreferences),
+                    playlist = playlist.map { it.uriString.toUri() },
                 )
             },
             onFolderClick = { folderPath ->
@@ -118,6 +119,7 @@ fun NavGraphBuilder.mediaNavGraph(
 private fun Context.startPlayerActivity(
     uri: Uri,
     launchOrientation: Int? = null,
+    playlist: List<Uri> = emptyList(),
 ) {
     val activityClass = launchOrientation.playerActivityClass()
     val intent = Intent(this, activityClass).apply {
@@ -125,6 +127,9 @@ private fun Context.startPlayerActivity(
         data = uri
         launchOrientation?.takeIf { activityClass == PlayerActivity::class.java }?.let {
             putExtra(PlayerActivity.EXTRA_LAUNCH_ORIENTATION, it)
+        }
+        if (playlist.isNotEmpty()) {
+            putParcelableArrayListExtra("video_list", ArrayList(playlist))
         }
     }
     startActivity(intent)

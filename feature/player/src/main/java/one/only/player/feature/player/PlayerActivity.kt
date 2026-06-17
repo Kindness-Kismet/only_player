@@ -467,8 +467,9 @@ open class PlayerActivity : AppCompatActivity() {
 
         val isReturningFromBackground = !isIntentNew && mediaController?.currentMediaItem != null
         val isNewUriTheCurrentMediaItem = mediaController?.currentMediaItem?.localConfiguration?.uri.toString() == uri.toString()
+        val hasExplicitPlaylist = playerApi.getPlaylist().isNotEmpty()
 
-        if (isReturningFromBackground || isNewUriTheCurrentMediaItem) {
+        if (isReturningFromBackground || (isNewUriTheCurrentMediaItem && !hasExplicitPlaylist)) {
             Logger.info(
                 TAG,
                 "startPlayback reused current item returning=$isReturningFromBackground same=$isNewUriTheCurrentMediaItem uri=${uri.toPrivateLogSummary()}",

@@ -2,6 +2,7 @@ package one.only.player.feature.videopicker.screens.search
 
 import android.net.Uri
 import androidx.compose.runtime.Stable
+import androidx.core.net.toUri
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import dagger.hilt.android.lifecycle.HiltViewModel
@@ -15,16 +16,25 @@ import kotlinx.coroutines.flow.flatMapLatest
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
 import one.only.player.core.common.hasManageExternalStorageAccess
+import one.only.player.core.data.repository.FavoriteRepository
+import one.only.player.core.data.repository.MediaRepository
 import one.only.player.core.data.repository.PreferencesRepository
 import one.only.player.core.data.repository.SearchHistoryRepository
+import one.only.player.core.data.repository.toFavoriteItem
 import one.only.player.core.domain.GetPopularFoldersUseCase
 import one.only.player.core.domain.SearchMediaUseCase
 import one.only.player.core.domain.SearchResults
+import one.only.player.core.domain.asRootFolder
+import one.only.player.core.media.services.MediaService
 import one.only.player.core.media.sync.MediaInfoSynchronizer
+import one.only.player.core.media.sync.MediaSynchronizer
 import one.only.player.core.model.ApplicationPreferences
 import one.only.player.core.model.Folder
 import one.only.player.core.model.MediaViewMode
 import one.only.player.core.model.PlayerPreferences
+import one.only.player.core.model.Video
+import one.only.player.feature.videopicker.screens.mediapicker.MediaPickerMoveSelection
+import one.only.player.feature.videopicker.screens.mediapicker.MediaPickerMoveSelectionStore
 import one.only.player.feature.videopicker.screens.mediapicker.MediaPickerSnapshotCache
 
 @HiltViewModel
@@ -33,8 +43,13 @@ class SearchViewModel @Inject constructor(
     private val getPopularFoldersUseCase: GetPopularFoldersUseCase,
     private val searchHistoryRepository: SearchHistoryRepository,
     private val preferencesRepository: PreferencesRepository,
+    private val mediaService: MediaService,
+    private val mediaRepository: MediaRepository,
+    private val favoriteRepository: FavoriteRepository,
     private val mediaInfoSynchronizer: MediaInfoSynchronizer,
+    private val mediaSynchronizer: MediaSynchronizer,
     private val snapshotCache: MediaPickerSnapshotCache,
+    private val moveSelectionStore: MediaPickerMoveSelectionStore,
 ) : ViewModel() {
 
     private val uiStateInternal = MutableStateFlow(SearchUiState())
@@ -110,6 +125,12 @@ class SearchViewModel @Inject constructor(
             is SearchUiEvent.OnClearHistory -> clearHistory()
             is SearchUiEvent.AddToSync -> addToMediaInfoSynchronizer(event.uri)
             is SearchUiEvent.CacheFolderSnapshot -> cacheFolderSnapshot(event.folder)
+            is SearchUiEvent.StartMoveSelection -> startMoveSelection(event.videoUris, event.folderPaths)
+            is SearchUiEvent.AddFavorites -> addFavorites(event.videos, event.folders)
+            is SearchUiEvent.ShareVideos -> shareVideos(event.uris)
+            is SearchUiEvent.MoveVideosToRecycleBin -> moveVideosToRecycleBin(event.uris)
+            is SearchUiEvent.PermanentlyDeleteVideos -> permanentlyDeleteVideos(event.uris)
+            is SearchUiEvent.RenameVideo -> renameVideo(event.uri, event.to)
         }
     }
 
@@ -145,6 +166,65 @@ class SearchViewModel @Inject constructor(
 
     private fun addToMediaInfoSynchronizer(uri: Uri) {
         mediaInfoSynchronizer.sync(uri)
+    }
+
+    private fun startMoveSelection(
+        videoUris: List<String>,
+        folderPaths: List<String>,
+    ) {
+        val rootFolder = uiStateInternal.value.searchResults.asRootFolder()
+        moveSelectionStore.set(
+            MediaPickerMoveSelection(
+                videoUris = videoUris,
+                videoParentPaths = rootFolder.allMediaList
+                    .filter { video -> video.uriString in videoUris }
+                    .map(Video::parentPath),
+                folderPaths = folderPaths,
+                folderParentPaths = rootFolder.folderList
+                    .filter { folder -> folder.path in folderPaths }
+                    .mapNotNull(Folder::parentPath),
+            ),
+        )
+    }
+
+    private fun addFavorites(
+        videos: List<Video>,
+        folders: List<Folder>,
+    ) {
+        viewModelScope.launch {
+            folders.forEach { folder -> favoriteRepository.upsert(folder.toFavoriteItem()) }
+            videos.forEach { video -> favoriteRepository.upsert(video.toFavoriteItem()) }
+        }
+    }
+
+    private fun shareVideos(uris: List<String>) {
+        viewModelScope.launch {
+            mediaService.shareMedia(uris.map { it.toUri() })
+        }
+    }
+
+    private fun moveVideosToRecycleBin(uris: List<String>) {
+        viewModelScope.launch {
+            mediaRepository.moveVideosToRecycleBin(uris)
+        }
+    }
+
+    private fun permanentlyDeleteVideos(uris: List<String>) {
+        viewModelScope.launch {
+            val isDeletionSuccessful = mediaService.deleteMedia(uris.map { it.toUri() })
+            if (isDeletionSuccessful) {
+                mediaSynchronizer.refresh()
+            }
+        }
+    }
+
+    private fun renameVideo(
+        uri: Uri,
+        to: String,
+    ) {
+        viewModelScope.launch {
+            mediaService.renameMedia(uri, to)
+        }
     }
 
     private fun cacheFolderSnapshot(folder: Folder) {
@@ -183,4 +263,16 @@ sealed interface SearchUiEvent {
     data object OnClearHistory : SearchUiEvent
     data class AddToSync(val uri: Uri) : SearchUiEvent
     data class CacheFolderSnapshot(val folder: Folder) : SearchUiEvent
+    data class StartMoveSelection(
+        val videoUris: List<String>,
+        val folderPaths: List<String>,
+    ) : SearchUiEvent
+    data class AddFavorites(
+        val videos: List<Video>,
+        val folders: List<Folder>,
+    ) : SearchUiEvent
+    data class ShareVideos(val uris: List<String>) : SearchUiEvent
+    data class MoveVideosToRecycleBin(val uris: List<String>) : SearchUiEvent
+    data class PermanentlyDeleteVideos(val uris: List<String>) : SearchUiEvent
+    data class RenameVideo(val uri: Uri, val to: String) : SearchUiEvent
 }
