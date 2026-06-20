@@ -13,6 +13,7 @@ import androidx.compose.ui.input.pointer.PointerEventPass
 import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.input.pointer.positionChangeIgnoreConsumed
 import androidx.compose.ui.platform.testTag
+import kotlin.time.Duration
 import one.only.player.feature.player.extensions.detectCustomHorizontalDragGestures
 import one.only.player.feature.player.extensions.detectCustomTransformGestures
 import one.only.player.feature.player.extensions.detectCustomVerticalDragGestures
@@ -102,12 +103,21 @@ fun PlayerGestures(
                     if (controlsVisibilityState.isControlsLocked) return@pointerInput
                     if (pictureInPictureState.isInPictureInPictureMode) return@pointerInput
 
+                    var shouldRestoreControlsAutoHideAfterSeek = false
+                    fun restoreControlsAutoHideAfterSeek() {
+                        if (!shouldRestoreControlsAutoHideAfterSeek) return
+                        controlsVisibilityState.showControls()
+                        shouldRestoreControlsAutoHideAfterSeek = false
+                    }
+
                     detectCustomHorizontalDragGestures(
                         onDragStart = {
                             if (tapGestureState.isLongPressGestureCaptured) return@detectCustomHorizontalDragGestures
+                            val wasControlsVisible = controlsVisibilityState.isControlsVisible
                             seekGestureState.onDragStart(it)
-                            if (seekGestureState.isSeeking) {
-                                controlsVisibilityState.hideControls()
+                            shouldRestoreControlsAutoHideAfterSeek = wasControlsVisible && seekGestureState.isSeeking
+                            if (shouldRestoreControlsAutoHideAfterSeek) {
+                                controlsVisibilityState.showControls(duration = Duration.INFINITE)
                             }
                         },
                         onHorizontalDrag = { change, dragAmount ->
@@ -120,10 +130,12 @@ fun PlayerGestures(
                         onDragCancel = {
                             if (tapGestureState.isLongPressGestureCaptured) return@detectCustomHorizontalDragGestures
                             seekGestureState.onDragEnd()
+                            restoreControlsAutoHideAfterSeek()
                         },
                         onDragEnd = {
                             if (tapGestureState.isLongPressGestureCaptured) return@detectCustomHorizontalDragGestures
                             seekGestureState.onDragEnd()
+                            restoreControlsAutoHideAfterSeek()
                         },
                     )
                 }
