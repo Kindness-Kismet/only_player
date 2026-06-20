@@ -116,6 +116,7 @@ data class PlayerPreferences(
         const val MIN_VIDEO_GAMMA = 0.1f
         const val MAX_VIDEO_GAMMA = 3f
         const val DEFAULT_VIDEO_SHARPENING = 0f
+        const val DEFAULT_ACTIVE_VIDEO_SHARPENING = 0.5f
         const val MAX_VIDEO_SHARPENING = 1f
         const val MIN_LONG_PRESS_CONTROLS_SPEED = 0.2f
         const val MAX_LONG_PRESS_CONTROLS_SPEED = 4.0f
@@ -169,6 +170,34 @@ fun PlayerPreferences.withVideoFiltersFrom(preferences: PlayerPreferences): Play
     isVideoSharpeningFilterEnabled = preferences.isVideoSharpeningFilterEnabled,
     videoSharpening = preferences.videoSharpening,
 )
+
+fun PlayerPreferences.withVideoFilterAdjustment(
+    transform: (PlayerPreferences) -> PlayerPreferences,
+): PlayerPreferences {
+    if (!shouldApplyVideoFilters) return this
+    return transform(this)
+}
+
+fun PlayerPreferences.withVideoSharpeningFilterEnabled(isEnabled: Boolean): PlayerPreferences {
+    if (!shouldApplyVideoFilters) return this
+    return copy(
+        isVideoSharpeningFilterEnabled = isEnabled,
+        videoSharpening = if (isEnabled && videoSharpening == PlayerPreferences.DEFAULT_VIDEO_SHARPENING) {
+            PlayerPreferences.DEFAULT_ACTIVE_VIDEO_SHARPENING
+        } else {
+            videoSharpening
+        },
+    )
+}
+
+fun PlayerPreferences.withVideoSharpening(value: Float): PlayerPreferences {
+    if (!shouldApplyVideoFilters) return this
+    val normalizedValue = value.coerceIn(
+        minimumValue = PlayerPreferences.DEFAULT_VIDEO_SHARPENING,
+        maximumValue = PlayerPreferences.MAX_VIDEO_SHARPENING,
+    )
+    return copy(videoSharpening = normalizedValue)
+}
 
 fun PlayerPreferences.controllerAutoHideTimeoutSecondsOrNull(): Int? = when (controllerAutoHidePreset) {
     ControllerAutoHidePreset.DISABLED -> null

@@ -22,6 +22,9 @@ import one.only.player.core.model.SubtitleColor
 import one.only.player.core.model.SubtitleEdgeStyle
 import one.only.player.core.model.ThemeConfig
 import one.only.player.core.model.ThumbnailGenerationStrategy
+import one.only.player.core.model.withVideoFilterAdjustment
+import one.only.player.core.model.withVideoSharpening
+import one.only.player.core.model.withVideoSharpeningFilterEnabled
 
 internal fun Context.runSettingsCommand(
     method: String,
@@ -208,29 +211,56 @@ internal suspend fun DebugCommandEntryPoint.setSetting(
             preferencesRepository().updatePlayerPreferences { it.copy(decoderPriority = priority) }
         }
         "decoder.video_filters" -> updatePlayerBoolean(value) { preferences, isEnabled -> preferences.copy(shouldApplyVideoFilters = isEnabled) }
-        "decoder.brightness_enabled" -> updatePlayerBoolean(value) { preferences, isEnabled -> preferences.copy(isVideoBrightnessFilterEnabled = isEnabled) }
+        "decoder.brightness_enabled" -> updatePlayerBoolean(value) { preferences, isEnabled ->
+            preferences.withVideoFilterAdjustment { it.copy(isVideoBrightnessFilterEnabled = isEnabled) }
+        }
         "decoder.brightness" -> updatePlayerFloat(value) { preferences, floatValue ->
-            preferences.copy(videoBrightness = floatValue.coerceIn(PlayerPreferences.MIN_VIDEO_BRIGHTNESS, PlayerPreferences.MAX_VIDEO_BRIGHTNESS))
+            preferences.withVideoFilterAdjustment {
+                it.copy(videoBrightness = floatValue.coerceIn(PlayerPreferences.MIN_VIDEO_BRIGHTNESS, PlayerPreferences.MAX_VIDEO_BRIGHTNESS))
+            }
         }
-        "decoder.contrast_enabled" -> updatePlayerBoolean(value) { preferences, isEnabled -> preferences.copy(isVideoContrastFilterEnabled = isEnabled) }
+        "decoder.contrast_enabled" -> updatePlayerBoolean(value) { preferences, isEnabled ->
+            preferences.withVideoFilterAdjustment { it.copy(isVideoContrastFilterEnabled = isEnabled) }
+        }
         "decoder.contrast" -> updatePlayerFloat(value) { preferences, floatValue ->
-            preferences.copy(videoContrast = floatValue.coerceIn(PlayerPreferences.MIN_VIDEO_CONTRAST, PlayerPreferences.MAX_VIDEO_CONTRAST))
+            preferences.withVideoFilterAdjustment {
+                it.copy(videoContrast = floatValue.coerceIn(PlayerPreferences.MIN_VIDEO_CONTRAST, PlayerPreferences.MAX_VIDEO_CONTRAST))
+            }
         }
-        "decoder.saturation_enabled" -> updatePlayerBoolean(value) { preferences, isEnabled -> preferences.copy(isVideoSaturationFilterEnabled = isEnabled) }
+        "decoder.saturation_enabled" -> updatePlayerBoolean(value) { preferences, isEnabled ->
+            preferences.withVideoFilterAdjustment { it.copy(isVideoSaturationFilterEnabled = isEnabled) }
+        }
         "decoder.saturation" -> updatePlayerFloat(value) { preferences, floatValue ->
-            preferences.copy(videoSaturation = floatValue.coerceIn(PlayerPreferences.MIN_VIDEO_SATURATION, PlayerPreferences.MAX_VIDEO_SATURATION))
+            preferences.withVideoFilterAdjustment {
+                it.copy(videoSaturation = floatValue.coerceIn(PlayerPreferences.MIN_VIDEO_SATURATION, PlayerPreferences.MAX_VIDEO_SATURATION))
+            }
         }
-        "decoder.hue_enabled" -> updatePlayerBoolean(value) { preferences, isEnabled -> preferences.copy(isVideoHueFilterEnabled = isEnabled) }
+        "decoder.hue_enabled" -> updatePlayerBoolean(value) { preferences, isEnabled ->
+            preferences.withVideoFilterAdjustment { it.copy(isVideoHueFilterEnabled = isEnabled) }
+        }
         "decoder.hue" -> updatePlayerFloat(value) { preferences, floatValue ->
-            preferences.copy(videoHue = floatValue.coerceIn(PlayerPreferences.MIN_VIDEO_HUE, PlayerPreferences.MAX_VIDEO_HUE))
+            preferences.withVideoFilterAdjustment {
+                it.copy(videoHue = floatValue.coerceIn(PlayerPreferences.MIN_VIDEO_HUE, PlayerPreferences.MAX_VIDEO_HUE))
+            }
         }
-        "decoder.gamma_enabled" -> updatePlayerBoolean(value) { preferences, isEnabled -> preferences.copy(isVideoGammaFilterEnabled = isEnabled) }
+        "decoder.gamma_enabled" -> updatePlayerBoolean(value) { preferences, isEnabled ->
+            preferences.withVideoFilterAdjustment { it.copy(isVideoGammaFilterEnabled = isEnabled) }
+        }
         "decoder.gamma" -> updatePlayerFloat(value) { preferences, floatValue ->
-            preferences.copy(videoGamma = floatValue.coerceIn(PlayerPreferences.MIN_VIDEO_GAMMA, PlayerPreferences.MAX_VIDEO_GAMMA))
+            preferences.withVideoFilterAdjustment {
+                it.copy(videoGamma = floatValue.coerceIn(PlayerPreferences.MIN_VIDEO_GAMMA, PlayerPreferences.MAX_VIDEO_GAMMA))
+            }
         }
-        "decoder.sharpening_enabled" -> updatePlayerBoolean(value) { preferences, isEnabled -> preferences.copy(isVideoSharpeningFilterEnabled = isEnabled) }
+        "decoder.sharpening_enabled" -> updatePlayerBoolean(value) { preferences, isEnabled ->
+            preferences.withVideoSharpeningFilterEnabled(isEnabled)
+        }
         "decoder.sharpening" -> updatePlayerFloat(value) { preferences, floatValue ->
-            preferences.copy(videoSharpening = floatValue.coerceIn(PlayerPreferences.DEFAULT_VIDEO_SHARPENING, PlayerPreferences.MAX_VIDEO_SHARPENING))
+            preferences.withVideoSharpening(
+                floatValue.coerceIn(
+                    PlayerPreferences.DEFAULT_VIDEO_SHARPENING,
+                    PlayerPreferences.MAX_VIDEO_SHARPENING,
+                ),
+            )
         }
         "audio.language" -> updatePlayerString(value) { preferences, stringValue -> preferences.copy(preferredAudioLanguage = stringValue) }
         "audio.require_focus" -> updatePlayerBoolean(value) { preferences, isEnabled -> preferences.copy(shouldRequireAudioFocus = isEnabled) }
@@ -323,12 +353,24 @@ internal suspend fun DebugCommandEntryPoint.toggleSetting(target: String?) {
         "gesture.zoom" -> togglePlayer { it.copy(shouldUseZoomControls = !it.shouldUseZoomControls) }
         "gesture.pan" -> togglePlayer { it.copy(isPanGestureEnabled = !it.isPanGestureEnabled && it.shouldUseZoomControls) }
         "decoder.video_filters" -> togglePlayer { it.copy(shouldApplyVideoFilters = !it.shouldApplyVideoFilters) }
-        "decoder.brightness_enabled" -> togglePlayer { it.copy(isVideoBrightnessFilterEnabled = !it.isVideoBrightnessFilterEnabled) }
-        "decoder.contrast_enabled" -> togglePlayer { it.copy(isVideoContrastFilterEnabled = !it.isVideoContrastFilterEnabled) }
-        "decoder.saturation_enabled" -> togglePlayer { it.copy(isVideoSaturationFilterEnabled = !it.isVideoSaturationFilterEnabled) }
-        "decoder.hue_enabled" -> togglePlayer { it.copy(isVideoHueFilterEnabled = !it.isVideoHueFilterEnabled) }
-        "decoder.gamma_enabled" -> togglePlayer { it.copy(isVideoGammaFilterEnabled = !it.isVideoGammaFilterEnabled) }
-        "decoder.sharpening_enabled" -> togglePlayer { it.copy(isVideoSharpeningFilterEnabled = !it.isVideoSharpeningFilterEnabled) }
+        "decoder.brightness_enabled" -> togglePlayer {
+            it.withVideoFilterAdjustment { preferences -> preferences.copy(isVideoBrightnessFilterEnabled = !preferences.isVideoBrightnessFilterEnabled) }
+        }
+        "decoder.contrast_enabled" -> togglePlayer {
+            it.withVideoFilterAdjustment { preferences -> preferences.copy(isVideoContrastFilterEnabled = !preferences.isVideoContrastFilterEnabled) }
+        }
+        "decoder.saturation_enabled" -> togglePlayer {
+            it.withVideoFilterAdjustment { preferences -> preferences.copy(isVideoSaturationFilterEnabled = !preferences.isVideoSaturationFilterEnabled) }
+        }
+        "decoder.hue_enabled" -> togglePlayer {
+            it.withVideoFilterAdjustment { preferences -> preferences.copy(isVideoHueFilterEnabled = !preferences.isVideoHueFilterEnabled) }
+        }
+        "decoder.gamma_enabled" -> togglePlayer {
+            it.withVideoFilterAdjustment { preferences -> preferences.copy(isVideoGammaFilterEnabled = !preferences.isVideoGammaFilterEnabled) }
+        }
+        "decoder.sharpening_enabled" -> togglePlayer {
+            it.withVideoSharpeningFilterEnabled(!it.isVideoSharpeningFilterEnabled)
+        }
         "audio.require_focus" -> togglePlayer { it.copy(shouldRequireAudioFocus = !it.shouldRequireAudioFocus) }
         "audio.pause_on_headset_disconnect" -> togglePlayer { it.copy(shouldPauseOnHeadsetDisconnect = !it.shouldPauseOnHeadsetDisconnect) }
         "audio.system_volume_panel" -> togglePlayer { it.copy(shouldShowSystemVolumePanel = !it.shouldShowSystemVolumePanel) }

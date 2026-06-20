@@ -36,7 +36,9 @@ import one.only.player.core.model.PlayerPreferences
 import one.only.player.core.model.Video
 import one.only.player.core.model.VideoContentScale
 import one.only.player.core.model.withSubtitleStyleFrom
+import one.only.player.core.model.withVideoFilterAdjustment
 import one.only.player.core.model.withVideoFiltersFrom
+import one.only.player.core.model.withVideoSharpening
 import one.only.player.feature.player.extensions.remoteFilePath
 import one.only.player.feature.player.extensions.remoteProtocol
 import one.only.player.feature.player.extensions.remoteServerId
@@ -176,8 +178,11 @@ class PlayerViewModel @Inject constructor(
 
     fun updateVideoFilters(preferences: PlayerPreferences) {
         val normalizedPreferences = preferences.normalizedVideoFilters()
-        updateVideoFilter("confirmed=$normalizedPreferences") {
-            it.withVideoFiltersFrom(normalizedPreferences)
+        Logger.debug(TAG, "Update video filter from player: confirmed=$normalizedPreferences")
+        viewModelScope.launch {
+            preferencesRepository.updatePlayerPreferences {
+                it.withVideoFiltersFrom(normalizedPreferences)
+            }
         }
     }
 
@@ -203,7 +208,7 @@ class PlayerViewModel @Inject constructor(
 
     fun updateVideoSharpening(value: Float) {
         val normalizedValue = normalizeVideoSharpening(value)
-        updateVideoFilter("sharpening=$normalizedValue") { it.copy(videoSharpening = normalizedValue) }
+        updateVideoFilter("sharpening=$normalizedValue") { it.withVideoSharpening(normalizedValue) }
     }
 
     private fun PlayerPreferences.normalizedVideoFilters(): PlayerPreferences = copy(
@@ -221,7 +226,9 @@ class PlayerViewModel @Inject constructor(
     ) {
         Logger.debug(TAG, "Update video filter from player: $debugValue")
         viewModelScope.launch {
-            preferencesRepository.updatePlayerPreferences(transform)
+            preferencesRepository.updatePlayerPreferences { preferences ->
+                preferences.withVideoFilterAdjustment(transform)
+            }
         }
     }
 
