@@ -1094,14 +1094,16 @@ internal fun MediaPlayerScreen(
                                             if (isCustomizingControls) {
                                                 toggleControlVisibility(PlayerControl.LOCK)
                                             } else {
-                                                openOverlayPanel(OverlayView.CONTROL_LOCK)
+                                                controlsVisibilityState.showControls()
+                                                controlsVisibilityState.lockControls()
                                             }
                                         },
+                                        isMuted = volumeState.isMuted,
                                         onMuteClick = {
                                             if (isCustomizingControls) {
                                                 toggleControlVisibility(PlayerControl.MUTE)
                                             } else {
-                                                openOverlayPanel(OverlayView.MUTE)
+                                                volumeState.toggleMute()
                                             }
                                         },
                                         onPlaybackMarksClick = {
@@ -1134,9 +1136,10 @@ internal fun MediaPlayerScreen(
                                             if (isCustomizingControls) {
                                                 toggleControlVisibility(PlayerControl.AMBIENCE_MODE)
                                             } else {
-                                                openOverlayPanel(OverlayView.AMBIENCE_MODE)
+                                                toggleAmbienceMode()
                                             }
                                         },
+                                        isAmbienceModeEnabled = isAmbienceModeEnabled,
                                         onVideoFiltersClick = {
                                             if (isCustomizingControls) {
                                                 toggleControlVisibility(PlayerControl.VIDEO_FILTERS)
@@ -1339,14 +1342,16 @@ internal fun MediaPlayerScreen(
                                             if (isCustomizingControls) {
                                                 toggleControlVisibility(PlayerControl.LOCK)
                                             } else {
-                                                openOverlayPanel(OverlayView.CONTROL_LOCK)
+                                                controlsVisibilityState.showControls()
+                                                controlsVisibilityState.lockControls()
                                             }
                                         },
+                                        isMuted = volumeState.isMuted,
                                         onMuteClick = {
                                             if (isCustomizingControls) {
                                                 toggleControlVisibility(PlayerControl.MUTE)
                                             } else {
-                                                openOverlayPanel(OverlayView.MUTE)
+                                                volumeState.toggleMute()
                                             }
                                         },
                                         onPlaybackMarksClick = {
@@ -1379,9 +1384,10 @@ internal fun MediaPlayerScreen(
                                             if (isCustomizingControls) {
                                                 toggleControlVisibility(PlayerControl.AMBIENCE_MODE)
                                             } else {
-                                                openOverlayPanel(OverlayView.AMBIENCE_MODE)
+                                                toggleAmbienceMode()
                                             }
                                         },
+                                        isAmbienceModeEnabled = isAmbienceModeEnabled,
                                         onVideoFiltersClick = {
                                             if (isCustomizingControls) {
                                                 toggleControlVisibility(PlayerControl.VIDEO_FILTERS)
@@ -1428,12 +1434,14 @@ internal fun MediaPlayerScreen(
                                 onAudioClick = { },
                                 onSubtitleClick = { },
                                 onLockControlsClick = { },
+                                isMuted = volumeState.isMuted,
                                 onMuteClick = { },
                                 onPlaybackMarksClick = { },
                                 onVideoContentScaleClick = { },
                                 onVideoContentScaleLongClick = { },
                                 onDecoderClick = { },
                                 onAmbienceModeClick = { },
+                                isAmbienceModeEnabled = isAmbienceModeEnabled,
                                 onVideoFiltersClick = { },
                                 onPictureInPictureClick = { },
                                 onRotateClick = { },
