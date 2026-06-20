@@ -110,34 +110,46 @@ fun PlayerGestures(
                         shouldRestoreControlsAutoHideAfterSeek = false
                     }
 
-                    detectCustomHorizontalDragGestures(
-                        onDragStart = {
-                            if (tapGestureState.isLongPressGestureCaptured) return@detectCustomHorizontalDragGestures
-                            val wasControlsVisible = controlsVisibilityState.isControlsVisible
-                            seekGestureState.onDragStart(it)
-                            shouldRestoreControlsAutoHideAfterSeek = wasControlsVisible && seekGestureState.isSeeking
-                            if (shouldRestoreControlsAutoHideAfterSeek) {
-                                controlsVisibilityState.showControls(duration = Duration.INFINITE)
-                            }
-                        },
-                        onHorizontalDrag = { change, dragAmount ->
-                            if (tapGestureState.isLongPressGestureCaptured) {
-                                change.consume()
-                                return@detectCustomHorizontalDragGestures
-                            }
-                            seekGestureState.onDrag(change, dragAmount)
-                        },
-                        onDragCancel = {
-                            if (tapGestureState.isLongPressGestureCaptured) return@detectCustomHorizontalDragGestures
-                            seekGestureState.onDragEnd()
-                            restoreControlsAutoHideAfterSeek()
-                        },
-                        onDragEnd = {
-                            if (tapGestureState.isLongPressGestureCaptured) return@detectCustomHorizontalDragGestures
-                            seekGestureState.onDragEnd()
-                            restoreControlsAutoHideAfterSeek()
-                        },
-                    )
+                    try {
+                        detectCustomHorizontalDragGestures(
+                            onDragStart = {
+                                if (tapGestureState.isLongPressGestureCaptured) return@detectCustomHorizontalDragGestures
+                                val wasControlsVisible = controlsVisibilityState.isControlsVisible
+                                seekGestureState.onDragStart(it)
+                                shouldRestoreControlsAutoHideAfterSeek = wasControlsVisible && seekGestureState.isSeeking
+                                if (shouldRestoreControlsAutoHideAfterSeek) {
+                                    controlsVisibilityState.showControls(duration = Duration.INFINITE)
+                                }
+                            },
+                            onHorizontalDrag = { change, dragAmount ->
+                                if (tapGestureState.isLongPressGestureCaptured) {
+                                    change.consume()
+                                    return@detectCustomHorizontalDragGestures
+                                }
+                                seekGestureState.onDrag(change, dragAmount)
+                            },
+                            onDragCancel = {
+                                try {
+                                    if (!tapGestureState.isLongPressGestureCaptured) {
+                                        seekGestureState.onDragEnd()
+                                    }
+                                } finally {
+                                    restoreControlsAutoHideAfterSeek()
+                                }
+                            },
+                            onDragEnd = {
+                                try {
+                                    if (!tapGestureState.isLongPressGestureCaptured) {
+                                        seekGestureState.onDragEnd()
+                                    }
+                                } finally {
+                                    restoreControlsAutoHideAfterSeek()
+                                }
+                            },
+                        )
+                    } finally {
+                        restoreControlsAutoHideAfterSeek()
+                    }
                 }
                 .pointerInput(
                     isEnabled,
