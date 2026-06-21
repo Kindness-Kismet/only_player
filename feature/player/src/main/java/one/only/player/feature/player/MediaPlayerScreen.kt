@@ -22,6 +22,7 @@ import android.widget.Toast
 import androidx.activity.compose.BackHandler
 import androidx.annotation.OptIn
 import androidx.compose.animation.AnimatedVisibility
+import androidx.compose.animation.Crossfade
 import androidx.compose.animation.core.animateFloatAsState
 import androidx.compose.animation.core.tween
 import androidx.compose.animation.fadeIn
@@ -178,6 +179,7 @@ private const val AMBIENCE_FRAME_CAPTURE_PAUSED_INTERVAL_MS = 1_500L
 private const val AMBIENCE_FRAME_CAPTURE_BUFFERING_RETRY_MS = 250L
 private const val AMBIENCE_FRAME_CAPTURE_SEEK_HOLD_MS = 900L
 private const val AMBIENCE_FRAME_CAPTURE_SEEK_DELTA_MS = 2_000L
+private const val AMBIENCE_FRAME_CROSSFADE_MS = 600
 private const val AMBIENCE_FRAME_NEAR_BLACK_AVERAGE_LUMA = 6f
 private const val AMBIENCE_FRAME_NEAR_BLACK_MAX_LUMA = 18f
 private const val AMBIENCE_VISIBLE_ALPHA_THRESHOLD = 16
@@ -1995,31 +1997,36 @@ private fun AmbienceBackground(
         }
     }
 
-    val currentFrameImage = frameImage
-    if (currentFrameImage != null) {
-        Image(
-            bitmap = currentFrameImage,
-            contentDescription = null,
-            contentScale = ContentScale.Crop,
-            modifier = modifier
-                .fillMaxSize()
-                .blur(48.dp),
-            alpha = 0.9f,
-        )
-    } else {
-        AsyncImage(
-            model = ImageRequest.Builder(context)
-                .data(model)
-                .build(),
-            contentDescription = null,
-            contentScale = ContentScale.Crop,
-            placeholder = painterResource(R.drawable.artwork_default),
-            error = painterResource(R.drawable.artwork_default),
-            modifier = modifier
-                .fillMaxSize()
-                .blur(48.dp),
-            alpha = 0.9f,
-        )
+    Crossfade(
+        targetState = frameImage,
+        animationSpec = tween(durationMillis = AMBIENCE_FRAME_CROSSFADE_MS),
+        label = "AmbienceFrameCrossfade",
+    ) { currentFrameImage ->
+        if (currentFrameImage != null) {
+            Image(
+                bitmap = currentFrameImage,
+                contentDescription = null,
+                contentScale = ContentScale.Crop,
+                modifier = modifier
+                    .fillMaxSize()
+                    .blur(48.dp),
+                alpha = 0.9f,
+            )
+        } else {
+            AsyncImage(
+                model = ImageRequest.Builder(context)
+                    .data(model)
+                    .build(),
+                contentDescription = null,
+                contentScale = ContentScale.Crop,
+                placeholder = painterResource(R.drawable.artwork_default),
+                error = painterResource(R.drawable.artwork_default),
+                modifier = modifier
+                    .fillMaxSize()
+                    .blur(48.dp),
+                alpha = 0.9f,
+            )
+        }
     }
     Box(
         modifier = modifier
