@@ -93,6 +93,16 @@ fun Player.availableDurationMs(): Long {
         ?: C.TIME_UNSET
 }
 
+fun Player.isCurrentMediaItemLast(): Boolean = mediaItemCount > 0 && currentMediaItemIndex == mediaItemCount - 1
+
+fun Player.isAtEndOfCurrentMediaItem(toleranceMs: Long = 500L): Boolean {
+    val durationMs = availableDurationMs()
+    if (durationMs == C.TIME_UNSET) return playbackState == Player.STATE_ENDED
+
+    val endThresholdMs = if (durationMs > toleranceMs) durationMs - toleranceMs else durationMs
+    return currentPosition >= endThresholdMs
+}
+
 fun Player.canSeekCurrentMediaItem(): Boolean {
     if (availableDurationMs() == C.TIME_UNSET) return false
 

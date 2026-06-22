@@ -25,6 +25,7 @@ fun BoxScope.VideoContentScaleSelectorView(
     modifier: Modifier = Modifier,
     shouldShow: Boolean,
     videoContentScale: VideoContentScale,
+    isCustomZoomActive: Boolean = false,
     onVideoContentScaleChanged: (VideoContentScale) -> Unit,
     onShowVideoFilters: (() -> Unit)?,
     onDismiss: () -> Unit,
@@ -36,6 +37,7 @@ fun BoxScope.VideoContentScaleSelectorView(
     ) {
         VideoContentScaleSelectorContent(
             videoContentScale = videoContentScale,
+            isCustomZoomActive = isCustomZoomActive,
             onVideoContentScaleChanged = onVideoContentScaleChanged,
             onShowVideoFilters = onShowVideoFilters,
             onDismiss = onDismiss,
@@ -46,6 +48,7 @@ fun BoxScope.VideoContentScaleSelectorView(
 @Composable
 fun VideoContentScaleSelectorContent(
     videoContentScale: VideoContentScale,
+    isCustomZoomActive: Boolean = false,
     onVideoContentScaleChanged: (VideoContentScale) -> Unit,
     onShowVideoFilters: (() -> Unit)?,
     onDismiss: () -> Unit,
@@ -71,8 +74,9 @@ fun VideoContentScaleSelectorContent(
         Column(modifier = Modifier.selectableGroup()) {
             VideoContentScale.entries.forEach { contentScale ->
                 RadioButtonRow(
-                    isSelected = contentScale == videoContentScale,
+                    isSelected = !isCustomZoomActive && contentScale == videoContentScale,
                     text = stringResource(contentScale.nameRes()),
+                    testTag = "btn_video_scale_${contentScale.name.lowercase()}",
                     onClick = {
                         onVideoContentScaleChanged(contentScale)
                         onDismiss()

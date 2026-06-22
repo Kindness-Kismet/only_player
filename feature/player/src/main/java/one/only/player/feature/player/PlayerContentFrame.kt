@@ -87,14 +87,15 @@ fun PlayerContentFrame(
     var lastLoggedSurfaceLayout by remember { mutableStateOf("") }
     val surfaceType = if (shouldUseTextureView) SURFACE_TYPE_TEXTURE_VIEW else SURFACE_TYPE_SURFACE_VIEW
 
-    // Media3 1.10.1 的 videoSizeDp 名带 Dp 但实际存视频原始 px；ASS wrapper 不触发 onVideoSizeChanged，回退 metadata
-    val videoSizePx = presentationState.videoSizeDp ?: run {
+    // Media3 1.10.1 的 videoSizeDp 名带 Dp 但实际存视频 px
+    val metadataVideoSizePx = run {
         val w = videoZoomAndContentScaleState.metadataVideoWidth.toFloat()
         val h = videoZoomAndContentScaleState.metadataVideoHeight.toFloat()
         if (w <= 0f || h <= 0f) return@run null
         val rotation = videoZoomAndContentScaleState.metadataVideoRotation
         if (rotation == 90 || rotation == 270) Size(h, w) else Size(w, h)
     }
+    val sourceVideoSizePx = presentationState.videoSizeDp ?: metadataVideoSizePx
 
     key(surfaceRefreshKey, surfaceType) {
         BoxWithConstraints(
@@ -103,8 +104,12 @@ fun PlayerContentFrame(
         ) {
             val containerWidth = constraints.maxWidth.toFloat().coerceAtLeast(1f)
             val containerHeight = constraints.maxHeight.toFloat().coerceAtLeast(1f)
+            val videoSizePx = sourceVideoSizePx
+            val contentVideoSizePx = videoSizePx
             val videoWidth = videoSizePx?.width ?: containerWidth
             val videoHeight = (videoSizePx?.height ?: containerHeight).coerceAtLeast(1f)
+            val contentVideoWidth = contentVideoSizePx?.width ?: videoWidth
+            val contentVideoHeight = (contentVideoSizePx?.height ?: videoHeight).coerceAtLeast(1f)
             val fillX = containerWidth / videoWidth
             val fillY = containerHeight / videoHeight
 
@@ -117,6 +122,8 @@ fun PlayerContentFrame(
             }
             val surfaceWidthDp = with(density) { videoWidth.toDp() }
             val surfaceHeightDp = with(density) { videoHeight.toDp() }
+            val contentSurfaceWidthDp = with(density) { contentVideoWidth.toDp() }
+            val contentSurfaceHeightDp = with(density) { contentVideoHeight.toDp() }
             val mirrorScaleX = if (isVideoMirrored) -1f else 1f
 
             PlayerSurface(
@@ -138,12 +145,12 @@ fun PlayerContentFrame(
                             bounds.right.toInt(),
                             bounds.bottom.toInt(),
                         )
-                        val key = "${rect.width()}x${rect.height()}@${rect.left},${rect.top}:${videoZoomAndContentScaleState.videoContentScale}:${videoSizePx?.width}x${videoSizePx?.height}:$surfaceType:$surfaceRefreshKey:$isVideoMirrored"
+                        val key = "${rect.width()}x${rect.height()}@${rect.left},${rect.top}:${videoZoomAndContentScaleState.videoContentScale}:${videoSizePx?.width}x${videoSizePx?.height}:${contentVideoSizePx?.width}x${contentVideoSizePx?.height}:$surfaceType:$surfaceRefreshKey:$isVideoMirrored"
                         if (key != lastLoggedSurfaceLayout) {
                             lastLoggedSurfaceLayout = key
                             Logger.info(
                                 TAG,
-                                "Player surface layout size=${rect.width()}x${rect.height()} left=${rect.left} top=${rect.top} contentScale=${videoZoomAndContentScaleState.videoContentScale} videoPx=${videoSizePx?.width}x${videoSizePx?.height} coverSurface=${presentationState.coverSurface} refresh=$surfaceRefreshKey",
+                                "Player surface layout size=${rect.width()}x${rect.height()} left=${rect.left} top=${rect.top} contentScale=${videoZoomAndContentScaleState.videoContentScale} videoPx=${videoSizePx?.width}x${videoSizePx?.height} contentPx=${contentVideoSizePx?.width}x${contentVideoSizePx?.height} coverSurface=${presentationState.coverSurface} refresh=$surfaceRefreshKey",
                             )
                         }
                         pictureInPictureState.updateVideoViewRect(rect)
@@ -154,14 +161,14 @@ fun PlayerContentFrame(
                 val subtitleModifier = if (isAssSubtitleSelected) {
                     val subtitleScale = min(fillX, fillY)
                     Modifier
-                        .requiredSize(surfaceWidthDp, surfaceHeightDp)
+                        .requiredSize(contentSurfaceWidthDp, contentSurfaceHeightDp)
                         .graphicsLayer {
                             scaleX = subtitleScale
                             scaleY = subtitleScale
                         }
                 } else {
-                    val subtitleWidthDp = with(density) { min(containerWidth, videoWidth * baseScaleX).toDp() }
-                    val subtitleHeightDp = with(density) { min(containerHeight, videoHeight * baseScaleY).toDp() }
+                    val subtitleWidthDp = with(density) { min(containerWidth, contentVideoWidth * baseScaleX).toDp() }
+                    val subtitleHeightDp = with(density) { min(containerHeight, contentVideoHeight * baseScaleY).toDp() }
                     Modifier.requiredSize(subtitleWidthDp, subtitleHeightDp)
                 }
                 SubtitleView(

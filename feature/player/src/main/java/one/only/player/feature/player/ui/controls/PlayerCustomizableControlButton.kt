@@ -17,10 +17,7 @@ import one.only.player.core.model.PlayerControl
 import one.only.player.core.model.VideoContentScale
 import one.only.player.core.ui.R
 import one.only.player.core.ui.designsystem.NextIcons
-import one.only.player.feature.player.buttons.LoopButton
 import one.only.player.feature.player.buttons.PlayerButton
-import one.only.player.feature.player.buttons.ShuffleButton
-import one.only.player.feature.player.extensions.drawableRes
 import one.only.player.feature.player.state.SleepTimerState
 
 @Composable
@@ -200,7 +197,7 @@ internal fun PlayerCustomizableControlButton(
                 isOutlineOnly = isPlaceholder,
             ) {
                 Icon(
-                    painter = painterResource(videoContentScale.drawableRes()),
+                    imageVector = NextIcons.Frame,
                     contentDescription = "btn_scale",
                 )
             }
@@ -317,29 +314,41 @@ internal fun PlayerCustomizableControlButton(
         }
 
         PlayerControl.LOOP -> {
-            LoopButton(
-                player = player,
+            PlayerButton(
                 modifier = buttonModifier,
+                onClick = {
+                    onLoopClick?.invoke()
+                },
                 isSelected = isSelected,
                 label = label,
                 shouldDimWhenUnselected = isCustomizingControls,
                 shouldShowCustomizeFrame = isCustomizingControls,
                 isOutlineOnly = isPlaceholder,
-                onClick = onLoopClick.takeIf { isCustomizingControls },
-            )
+            ) {
+                Icon(
+                    imageVector = NextIcons.Loop,
+                    contentDescription = "btn_loop",
+                )
+            }
         }
 
         PlayerControl.SHUFFLE -> {
-            ShuffleButton(
-                player = player,
+            PlayerButton(
                 modifier = buttonModifier,
+                onClick = {
+                    onShuffleClick?.invoke()
+                },
                 isSelected = isSelected,
                 label = label,
                 shouldDimWhenUnselected = isCustomizingControls,
                 shouldShowCustomizeFrame = isCustomizingControls,
                 isOutlineOnly = isPlaceholder,
-                onClick = onShuffleClick.takeIf { isCustomizingControls },
-            )
+            ) {
+                Icon(
+                    imageVector = NextIcons.Shuffle,
+                    contentDescription = "btn_shuffle",
+                )
+            }
         }
 
         PlayerControl.SLEEP_TIMER -> {
@@ -401,23 +410,41 @@ internal fun PlayerCustomizableControlButton(
 @Composable
 private fun PlayerControl.label(isMuted: Boolean): String = when (this) {
     PlayerControl.PLAYLIST -> stringResource(R.string.now_playing)
+
     PlayerControl.PLAYBACK_SPEED -> stringResource(R.string.speed)
+
     PlayerControl.AUDIO -> stringResource(R.string.audio)
+
     PlayerControl.SUBTITLE -> stringResource(R.string.subtitle)
+
     PlayerControl.LOCK -> stringResource(R.string.controls_lock)
+
     PlayerControl.MUTE -> stringResource(if (isMuted) R.string.controls_unmute else R.string.controls_mute)
+
     PlayerControl.MARK -> stringResource(R.string.controls_mark)
+
     PlayerControl.SCALE -> stringResource(R.string.video_zoom)
+
     PlayerControl.DECODER -> stringResource(R.string.decoder)
+
     PlayerControl.AMBIENCE_MODE -> stringResource(R.string.ambience_mode)
+
     PlayerControl.VIDEO_FILTERS -> stringResource(R.string.video_filters)
+
     PlayerControl.PIP -> stringResource(R.string.pip_settings)
+
     PlayerControl.SCREENSHOT -> stringResource(R.string.take_screenshot)
+
     PlayerControl.BACKGROUND_PLAY -> stringResource(R.string.background_play)
+
     PlayerControl.LOOP -> stringResource(R.string.loop_mode)
+
     PlayerControl.SHUFFLE -> stringResource(R.string.shuffle)
+
     PlayerControl.SLEEP_TIMER -> stringResource(R.string.sleep_timer)
+
     PlayerControl.ROTATE -> stringResource(R.string.screen_rotation)
+
     PlayerControl.BACK,
     PlayerControl.PREVIOUS,
     PlayerControl.PLAY_PAUSE,

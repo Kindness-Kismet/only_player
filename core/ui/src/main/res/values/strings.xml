@@ -91,8 +91,10 @@
     <string name="dynamic_theme_description">Apply colors from system wallpaper to the application theme</string>
     <string name="controls_lock">Lock controls</string>
     <string name="controls_unlock">Unlock controls</string>
+    <string name="controls_lock_switch">Control lock</string>
     <string name="controls_mute">Mute</string>
     <string name="controls_unmute">Unmute</string>
+    <string name="mute_switch">Mute switch</string>
     <string name="controls_mark">Mark</string>
     <string name="select_playback_speed">Select playback speed</string>
     <string name="audio">Audio</string>
@@ -218,6 +220,8 @@
     <string name="enter_seconds">Enter seconds</string>
     <string name="dim_video_when_controls_visible">Dim video when controls are visible</string>
     <string name="dim_video_when_controls_visible_description">Show a dark overlay behind the player controls</string>
+    <string name="pause_at_end_of_queue">Pause at end of queue</string>
+    <string name="pause_at_end_of_queue_description">Keep the player open on the final frame when the last video finishes</string>
     <string name="seek_increment">Seek increment</string>
     <string name="seconds">%1$s seconds</string>
     <string name="share">Share</string>

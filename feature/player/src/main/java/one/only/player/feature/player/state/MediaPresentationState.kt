@@ -84,8 +84,16 @@ class MediaPresentationState(
                         logPlaybackDiagnostics("playbackState")
                     }
 
+                    if (events.contains(Player.EVENT_MEDIA_METADATA_CHANGED)) {
+                        val hasMetadataRenderedFirstFrame = player.mediaMetadata.hasRenderedFirstFrame
+                        if (this@MediaPresentationState.hasRenderedFirstFrame != hasMetadataRenderedFirstFrame) {
+                            this@MediaPresentationState.hasRenderedFirstFrame = hasMetadataRenderedFirstFrame
+                            logPlaybackDiagnostics("mediaMetadataChanged")
+                        }
+                    }
+
                     if (events.contains(Player.EVENT_MEDIA_ITEM_TRANSITION)) {
-                        this@MediaPresentationState.hasRenderedFirstFrame = false
+                        this@MediaPresentationState.hasRenderedFirstFrame = player.mediaMetadata.hasRenderedFirstFrame
                         logPlaybackDiagnostics("mediaItemTransition")
                     }
 

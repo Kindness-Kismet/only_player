@@ -18,7 +18,7 @@ fun NavController.navigateToSearch(navOptions: NavOptions? = null) {
 
 fun NavGraphBuilder.searchScreen(
     onNavigateUp: () -> Unit,
-    onPlayVideo: (video: Video, playerPreferences: PlayerPreferences) -> Unit,
+    onPlayVideo: (video: Video, playerPreferences: PlayerPreferences, playlist: List<Video>) -> Unit,
     onFolderClick: (folderPath: String) -> Unit,
 ) {
     composable<SearchRoute> {

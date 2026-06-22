@@ -1,12 +1,10 @@
-- 调整云端页面和收藏夹的文字大小、间距与反馈，让它们更贴近本地媒体库
-- 统一本地和云端的长按菜单样式，操作入口看起来更一致
-- 恢复云端多选文件夹和视频后加入收藏，批量整理远程内容更顺手
+- 修复开启氛围模式后跳转视频可能短暂停住的问题，画面会在跳转后继续正常播放
+- 让氛围背景使用实时视频画面生成，并在不同帧之间平滑过渡
 
 <details>
 <summary>English Version</summary>
 
-- Adjust text size, spacing, and feedback on cloud pages and favorites so they feel closer to the local media library
-- Unify long-press menu styling across local and cloud browsing so actions look more consistent
-- Restore adding selected cloud folders and videos to favorites, making remote content easier to organize in batches
+- Fix video sometimes briefly freezing after seeking with ambience mode on, so playback continues normally after seeking
+- Render the ambience background from live video frames and smooth the transition between different frames
 
 </details>

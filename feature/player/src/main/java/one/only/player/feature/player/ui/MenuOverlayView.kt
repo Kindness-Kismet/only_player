@@ -41,8 +41,14 @@ import one.only.player.core.ui.designsystem.NextIcons
 
 sealed interface MenuRoute {
     data object Root : MenuRoute
+    data object ControlLock : MenuRoute
+    data object Mute : MenuRoute
+    data object AmbienceMode : MenuRoute
+    data object MirrorVideo : MenuRoute
     data object SleepTimer : MenuRoute
     data object Decoder : MenuRoute
+    data object LoopMode : MenuRoute
+    data object ShuffleMode : MenuRoute
     data object PlaybackSpeed : MenuRoute
     data object Audio : MenuRoute
     data object Subtitle : MenuRoute

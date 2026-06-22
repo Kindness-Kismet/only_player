@@ -14,6 +14,9 @@ import one.only.player.core.common.extensions.round
 import one.only.player.core.data.repository.PreferencesRepository
 import one.only.player.core.model.DecoderPriority
 import one.only.player.core.model.PlayerPreferences
+import one.only.player.core.model.withVideoFilterAdjustment
+import one.only.player.core.model.withVideoSharpening
+import one.only.player.core.model.withVideoSharpeningFilterEnabled
 
 @HiltViewModel
 class DecoderPreferencesViewModel @Inject constructor(
@@ -115,7 +118,7 @@ class DecoderPreferencesViewModel @Inject constructor(
 
     private fun toggleVideoSharpeningFilter() {
         updateVideoFilter("sharpening enabled toggled") { preferences ->
-            preferences.copy(isVideoSharpeningFilterEnabled = !preferences.isVideoSharpeningFilterEnabled)
+            preferences.withVideoSharpeningFilterEnabled(!preferences.isVideoSharpeningFilterEnabled)
         }
     }
 
@@ -146,7 +149,7 @@ class DecoderPreferencesViewModel @Inject constructor(
 
     private fun updateVideoSharpening(value: Float) {
         val normalizedValue = value.coerceIn(PlayerPreferences.DEFAULT_VIDEO_SHARPENING, PlayerPreferences.MAX_VIDEO_SHARPENING).round(2)
-        updateVideoFilter("sharpening=$normalizedValue") { it.copy(videoSharpening = normalizedValue) }
+        updateVideoFilter("sharpening=$normalizedValue") { it.withVideoSharpening(normalizedValue) }
     }
 
     private fun updateVideoFilter(
@@ -155,7 +158,9 @@ class DecoderPreferencesViewModel @Inject constructor(
     ) {
         Logger.debug(TAG, "Update video filter from settings: $debugValue")
         viewModelScope.launch {
-            preferencesRepository.updatePlayerPreferences(transform)
+            preferencesRepository.updatePlayerPreferences { preferences ->
+                preferences.withVideoFilterAdjustment(transform)
+            }
         }
     }
 }

@@ -52,6 +52,9 @@ fun rememberVideoZoomAndContentScaleState(
         )
     }
     LaunchedEffect(player) { videoZoomAndContentScaleState.observe() }
+    LaunchedEffect(initialContentScale) {
+        videoZoomAndContentScaleState.updateContentScaleFromPreferences(initialContentScale)
+    }
     return videoZoomAndContentScaleState
 }
 
@@ -108,6 +111,14 @@ class VideoZoomAndContentScaleState(
         onEvent(VideoZoomEvent.ContentScaleChanged(videoContentScale))
         updateVideoScaleMetadataAndSendEvent()
         shouldShowContentScaleIndicator()
+    }
+
+    fun updateContentScaleFromPreferences(newContentScale: VideoContentScale) {
+        if (videoContentScale == newContentScale) return
+        videoContentScale = newContentScale
+        zoom = 1f
+        offset = Offset.Zero
+        updateVideoScaleMetadataAndSendEvent()
     }
 
     private fun shouldShowContentScaleIndicator() {

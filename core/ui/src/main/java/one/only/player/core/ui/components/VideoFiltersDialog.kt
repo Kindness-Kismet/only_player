@@ -29,6 +29,8 @@ import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import one.only.player.core.model.PlayerPreferences
+import one.only.player.core.model.withVideoSharpening
+import one.only.player.core.model.withVideoSharpeningFilterEnabled
 import one.only.player.core.ui.R
 import one.only.player.core.ui.designsystem.NextIcons
 
@@ -399,10 +401,10 @@ private fun videoFilterSliderSpecs(
         isChecked = preferences.isVideoSharpeningFilterEnabled,
         onCheckedChange = {
             onUpdatePreferences { preferences ->
-                preferences.copy(isVideoSharpeningFilterEnabled = !preferences.isVideoSharpeningFilterEnabled)
+                preferences.withVideoSharpeningFilterEnabled(!preferences.isVideoSharpeningFilterEnabled)
             }
         },
-        onValueChange = { onUpdatePreferences { preferences -> preferences.copy(videoSharpening = it) } },
+        onValueChange = { onUpdatePreferences { preferences -> preferences.withVideoSharpening(it) } },
     ),
 )
 

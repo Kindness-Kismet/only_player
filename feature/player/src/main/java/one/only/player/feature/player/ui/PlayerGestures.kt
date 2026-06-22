@@ -13,6 +13,7 @@ import androidx.compose.ui.input.pointer.PointerEventPass
 import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.input.pointer.positionChangeIgnoreConsumed
 import androidx.compose.ui.platform.testTag
+import kotlin.time.Duration
 import one.only.player.feature.player.extensions.detectCustomHorizontalDragGestures
 import one.only.player.feature.player.extensions.detectCustomTransformGestures
 import one.only.player.feature.player.extensions.detectCustomVerticalDragGestures
@@ -102,30 +103,53 @@ fun PlayerGestures(
                     if (controlsVisibilityState.isControlsLocked) return@pointerInput
                     if (pictureInPictureState.isInPictureInPictureMode) return@pointerInput
 
-                    detectCustomHorizontalDragGestures(
-                        onDragStart = {
-                            if (tapGestureState.isLongPressGestureCaptured) return@detectCustomHorizontalDragGestures
-                            seekGestureState.onDragStart(it)
-                            if (seekGestureState.isSeeking) {
-                                controlsVisibilityState.hideControls()
-                            }
-                        },
-                        onHorizontalDrag = { change, dragAmount ->
-                            if (tapGestureState.isLongPressGestureCaptured) {
-                                change.consume()
-                                return@detectCustomHorizontalDragGestures
-                            }
-                            seekGestureState.onDrag(change, dragAmount)
-                        },
-                        onDragCancel = {
-                            if (tapGestureState.isLongPressGestureCaptured) return@detectCustomHorizontalDragGestures
-                            seekGestureState.onDragEnd()
-                        },
-                        onDragEnd = {
-                            if (tapGestureState.isLongPressGestureCaptured) return@detectCustomHorizontalDragGestures
-                            seekGestureState.onDragEnd()
-                        },
-                    )
+                    var shouldRestoreControlsAutoHideAfterSeek = false
+                    fun restoreControlsAutoHideAfterSeek() {
+                        if (!shouldRestoreControlsAutoHideAfterSeek) return
+                        controlsVisibilityState.showControls()
+                        shouldRestoreControlsAutoHideAfterSeek = false
+                    }
+
+                    try {
+                        detectCustomHorizontalDragGestures(
+                            onDragStart = {
+                                if (tapGestureState.isLongPressGestureCaptured) return@detectCustomHorizontalDragGestures
+                                val wasControlsVisible = controlsVisibilityState.isControlsVisible
+                                seekGestureState.onDragStart(it)
+                                shouldRestoreControlsAutoHideAfterSeek = wasControlsVisible && seekGestureState.isSeeking
+                                if (shouldRestoreControlsAutoHideAfterSeek) {
+                                    controlsVisibilityState.showControls(duration = Duration.INFINITE)
+                                }
+                            },
+                            onHorizontalDrag = { change, dragAmount ->
+                                if (tapGestureState.isLongPressGestureCaptured) {
+                                    change.consume()
+                                    return@detectCustomHorizontalDragGestures
+                                }
+                                seekGestureState.onDrag(change, dragAmount)
+                            },
+                            onDragCancel = {
+                                try {
+                                    if (!tapGestureState.isLongPressGestureCaptured) {
+                                        seekGestureState.onDragEnd()
+                                    }
+                                } finally {
+                                    restoreControlsAutoHideAfterSeek()
+                                }
+                            },
+                            onDragEnd = {
+                                try {
+                                    if (!tapGestureState.isLongPressGestureCaptured) {
+                                        seekGestureState.onDragEnd()
+                                    }
+                                } finally {
+                                    restoreControlsAutoHideAfterSeek()
+                                }
+                            },
+                        )
+                    } finally {
+                        restoreControlsAutoHideAfterSeek()
+                    }
                 }
                 .pointerInput(
                     isEnabled,

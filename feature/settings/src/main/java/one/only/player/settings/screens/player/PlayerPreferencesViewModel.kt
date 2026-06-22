@@ -45,6 +45,7 @@ class PlayerPreferencesViewModel @Inject constructor(
             is PlayerPreferencesUiEvent.ShowDialog -> showDialog(event.value)
             PlayerPreferencesUiEvent.TogglePlaybackResume -> togglePlaybackResume()
             PlayerPreferencesUiEvent.ToggleAutoplay -> toggleAutoplay()
+            PlayerPreferencesUiEvent.TogglePauseAtEndOfQueue -> togglePauseAtEndOfQueue()
             PlayerPreferencesUiEvent.ToggleAutoPip -> toggleAutoPip()
             PlayerPreferencesUiEvent.ToggleAutoBackgroundPlay -> toggleAutoBackgroundPlay()
             PlayerPreferencesUiEvent.ToggleRememberBrightnessLevel -> toggleRememberBrightnessLevel()
@@ -85,6 +86,14 @@ class PlayerPreferencesViewModel @Inject constructor(
         viewModelScope.launch {
             preferencesRepository.updatePlayerPreferences {
                 it.copy(shouldAutoPlay = !it.shouldAutoPlay)
+            }
+        }
+    }
+
+    private fun togglePauseAtEndOfQueue() {
+        viewModelScope.launch {
+            preferencesRepository.updatePlayerPreferences {
+                it.copy(shouldPauseAtEndOfQueue = !it.shouldPauseAtEndOfQueue)
             }
         }
     }
@@ -230,6 +239,7 @@ sealed interface PlayerPreferencesUiEvent {
     data class ShowDialog(val value: PlayerPreferenceDialog?) : PlayerPreferencesUiEvent
     data object TogglePlaybackResume : PlayerPreferencesUiEvent
     data object ToggleAutoplay : PlayerPreferencesUiEvent
+    data object TogglePauseAtEndOfQueue : PlayerPreferencesUiEvent
     data object ToggleAutoPip : PlayerPreferencesUiEvent
     data object ToggleAutoBackgroundPlay : PlayerPreferencesUiEvent
     data object ToggleRememberBrightnessLevel : PlayerPreferencesUiEvent

@@ -73,8 +73,10 @@
     <string name="dynamic_theme_description">将系统壁纸的颜色应用到应用主题中</string>
     <string name="controls_lock">锁定控件</string>
     <string name="controls_unlock">解锁控件</string>
+    <string name="controls_lock_switch">控件锁定</string>
     <string name="controls_mute">静音</string>
     <string name="controls_unmute">取消静音</string>
+    <string name="mute_switch">静音开关</string>
     <string name="controls_mark">标记</string>
     <string name="select_playback_speed">选择播放速度</string>
     <string name="size">大小</string>
@@ -208,6 +210,8 @@
     <string name="enter_seconds">输入秒数</string>
     <string name="dim_video_when_controls_visible">显示控制栏时让画面变暗</string>
     <string name="dim_video_when_controls_visible_description">控制栏显示期间，让画面稍微变暗，以增加按钮可读性</string>
+    <string name="pause_at_end_of_queue">播完最后一个视频时暂停</string>
+    <string name="pause_at_end_of_queue_description">最后一个视频播完后留在播放器，并停在最后一帧</string>
     <string name="seek_increment">跳转增量</string>
     <string name="seconds">%1$s 秒</string>
     <string name="subtitle_text_encoding">字幕文本编码</string>

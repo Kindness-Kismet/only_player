@@ -22,8 +22,13 @@ fun BoxScope.OverlayShowView(
     player: Player,
     overlayView: OverlayView?,
     videoContentScale: VideoContentScale,
+    isCustomVideoZoomActive: Boolean = false,
     playerPreferences: PlayerPreferences,
     sleepTimerState: SleepTimerState,
+    isControlLockEnabled: Boolean = false,
+    isMuted: Boolean = false,
+    isAmbienceModeEnabled: Boolean = false,
+    isVideoMirrored: Boolean = false,
     onDismiss: () -> Unit = {},
     onSelectSubtitleClick: () -> Unit = {},
     onAddOnlineSubtitleClick: (String) -> Unit = {},
@@ -39,6 +44,10 @@ fun BoxScope.OverlayShowView(
     onAddPlaybackMarkClick: () -> Unit = {},
     onPlaybackMarkClick: (PlaybackMark) -> Unit = {},
     onDeletePlaybackMarkClick: (PlaybackMark) -> Unit = {},
+    onControlLockChanged: (Boolean) -> Unit = {},
+    onMuteChanged: (Boolean) -> Unit = {},
+    onAmbienceModeChanged: (Boolean) -> Unit = {},
+    onVideoMirroredChanged: (Boolean) -> Unit = {},
 ) {
     Box(
         modifier = Modifier
@@ -77,6 +86,7 @@ fun BoxScope.OverlayShowView(
     VideoContentScaleSelectorView(
         shouldShow = overlayView == OverlayView.VIDEO_CONTENT_SCALE,
         videoContentScale = videoContentScale,
+        isCustomZoomActive = isCustomVideoZoomActive,
         onVideoContentScaleChanged = onVideoContentScaleChanged,
         onShowVideoFilters = onShowVideoFilters,
         onDismiss = onDismiss,
@@ -114,6 +124,62 @@ fun BoxScope.OverlayShowView(
         onAddMarkClick = onAddPlaybackMarkClick,
         onMarkClick = onPlaybackMarkClick,
         onDeleteMarkClick = onDeletePlaybackMarkClick,
+    )
+
+    LoopModeSelectorView(
+        shouldShow = overlayView == OverlayView.LOOP_MODE,
+        player = player,
+        onDismiss = onDismiss,
+    )
+
+    ShuffleModeSelectorView(
+        shouldShow = overlayView == OverlayView.SHUFFLE_MODE,
+        player = player,
+        onDismiss = onDismiss,
+    )
+
+    ToggleOptionSelectorView(
+        shouldShow = overlayView == OverlayView.CONTROL_LOCK,
+        titleRes = R.string.controls_lock_switch,
+        panelTestTag = "panel_control_lock",
+        isEnabled = isControlLockEnabled,
+        offTestTag = "btn_control_lock_off",
+        onTestTag = "btn_control_lock_on",
+        onEnabledChanged = onControlLockChanged,
+        onDismiss = onDismiss,
+    )
+
+    ToggleOptionSelectorView(
+        shouldShow = overlayView == OverlayView.MUTE,
+        titleRes = R.string.mute_switch,
+        panelTestTag = "panel_mute_switch",
+        isEnabled = isMuted,
+        offTestTag = "btn_mute_off",
+        onTestTag = "btn_mute_on",
+        onEnabledChanged = onMuteChanged,
+        onDismiss = onDismiss,
+    )
+
+    ToggleOptionSelectorView(
+        shouldShow = overlayView == OverlayView.AMBIENCE_MODE,
+        titleRes = R.string.ambience_mode,
+        panelTestTag = "panel_ambience_mode",
+        isEnabled = isAmbienceModeEnabled,
+        offTestTag = "btn_ambience_mode_off",
+        onTestTag = "btn_ambience_mode_on",
+        onEnabledChanged = onAmbienceModeChanged,
+        onDismiss = onDismiss,
+    )
+
+    ToggleOptionSelectorView(
+        shouldShow = overlayView == OverlayView.MIRROR_VIDEO,
+        titleRes = R.string.mirror_video,
+        panelTestTag = "panel_mirror_video",
+        isEnabled = isVideoMirrored,
+        offTestTag = "btn_mirror_video_off",
+        onTestTag = "btn_mirror_video_on",
+        onEnabledChanged = onVideoMirroredChanged,
+        onDismiss = onDismiss,
     )
 }
 
@@ -175,4 +241,10 @@ enum class OverlayView {
     SLEEP_TIMER,
     DECODER_PRIORITY,
     PLAYBACK_MARKS,
+    LOOP_MODE,
+    SHUFFLE_MODE,
+    CONTROL_LOCK,
+    MUTE,
+    AMBIENCE_MODE,
+    MIRROR_VIDEO,
 }

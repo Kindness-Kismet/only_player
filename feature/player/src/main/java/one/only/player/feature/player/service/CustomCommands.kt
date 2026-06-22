@@ -25,6 +25,7 @@ enum class CustomCommands(val customAction: String) {
     SET_LOUDNESS_GAIN(customAction = "SET_LOUDNESS_GAIN"),
     GET_LOUDNESS_GAIN(customAction = "GET_LOUDNESS_GAIN"),
     PREVIEW_VIDEO_FILTERS(customAction = "PREVIEW_VIDEO_FILTERS"),
+    SET_AMBIENCE_MODE_ENABLED(customAction = "SET_AMBIENCE_MODE_ENABLED"),
     GET_VIDEO_FORMAT(customAction = "GET_VIDEO_FORMAT"),
     ;
 
@@ -57,6 +58,8 @@ enum class CustomCommands(val customAction: String) {
         const val VIDEO_GAMMA_KEY = "video_gamma"
         const val IS_VIDEO_SHARPENING_FILTER_ENABLED_KEY = "is_video_sharpening_filter_enabled"
         const val VIDEO_SHARPENING_KEY = "video_sharpening"
+        const val IS_AMBIENCE_MODE_ENABLED_KEY = "is_ambience_mode_enabled"
+        const val AMBIENCE_TARGET_ASPECT_RATIO_KEY = "ambience_target_aspect_ratio"
         const val VIDEO_DECODER_PRIORITY_KEY = "video_decoder_priority"
         const val VIDEO_DECODER_NAME_KEY = "video_decoder_name"
         const val VIDEO_WIDTH_KEY = "video_width"
@@ -169,6 +172,17 @@ fun MediaController.previewVideoFilters(preferences: PlayerPreferences) {
         putFloat(CustomCommands.VIDEO_SHARPENING_KEY, preferences.videoSharpening)
     }
     sendCustomCommand(CustomCommands.PREVIEW_VIDEO_FILTERS.sessionCommand, args)
+}
+
+fun MediaController.setPlayerAmbienceModeEnabled(
+    isEnabled: Boolean,
+    targetAspectRatio: Float,
+) {
+    val args = Bundle().apply {
+        putBoolean(CustomCommands.IS_AMBIENCE_MODE_ENABLED_KEY, isEnabled)
+        putFloat(CustomCommands.AMBIENCE_TARGET_ASPECT_RATIO_KEY, targetAspectRatio)
+    }
+    sendCustomCommand(CustomCommands.SET_AMBIENCE_MODE_ENABLED.sessionCommand, args)
 }
 
 suspend fun MediaController.getVideoFormatDebugInfo(): SessionResult = sendCustomCommand(

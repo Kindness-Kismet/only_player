@@ -211,6 +211,14 @@ private fun PlayerPreferencesContent(
                     isChecked = uiState.preferences.shouldAutoPlay,
                     onClick = { onEvent(PlayerPreferencesUiEvent.ToggleAutoplay) },
                 )
+                PreferenceSwitch(
+                    modifier = Modifier.testTag("switch_settings_player_pause_at_end_of_queue"),
+                    title = stringResource(id = R.string.pause_at_end_of_queue),
+                    description = stringResource(id = R.string.pause_at_end_of_queue_description),
+                    icon = NextIcons.Pause,
+                    isChecked = uiState.preferences.shouldPauseAtEndOfQueue,
+                    onClick = { onEvent(PlayerPreferencesUiEvent.TogglePauseAtEndOfQueue) },
+                )
                 if (isPipFeatureSupported) {
                     PreferenceSwitch(
                         modifier = Modifier.testTag("switch_settings_player_auto_pip"),

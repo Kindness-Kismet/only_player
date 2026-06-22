@@ -9,16 +9,24 @@ import one.only.player.feature.player.model.Subtitle
 
 class PlayerApi(val activity: PlayerActivity) {
 
-    private val extras = activity.intent.extras
-    val isApiAccess: Boolean get() = extras != null
-    val hasPosition: Boolean get() = extras?.containsKey(API_POSITION) == true
-    val hasTitle: Boolean get() = extras?.containsKey(API_TITLE) == true
-    val shouldReturnResult: Boolean get() = extras?.containsKey(API_RETURN_RESULT) == true
-    val position: Int? get() = if (hasPosition) extras?.getInt(API_POSITION) else null
-    val title: String? get() = if (hasTitle) extras?.getString(API_TITLE) else null
+    private val intentExtras get() = activity.intent.extras
+    val isApiAccess: Boolean get() = intentExtras != null
+    val hasPosition: Boolean get() = intentExtras?.containsKey(API_POSITION) == true
+    val hasTitle: Boolean get() = intentExtras?.containsKey(API_TITLE) == true
+    val shouldReturnResult: Boolean get() = intentExtras?.containsKey(API_RETURN_RESULT) == true
+    val position: Int?
+        get() {
+            val extras = intentExtras ?: return null
+            return if (extras.containsKey(API_POSITION)) extras.getInt(API_POSITION) else null
+        }
+    val title: String?
+        get() {
+            val extras = intentExtras ?: return null
+            return if (extras.containsKey(API_TITLE)) extras.getString(API_TITLE) else null
+        }
 
     fun getSubs(): List<Subtitle> {
-        if (extras == null) return emptyList()
+        val extras = intentExtras ?: return emptyList()
         if (!extras.containsKey(API_SUBS)) return emptyList()
 
         val subs = extras.getParcelableUriArray(API_SUBS) ?: return emptyList()
@@ -38,14 +46,14 @@ class PlayerApi(val activity: PlayerActivity) {
     }
 
     fun getPlaylist(): List<String> {
-        if (extras == null) return emptyList()
+        val extras = intentExtras ?: return emptyList()
         if (!extras.containsKey(API_PLAYLIST)) return emptyList()
         val playlist = extras.getParcelableUriArray(API_PLAYLIST) ?: return emptyList()
         return playlist.map(Uri::toString)
     }
 
     fun getPlaylistRemotePaths(): List<String> {
-        if (extras == null) return emptyList()
+        val extras = intentExtras ?: return emptyList()
         if (!extras.containsKey(API_PLAYLIST_REMOTE_PATHS)) return emptyList()
         return extras.getStringArrayList(API_PLAYLIST_REMOTE_PATHS).orEmpty()
     }

@@ -253,6 +253,7 @@ internal enum class SettingRow(
             R.string.resume,
             R.string.default_playback_speed,
             R.string.autoplay_settings,
+            R.string.pause_at_end_of_queue,
             R.string.pip_settings,
             R.string.background_play,
             R.string.fast_seek,

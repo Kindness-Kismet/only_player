@@ -47,6 +47,8 @@
     <string name="enter_seconds">輸入秒數</string>
     <string name="dim_video_when_controls_visible">顯示控制列時讓畫面變暗</string>
     <string name="dim_video_when_controls_visible_description">控制列顯示期間，讓畫面稍微變暗，以增加按鈕可讀性</string>
+    <string name="pause_at_end_of_queue">播完最後一個影片時暫停</string>
+    <string name="pause_at_end_of_queue_description">最後一個影片播完後留在播放器，並停在最後一個影格</string>
     <string name="no_videos_found">沒有找到影片</string>
     <string name="no">否</string>
     <string name="date">日期</string>
@@ -60,8 +62,10 @@
     <string name="group_videos">由資料夾分組影片</string>
     <string name="audio_desc">音訊播放選項</string>
     <string name="controls_unlock">解鎖控制元件</string>
+    <string name="controls_lock_switch">控制元件鎖定</string>
     <string name="controls_mute">靜音</string>
     <string name="controls_unmute">取消靜音</string>
+    <string name="mute_switch">靜音開關</string>
     <string name="controls_mark">標記</string>
     <string name="subtitle_background">字幕背景</string>
     <string name="on">開啟</string>
