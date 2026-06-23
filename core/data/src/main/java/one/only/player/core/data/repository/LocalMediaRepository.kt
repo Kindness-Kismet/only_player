@@ -209,9 +209,10 @@ class LocalMediaRepository @Inject constructor(
         )
     }
 
-    override suspend fun moveVideosToRecycleBin(uris: List<String>) {
-        if (uris.isEmpty()) return
+    override suspend fun moveVideosToRecycleBin(uris: List<String>): List<String> {
+        if (uris.isEmpty()) return emptyList()
 
+        val movedUris = mutableListOf<String>()
         uris.distinct().forEach { uriString ->
             val medium = mediumDao.get(uriString) ?: return@forEach
             val currentState = mediumStateDao.get(uriString) ?: MediumStateEntity(uriString = uriString)
@@ -253,7 +254,9 @@ class LocalMediaRepository @Inject constructor(
                 newMediaStoreId = medium.mediaStoreId,
             )
             refreshMediaPathAsync(moved.path)
+            movedUris += movedUriString
         }
+        return movedUris
     }
 
     override suspend fun moveVideosToFolder(
@@ -343,9 +346,10 @@ class LocalMediaRepository @Inject constructor(
         )
     }
 
-    override suspend fun restoreVideosFromRecycleBin(uris: List<String>) {
-        if (uris.isEmpty()) return
+    override suspend fun restoreVideosFromRecycleBin(uris: List<String>): List<String> {
+        if (uris.isEmpty()) return emptyList()
 
+        val restoredUris = mutableListOf<String>()
         uris.distinct().forEach { uriString ->
             val currentState = mediumStateDao.get(uriString) ?: return@forEach
             val medium = mediumDao.get(uriString) ?: return@forEach
@@ -392,8 +396,10 @@ class LocalMediaRepository @Inject constructor(
                 newTitle = restored.fileName,
                 newMediaStoreId = medium.mediaStoreId,
             )
-            mediaSynchronizer.refresh(restored.path)
+            refreshMediaPathAsync(restored.path)
+            restoredUris += restoredUriString
         }
+        return restoredUris
     }
 
     private suspend fun updateMovedMedium(
@@ -453,6 +459,7 @@ class LocalMediaRepository @Inject constructor(
         val parsed = toUri()
         val rawPath = when (parsed.scheme) {
             "file" -> parsed.path
+            null -> takeIf { it.startsWith(File.separator) }
             else -> null
         } ?: return null
         return File(rawPath).path

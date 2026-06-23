@@ -29,7 +29,7 @@ interface MediaRepository {
     suspend fun updateExternalSubs(uri: String, externalSubs: List<Uri>)
     suspend fun updateSubtitleDelay(uri: String, delay: Long)
     suspend fun updateSubtitleSpeed(uri: String, speed: Float)
-    suspend fun moveVideosToRecycleBin(uris: List<String>)
+    suspend fun moveVideosToRecycleBin(uris: List<String>): List<String>
     suspend fun moveVideosToFolder(
         uris: List<String>,
         targetFolderPath: String,
@@ -43,7 +43,7 @@ interface MediaRepository {
         shouldCancel: () -> Boolean = { false },
         onProgress: (Int) -> Unit = {},
     ): MediaMoveSummary
-    suspend fun restoreVideosFromRecycleBin(uris: List<String>)
+    suspend fun restoreVideosFromRecycleBin(uris: List<String>): List<String>
 }
 
 data class MediaMoveSummary(

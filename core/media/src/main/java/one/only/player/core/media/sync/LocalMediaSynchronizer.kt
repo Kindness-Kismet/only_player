@@ -6,6 +6,7 @@ import android.content.Intent
 import android.database.ContentObserver
 import android.media.MediaMetadataRetriever
 import android.net.Uri
+import android.os.SystemClock
 import android.provider.MediaStore
 import android.webkit.MimeTypeMap
 import androidx.core.net.toUri
@@ -56,6 +57,7 @@ import one.only.player.core.datastore.datasource.AppPreferencesDataSource
 import one.only.player.core.media.model.MediaVideo
 
 private val EXCLUDED_DIRECTORY_NAMES = setOf(".globalTrash", "MIUI")
+private const val TARGETED_REFRESH_AUTOMATIC_SYNC_SUPPRESS_MILLIS = 8_000L
 
 private fun String.isInsideExcludedSystemDirectory(): Boolean = replace('\\', '/').split('/').any { it in EXCLUDED_DIRECTORY_NAMES }
 
@@ -72,11 +74,13 @@ class LocalMediaSynchronizer @Inject constructor(
 ) : MediaSynchronizer {
 
     private var mediaSyncingJob: Job? = null
+    private var targetedRefreshSuppressUntilMillis: Long = 0L
     private val syncMutex = Mutex()
 
     override suspend fun refresh(path: String?): Boolean = withContext(dispatcher) {
         syncMutex.withLock {
             val didScan = if (path != null) {
+                suppressAutomaticSyncAfterTargetedRefresh()
                 registerManualVideoPath(path)
                 mergePendingManualVideoPaths()
                 context.scanPaths(listOf(path))
@@ -86,13 +90,16 @@ class LocalMediaSynchronizer @Inject constructor(
                 val additionalScanTargets = buildRefreshScanTargets()
                 if (additionalScanTargets.isNotEmpty()) {
                     registerUnindexedPaths(additionalScanTargets)
-                    context.scanPaths(additionalScanTargets)
-                } else {
-                    true
+                    scanPathsAsync(additionalScanTargets)
                 }
+                true
             }
 
-            syncCurrentMedia()
+            if (path != null) {
+                syncPathMedia(path)
+            } else {
+                syncCurrentMedia()
+            }
             didScan
         }
     }
@@ -190,9 +197,13 @@ class LocalMediaSynchronizer @Inject constructor(
                 shouldIgnoreNoMediaFiles = preferences.shouldIgnoreNoMediaFiles,
             )
         }.onEach { media ->
-            Logger.info(TAG, "onEach syncing ${media.size} media entries")
             applicationScope.launch {
                 syncMutex.withLock {
+                    if (shouldSkipAutomaticSyncAfterTargetedRefresh()) {
+                        Logger.info(TAG, "Skipped automatic sync after targeted refresh")
+                        return@withLock
+                    }
+                    Logger.info(TAG, "onEach syncing ${media.size} media entries")
                     if (!shouldSkipEmptyMediaSnapshot(media)) {
                         updateDirectories(media)
                         updateMedia(media)
@@ -207,6 +218,25 @@ class LocalMediaSynchronizer @Inject constructor(
         mediaSyncingJob?.cancel()
         mediaSyncingJob = null
         Logger.info(TAG, "Stopped media sync")
+    }
+
+    private fun suppressAutomaticSyncAfterTargetedRefresh() {
+        targetedRefreshSuppressUntilMillis = SystemClock.elapsedRealtime() + TARGETED_REFRESH_AUTOMATIC_SYNC_SUPPRESS_MILLIS
+    }
+
+    private fun shouldSkipAutomaticSyncAfterTargetedRefresh(): Boolean {
+        if (SystemClock.elapsedRealtime() > targetedRefreshSuppressUntilMillis) return false
+        return true
+    }
+
+    private fun scanPathsAsync(paths: List<String>) {
+        applicationScope.launch(dispatcher) {
+            runCatching {
+                context.scanPaths(paths)
+            }.onFailure { throwable ->
+                Logger.error(TAG, "Failed to scan paths asynchronously", throwable)
+            }
+        }
     }
 
     private suspend fun syncCurrentMedia() {
@@ -227,6 +257,73 @@ class LocalMediaSynchronizer @Inject constructor(
         updateMedia(media)
         scheduleMediaInfoSync()
         Logger.debug(TAG, "syncCurrentMedia elapsed=${System.currentTimeMillis() - startTime}ms")
+    }
+
+    private suspend fun syncPathMedia(path: String) = withContext(Dispatchers.Default) {
+        val startTime = System.currentTimeMillis()
+        val canonicalPath = path.canonicalPathOrSelf()
+        val existingByPathBeforeScan = mediumDao.getByPath(canonicalPath)
+        val existingState = existingByPathBeforeScan?.let { mediumStateDao.get(it.uriString) }
+        if (existingState?.isInRecycleBin == true) {
+            Logger.debug(TAG, "syncPathMedia path=${canonicalPath.toPrivateLogSummary()} skippedRecycleBin elapsed=${System.currentTimeMillis() - startTime}ms")
+            return@withContext
+        }
+
+        val mediaVideo = findPathMediaVideo(canonicalPath)
+        if (mediaVideo == null) {
+            val didDelete = deletePathMedia(canonicalPath)
+            Logger.debug(
+                TAG,
+                "syncPathMedia path=${canonicalPath.toPrivateLogSummary()} missing deleted=$didDelete elapsed=${System.currentTimeMillis() - startTime}ms",
+            )
+            return@withContext
+        }
+
+        val existingByUri = mediumDao.get(mediaVideo.uri.toString())
+        val existingByPath = mediumDao.getByPath(canonicalPath)
+        if (existingByPath != null && existingByPath.uriString != mediaVideo.uri.toString()) {
+            mediumDao.delete(listOf(existingByPath.uriString))
+            mediumStateDao.delete(listOf(existingByPath.uriString))
+        }
+
+        directoryDao.upsertAll(buildDirectoryEntities(listOf(mediaVideo)))
+        val mediumEntity = buildMediumEntity(mediaVideo, existingByUri)
+        if (mediumEntity != null) {
+            mediumDao.upsert(mediumEntity)
+            if (mediumEntity.duration <= 0 || mediumEntity.width <= 0 || mediumEntity.height <= 0) {
+                mediaInfoSynchronizer.sync(mediumEntity.uriString.toUri())
+            }
+        }
+        Logger.debug(TAG, "syncPathMedia path=${canonicalPath.toPrivateLogSummary()} elapsed=${System.currentTimeMillis() - startTime}ms")
+    }
+
+    private fun findPathMediaVideo(path: String): MediaVideo? {
+        val mediaStoreVideo = getMediaVideo(
+            selection = "${MediaStore.Video.Media.DATA} = ?",
+            selectionArgs = arrayOf(path),
+            sortOrder = null,
+        ).firstOrNull()
+        if (mediaStoreVideo != null) return mediaStoreVideo
+        if (!hasManageExternalStorageAccess()) return null
+
+        val file = File(path)
+        if (!file.exists() || !file.isVisibleVideoFile()) return null
+        return file.toBasicMediaVideo()
+    }
+
+    private suspend fun deletePathMedia(path: String): Boolean {
+        val medium = mediumDao.getByPath(path) ?: return false
+        val state = mediumStateDao.get(medium.uriString)
+        if (state?.isInRecycleBin == true) return false
+
+        mediumDao.delete(listOf(medium.uriString))
+        mediumStateDao.delete(listOf(medium.uriString))
+        runCatching {
+            imageLoader.diskCache?.remove(medium.uriString)
+        }.onFailure { throwable ->
+            Logger.error(TAG, "Failed to clear thumbnail cache for ${medium.uriString.toPrivateLogSummary()}", throwable)
+        }
+        return true
     }
 
     private suspend fun shouldSkipEmptyMediaSnapshot(media: List<MediaVideo>): Boolean {
@@ -355,6 +452,36 @@ class LocalMediaSynchronizer @Inject constructor(
         }
     }
 
+    private fun buildMediumEntity(
+        mediaVideo: MediaVideo,
+        existingEntity: MediumEntity?,
+    ): MediumEntity? {
+        val file = File(mediaVideo.data)
+        val parentPath = file.parent ?: return null
+        return existingEntity?.copy(
+            path = file.path,
+            name = file.name,
+            size = mediaVideo.size,
+            width = mediaVideo.width.takeIf { it > 0 } ?: existingEntity.width,
+            height = mediaVideo.height.takeIf { it > 0 } ?: existingEntity.height,
+            duration = mediaVideo.duration.takeIf { it > 0 } ?: existingEntity.duration,
+            mediaStoreId = mediaVideo.id,
+            modified = mediaVideo.dateModified,
+            parentPath = parentPath,
+        ) ?: MediumEntity(
+            uriString = mediaVideo.uri.toString(),
+            path = mediaVideo.data,
+            name = file.name,
+            parentPath = parentPath,
+            modified = mediaVideo.dateModified,
+            size = mediaVideo.size,
+            width = mediaVideo.width,
+            height = mediaVideo.height,
+            duration = mediaVideo.duration,
+            mediaStoreId = mediaVideo.id,
+        )
+    }
+
     private suspend fun updateMedia(media: List<MediaVideo>) = withContext(Dispatchers.Default) {
         val startTime = System.currentTimeMillis()
         val allMedia = mediumDao.getAll().first()
@@ -366,31 +493,9 @@ class LocalMediaSynchronizer @Inject constructor(
         }
 
         val mediumEntities = media.mapNotNull { mediaVideo ->
-            val file = File(mediaVideo.data)
-            val parentPath = file.parent ?: return@mapNotNull null
-            val mediumEntity = existingMediaMap[mediaVideo.uri.toString()]
-
-            mediumEntity?.copy(
-                path = file.path,
-                name = file.name,
-                size = mediaVideo.size,
-                width = mediaVideo.width.takeIf { it > 0 } ?: mediumEntity.width,
-                height = mediaVideo.height.takeIf { it > 0 } ?: mediumEntity.height,
-                duration = mediaVideo.duration.takeIf { it > 0 } ?: mediumEntity.duration,
-                mediaStoreId = mediaVideo.id,
-                modified = mediaVideo.dateModified,
-                parentPath = parentPath,
-            ) ?: MediumEntity(
-                uriString = mediaVideo.uri.toString(),
-                path = mediaVideo.data,
-                name = file.name,
-                parentPath = parentPath,
-                modified = mediaVideo.dateModified,
-                size = mediaVideo.size,
-                width = mediaVideo.width,
-                height = mediaVideo.height,
-                duration = mediaVideo.duration,
-                mediaStoreId = mediaVideo.id,
+            buildMediumEntity(
+                mediaVideo = mediaVideo,
+                existingEntity = existingMediaMap[mediaVideo.uri.toString()],
             )
         }
 

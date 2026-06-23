@@ -91,12 +91,15 @@ class FakeMediaRepository : MediaRepository {
     override suspend fun updateSubtitleSpeed(uri: String, speed: Float) {
     }
 
-    override suspend fun moveVideosToRecycleBin(uris: List<String>) {
+    override suspend fun moveVideosToRecycleBin(uris: List<String>): List<String> {
+        val movedUris = mutableListOf<String>()
         uris.forEach { uri ->
             val video = videos.find { it.uriString == uri } ?: return@forEach
             originalPaths.putIfAbsent(uri, video.path)
+            movedUris += uri
         }
         recycleBinUris.addAll(uris)
+        return movedUris
     }
 
     override suspend fun moveVideosToFolder(
@@ -121,8 +124,9 @@ class FakeMediaRepository : MediaRepository {
         return MediaMoveSummary(movedCount = count)
     }
 
-    override suspend fun restoreVideosFromRecycleBin(uris: List<String>) {
+    override suspend fun restoreVideosFromRecycleBin(uris: List<String>): List<String> {
         recycleBinUris.removeAll(uris.toSet())
         uris.forEach(originalPaths::remove)
+        return uris
     }
 }
