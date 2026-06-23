@@ -28,6 +28,8 @@ import kotlinx.coroutines.flow.flowOn
 import kotlinx.coroutines.flow.launchIn
 import kotlinx.coroutines.flow.onEach
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.sync.Mutex
+import kotlinx.coroutines.sync.withLock
 import kotlinx.coroutines.withContext
 import one.only.player.core.common.Dispatcher
 import one.only.player.core.common.Logger
@@ -70,26 +72,29 @@ class LocalMediaSynchronizer @Inject constructor(
 ) : MediaSynchronizer {
 
     private var mediaSyncingJob: Job? = null
+    private val syncMutex = Mutex()
 
     override suspend fun refresh(path: String?): Boolean = withContext(dispatcher) {
-        val didScan = if (path != null) {
-            registerManualVideoPath(path)
-            mergePendingManualVideoPaths()
-            context.scanPaths(listOf(path))
-        } else {
-            mergePendingManualVideoPaths()
-            pruneHiddenManualVideoPaths()
-            val additionalScanTargets = buildRefreshScanTargets()
-            if (additionalScanTargets.isNotEmpty()) {
-                registerUnindexedPaths(additionalScanTargets)
-                context.scanPaths(additionalScanTargets)
+        syncMutex.withLock {
+            val didScan = if (path != null) {
+                registerManualVideoPath(path)
+                mergePendingManualVideoPaths()
+                context.scanPaths(listOf(path))
             } else {
-                true
+                mergePendingManualVideoPaths()
+                pruneHiddenManualVideoPaths()
+                val additionalScanTargets = buildRefreshScanTargets()
+                if (additionalScanTargets.isNotEmpty()) {
+                    registerUnindexedPaths(additionalScanTargets)
+                    context.scanPaths(additionalScanTargets)
+                } else {
+                    true
+                }
             }
-        }
 
-        syncCurrentMedia()
-        didScan
+            syncCurrentMedia()
+            didScan
+        }
     }
 
     override suspend fun removeDeleted(uris: List<String>) = withContext(dispatcher) {
@@ -186,10 +191,14 @@ class LocalMediaSynchronizer @Inject constructor(
             )
         }.onEach { media ->
             Logger.info(TAG, "onEach syncing ${media.size} media entries")
-            applicationScope.launch { updateDirectories(media) }
             applicationScope.launch {
-                updateMedia(media)
-                scheduleMediaInfoSync()
+                syncMutex.withLock {
+                    if (!shouldSkipEmptyMediaSnapshot(media)) {
+                        updateDirectories(media)
+                        updateMedia(media)
+                        scheduleMediaInfoSync()
+                    }
+                }
             }
         }.launchIn(applicationScope)
     }
@@ -201,6 +210,7 @@ class LocalMediaSynchronizer @Inject constructor(
     }
 
     private suspend fun syncCurrentMedia() {
+        val startTime = System.currentTimeMillis()
         val preferences = appPreferencesDataSource.preferences.first()
         val media = mergeVisibleMedia(
             mediaStoreVideos = getMediaVideo(selection = null, selectionArgs = null, sortOrder = null),
@@ -208,9 +218,25 @@ class LocalMediaSynchronizer @Inject constructor(
             shouldIgnoreNoMediaFiles = preferences.shouldIgnoreNoMediaFiles,
         )
         Logger.info(TAG, "refresh syncing ${media.size} media entries")
+        if (shouldSkipEmptyMediaSnapshot(media)) {
+            Logger.debug(TAG, "syncCurrentMedia elapsed=${System.currentTimeMillis() - startTime}ms")
+            return
+        }
+
         updateDirectories(media)
         updateMedia(media)
         scheduleMediaInfoSync()
+        Logger.debug(TAG, "syncCurrentMedia elapsed=${System.currentTimeMillis() - startTime}ms")
+    }
+
+    private suspend fun shouldSkipEmptyMediaSnapshot(media: List<MediaVideo>): Boolean {
+        if (media.isNotEmpty()) return false
+
+        val existingCount = mediumDao.getAll().first().size
+        if (existingCount == 0) return false
+
+        Logger.info(TAG, "Skipped empty media snapshot existing=$existingCount")
+        return true
     }
 
     private suspend fun mergeVisibleMedia(
@@ -289,6 +315,7 @@ class LocalMediaSynchronizer @Inject constructor(
     }
 
     private suspend fun updateDirectories(media: List<MediaVideo>) = withContext(Dispatchers.Default) {
+        val startTime = System.currentTimeMillis()
         val directories = buildDirectoryEntities(media)
         directoryDao.upsertAll(directories)
 
@@ -298,6 +325,7 @@ class LocalMediaSynchronizer @Inject constructor(
         val unwantedDirectoriesPaths = unwantedDirectories.map { it.path }
 
         directoryDao.delete(unwantedDirectoriesPaths)
+        Logger.debug(TAG, "updateDirectories media=${media.size} directories=${directories.size} elapsed=${System.currentTimeMillis() - startTime}ms")
     }
 
     private fun buildDirectoryEntities(media: List<MediaVideo>): List<DirectoryEntity> {
@@ -328,9 +356,14 @@ class LocalMediaSynchronizer @Inject constructor(
     }
 
     private suspend fun updateMedia(media: List<MediaVideo>) = withContext(Dispatchers.Default) {
-        // 单次查询替代 N 次 mediumDao.get()，同时复用于检测待清理记录
-        val allWithInfo = mediumDao.getAllWithInfo().first()
-        val existingMediaMap = allWithInfo.associate { it.mediumEntity.uriString to it.mediumEntity }
+        val startTime = System.currentTimeMillis()
+        val allMedia = mediumDao.getAll().first()
+        val existingMediaMap = allMedia.associateBy(MediumEntity::uriString)
+
+        if (media.isEmpty() && allMedia.isNotEmpty()) {
+            Logger.info(TAG, "Skipped deleting existing media for empty snapshot existing=${allMedia.size}")
+            return@withContext
+        }
 
         val mediumEntities = media.mapNotNull { mediaVideo ->
             val file = File(mediaVideo.data)
@@ -361,31 +394,47 @@ class LocalMediaSynchronizer @Inject constructor(
             )
         }
 
-        mediumDao.upsertAll(mediumEntities)
+        val changedMediumEntities = mediumEntities.filter { entity ->
+            existingMediaMap[entity.uriString] != entity
+        }
+        if (changedMediumEntities.isNotEmpty()) {
+            mediumDao.upsertAll(changedMediumEntities)
+        }
 
         val currentMediaUris = mediumEntities.map { it.uriString }.toSet()
-        val unwantedMedia = allWithInfo.filterNot { it.mediumEntity.uriString in currentMediaUris }
+        val unwantedMedia = allMedia.filterNot { it.uriString in currentMediaUris }
 
-        if (unwantedMedia.isEmpty()) return@withContext
-
-        val unwantedMediaUris = unwantedMedia.map { it.mediumEntity.uriString }
-        val recycleBinUnwantedMediaUris = unwantedMedia.mapNotNull { mediumWithInfo ->
-            mediumWithInfo.mediumStateEntity
-                ?.takeIf(MediumStateEntity::isInRecycleBin)
-                ?.uriString
+        if (unwantedMedia.isEmpty()) {
+            Logger.debug(
+                TAG,
+                "updateMedia media=${media.size} existing=${allMedia.size} changed=${changedMediumEntities.size} removable=0 elapsed=${System.currentTimeMillis() - startTime}ms",
+            )
+            return@withContext
         }
+
+        val unwantedMediaUris = unwantedMedia.map(MediumEntity::uriString)
+        val stateByUri = mediumStateDao.getAll(unwantedMediaUris).associateBy(MediumStateEntity::uriString)
+        val recycleBinUnwantedMediaUris = stateByUri.values
+            .filter(MediumStateEntity::isInRecycleBin)
+            .map(MediumStateEntity::uriString)
         val removableMediaUris = unwantedMediaUris - recycleBinUnwantedMediaUris.toSet()
 
-        if (removableMediaUris.isEmpty()) return@withContext
+        if (removableMediaUris.isEmpty()) {
+            Logger.debug(
+                TAG,
+                "updateMedia media=${media.size} existing=${allMedia.size} changed=${changedMediumEntities.size} removable=0 elapsed=${System.currentTimeMillis() - startTime}ms",
+            )
+            return@withContext
+        }
 
         mediumDao.delete(removableMediaUris)
         mediumStateDao.delete(removableMediaUris)
 
-        unwantedMedia.filter { it.mediumEntity.uriString in removableMediaUris }.forEach { mediumWithInfo ->
+        unwantedMedia.filter { it.uriString in removableMediaUris }.forEach { mediumEntity ->
             runCatching {
-                imageLoader.diskCache?.remove(mediumWithInfo.mediumEntity.uriString)
+                imageLoader.diskCache?.remove(mediumEntity.uriString)
             }.onFailure { throwable ->
-                Logger.error(TAG, "Failed to clear thumbnail cache for ${mediumWithInfo.mediumEntity.uriString.toPrivateLogSummary()}", throwable)
+                Logger.error(TAG, "Failed to clear thumbnail cache for ${mediumEntity.uriString.toPrivateLogSummary()}", throwable)
             }
         }
 
@@ -395,8 +444,8 @@ class LocalMediaSynchronizer @Inject constructor(
                 UriListConverter.fromStringToList(mediaState.externalSubs)
             }.toSet()
 
-            unwantedMedia.filter { it.mediumEntity.uriString in removableMediaUris }.onEach { mediumWithInfo ->
-                val mediumState = mediumWithInfo.mediumStateEntity ?: return@onEach
+            removableMediaUris.forEach { removableMediaUri ->
+                val mediumState = stateByUri[removableMediaUri] ?: return@forEach
                 for (sub in UriListConverter.fromStringToList(mediumState.externalSubs)) {
                     if (sub in currentMediaExternalSubs) continue
 
@@ -408,23 +457,29 @@ class LocalMediaSynchronizer @Inject constructor(
                 }
             }
         }
+        Logger.debug(
+            TAG,
+            "updateMedia media=${media.size} existing=${allMedia.size} changed=${changedMediumEntities.size} removable=${removableMediaUris.size} elapsed=${System.currentTimeMillis() - startTime}ms",
+        )
     }
 
     // 只补齐列表必需元数据，避免全库 FFmpeg 流信息拖慢扫描。
     private suspend fun scheduleMediaInfoSync() {
-        val allWithInfo = mediumDao.getAllWithInfo().first()
-        var count = 0
-        allWithInfo.forEach { mediumWithInfo ->
-            val entity = mediumWithInfo.mediumEntity
+        val startTime = System.currentTimeMillis()
+        val media = mediumDao.getAll().first()
+        val syncUris = media.mapNotNull { entity ->
             val needsMetadata = entity.duration <= 0 || entity.width <= 0 || entity.height <= 0
             if (needsMetadata) {
-                mediaInfoSynchronizer.sync(entity.uriString.toUri())
-                count++
+                entity.uriString.toUri()
+            } else {
+                null
             }
         }
-        if (count > 0) {
-            Logger.info(TAG, "scheduleMediaInfoSync queued $count items")
+        if (syncUris.isNotEmpty()) {
+            mediaInfoSynchronizer.syncAll(syncUris)
+            Logger.info(TAG, "scheduleMediaInfoSync queued ${syncUris.size} items")
         }
+        Logger.debug(TAG, "scheduleMediaInfoSync media=${media.size} queued=${syncUris.size} elapsed=${System.currentTimeMillis() - startTime}ms")
     }
 
     private fun getMediaVideosFlow(

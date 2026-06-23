@@ -32,7 +32,7 @@ import one.only.player.core.database.entities.VideoStreamInfoEntity
         FavoriteItemEntity::class,
         PlaybackMarkEntity::class,
     ],
-    version = 9,
+    version = 10,
     exportSchema = true,
 )
 abstract class MediaDatabase : RoomDatabase() {
@@ -282,6 +282,13 @@ abstract class MediaDatabase : RoomDatabase() {
                 )
                 db.execSQL("CREATE INDEX IF NOT EXISTS `index_playback_mark_media_uri_position_ms` ON `playback_mark` (`media_uri`, `position_ms`)")
                 db.execSQL("CREATE INDEX IF NOT EXISTS `index_playback_mark_created_at` ON `playback_mark` (`created_at`)")
+            }
+        }
+
+        val MIGRATION_9_10 = object : Migration(9, 10) {
+            override fun migrate(db: SupportSQLiteDatabase) {
+                db.execSQL("CREATE INDEX IF NOT EXISTS `index_media_parent_path` ON `media` (`parent_path`)")
+                db.execSQL("CREATE INDEX IF NOT EXISTS `index_directories_parent_path` ON `directories` (`parent_path`)")
             }
         }
     }

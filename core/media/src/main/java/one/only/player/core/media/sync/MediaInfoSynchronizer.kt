@@ -6,6 +6,8 @@ interface MediaInfoSynchronizer {
 
     fun sync(uri: Uri)
 
+    fun syncAll(uris: List<Uri>)
+
     suspend fun clearThumbnailsCache()
 
     suspend fun clearVideoCache()

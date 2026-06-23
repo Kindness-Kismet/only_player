@@ -209,17 +209,13 @@ class MainActivity : AppCompatActivity() {
                         MainAppContent(
                             onPermissionGranted = {
                                 synchronizer.startSync()
-                                if (lastAutoRefreshAt == 0L) {
-                                    lifecycleScope.launch {
-                                        delay(2000)
-                                        synchronizer.refresh()
-                                        lastAutoRefreshAt = SystemClock.elapsedRealtime()
-                                    }
-                                }
+                                lastAutoRefreshAt = SystemClock.elapsedRealtime()
                             },
                             onResumeWithPermission = {
                                 val now = SystemClock.elapsedRealtime()
-                                if (now - lastAutoRefreshAt >= AUTO_REFRESH_INTERVAL_MILLIS) {
+                                if (lastAutoRefreshAt == 0L) {
+                                    lastAutoRefreshAt = now
+                                } else if (now - lastAutoRefreshAt >= AUTO_REFRESH_INTERVAL_MILLIS) {
                                     lifecycleScope.launch {
                                         synchronizer.refresh()
                                         lastAutoRefreshAt = SystemClock.elapsedRealtime()

@@ -10,10 +10,13 @@ import dagger.hilt.android.lifecycle.HiltViewModel
 import java.io.File
 import javax.inject.Inject
 import javax.inject.Singleton
+import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
+import one.only.player.core.common.Logger
+import one.only.player.core.common.di.ApplicationScope
 import one.only.player.core.common.extensions.canonicalPathOrSelf
 import one.only.player.core.common.extensions.prettyName
 import one.only.player.core.common.hasManageExternalStorageAccess
@@ -47,6 +50,7 @@ class MediaPickerViewModel @Inject constructor(
     private val mediaSynchronizer: MediaSynchronizer,
     private val snapshotCache: MediaPickerSnapshotCache,
     private val moveSelectionStore: MediaPickerMoveSelectionStore,
+    @ApplicationScope private val applicationScope: CoroutineScope,
 ) : ViewModel() {
 
     private val folderArgs = FolderArgs(savedStateHandle)
@@ -185,10 +189,7 @@ class MediaPickerViewModel @Inject constructor(
             val isDeletionSuccessful = mediaService.deleteMedia(uris.map { it.toUri() })
             if (isDeletionSuccessful) {
                 mediaSynchronizer.removeDeleted(uris)
-                videos.map(SelectedVideo::path)
-                    .filter(String::isNotBlank)
-                    .distinct()
-                    .forEach { path -> mediaSynchronizer.refresh(path) }
+                refreshDeletedPathsAsync(videos.map(SelectedVideo::path))
             }
             uiStateInternal.update { currentState ->
                 currentState.copy(
@@ -378,6 +379,21 @@ class MediaPickerViewModel @Inject constructor(
             hasAllFilesAccess = hasManageExternalStorageAccess(),
         )
     }
+
+    private fun refreshDeletedPathsAsync(paths: List<String>) {
+        val distinctPaths = paths.filter(String::isNotBlank).distinct()
+        if (distinctPaths.isEmpty()) return
+
+        applicationScope.launch {
+            distinctPaths.forEach { path ->
+                runCatching {
+                    mediaSynchronizer.refresh(path)
+                }.onFailure { throwable ->
+                    Logger.error(TAG, "Failed to refresh deleted path: $path", throwable)
+                }
+            }
+        }
+    }
 }
 
 @Stable
@@ -429,6 +445,8 @@ sealed interface MediaPickerDeleteResult {
     data object MovedToRecycleBin : MediaPickerDeleteResult
     data object DeleteFailed : MediaPickerDeleteResult
 }
+
+private const val TAG = "MediaPickerViewModel"
 
 @Stable
 data class MediaPickerMoveProgress(
