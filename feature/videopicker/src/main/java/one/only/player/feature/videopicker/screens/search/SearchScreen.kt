@@ -65,6 +65,7 @@ import androidx.compose.ui.unit.dp
 import androidx.core.net.toUri
 import androidx.hilt.lifecycle.viewmodel.compose.hiltViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
+import one.only.player.core.common.Utils
 import one.only.player.core.domain.SearchResults
 import one.only.player.core.domain.asRootFolder
 import one.only.player.core.model.ApplicationPreferences
@@ -89,6 +90,7 @@ import one.only.player.feature.videopicker.composables.MediaView
 import one.only.player.feature.videopicker.composables.RenameDialog
 import one.only.player.feature.videopicker.composables.SelectionMenuItem
 import one.only.player.feature.videopicker.composables.VideoInfoDialog
+import one.only.player.feature.videopicker.state.SelectedVideo
 import one.only.player.feature.videopicker.state.rememberSelectionManager
 
 @Composable
@@ -382,7 +384,7 @@ internal fun SearchScreen(
 
     if (shouldShowDeleteConfirmation) {
         SearchDeleteConfirmationDialog(
-            selectedCount = selectedVideoUris.size,
+            selectedVideos = selectionManager.allSelectedVideos,
             isRecycleBinEnabled = uiState.preferences.isRecycleBinEnabled,
             onConfirm = {
                 if (uiState.preferences.isRecycleBinEnabled) {
@@ -688,11 +690,14 @@ private fun SearchSelectionActionsMenu(
 
 @Composable
 private fun SearchDeleteConfirmationDialog(
-    selectedCount: Int,
+    selectedVideos: Collection<SelectedVideo>,
     isRecycleBinEnabled: Boolean,
     onConfirm: () -> Unit,
     onCancel: () -> Unit,
 ) {
+    val selectedVideoList = selectedVideos.toList()
+    val totalDuration = selectedVideoList.sumOf(SelectedVideo::duration)
+    val totalSize = selectedVideoList.sumOf(SelectedVideo::size)
     NextDialog(
         onDismissRequest = onCancel,
         title = {
@@ -700,20 +705,47 @@ private fun SearchDeleteConfirmationDialog(
                 text = if (isRecycleBinEnabled) {
                     stringResource(R.string.move_to_recycle_bin)
                 } else {
-                    stringResource(R.string.delete_videos, selectedCount)
+                    stringResource(R.string.delete_videos, selectedVideoList.size)
                 },
             )
         },
         content = {
-            Text(
-                text = stringResource(
-                    if (isRecycleBinEnabled) {
-                        R.string.move_to_recycle_bin_info
-                    } else {
-                        R.string.delete_items_info
-                    },
-                ),
+            val warningText = stringResource(
+                if (isRecycleBinEnabled) {
+                    R.string.move_to_recycle_bin_info
+                } else {
+                    R.string.delete_items_info
+                },
             )
+
+            Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                Text(
+                    text = warningText,
+                    style = MaterialTheme.typography.titleSmall,
+                )
+                Text(
+                    text = stringResource(R.string.delete_summary_count, selectedVideoList.size),
+                    style = MaterialTheme.typography.bodyMedium,
+                )
+                Text(
+                    text = stringResource(R.string.delete_summary_size, Utils.formatFileSize(totalSize)),
+                    style = MaterialTheme.typography.bodyMedium,
+                )
+                Text(
+                    text = stringResource(R.string.delete_summary_duration, Utils.formatDurationMillis(totalDuration)),
+                    style = MaterialTheme.typography.bodyMedium,
+                )
+                Text(
+                    text = selectedVideoList.take(5).joinToString(separator = "\n") { it.nameWithExtension },
+                    style = MaterialTheme.typography.bodySmall,
+                )
+                if (selectedVideoList.size > 5) {
+                    Text(
+                        text = stringResource(R.string.delete_summary_more, selectedVideoList.size - 5),
+                        style = MaterialTheme.typography.bodySmall,
+                    )
+                }
+            }
         },
         confirmButton = {
             DoneButton(onClick = onConfirm)
