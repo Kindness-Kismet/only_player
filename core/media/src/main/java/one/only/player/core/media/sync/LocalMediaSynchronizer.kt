@@ -20,6 +20,7 @@ import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.channels.awaitClose
+import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.callbackFlow
 import kotlinx.coroutines.flow.combine
@@ -75,12 +76,16 @@ class LocalMediaSynchronizer @Inject constructor(
 
     private var mediaSyncingJob: Job? = null
     private var targetedRefreshSuppressUntilMillis: Long = 0L
+    private var deferredAutomaticSyncJob: Job? = null
     private val syncMutex = Mutex()
 
     override suspend fun refresh(path: String?): Boolean = withContext(dispatcher) {
+        if (path != null) {
+            suppressAutomaticSyncAfterTargetedRefresh()
+        }
+
         syncMutex.withLock {
             val didScan = if (path != null) {
-                suppressAutomaticSyncAfterTargetedRefresh()
                 registerManualVideoPath(path)
                 mergePendingManualVideoPaths()
                 context.scanPaths(listOf(path))
@@ -222,11 +227,31 @@ class LocalMediaSynchronizer @Inject constructor(
 
     private fun suppressAutomaticSyncAfterTargetedRefresh() {
         targetedRefreshSuppressUntilMillis = SystemClock.elapsedRealtime() + TARGETED_REFRESH_AUTOMATIC_SYNC_SUPPRESS_MILLIS
+        deferredAutomaticSyncJob?.cancel()
+        deferredAutomaticSyncJob = null
     }
 
     private fun shouldSkipAutomaticSyncAfterTargetedRefresh(): Boolean {
         if (SystemClock.elapsedRealtime() > targetedRefreshSuppressUntilMillis) return false
+        scheduleDeferredAutomaticSync()
         return true
+    }
+
+    private fun scheduleDeferredAutomaticSync() {
+        if (deferredAutomaticSyncJob?.isActive == true) return
+
+        deferredAutomaticSyncJob = applicationScope.launch(dispatcher) {
+            while (true) {
+                val delayMillis = targetedRefreshSuppressUntilMillis - SystemClock.elapsedRealtime()
+                if (delayMillis <= 0L) break
+                delay(delayMillis)
+            }
+
+            syncMutex.withLock {
+                Logger.info(TAG, "Running deferred automatic sync after targeted refresh")
+                syncCurrentMedia()
+            }
+        }
     }
 
     private fun scanPathsAsync(paths: List<String>) {
@@ -262,6 +287,12 @@ class LocalMediaSynchronizer @Inject constructor(
     private suspend fun syncPathMedia(path: String) = withContext(Dispatchers.Default) {
         val startTime = System.currentTimeMillis()
         val canonicalPath = path.canonicalPathOrSelf()
+        val targetFile = File(canonicalPath)
+        if (targetFile.isDirectory) {
+            syncDirectoryMedia(directory = targetFile, startTime = startTime)
+            return@withContext
+        }
+
         val existingByPathBeforeScan = mediumDao.getByPath(canonicalPath)
         val existingState = existingByPathBeforeScan?.let { mediumStateDao.get(it.uriString) }
         if (existingState?.isInRecycleBin == true) {
@@ -295,6 +326,64 @@ class LocalMediaSynchronizer @Inject constructor(
             }
         }
         Logger.debug(TAG, "syncPathMedia path=${canonicalPath.toPrivateLogSummary()} elapsed=${System.currentTimeMillis() - startTime}ms")
+    }
+
+    private suspend fun syncDirectoryMedia(
+        directory: File,
+        startTime: Long,
+    ) {
+        val directoryPath = directory.path
+        val directoryPrefix = directoryPath.trimEnd(File.separatorChar) + File.separator
+        val mediaStoreVideos = getMediaVideo(
+            selection = "${MediaStore.Video.Media.DATA} LIKE ?",
+            selectionArgs = arrayOf("$directoryPrefix%"),
+            sortOrder = null,
+        )
+        val indexedPaths = mediaStoreVideos.map { mediaVideo -> mediaVideo.data.canonicalPathOrSelf() }.toSet()
+        val manualVideos = if (hasManageExternalStorageAccess()) {
+            directory.collectVisibleUnindexedVideoPaths(indexedPaths)
+                .asSequence()
+                .map(::File)
+                .filter(File::exists)
+                .filter { it.isVisibleVideoFile() }
+                .map { it.toBasicMediaVideo() }
+                .toList()
+        } else {
+            emptyList()
+        }
+        val media = (mediaStoreVideos + manualVideos)
+            .distinctBy { mediaVideo -> mediaVideo.data.canonicalPathOrSelf() }
+
+        val existingMedia = mediumDao.getAll().first()
+        val existingMediaByUri = existingMedia.associateBy(MediumEntity::uriString)
+        val mediaPaths = media.map { mediaVideo -> mediaVideo.data.canonicalPathOrSelf() }.toSet()
+        val removableUris = existingMedia
+            .filter { medium -> medium.path.canonicalPathOrSelf().startsWith(directoryPrefix) }
+            .filter { medium -> medium.path.canonicalPathOrSelf() !in mediaPaths }
+            .filterNot { medium -> mediumStateDao.get(medium.uriString)?.isInRecycleBin == true }
+            .map(MediumEntity::uriString)
+
+        if (removableUris.isNotEmpty()) {
+            mediumDao.delete(removableUris)
+            mediumStateDao.delete(removableUris)
+        }
+
+        directoryDao.upsertAll(buildDirectoryEntities(media))
+        val mediumEntities = media.mapNotNull { mediaVideo ->
+            buildMediumEntity(
+                mediaVideo = mediaVideo,
+                existingEntity = existingMediaByUri[mediaVideo.uri.toString()],
+            )
+        }
+        mediumDao.upsertAll(mediumEntities)
+        mediumEntities
+            .filter { medium -> medium.duration <= 0 || medium.width <= 0 || medium.height <= 0 }
+            .forEach { medium -> mediaInfoSynchronizer.sync(medium.uriString.toUri()) }
+
+        Logger.debug(
+            TAG,
+            "syncDirectoryMedia path=${directoryPath.toPrivateLogSummary()} media=${media.size} removed=${removableUris.size} elapsed=${System.currentTimeMillis() - startTime}ms",
+        )
     }
 
     private fun findPathMediaVideo(path: String): MediaVideo? {
