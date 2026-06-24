@@ -308,6 +308,13 @@
     <string name="mark_last_played_media_desc">Mark last played media in home and in each folder</string>
     <string name="restore_last_played_media_in_folders">Auto-locate last video</string>
     <string name="restore_last_played_media_in_folders_desc">Scroll to the last played item when opening a folder</string>
+    <string name="home_cloud_servers">Home cloud servers</string>
+    <string name="home_cloud_servers_desc">Select cloud servers to show on the home page</string>
+    <string name="home_cloud_servers_placement">Home cloud server position</string>
+    <string name="home_cloud_servers_placement_top">Top of home list</string>
+    <string name="home_cloud_servers_placement_bottom">Bottom of home list</string>
+    <string name="home_cloud_servers_empty_desc">Add cloud servers first, then select the ones to show on home</string>
+    <string name="local_media">Local media</string>
     <string name="recycle_bin">Recycle bin</string>
     <string name="recycle_bin_desc">Keep deleted items available until you remove them permanently. When enabled, the recycle bin entry appears in the home top bar.</string>
     <string name="open_local_video">Open local video</string>

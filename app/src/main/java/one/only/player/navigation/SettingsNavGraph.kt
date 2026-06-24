@@ -11,6 +11,7 @@ import one.only.player.settings.navigation.decoderPreferencesScreen
 import one.only.player.settings.navigation.folderPreferencesScreen
 import one.only.player.settings.navigation.generalPreferencesScreen
 import one.only.player.settings.navigation.gesturePreferencesScreen
+import one.only.player.settings.navigation.homeCloudServerPreferencesScreen
 import one.only.player.settings.navigation.librariesScreen
 import one.only.player.settings.navigation.logsScreen
 import one.only.player.settings.navigation.mediaLibraryPreferencesScreen
@@ -21,6 +22,7 @@ import one.only.player.settings.navigation.navigateToDecoderPreferences
 import one.only.player.settings.navigation.navigateToFolderPreferencesScreen
 import one.only.player.settings.navigation.navigateToGeneralPreferences
 import one.only.player.settings.navigation.navigateToGesturePreferences
+import one.only.player.settings.navigation.navigateToHomeCloudServerPreferencesScreen
 import one.only.player.settings.navigation.navigateToLibraries
 import one.only.player.settings.navigation.navigateToLogs
 import one.only.player.settings.navigation.navigateToMediaLibraryPreferencesScreen
@@ -67,12 +69,16 @@ fun NavGraphBuilder.settingsNavGraph(
         mediaLibraryPreferencesScreen(
             onNavigateUp = navController::navigateUp,
             onFolderSettingClick = navController::navigateToFolderPreferencesScreen,
+            onHomeCloudServersClick = navController::navigateToHomeCloudServerPreferencesScreen,
             onThumbnailSettingClick = navController::navigateToThumbnailPreferencesScreen,
         )
         thumbnailPreferencesScreen(
             onNavigateUp = navController::navigateUp,
         )
         folderPreferencesScreen(
+            onNavigateUp = navController::navigateUp,
+        )
+        homeCloudServerPreferencesScreen(
             onNavigateUp = navController::navigateUp,
         )
         playerPreferencesScreen(

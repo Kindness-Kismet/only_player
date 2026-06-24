@@ -64,6 +64,9 @@ fun NavGraphBuilder.mediaNavGraph(
             onRecycleBinClick = navController::navigateToRecycleBinScreen,
             onSearchClick = navController::navigateToSearch,
             onCloudClick = navController::navigateToCloudHome,
+            onCloudServerClick = { serverId ->
+                navController.navigateToCloudBrowse(serverId = serverId)
+            },
             onFavoritesClick = navController::navigateToFavorites,
             onExitAppClick = {
                 context.stopService(Intent(context, PlayerService::class.java))

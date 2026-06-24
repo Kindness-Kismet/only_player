@@ -13,6 +13,7 @@ import javax.inject.Singleton
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.asStateFlow
+import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
 import one.only.player.core.common.Logger
@@ -24,6 +25,7 @@ import one.only.player.core.data.repository.FavoriteRepository
 import one.only.player.core.data.repository.MediaMoveSummary
 import one.only.player.core.data.repository.MediaRepository
 import one.only.player.core.data.repository.PreferencesRepository
+import one.only.player.core.data.repository.RemoteServerRepository
 import one.only.player.core.data.repository.toFavoriteItem
 import one.only.player.core.domain.GetSortedMediaUseCase
 import one.only.player.core.media.services.MediaService
@@ -32,6 +34,7 @@ import one.only.player.core.media.sync.MediaSynchronizer
 import one.only.player.core.model.ApplicationPreferences
 import one.only.player.core.model.Folder
 import one.only.player.core.model.PlayerPreferences
+import one.only.player.core.model.RemoteServer
 import one.only.player.core.model.Video
 import one.only.player.core.ui.base.DataState
 import one.only.player.feature.videopicker.navigation.FolderArgs
@@ -46,6 +49,7 @@ class MediaPickerViewModel @Inject constructor(
     private val mediaRepository: MediaRepository,
     private val favoriteRepository: FavoriteRepository,
     private val preferencesRepository: PreferencesRepository,
+    private val remoteServerRepository: RemoteServerRepository,
     private val mediaInfoSynchronizer: MediaInfoSynchronizer,
     private val mediaSynchronizer: MediaSynchronizer,
     private val snapshotCache: MediaPickerSnapshotCache,
@@ -106,10 +110,16 @@ class MediaPickerViewModel @Inject constructor(
         }
 
         viewModelScope.launch {
-            preferencesRepository.applicationPreferences.collect {
+            combine(
+                preferencesRepository.applicationPreferences,
+                remoteServerRepository.getAll(),
+            ) { preferences, remoteServers ->
+                preferences to preferences.homeCloudServers(remoteServers)
+            }.collect { (preferences, homeCloudServers) ->
                 uiStateInternal.update { currentState ->
                     currentState.copy(
-                        preferences = it,
+                        preferences = preferences,
+                        homeCloudServers = homeCloudServers,
                     )
                 }
             }
@@ -404,6 +414,7 @@ data class MediaPickerUiState(
     val isRefreshing: Boolean = false,
     val preferences: ApplicationPreferences = ApplicationPreferences(),
     val playerPreferences: PlayerPreferences = PlayerPreferences(),
+    val homeCloudServers: List<RemoteServer> = emptyList(),
     val screenMode: MediaPickerScreenMode = MediaPickerScreenMode.LIBRARY,
     val moveSelection: MediaPickerMoveSelection? = null,
     val isMovingSelection: Boolean = false,
@@ -475,6 +486,11 @@ data class MediaPickerMoveSelection(
 }
 
 private fun String.normalizedMovePath(): String = canonicalPathOrSelf().replace(File.separatorChar, '/')
+
+private fun ApplicationPreferences.homeCloudServers(remoteServers: List<RemoteServer>): List<RemoteServer> {
+    val serversById = remoteServers.associateBy(RemoteServer::id)
+    return homeCloudServerIds.mapNotNull(serversById::get)
+}
 
 @Singleton
 class MediaPickerMoveSelectionStore @Inject constructor() {

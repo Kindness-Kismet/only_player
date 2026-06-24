@@ -10,6 +10,7 @@ import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.lazy.grid.GridCells
 import androidx.compose.foundation.lazy.grid.GridItemSpan
+import androidx.compose.foundation.lazy.grid.LazyGridScope
 import androidx.compose.foundation.lazy.grid.LazyGridState
 import androidx.compose.foundation.lazy.grid.LazyVerticalGrid
 import androidx.compose.foundation.lazy.grid.itemsIndexed
@@ -29,8 +30,10 @@ import androidx.core.net.toUri
 import kotlin.math.abs
 import one.only.player.core.model.ApplicationPreferences
 import one.only.player.core.model.Folder
+import one.only.player.core.model.HomeCloudServersPlacement
 import one.only.player.core.model.MediaLayoutMode
 import one.only.player.core.model.MediaViewMode
+import one.only.player.core.model.RemoteServer
 import one.only.player.core.model.Video
 import one.only.player.core.ui.R
 import one.only.player.core.ui.components.ListSectionTitle
@@ -43,11 +46,13 @@ import one.only.player.feature.videopicker.state.rememberSelectionManager
 fun MediaView(
     rootFolder: Folder,
     preferences: ApplicationPreferences,
+    homeCloudServers: List<RemoteServer> = emptyList(),
     shouldShowHeaders: Boolean = preferences.mediaViewMode == MediaViewMode.FOLDER_TREE,
     contentPadding: PaddingValues = PaddingValues(),
     selectionManager: SelectionManager = rememberSelectionManager(),
     lazyGridState: LazyGridState = rememberLazyGridState(),
     onFolderClick: (Folder) -> Unit,
+    onCloudServerClick: (RemoteServer) -> Unit = {},
     onVideoClick: (Video) -> Unit,
     onVideoLoaded: (Uri) -> Unit,
 ) {
@@ -90,6 +95,33 @@ fun MediaView(
             verticalArrangement = Arrangement.spacedBy(itemSpacing),
             horizontalArrangement = Arrangement.spacedBy(itemSpacing),
         ) {
+            val hasLocalMedia = rootFolder.folderList.isNotEmpty() || rootFolder.mediaList.isNotEmpty()
+            val shouldShowHomeCloudServers = homeCloudServers.isNotEmpty()
+            if (shouldShowHomeCloudServers && preferences.homeCloudServersPlacement == HomeCloudServersPlacement.TOP) {
+                cloudServerSection(
+                    servers = homeCloudServers,
+                    preferences = preferences,
+                    singleFolderSpan = singleFolderSpan,
+                    shouldShowTopSeparator = hasLocalMedia,
+                    onCloudServerClick = onCloudServerClick,
+                )
+                if (hasLocalMedia) {
+                    item(span = { GridItemSpan(maxLineSpan) }) {
+                        ListSectionTitle(text = stringResource(id = R.string.local_media))
+                    }
+                }
+            }
+
+            if (
+                shouldShowHomeCloudServers &&
+                preferences.homeCloudServersPlacement == HomeCloudServersPlacement.BOTTOM &&
+                hasLocalMedia
+            ) {
+                item(span = { GridItemSpan(maxLineSpan) }) {
+                    ListSectionTitle(text = stringResource(id = R.string.local_media))
+                }
+            }
+
             if (shouldShowHeaders && rootFolder.folderList.isNotEmpty()) {
                 item(span = { GridItemSpan(maxLineSpan) }) {
                     ListSectionTitle(text = stringResource(id = R.string.folders) + " (${rootFolder.folderList.size})")
@@ -167,7 +199,44 @@ fun MediaView(
                     },
                 )
             }
+
+            if (shouldShowHomeCloudServers && preferences.homeCloudServersPlacement == HomeCloudServersPlacement.BOTTOM) {
+                cloudServerSection(
+                    servers = homeCloudServers,
+                    preferences = preferences,
+                    singleFolderSpan = singleFolderSpan,
+                    shouldShowTopSeparator = hasLocalMedia,
+                    onCloudServerClick = onCloudServerClick,
+                )
+            }
         }
+    }
+}
+
+private fun LazyGridScope.cloudServerSection(
+    servers: List<RemoteServer>,
+    preferences: ApplicationPreferences,
+    singleFolderSpan: Int,
+    shouldShowTopSeparator: Boolean = true,
+    onCloudServerClick: (RemoteServer) -> Unit,
+) {
+    if (shouldShowTopSeparator) {
+        item(span = { GridItemSpan(maxLineSpan) }) {
+            ListSectionTitle(text = stringResource(id = R.string.cloud_servers))
+        }
+    }
+    itemsIndexed(
+        items = servers,
+        key = { _, server -> "cloud_server_${server.id}" },
+        span = { _, _ -> GridItemSpan(singleFolderSpan) },
+    ) { index, server ->
+        CloudServerItem(
+            server = server,
+            preferences = preferences,
+            isFirstItem = index == 0,
+            isLastItem = index == servers.lastIndex,
+            onClick = { onCloudServerClick(server) },
+        )
     }
 }
 

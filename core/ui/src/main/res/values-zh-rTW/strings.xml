@@ -302,6 +302,13 @@
     <string name="mark_last_played_media_desc">標記首頁和每個資料夾中最後播放的媒體</string>
     <string name="restore_last_played_media_in_folders">自動定位上次影片</string>
     <string name="restore_last_played_media_in_folders_desc">開啟資料夾時捲到上次播放項</string>
+    <string name="home_cloud_servers">首頁雲端伺服器</string>
+    <string name="home_cloud_servers_desc">選擇要在首頁顯示的雲端伺服器</string>
+    <string name="home_cloud_servers_placement">首頁雲端伺服器位置</string>
+    <string name="home_cloud_servers_placement_top">首頁列表頂部</string>
+    <string name="home_cloud_servers_placement_bottom">首頁列表底部</string>
+    <string name="home_cloud_servers_empty_desc">請先新增雲端伺服器，再選擇要在首頁顯示的伺服器</string>
+    <string name="local_media">本機媒體</string>
     <string name="recycle_bin">回收站</string>
     <string name="recycle_bin_desc">保留已刪除項目，直到您永久移除它們。啟用後會在首頁頂部列顯示回收站入口</string>
     <string name="open_local_video">開啟本機影片</string>

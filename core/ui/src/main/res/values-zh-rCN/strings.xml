@@ -304,6 +304,13 @@
     <string name="mark_last_played_media_desc">标记主页和每个文件夹中上次播放的媒体</string>
     <string name="restore_last_played_media_in_folders">自动定位上次视频</string>
     <string name="restore_last_played_media_in_folders_desc">打开文件夹时滚到上次播放项</string>
+    <string name="home_cloud_servers">主页云端服务器</string>
+    <string name="home_cloud_servers_desc">选择要在主页显示的云端服务器</string>
+    <string name="home_cloud_servers_placement">主页云端服务器位置</string>
+    <string name="home_cloud_servers_placement_top">主页列表顶部</string>
+    <string name="home_cloud_servers_placement_bottom">主页列表底部</string>
+    <string name="home_cloud_servers_empty_desc">请先添加云端服务器，再选择要在主页显示的服务器</string>
+    <string name="local_media">本地媒体</string>
     <string name="recycle_bin">回收站</string>
     <string name="recycle_bin_desc">保留已删除项目，直到您永久移除它们。启用后会在主页顶部栏显示回收站入口</string>
     <string name="exit">退出</string>

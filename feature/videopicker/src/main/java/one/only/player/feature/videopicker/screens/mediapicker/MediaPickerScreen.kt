@@ -105,6 +105,7 @@ fun MediaPickerRoute(
     onRecycleBinClick: () -> Unit,
     onSearchClick: () -> Unit,
     onCloudClick: () -> Unit,
+    onCloudServerClick: (Long) -> Unit,
     onFavoritesClick: () -> Unit,
     onSettingsClick: () -> Unit,
     onExitAppClick: () -> Unit,
@@ -123,6 +124,7 @@ fun MediaPickerRoute(
         onRecycleBinClick = onRecycleBinClick,
         onSearchClick = onSearchClick,
         onCloudClick = onCloudClick,
+        onCloudServerClick = onCloudServerClick,
         onFavoritesClick = onFavoritesClick,
         onSettingsClick = onSettingsClick,
         onExitAppClick = onExitAppClick,
@@ -152,6 +154,7 @@ internal fun MediaPickerScreen(
     onRecycleBinClick: () -> Unit = {},
     onSearchClick: () -> Unit = {},
     onCloudClick: () -> Unit = {},
+    onCloudServerClick: (Long) -> Unit = {},
     onFavoritesClick: () -> Unit = {},
     onSettingsClick: () -> Unit = {},
     onExitAppClick: () -> Unit = {},
@@ -188,6 +191,9 @@ internal fun MediaPickerScreen(
     val shouldShowRecycleBinEntry = isLibraryMode &&
         uiState.folderName == null &&
         uiState.preferences.isRecycleBinEnabled
+    val homeCloudServers = uiState.homeCloudServers.takeIf {
+        isLibraryMode && uiState.folderName == null
+    }.orEmpty()
     val deleteAction = when {
         isRecycleBinMode -> MediaPickerDeleteAction.PermanentlyDelete
         uiState.preferences.isRecycleBinEnabled -> MediaPickerDeleteAction.MoveToRecycleBin
@@ -580,16 +586,22 @@ internal fun MediaPickerScreen(
 
                             is DataState.Success -> {
                                 val rootFolder = uiState.mediaDataState.value
-                                if (rootFolder == null || rootFolder.folderList.isEmpty() && rootFolder.mediaList.isEmpty()) {
+                                val hasLocalContent = rootFolder?.let {
+                                    it.folderList.isNotEmpty() || it.mediaList.isNotEmpty()
+                                } == true
+                                val hasHomeContent = hasLocalContent || homeCloudServers.isNotEmpty()
+                                if (!hasHomeContent) {
                                     NoVideosFound(contentPadding = updatedScaffoldPadding)
                                 } else {
                                     MediaView(
-                                        rootFolder = rootFolder,
+                                        rootFolder = rootFolder ?: Folder.rootFolder,
                                         preferences = uiState.preferences,
+                                        homeCloudServers = homeCloudServers,
                                         onFolderClick = {
                                             onEvent(MediaPickerUiEvent.CacheFolderSnapshot(it))
                                             onFolderClick(it.path, uiState.screenMode)
                                         },
+                                        onCloudServerClick = { server -> onCloudServerClick(server.id) },
                                         onVideoClick = { video ->
                                             if (!isMoveMode) onPlayVideo(video, uiState.playerPreferences)
                                         },

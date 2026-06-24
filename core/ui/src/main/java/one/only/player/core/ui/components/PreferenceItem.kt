@@ -69,6 +69,7 @@ fun SelectablePreference(
     modifier: Modifier = Modifier,
     description: String? = null,
     isSelected: Boolean = false,
+    shouldStrikeThroughSelected: Boolean = true,
     onClick: () -> Unit = {},
     onLongClick: () -> Unit = {},
     isFirstItem: Boolean = false,
@@ -85,7 +86,11 @@ fun SelectablePreference(
                 text = title,
                 maxLines = 1,
                 style = MaterialTheme.typography.titleMedium.copy(
-                    textDecoration = if (isSelected) TextDecoration.LineThrough else TextDecoration.None,
+                    textDecoration = if (isSelected && shouldStrikeThroughSelected) {
+                        TextDecoration.LineThrough
+                    } else {
+                        TextDecoration.None
+                    },
                 ),
             )
         },
@@ -95,7 +100,11 @@ fun SelectablePreference(
                     text = it,
                     overflow = TextOverflow.Ellipsis,
                     style = MaterialTheme.typography.bodyMedium.copy(
-                        textDecoration = if (isSelected) TextDecoration.LineThrough else TextDecoration.None,
+                        textDecoration = if (isSelected && shouldStrikeThroughSelected) {
+                            TextDecoration.LineThrough
+                        } else {
+                            TextDecoration.None
+                        },
                     ),
                 )
             }

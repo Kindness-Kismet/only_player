@@ -4,6 +4,7 @@ import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.ExperimentalMaterial3Api
@@ -30,20 +31,24 @@ import androidx.lifecycle.compose.LifecycleEventEffect
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import one.only.player.core.common.createManageExternalStorageAccessIntent
 import one.only.player.core.common.hasManageExternalStorageAccess
+import one.only.player.core.model.HomeCloudServersPlacement
 import one.only.player.core.model.ThumbnailGenerationStrategy
 import one.only.player.core.ui.R
 import one.only.player.core.ui.components.ClickablePreferenceItem
 import one.only.player.core.ui.components.ListSectionTitle
 import one.only.player.core.ui.components.NextTopAppBar
 import one.only.player.core.ui.components.PreferenceSwitch
+import one.only.player.core.ui.components.RadioTextButton
 import one.only.player.core.ui.designsystem.NextIcons
 import one.only.player.core.ui.extensions.withBottomFallback
 import one.only.player.core.ui.theme.OnlyPlayerTheme
+import one.only.player.settings.composables.OptionsDialog
 
 @Composable
 fun MediaLibraryPreferencesScreen(
     onNavigateUp: () -> Unit,
     onFolderSettingClick: () -> Unit = {},
+    onHomeCloudServersClick: () -> Unit = {},
     onThumbnailSettingClick: () -> Unit = {},
     viewModel: MediaLibraryPreferencesViewModel = hiltViewModel(),
 ) {
@@ -68,6 +73,7 @@ fun MediaLibraryPreferencesScreen(
         hasAllFilesAccess = hasAllFilesAccess,
         onNavigateUp = onNavigateUp,
         onFolderSettingClick = onFolderSettingClick,
+        onHomeCloudServersClick = onHomeCloudServersClick,
         onThumbnailSettingClick = onThumbnailSettingClick,
         onOpenAllFilesAccessSettings = {
             context.startActivity(createManageExternalStorageAccessIntent(context))
@@ -90,6 +96,7 @@ private fun MediaLibraryPreferencesContent(
     hasAllFilesAccess: Boolean,
     onNavigateUp: () -> Unit,
     onFolderSettingClick: () -> Unit,
+    onHomeCloudServersClick: () -> Unit,
     onThumbnailSettingClick: () -> Unit,
     onOpenAllFilesAccessSettings: () -> Unit,
     onToggleIgnoreNoMediaFiles: (Boolean) -> Unit,
@@ -168,6 +175,36 @@ private fun MediaLibraryPreferencesContent(
                 )
             }
 
+            ListSectionTitle(text = stringResource(id = R.string.cloud_servers))
+            Column(
+                verticalArrangement = Arrangement.spacedBy(ListItemDefaults.SegmentedGap),
+            ) {
+                ClickablePreferenceItem(
+                    modifier = Modifier.testTag("item_settings_media_home_cloud_servers_placement"),
+                    title = stringResource(id = R.string.home_cloud_servers_placement),
+                    description = preferences.homeCloudServersPlacement.displayName(),
+                    icon = NextIcons.Cloud,
+                    onClick = {
+                        onEvent(
+                            MediaLibraryPreferencesUiEvent.ShowDialog(
+                                MediaLibraryPreferenceDialog.HomeCloudServersPlacement,
+                            ),
+                        )
+                    },
+                    isFirstItem = true,
+                    isLastItem = false,
+                )
+                ClickablePreferenceItem(
+                    modifier = Modifier.testTag("item_settings_media_home_cloud_servers"),
+                    title = stringResource(id = R.string.home_cloud_servers),
+                    description = stringResource(id = R.string.home_cloud_servers_desc),
+                    icon = NextIcons.Cloud,
+                    onClick = onHomeCloudServersClick,
+                    isFirstItem = false,
+                    isLastItem = true,
+                )
+            }
+
             ListSectionTitle(text = stringResource(id = R.string.scan))
             Column(
                 verticalArrangement = Arrangement.spacedBy(ListItemDefaults.SegmentedGap),
@@ -214,8 +251,39 @@ private fun MediaLibraryPreferencesContent(
                     isLastItem = true,
                 )
             }
+
+            uiState.showDialog?.let { showDialog ->
+                when (showDialog) {
+                    MediaLibraryPreferenceDialog.HomeCloudServersPlacement -> {
+                        OptionsDialog(
+                            text = stringResource(id = R.string.home_cloud_servers_placement),
+                            onDismissClick = { onEvent(MediaLibraryPreferencesUiEvent.ShowDialog(null)) },
+                        ) {
+                            items(HomeCloudServersPlacement.entries.toTypedArray()) {
+                                RadioTextButton(
+                                    modifier = Modifier.testTag(
+                                        "option_settings_media_home_cloud_servers_placement_${it.name.lowercase()}",
+                                    ),
+                                    text = it.displayName(),
+                                    isSelected = it == preferences.homeCloudServersPlacement,
+                                    onClick = {
+                                        onEvent(MediaLibraryPreferencesUiEvent.UpdateHomeCloudServersPlacement(it))
+                                        onEvent(MediaLibraryPreferencesUiEvent.ShowDialog(null))
+                                    },
+                                )
+                            }
+                        }
+                    }
+                }
+            }
         }
     }
+}
+
+@Composable
+private fun HomeCloudServersPlacement.displayName(): String = when (this) {
+    HomeCloudServersPlacement.TOP -> stringResource(id = R.string.home_cloud_servers_placement_top)
+    HomeCloudServersPlacement.BOTTOM -> stringResource(id = R.string.home_cloud_servers_placement_bottom)
 }
 
 @PreviewLightDark
@@ -227,6 +295,7 @@ private fun MediaLibraryPreferencesScreenPreview() {
             hasAllFilesAccess = false,
             onNavigateUp = {},
             onFolderSettingClick = {},
+            onHomeCloudServersClick = {},
             onThumbnailSettingClick = {},
             onOpenAllFilesAccessSettings = {},
             onToggleIgnoreNoMediaFiles = {},

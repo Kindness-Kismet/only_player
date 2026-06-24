@@ -49,7 +49,10 @@ class CloudHomeViewModel @Inject constructor(
     private fun deleteServer(id: Long) {
         viewModelScope.launch {
             repository.deleteById(id)
-            preferencesRepository.updateApplicationPreferences { it.withoutCloudQuickSettings(id) }
+            preferencesRepository.updateApplicationPreferences {
+                it.withoutCloudQuickSettings(id)
+                    .withoutHomeCloudServer(id)
+            }
         }
     }
 }

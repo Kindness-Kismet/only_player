@@ -24,6 +24,8 @@ data class ApplicationPreferences(
     val mediaLayoutMode: MediaLayoutMode = MediaLayoutMode.LIST,
     val mediaLayoutScale: Float = DEFAULT_MEDIA_LAYOUT_SCALE,
     val cloudQuickSettingsByServerId: Map<String, CloudQuickSettings> = emptyMap(),
+    val homeCloudServerIds: List<Long> = emptyList(),
+    val homeCloudServersPlacement: HomeCloudServersPlacement = HomeCloudServersPlacement.TOP,
 
     // 字段显示
     val shouldShowDurationField: Boolean = true,
@@ -79,6 +81,24 @@ data class ApplicationPreferences(
         cloudQuickSettingsByServerId = cloudQuickSettingsByServerId - serverId.toString(),
     )
 
+    fun withHomeCloudServer(
+        serverId: Long,
+        isSelected: Boolean,
+    ): ApplicationPreferences {
+        if (serverId <= 0L) return this
+
+        val updatedIds = if (isSelected) {
+            (homeCloudServerIds + serverId).distinct()
+        } else {
+            homeCloudServerIds - serverId
+        }
+        return copy(homeCloudServerIds = updatedIds)
+    }
+
+    fun withoutHomeCloudServer(serverId: Long): ApplicationPreferences = copy(
+        homeCloudServerIds = homeCloudServerIds - serverId,
+    )
+
     companion object {
         const val DEFAULT_THUMBNAIL_FRAME_POSITION = 0.5f
         const val DEFAULT_MEDIA_LAYOUT_SCALE = 1f
@@ -86,6 +106,12 @@ data class ApplicationPreferences(
         const val MAX_MEDIA_LAYOUT_SCALE = 1.5f
         const val MEDIA_LAYOUT_SCALE_STEP = 0.05f
     }
+}
+
+@Serializable
+enum class HomeCloudServersPlacement {
+    TOP,
+    BOTTOM,
 }
 
 @Serializable
