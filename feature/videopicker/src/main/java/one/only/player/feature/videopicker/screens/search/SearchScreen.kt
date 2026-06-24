@@ -1,6 +1,7 @@
 package one.only.player.feature.videopicker.screens.search
 
 import android.net.Uri
+import android.widget.Toast
 import androidx.activity.compose.BackHandler
 import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.animation.fadeIn
@@ -51,6 +52,7 @@ import androidx.compose.ui.draw.clip
 import androidx.compose.ui.focus.FocusRequester
 import androidx.compose.ui.focus.focusRequester
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalLayoutDirection
 import androidx.compose.ui.platform.LocalSoftwareKeyboardController
 import androidx.compose.ui.platform.testTag
@@ -63,6 +65,7 @@ import androidx.compose.ui.unit.dp
 import androidx.core.net.toUri
 import androidx.hilt.lifecycle.viewmodel.compose.hiltViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
+import one.only.player.core.common.Utils
 import one.only.player.core.domain.SearchResults
 import one.only.player.core.domain.asRootFolder
 import one.only.player.core.model.ApplicationPreferences
@@ -87,6 +90,7 @@ import one.only.player.feature.videopicker.composables.MediaView
 import one.only.player.feature.videopicker.composables.RenameDialog
 import one.only.player.feature.videopicker.composables.SelectionMenuItem
 import one.only.player.feature.videopicker.composables.VideoInfoDialog
+import one.only.player.feature.videopicker.state.SelectedVideo
 import one.only.player.feature.videopicker.state.rememberSelectionManager
 
 @Composable
@@ -116,6 +120,7 @@ internal fun SearchScreen(
     onVideoClick: (Video, List<Video>) -> Unit = { _, _ -> },
     onEvent: (SearchUiEvent) -> Unit = {},
 ) {
+    val context = LocalContext.current
     val focusRequester = remember { FocusRequester() }
     val keyboardController = LocalSoftwareKeyboardController.current
     val selectionManager = rememberSelectionManager()
@@ -137,6 +142,12 @@ internal fun SearchScreen(
     val selectedVideoUris = selectionManager.allSelectedVideos.map { it.uriString }.distinct()
     val selectedItemsSize = selectionManager.selectedFolders.size + selectionManager.selectedVideos.size
     val totalItemsSize = rootFolder.folderList.size + rootFolder.mediaList.size
+    val deleteResultMessage = when (uiState.deleteResult) {
+        SearchDeleteResult.Deleted -> stringResource(R.string.delete_success)
+        SearchDeleteResult.MovedToRecycleBin -> stringResource(R.string.move_to_recycle_bin_success)
+        SearchDeleteResult.DeleteFailed -> stringResource(R.string.delete_failed)
+        null -> null
+    }
     val cacheAndOpenFolder: (Folder) -> Unit = { folder ->
         onEvent(SearchUiEvent.CacheFolderSnapshot(folder))
         onFolderClick(folder)
@@ -144,6 +155,12 @@ internal fun SearchScreen(
 
     LaunchedEffect(Unit) {
         focusRequester.requestFocus()
+    }
+
+    LaunchedEffect(deleteResultMessage) {
+        val message = deleteResultMessage ?: return@LaunchedEffect
+        Toast.makeText(context, message, Toast.LENGTH_SHORT).show()
+        onEvent(SearchUiEvent.ClearDeleteResult)
     }
 
     Scaffold(
@@ -367,7 +384,7 @@ internal fun SearchScreen(
 
     if (shouldShowDeleteConfirmation) {
         SearchDeleteConfirmationDialog(
-            selectedCount = selectedVideoUris.size,
+            selectedVideos = selectionManager.allSelectedVideos,
             isRecycleBinEnabled = uiState.preferences.isRecycleBinEnabled,
             onConfirm = {
                 if (uiState.preferences.isRecycleBinEnabled) {
@@ -673,11 +690,14 @@ private fun SearchSelectionActionsMenu(
 
 @Composable
 private fun SearchDeleteConfirmationDialog(
-    selectedCount: Int,
+    selectedVideos: Collection<SelectedVideo>,
     isRecycleBinEnabled: Boolean,
     onConfirm: () -> Unit,
     onCancel: () -> Unit,
 ) {
+    val selectedVideoList = selectedVideos.toList()
+    val totalDuration = selectedVideoList.sumOf(SelectedVideo::duration)
+    val totalSize = selectedVideoList.sumOf(SelectedVideo::size)
     NextDialog(
         onDismissRequest = onCancel,
         title = {
@@ -685,20 +705,47 @@ private fun SearchDeleteConfirmationDialog(
                 text = if (isRecycleBinEnabled) {
                     stringResource(R.string.move_to_recycle_bin)
                 } else {
-                    stringResource(R.string.delete_videos, selectedCount)
+                    stringResource(R.string.delete_videos, selectedVideoList.size)
                 },
             )
         },
         content = {
-            Text(
-                text = stringResource(
-                    if (isRecycleBinEnabled) {
-                        R.string.move_to_recycle_bin_info
-                    } else {
-                        R.string.delete_items_info
-                    },
-                ),
+            val warningText = stringResource(
+                if (isRecycleBinEnabled) {
+                    R.string.move_to_recycle_bin_info
+                } else {
+                    R.string.delete_items_info
+                },
             )
+
+            Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                Text(
+                    text = warningText,
+                    style = MaterialTheme.typography.titleSmall,
+                )
+                Text(
+                    text = stringResource(R.string.delete_summary_count, selectedVideoList.size),
+                    style = MaterialTheme.typography.bodyMedium,
+                )
+                Text(
+                    text = stringResource(R.string.delete_summary_size, Utils.formatFileSize(totalSize)),
+                    style = MaterialTheme.typography.bodyMedium,
+                )
+                Text(
+                    text = stringResource(R.string.delete_summary_duration, Utils.formatDurationMillis(totalDuration)),
+                    style = MaterialTheme.typography.bodyMedium,
+                )
+                Text(
+                    text = selectedVideoList.take(5).joinToString(separator = "\n") { it.nameWithExtension },
+                    style = MaterialTheme.typography.bodySmall,
+                )
+                if (selectedVideoList.size > 5) {
+                    Text(
+                        text = stringResource(R.string.delete_summary_more, selectedVideoList.size - 5),
+                        style = MaterialTheme.typography.bodySmall,
+                    )
+                }
+            }
         },
         confirmButton = {
             DoneButton(onClick = onConfirm)

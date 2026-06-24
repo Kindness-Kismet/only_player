@@ -10,6 +10,7 @@ import androidx.room.PrimaryKey
     indices = [
         Index(value = ["uri"], unique = true),
         Index(value = ["path"]),
+        Index(value = ["parent_path"]),
     ],
 )
 data class MediumEntity(

@@ -4,8 +4,11 @@ import android.net.Uri
 import androidx.core.net.toUri
 import java.io.File
 import javax.inject.Inject
+import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.map
+import kotlinx.coroutines.launch
+import one.only.player.core.common.di.ApplicationScope
 import one.only.player.core.common.extensions.canonicalPathOrSelf
 import one.only.player.core.common.extensions.toCanonicalFilePathOrNull
 import one.only.player.core.data.mappers.toFolder
@@ -34,20 +37,21 @@ class LocalMediaRepository @Inject constructor(
     private val mediaSynchronizer: MediaSynchronizer,
     private val favoriteRepository: FavoriteRepository,
     private val playbackMarkRepository: PlaybackMarkRepository,
+    @ApplicationScope private val applicationScope: CoroutineScope,
 ) : MediaRepository {
 
     override fun getVideosFlow(): Flow<List<Video>> = mediumDao.getAllWithInfo().map { media ->
-        media.filterExistingMedia().map(MediumWithInfo::toVideo)
+        media.map(MediumWithInfo::toVideo)
     }
 
     override fun getVideosFlowFromFolderPath(folderPath: String): Flow<List<Video>> = mediumDao
         .getAllWithInfoFromDirectory(folderPath)
         .map { media ->
-            media.filterExistingMedia().map(MediumWithInfo::toVideo)
+            media.map(MediumWithInfo::toVideo)
         }
 
     override fun getRecycleBinVideosFlow(): Flow<List<Video>> = mediumDao.getAllWithInfo().map { media ->
-        media.filterExistingMedia().filter { it.isMarkedInRecycleBin() }.map(MediumWithInfo::toVideo)
+        media.filter { it.isMarkedInRecycleBin() }.map(MediumWithInfo::toVideo)
     }
 
     override fun getFoldersFlow(): Flow<List<Folder>> = directoryDao.getAllWithMedia().map { it.map(DirectoryWithMedia::toFolder) }
@@ -205,9 +209,10 @@ class LocalMediaRepository @Inject constructor(
         )
     }
 
-    override suspend fun moveVideosToRecycleBin(uris: List<String>) {
-        if (uris.isEmpty()) return
+    override suspend fun moveVideosToRecycleBin(uris: List<String>): List<String> {
+        if (uris.isEmpty()) return emptyList()
 
+        val movedUris = mutableListOf<String>()
         uris.distinct().forEach { uriString ->
             val medium = mediumDao.get(uriString) ?: return@forEach
             val currentState = mediumStateDao.get(uriString) ?: MediumStateEntity(uriString = uriString)
@@ -248,8 +253,10 @@ class LocalMediaRepository @Inject constructor(
                 newTitle = moved.fileName,
                 newMediaStoreId = medium.mediaStoreId,
             )
-            mediaSynchronizer.refresh(moved.path)
+            refreshMediaPathAsync(moved.path)
+            movedUris += movedUriString
         }
+        return movedUris
     }
 
     override suspend fun moveVideosToFolder(
@@ -339,9 +346,10 @@ class LocalMediaRepository @Inject constructor(
         )
     }
 
-    override suspend fun restoreVideosFromRecycleBin(uris: List<String>) {
-        if (uris.isEmpty()) return
+    override suspend fun restoreVideosFromRecycleBin(uris: List<String>): List<String> {
+        if (uris.isEmpty()) return emptyList()
 
+        val restoredUris = mutableListOf<String>()
         uris.distinct().forEach { uriString ->
             val currentState = mediumStateDao.get(uriString) ?: return@forEach
             val medium = mediumDao.get(uriString) ?: return@forEach
@@ -388,8 +396,10 @@ class LocalMediaRepository @Inject constructor(
                 newTitle = restored.fileName,
                 newMediaStoreId = medium.mediaStoreId,
             )
-            mediaSynchronizer.refresh(restored.path)
+            refreshMediaPathAsync(restored.path)
+            restoredUris += restoredUriString
         }
+        return restoredUris
     }
 
     private suspend fun updateMovedMedium(
@@ -449,13 +459,16 @@ class LocalMediaRepository @Inject constructor(
         val parsed = toUri()
         val rawPath = when (parsed.scheme) {
             "file" -> parsed.path
+            null -> takeIf { it.startsWith(File.separator) }
             else -> null
         } ?: return null
         return File(rawPath).path
     }
 
-    private fun List<MediumWithInfo>.filterExistingMedia(): List<MediumWithInfo> = filter { mediumWithInfo ->
-        File(mediumWithInfo.mediumEntity.path).exists()
+    private fun refreshMediaPathAsync(path: String) {
+        applicationScope.launch {
+            mediaSynchronizer.refresh(path)
+        }
     }
 
     private fun MediumWithInfo.isMarkedInRecycleBin(): Boolean = mediumStateEntity?.isInRecycleBin == true

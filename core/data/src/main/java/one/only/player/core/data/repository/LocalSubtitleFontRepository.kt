@@ -21,7 +21,10 @@ import kotlinx.coroutines.sync.Mutex
 import kotlinx.coroutines.sync.withLock
 import kotlinx.coroutines.withContext
 import kotlinx.serialization.json.Json
+import kotlinx.serialization.json.JsonPrimitive
+import kotlinx.serialization.json.buildJsonArray
 import kotlinx.serialization.json.buildJsonObject
+import kotlinx.serialization.json.jsonArray
 import kotlinx.serialization.json.jsonObject
 import kotlinx.serialization.json.jsonPrimitive
 import kotlinx.serialization.json.put
@@ -31,7 +34,9 @@ import one.only.player.core.common.NextDispatchers
 import one.only.player.core.common.di.ApplicationScope
 import one.only.player.core.common.extensions.externalSubtitleFontDir
 import one.only.player.core.common.extensions.externalSubtitleFontFile
+import one.only.player.core.common.extensions.externalSubtitleFontFilesDir
 import one.only.player.core.common.extensions.externalSubtitleFontMetaFile
+import one.only.player.core.common.extensions.externalSubtitleFontTempDir
 import one.only.player.core.common.extensions.externalSubtitleFontTempFile
 import one.only.player.core.common.extensions.externalSubtitleFontTempMetaFile
 import one.only.player.core.data.model.ExternalSubtitleFontMeta
@@ -45,6 +50,7 @@ class LocalSubtitleFontRepository @Inject constructor(
 
     companion object {
         private const val TAG = "LocalSubtitleFontRepository"
+        private val SUPPORTED_EXTENSIONS = setOf("ttf", "otf")
     }
 
     private val json = Json {
@@ -63,10 +69,10 @@ class LocalSubtitleFontRepository @Inject constructor(
         }
     }
 
-    override suspend fun importFont(uri: Uri) {
+    override suspend fun importFonts(uris: List<Uri>) {
         writeMutex.withLock {
             withContext(ioDispatcher) {
-                importFontLocked(uri)
+                importFontsLocked(uris)
                 refreshStateLocked()
             }
         }
@@ -90,34 +96,61 @@ class LocalSubtitleFontRepository @Inject constructor(
         }
     }
 
-    private fun importFontLocked(uri: Uri) {
-        val displayName = resolveDisplayName(uri)
-        val extension = displayName.substringAfterLast('.', "").lowercase()
-        require(extension == "ttf" || extension == "otf") { "Unsupported font extension: $extension" }
-
+    private fun importFontsLocked(uris: List<Uri>) {
+        val distinctUris = uris.distinct()
+        require(distinctUris.isNotEmpty()) { "No subtitle fonts selected" }
         clearTempArtifacts()
-        val tempFontFile = context.externalSubtitleFontTempFile
+        val tempFontDir = context.externalSubtitleFontTempDir
         val tempMetaFile = context.externalSubtitleFontTempMetaFile
+        tempFontDir.deleteRecursively()
+        tempFontDir.mkdirs()
 
         runCatching {
-            context.contentResolver.openInputStream(uri)?.use { inputStream ->
-                tempFontFile.outputStream().use { outputStream ->
-                    inputStream.copyTo(outputStream)
-                }
-            } ?: error("Unable to open font input stream")
+            val importedFonts = distinctUris.mapIndexedNotNull { index, uri ->
+                val displayName = resolveDisplayName(uri)
+                val extension = displayName.substringAfterLast('.', "").lowercase()
+                if (extension !in SUPPORTED_EXTENSIONS) return@mapIndexedNotNull null
 
-            validateFontFile(tempFontFile)
+                val targetFile = File(tempFontDir, "${index.toString().padStart(3, '0')}_${displayName.safeFileName()}")
+                context.contentResolver.openInputStream(uri)?.use { inputStream ->
+                    targetFile.outputStream().use { outputStream ->
+                        inputStream.copyTo(outputStream)
+                    }
+                } ?: return@mapIndexedNotNull null
 
+                runCatching {
+                    validateFontFile(targetFile)
+                }.onFailure { throwable ->
+                    targetFile.delete()
+                    Logger.error(TAG, "Ignored invalid subtitle font: $displayName", throwable)
+                }.getOrNull() ?: return@mapIndexedNotNull null
+
+                ImportedFont(
+                    displayName = displayName,
+                )
+            }
+
+            require(importedFonts.isNotEmpty()) { "No supported subtitle fonts selected" }
+
+            val displayName = importedFonts.displayName()
             tempMetaFile.writeText(
                 buildJsonObject {
                     put("displayName", displayName)
+                    put(
+                        "displayNames",
+                        buildJsonArray {
+                            importedFonts.forEach { font ->
+                                add(JsonPrimitive(font.displayName))
+                            }
+                        },
+                    )
                 }.toString(),
             )
 
-            commitTempArtifacts(tempFontFile = tempFontFile, tempMetaFile = tempMetaFile)
+            commitTempArtifacts(tempFontDir = tempFontDir, tempMetaFile = tempMetaFile)
         }.onFailure { throwable ->
             clearTempArtifacts()
-            Logger.error(TAG, "Failed to import subtitle font: $displayName", throwable)
+            Logger.error(TAG, "Failed to import subtitle fonts", throwable)
             throw throwable
         }
     }
@@ -125,25 +158,31 @@ class LocalSubtitleFontRepository @Inject constructor(
     private fun refreshStateLocked() {
         clearTempArtifacts()
 
-        val fontFile = context.externalSubtitleFontFile
+        val fontDir = context.externalSubtitleFontFilesDir
         val metaFile = context.externalSubtitleFontMetaFile
 
-        if (!fontFile.exists() && !metaFile.exists()) {
+        if (!fontDir.exists() && !metaFile.exists()) {
             publishEmptyState()
             return
         }
 
         val meta = readMeta(metaFile)
-        if (meta == null || !fontFile.exists()) {
+        val fontFiles = fontDir.listFiles()
+            ?.filter { file -> file.isFile && file.extension.lowercase() in SUPPORTED_EXTENSIONS }
+            ?.sortedBy(File::getName)
+            .orEmpty()
+        if (meta == null || fontFiles.isEmpty()) {
             clearFormalArtifacts()
             publishEmptyState()
             return
         }
 
-        val isFontValid = runCatching {
-            validateFontFile(fontFile)
-        }.isSuccess
-        if (!isFontValid) {
+        val validFontFiles = fontFiles.filter { fontFile ->
+            runCatching {
+                validateFontFile(fontFile)
+            }.isSuccess
+        }
+        if (validFontFiles.isEmpty()) {
             clearFormalArtifacts()
             publishEmptyState()
             return
@@ -154,7 +193,12 @@ class LocalSubtitleFontRepository @Inject constructor(
             displayName = meta.displayName,
         )
         sourceInternal.value = ExternalSubtitleFontSource(
-            absolutePath = fontFile.absolutePath,
+            fonts = validFontFiles.mapIndexed { index, fontFile ->
+                ExternalSubtitleFontFile(
+                    displayName = meta.displayNames.getOrNull(index) ?: fontFile.name,
+                    absolutePath = fontFile.absolutePath,
+                )
+            },
         )
     }
 
@@ -162,8 +206,17 @@ class LocalSubtitleFontRepository @Inject constructor(
         if (!metaFile.exists()) return null
         return runCatching {
             val jsonObject = json.parseToJsonElement(metaFile.readText()).jsonObject
+            val displayName = jsonObject.getValue("displayName").jsonPrimitive.content
             ExternalSubtitleFontMeta(
-                displayName = jsonObject.getValue("displayName").jsonPrimitive.content,
+                displayName = displayName,
+                displayNames = jsonObject["displayNames"]
+                    ?.let { element ->
+                        runCatching {
+                            element.jsonArray.map { it.jsonPrimitive.content }
+                        }.getOrNull()
+                    }
+                    ?.takeIf(List<String>::isNotEmpty)
+                    ?: listOf(displayName),
             )
         }.onFailure { throwable ->
             Logger.error(TAG, "Failed to read external subtitle font meta", throwable)
@@ -196,25 +249,27 @@ class LocalSubtitleFontRepository @Inject constructor(
     }
 
     private fun commitTempArtifacts(
-        tempFontFile: File,
+        tempFontDir: File,
         tempMetaFile: File,
     ) {
         val formalFontFile = context.externalSubtitleFontFile
+        val formalFontDir = context.externalSubtitleFontFilesDir
         val formalMetaFile = context.externalSubtitleFontMetaFile
-        val fontBackupFile = File(context.externalSubtitleFontDir, "current.font.bak")
+        val fontDirBackupFile = File(context.externalSubtitleFontDir, "fonts.bak")
         val metaBackupFile = File(context.externalSubtitleFontDir, "current.json.bak")
 
         runCatching {
-            backupIfExists(formalFontFile, fontBackupFile)
+            backupDirIfExists(formalFontDir, fontDirBackupFile)
             backupIfExists(formalMetaFile, metaBackupFile)
 
-            moveFile(tempFontFile, formalFontFile)
+            formalFontFile.delete()
+            moveFile(tempFontDir, formalFontDir)
             moveFile(tempMetaFile, formalMetaFile)
 
-            fontBackupFile.delete()
+            fontDirBackupFile.deleteRecursively()
             metaBackupFile.delete()
         }.onFailure { throwable ->
-            restoreBackup(formalFontFile, fontBackupFile)
+            restoreDirBackup(formalFontDir, fontDirBackupFile)
             restoreBackup(formalMetaFile, metaBackupFile)
             Logger.error(TAG, "Failed to commit subtitle font artifacts", throwable)
             throw throwable
@@ -229,6 +284,15 @@ class LocalSubtitleFontRepository @Inject constructor(
         moveFile(sourceFile, backupFile)
     }
 
+    private fun backupDirIfExists(
+        sourceDir: File,
+        backupDir: File,
+    ) {
+        if (!sourceDir.exists()) return
+        backupDir.deleteRecursively()
+        moveFile(sourceDir, backupDir)
+    }
+
     private fun restoreBackup(
         targetFile: File,
         backupFile: File,
@@ -238,6 +302,17 @@ class LocalSubtitleFontRepository @Inject constructor(
         }
         if (!backupFile.exists()) return
         moveFile(backupFile, targetFile)
+    }
+
+    private fun restoreDirBackup(
+        targetDir: File,
+        backupDir: File,
+    ) {
+        if (targetDir.exists()) {
+            targetDir.deleteRecursively()
+        }
+        if (!backupDir.exists()) return
+        moveFile(backupDir, targetDir)
     }
 
     private fun moveFile(
@@ -265,11 +340,13 @@ class LocalSubtitleFontRepository @Inject constructor(
 
     private fun clearFormalArtifacts() {
         context.externalSubtitleFontFile.delete()
+        context.externalSubtitleFontFilesDir.deleteRecursively()
         context.externalSubtitleFontMetaFile.delete()
     }
 
     private fun clearTempArtifacts() {
         context.externalSubtitleFontTempFile.delete()
+        context.externalSubtitleFontTempDir.deleteRecursively()
         context.externalSubtitleFontTempMetaFile.delete()
     }
 
@@ -277,4 +354,15 @@ class LocalSubtitleFontRepository @Inject constructor(
         stateInternal.value = ExternalSubtitleFontState()
         sourceInternal.value = null
     }
+
+    private fun String.safeFileName(): String = replace(Regex("[^A-Za-z0-9._-]"), "_")
+
+    private fun List<ImportedFont>.displayName(): String {
+        if (size == 1) return first().displayName
+        return "${first().displayName} + ${size - 1}"
+    }
+
+    private data class ImportedFont(
+        val displayName: String,
+    )
 }

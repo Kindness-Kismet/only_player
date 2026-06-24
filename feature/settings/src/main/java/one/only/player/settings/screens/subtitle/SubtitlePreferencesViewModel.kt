@@ -64,7 +64,7 @@ class SubtitlePreferencesViewModel @Inject constructor(
             is SubtitlePreferencesUiEvent.UpdateSubtitleEncoding -> updateSubtitleEncoding(event.value)
             SubtitlePreferencesUiEvent.ToggleUseSystemCaptionStyle -> toggleUseSystemCaptionStyle()
             SubtitlePreferencesUiEvent.ImportExternalSubtitleFont -> importExternalSubtitleFont()
-            is SubtitlePreferencesUiEvent.OnExternalSubtitleFontSelected -> onExternalSubtitleFontSelected(event.uri)
+            is SubtitlePreferencesUiEvent.OnExternalSubtitleFontsSelected -> onExternalSubtitleFontsSelected(event.uris)
             SubtitlePreferencesUiEvent.ClearExternalSubtitleFont -> clearExternalSubtitleFont()
             SubtitlePreferencesUiEvent.ClearResultMessage -> clearResultMessage()
         }
@@ -166,13 +166,13 @@ class SubtitlePreferencesViewModel @Inject constructor(
         }
     }
 
-    private fun onExternalSubtitleFontSelected(uri: Uri?) {
+    private fun onExternalSubtitleFontsSelected(uris: List<Uri>) {
         uiStateInternal.update { it.copy(pendingAction = null) }
-        if (uri == null) return
+        if (uris.isEmpty()) return
 
         viewModelScope.launch {
             runCatching {
-                subtitleFontRepository.importFont(uri)
+                subtitleFontRepository.importFonts(uris)
             }.onSuccess {
                 uiStateInternal.update { it.copy(resultMessage = SubtitlePreferencesResultMessage.ImportSucceeded) }
             }.onFailure {
@@ -233,7 +233,7 @@ sealed interface SubtitlePreferencesUiEvent {
     data class UpdateSubtitleEncoding(val value: String) : SubtitlePreferencesUiEvent
     data object ToggleUseSystemCaptionStyle : SubtitlePreferencesUiEvent
     data object ImportExternalSubtitleFont : SubtitlePreferencesUiEvent
-    data class OnExternalSubtitleFontSelected(val uri: Uri?) : SubtitlePreferencesUiEvent
+    data class OnExternalSubtitleFontsSelected(val uris: List<Uri>) : SubtitlePreferencesUiEvent
     data object ClearExternalSubtitleFont : SubtitlePreferencesUiEvent
     data object ClearResultMessage : SubtitlePreferencesUiEvent
 }

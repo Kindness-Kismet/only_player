@@ -10,11 +10,14 @@ import dagger.hilt.android.lifecycle.HiltViewModel
 import java.io.File
 import javax.inject.Inject
 import javax.inject.Singleton
+import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
+import one.only.player.core.common.Logger
+import one.only.player.core.common.di.ApplicationScope
 import one.only.player.core.common.extensions.canonicalPathOrSelf
 import one.only.player.core.common.extensions.prettyName
 import one.only.player.core.common.hasManageExternalStorageAccess
@@ -36,6 +39,7 @@ import one.only.player.core.model.Video
 import one.only.player.core.ui.base.DataState
 import one.only.player.feature.videopicker.navigation.FolderArgs
 import one.only.player.feature.videopicker.navigation.MediaPickerScreenMode
+import one.only.player.feature.videopicker.state.SelectedVideo
 
 @HiltViewModel
 class MediaPickerViewModel @Inject constructor(
@@ -50,6 +54,7 @@ class MediaPickerViewModel @Inject constructor(
     private val mediaSynchronizer: MediaSynchronizer,
     private val snapshotCache: MediaPickerSnapshotCache,
     private val moveSelectionStore: MediaPickerMoveSelectionStore,
+    @ApplicationScope private val applicationScope: CoroutineScope,
 ) : ViewModel() {
 
     private val folderArgs = FolderArgs(savedStateHandle)
@@ -161,6 +166,7 @@ class MediaPickerViewModel @Inject constructor(
             is MediaPickerUiEvent.AddToSync -> addToMediaInfoSynchronizer(event.uri)
             is MediaPickerUiEvent.UpdateMenu -> updateMenu(event.preferences)
             is MediaPickerUiEvent.CacheFolderSnapshot -> cacheFolderSnapshot(event.folder)
+            MediaPickerUiEvent.ClearDeleteResult -> clearDeleteResult()
         }
     }
 
@@ -175,21 +181,51 @@ class MediaPickerViewModel @Inject constructor(
             if (isDeletionSuccessful) {
                 mediaSynchronizer.refresh()
             }
-        }
-    }
-
-    private fun permanentlyDeleteVideos(uris: List<String>) {
-        viewModelScope.launch {
-            val isDeletionSuccessful = mediaService.deleteMedia(uris.map { it.toUri() })
-            if (isDeletionSuccessful) {
-                mediaSynchronizer.refresh()
+            uiStateInternal.update { currentState ->
+                currentState.copy(
+                    deleteResult = if (isDeletionSuccessful) {
+                        MediaPickerDeleteResult.Deleted
+                    } else {
+                        MediaPickerDeleteResult.DeleteFailed
+                    },
+                )
             }
         }
     }
 
-    private fun moveVideosToRecycleBin(uris: List<String>) {
+    private fun permanentlyDeleteVideos(videos: List<SelectedVideo>) {
         viewModelScope.launch {
-            mediaRepository.moveVideosToRecycleBin(uris)
+            val uris = videos.map(SelectedVideo::uriString)
+            val isDeletionSuccessful = mediaService.deleteMedia(uris.map { it.toUri() })
+            if (isDeletionSuccessful) {
+                mediaSynchronizer.removeDeleted(uris)
+                refreshDeletedPathsAsync(videos.map(SelectedVideo::path))
+            }
+            uiStateInternal.update { currentState ->
+                currentState.copy(
+                    deleteResult = if (isDeletionSuccessful) {
+                        MediaPickerDeleteResult.Deleted
+                    } else {
+                        MediaPickerDeleteResult.DeleteFailed
+                    },
+                )
+            }
+        }
+    }
+
+    private fun moveVideosToRecycleBin(videos: List<SelectedVideo>) {
+        viewModelScope.launch {
+            runCatching {
+                mediaRepository.moveVideosToRecycleBin(videos.map(SelectedVideo::uriString))
+            }.onSuccess {
+                uiStateInternal.update { currentState ->
+                    currentState.copy(deleteResult = MediaPickerDeleteResult.MovedToRecycleBin)
+                }
+            }.onFailure {
+                uiStateInternal.update { currentState ->
+                    currentState.copy(deleteResult = MediaPickerDeleteResult.DeleteFailed)
+                }
+            }
         }
     }
 
@@ -226,6 +262,12 @@ class MediaPickerViewModel @Inject constructor(
     private fun clearMoveResult() {
         uiStateInternal.update { currentState ->
             currentState.copy(moveResult = null)
+        }
+    }
+
+    private fun clearDeleteResult() {
+        uiStateInternal.update { currentState ->
+            currentState.copy(deleteResult = null)
         }
     }
 
@@ -347,6 +389,21 @@ class MediaPickerViewModel @Inject constructor(
             hasAllFilesAccess = hasManageExternalStorageAccess(),
         )
     }
+
+    private fun refreshDeletedPathsAsync(paths: List<String>) {
+        val distinctPaths = paths.filter(String::isNotBlank).distinct()
+        if (distinctPaths.isEmpty()) return
+
+        applicationScope.launch {
+            distinctPaths.forEach { path ->
+                runCatching {
+                    mediaSynchronizer.refresh(path)
+                }.onFailure { throwable ->
+                    Logger.error(TAG, "Failed to refresh deleted path: $path", throwable)
+                }
+            }
+        }
+    }
 }
 
 @Stable
@@ -363,12 +420,13 @@ data class MediaPickerUiState(
     val isMovingSelection: Boolean = false,
     val moveProgress: MediaPickerMoveProgress? = null,
     val moveResult: MediaMoveSummary? = null,
+    val deleteResult: MediaPickerDeleteResult? = null,
 )
 
 sealed interface MediaPickerUiEvent {
-    data class DeleteVideos(val videos: List<String>) : MediaPickerUiEvent
+    data class DeleteVideos(val videos: List<SelectedVideo>) : MediaPickerUiEvent
     data class DeleteFolders(val folders: List<Folder>) : MediaPickerUiEvent
-    data class MoveVideosToRecycleBin(val videos: List<String>) : MediaPickerUiEvent
+    data class MoveVideosToRecycleBin(val videos: List<SelectedVideo>) : MediaPickerUiEvent
     data class StartMoveSelection(
         val videoUris: List<String>,
         val folderPaths: List<String>,
@@ -378,7 +436,7 @@ sealed interface MediaPickerUiEvent {
     data object CancelRemainingMoveSelection : MediaPickerUiEvent
     data object ClearMoveResult : MediaPickerUiEvent
     data class RestoreVideos(val videos: List<String>) : MediaPickerUiEvent
-    data class PermanentlyDeleteVideos(val videos: List<String>) : MediaPickerUiEvent
+    data class PermanentlyDeleteVideos(val videos: List<SelectedVideo>) : MediaPickerUiEvent
     data class ShareVideos(val videos: List<String>) : MediaPickerUiEvent
     data class AddFavorites(
         val videos: List<Video>,
@@ -390,7 +448,16 @@ sealed interface MediaPickerUiEvent {
     data class AddToSync(val uri: Uri) : MediaPickerUiEvent
     data class UpdateMenu(val preferences: ApplicationPreferences) : MediaPickerUiEvent
     data class CacheFolderSnapshot(val folder: Folder) : MediaPickerUiEvent
+    data object ClearDeleteResult : MediaPickerUiEvent
 }
+
+sealed interface MediaPickerDeleteResult {
+    data object Deleted : MediaPickerDeleteResult
+    data object MovedToRecycleBin : MediaPickerDeleteResult
+    data object DeleteFailed : MediaPickerDeleteResult
+}
+
+private const val TAG = "MediaPickerViewModel"
 
 @Stable
 data class MediaPickerMoveProgress(

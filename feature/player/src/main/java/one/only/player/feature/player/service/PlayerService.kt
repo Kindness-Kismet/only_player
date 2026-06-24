@@ -64,6 +64,7 @@ import io.github.peerless2012.ass.media.AssHandler
 import io.github.peerless2012.ass.media.kt.withAssSupport
 import io.github.peerless2012.ass.media.parser.AssSubtitleParserFactory
 import io.github.peerless2012.ass.media.type.AssRenderType
+import java.io.File
 import java.io.InputStream
 import javax.inject.Inject
 import kotlinx.coroutines.CoroutineScope
@@ -87,8 +88,10 @@ import one.only.player.core.common.extensions.subtitleCacheDir
 import one.only.player.core.data.remote.FtpClient
 import one.only.player.core.data.remote.SmbClient
 import one.only.player.core.data.remote.WebDavClient
+import one.only.player.core.data.repository.ExternalSubtitleFontSource
 import one.only.player.core.data.repository.MediaRepository
 import one.only.player.core.data.repository.PreferencesRepository
+import one.only.player.core.data.repository.SubtitleFontRepository
 import one.only.player.core.media.container.MpegTsProgramMapPidFix
 import one.only.player.core.media.container.detectMpegTsProgramMapPidFix
 import one.only.player.core.media.container.isMpegTsStream
@@ -172,6 +175,9 @@ class PlayerService : MediaSessionService() {
 
     @Inject
     lateinit var mediaRepository: MediaRepository
+
+    @Inject
+    lateinit var subtitleFontRepository: SubtitleFontRepository
 
     @Inject
     lateinit var onlineSubtitleRepository: OnlineSubtitleRepository
@@ -1689,6 +1695,11 @@ class PlayerService : MediaSessionService() {
         val assHandler = AssHandler(renderType = resolveAssRenderType())
         this.assHandler = assHandler
         AssHandlerRegistry.register(assHandler)
+        serviceScope.launch {
+            subtitleFontRepository.source.collect { source ->
+                assHandler.syncExternalSubtitleFonts(source)
+            }
+        }
         val assSubtitleParserFactory = AssSubtitleParserFactory(assHandler)
         this.assSubtitleParserFactory = assSubtitleParserFactory
         fastStartMediaSourceFactory = createMediaSourceFactory(
@@ -2129,6 +2140,18 @@ class PlayerService : MediaSessionService() {
             rememberedSubtitleTrackIndex = rememberedSubtitleTrackIndex,
             shouldFallbackToBest = shouldFallbackToBest,
         )
+    }
+
+    private fun AssHandler.syncExternalSubtitleFonts(source: ExternalSubtitleFontSource?) {
+        source?.fonts.orEmpty().forEach { font ->
+            val file = File(font.absolutePath)
+            if (!file.exists() || !file.isFile) return@forEach
+            runCatching {
+                addFont(font.displayName, file.readBytes())
+            }.onFailure { throwable ->
+                Logger.error(TAG, "Failed to register external subtitle font: ${font.displayName}", throwable)
+            }
+        }
     }
 
     private fun resolveAssRenderType(): AssRenderType = AssRenderType.OVERLAY_CANVAS

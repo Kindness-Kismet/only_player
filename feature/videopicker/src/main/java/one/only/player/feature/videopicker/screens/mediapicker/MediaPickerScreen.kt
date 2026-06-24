@@ -62,6 +62,7 @@ import androidx.core.net.toUri
 import androidx.hilt.lifecycle.viewmodel.compose.hiltViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import one.only.player.core.common.Logger
+import one.only.player.core.common.Utils
 import one.only.player.core.common.storagePermission
 import one.only.player.core.model.ApplicationPreferences
 import one.only.player.core.model.Folder
@@ -213,6 +214,12 @@ internal fun MediaPickerScreen(
         )
         moveResult.movedCount > 0 -> stringResource(R.string.move_success, moveResult.movedCount)
         else -> stringResource(R.string.move_failed)
+    }
+    val deleteResultMessage = when (uiState.deleteResult) {
+        MediaPickerDeleteResult.Deleted -> stringResource(R.string.delete_success)
+        MediaPickerDeleteResult.MovedToRecycleBin -> stringResource(R.string.move_to_recycle_bin_success)
+        MediaPickerDeleteResult.DeleteFailed -> stringResource(R.string.delete_failed)
+        null -> null
     }
     val canMoveToCurrentFolder = when {
         !isMoveMode -> false
@@ -391,14 +398,7 @@ internal fun MediaPickerScreen(
                                 },
                                 onDeleteAction = {
                                     shouldShowSelectionMenu = false
-                                    val allUris = selectionManager.allSelectedVideos.map { it.uriString }
-                                    val hasLocalFileUri = allUris.any { it.startsWith("file:") }
-                                    if (deleteAction == MediaPickerDeleteAction.PermanentlyDelete && !hasLocalFileUri) {
-                                        onEvent(MediaPickerUiEvent.PermanentlyDeleteVideos(allUris))
-                                        selectionManager.exitSelectionMode()
-                                    } else {
-                                        shouldShowDeleteVideosConfirmation = true
-                                    }
+                                    shouldShowDeleteVideosConfirmation = true
                                 },
                                 onExcludeAction = {
                                     shouldShowSelectionMenu = false
@@ -636,6 +636,12 @@ internal fun MediaPickerScreen(
         onEvent(MediaPickerUiEvent.ClearMoveResult)
     }
 
+    LaunchedEffect(deleteResultMessage) {
+        val message = deleteResultMessage ?: return@LaunchedEffect
+        Toast.makeText(context, message, Toast.LENGTH_SHORT).show()
+        onEvent(MediaPickerUiEvent.ClearDeleteResult)
+    }
+
     LaunchedEffect(uiState.folderPath) {
         restoredPlaybackAnchor = null
     }
@@ -734,11 +740,11 @@ internal fun MediaPickerScreen(
             onConfirm = {
                 when (deleteAction) {
                     MediaPickerDeleteAction.MoveToRecycleBin -> {
-                        onEvent(MediaPickerUiEvent.MoveVideosToRecycleBin(selectionManager.allSelectedVideos.map { it.uriString }))
+                        onEvent(MediaPickerUiEvent.MoveVideosToRecycleBin(selectionManager.allSelectedVideos.toList()))
                     }
 
                     MediaPickerDeleteAction.PermanentlyDelete -> {
-                        onEvent(MediaPickerUiEvent.PermanentlyDeleteVideos(selectionManager.allSelectedVideos.map { it.uriString }))
+                        onEvent(MediaPickerUiEvent.PermanentlyDeleteVideos(selectionManager.allSelectedVideos.toList()))
                     }
                 }
                 selectionManager.exitSelectionMode()
@@ -854,16 +860,48 @@ private fun DeleteConfirmationDialog(
         dismissButton = { CancelButton(onClick = onCancel) },
         modifier = modifier,
         content = {
-            Text(
-                text = if (deleteAction == MediaPickerDeleteAction.MoveToRecycleBin) {
-                    stringResource(R.string.move_to_recycle_bin_info)
-                } else if ((selectedFolders.size + selectedVideos.size) == 1) {
-                    stringResource(R.string.delete_item_info)
-                } else {
-                    stringResource(R.string.delete_items_info)
-                },
-                style = MaterialTheme.typography.titleSmall,
-            )
+            val selectedVideoList = selectedVideos.toList()
+            val allSelectedVideos = (selectedVideoList + selectedFolders.flatMap(SelectedFolder::mediaList)).distinctBy(SelectedVideo::uriString)
+            val totalDuration = allSelectedVideos.sumOf(SelectedVideo::duration)
+            val totalSize = allSelectedVideos.sumOf(SelectedVideo::size)
+            val warningText = if (deleteAction == MediaPickerDeleteAction.MoveToRecycleBin) {
+                stringResource(R.string.move_to_recycle_bin_info)
+            } else if ((selectedFolders.size + selectedVideos.size) == 1) {
+                stringResource(R.string.delete_item_info)
+            } else {
+                stringResource(R.string.delete_items_info)
+            }
+
+            Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                Text(
+                    text = warningText,
+                    style = MaterialTheme.typography.titleSmall,
+                )
+                if (allSelectedVideos.isNotEmpty()) {
+                    Text(
+                        text = stringResource(R.string.delete_summary_count, allSelectedVideos.size),
+                        style = MaterialTheme.typography.bodyMedium,
+                    )
+                    Text(
+                        text = stringResource(R.string.delete_summary_size, Utils.formatFileSize(totalSize)),
+                        style = MaterialTheme.typography.bodyMedium,
+                    )
+                    Text(
+                        text = stringResource(R.string.delete_summary_duration, Utils.formatDurationMillis(totalDuration)),
+                        style = MaterialTheme.typography.bodyMedium,
+                    )
+                    Text(
+                        text = allSelectedVideos.take(5).joinToString(separator = "\n") { it.nameWithExtension },
+                        style = MaterialTheme.typography.bodySmall,
+                    )
+                    if (allSelectedVideos.size > 5) {
+                        Text(
+                            text = stringResource(R.string.delete_summary_more, allSelectedVideos.size - 5),
+                            style = MaterialTheme.typography.bodySmall,
+                        )
+                    }
+                }
+            }
         },
     )
 }

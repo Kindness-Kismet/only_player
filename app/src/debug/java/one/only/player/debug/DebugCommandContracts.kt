@@ -4,6 +4,8 @@ import android.os.Bundle
 import dagger.hilt.EntryPoint
 import dagger.hilt.InstallIn
 import dagger.hilt.components.SingletonComponent
+import kotlinx.coroutines.CoroutineScope
+import one.only.player.core.common.di.ApplicationScope
 import one.only.player.core.data.remote.RemoteMediaResolver
 import one.only.player.core.data.repository.FavoriteRepository
 import one.only.player.core.data.repository.MediaRepository
@@ -316,6 +318,9 @@ private fun String.parseTimeMillisOrNull(): Long? {
 @EntryPoint
 @InstallIn(SingletonComponent::class)
 interface DebugCommandEntryPoint {
+    @ApplicationScope
+    fun applicationScope(): CoroutineScope
+
     fun preferencesRepository(): PreferencesRepository
 
     fun remoteServerRepository(): RemoteServerRepository

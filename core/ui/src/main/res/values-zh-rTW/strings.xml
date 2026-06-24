@@ -116,7 +116,7 @@
     <string name="location">地點</string>
     <string name="subtitle_font">字幕字型</string>
     <string name="external_subtitle_font_import">匯入外部字幕字型</string>
-    <string name="external_subtitle_font_import_desc">匯入一個用於一般文字字幕的 .ttf 或 .otf 字型檔</string>
+    <string name="external_subtitle_font_import_desc">匯入一個或多個 .ttf 或 .otf 字幕字型檔案</string>
     <string name="external_subtitle_font_current">目前匯入字型</string>
     <string name="external_subtitle_font_not_imported">未匯入</string>
     <string name="external_subtitle_font_clear">清除匯入字幕字型</string>
@@ -374,6 +374,12 @@
     <string name="delete_items">刪除 %1$d 個項目？</string>
     <string name="delete_item_info">將會永久刪除選取項目，這個動作無法復原</string>
     <string name="delete_items_info">將會永久刪除選取項目，這個動作無法復原</string>
+    <string name="delete_summary_count">檔案數：%1$d</string>
+    <string name="delete_summary_size">總大小：%1$s</string>
+    <string name="delete_summary_duration">總時長：%1$s</string>
+    <string name="delete_summary_more">還有 %1$d 個檔案</string>
+    <string name="delete_success">檔案已刪除</string>
+    <string name="delete_failed">檔案刪除失敗</string>
     <string name="gestures">手勢</string>
     <string name="swipe_gestures">滑動手勢</string>
     <string name="tap_gestures">點擊手勢</string>
@@ -476,6 +482,7 @@
     <string name="restore_settings_failed">還原設定失敗</string>
     <string name="move_to_recycle_bin">回收站</string>
     <string name="move_to_recycle_bin_info">選取的項目將移至回收站</string>
+    <string name="move_to_recycle_bin_success">檔案已移至回收站</string>
     <string name="move">移動</string>
     <string name="move_here">移動到此處</string>
     <string name="moving">移動中…</string>

@@ -131,6 +131,7 @@ class SearchViewModel @Inject constructor(
             is SearchUiEvent.MoveVideosToRecycleBin -> moveVideosToRecycleBin(event.uris)
             is SearchUiEvent.PermanentlyDeleteVideos -> permanentlyDeleteVideos(event.uris)
             is SearchUiEvent.RenameVideo -> renameVideo(event.uri, event.to)
+            SearchUiEvent.ClearDeleteResult -> clearDeleteResult()
         }
     }
 
@@ -205,7 +206,13 @@ class SearchViewModel @Inject constructor(
 
     private fun moveVideosToRecycleBin(uris: List<String>) {
         viewModelScope.launch {
-            mediaRepository.moveVideosToRecycleBin(uris)
+            runCatching {
+                mediaRepository.moveVideosToRecycleBin(uris)
+            }.onSuccess {
+                uiStateInternal.update { it.copy(deleteResult = SearchDeleteResult.MovedToRecycleBin) }
+            }.onFailure {
+                uiStateInternal.update { it.copy(deleteResult = SearchDeleteResult.DeleteFailed) }
+            }
         }
     }
 
@@ -213,7 +220,17 @@ class SearchViewModel @Inject constructor(
         viewModelScope.launch {
             val isDeletionSuccessful = mediaService.deleteMedia(uris.map { it.toUri() })
             if (isDeletionSuccessful) {
+                mediaSynchronizer.removeDeleted(uris)
                 mediaSynchronizer.refresh()
+            }
+            uiStateInternal.update {
+                it.copy(
+                    deleteResult = if (isDeletionSuccessful) {
+                        SearchDeleteResult.Deleted
+                    } else {
+                        SearchDeleteResult.DeleteFailed
+                    },
+                )
             }
         }
     }
@@ -239,6 +256,10 @@ class SearchViewModel @Inject constructor(
         )
     }
 
+    private fun clearDeleteResult() {
+        uiStateInternal.update { it.copy(deleteResult = null) }
+    }
+
     companion object {
         private const val SEARCH_DEBOUNCE_MS = 300L
     }
@@ -253,6 +274,7 @@ data class SearchUiState(
     val isSearching: Boolean = false,
     val preferences: ApplicationPreferences = ApplicationPreferences(),
     val playerPreferences: PlayerPreferences = PlayerPreferences(),
+    val deleteResult: SearchDeleteResult? = null,
 )
 
 sealed interface SearchUiEvent {
@@ -275,4 +297,11 @@ sealed interface SearchUiEvent {
     data class MoveVideosToRecycleBin(val uris: List<String>) : SearchUiEvent
     data class PermanentlyDeleteVideos(val uris: List<String>) : SearchUiEvent
     data class RenameVideo(val uri: Uri, val to: String) : SearchUiEvent
+    data object ClearDeleteResult : SearchUiEvent
+}
+
+sealed interface SearchDeleteResult {
+    data object Deleted : SearchDeleteResult
+    data object MovedToRecycleBin : SearchDeleteResult
+    data object DeleteFailed : SearchDeleteResult
 }

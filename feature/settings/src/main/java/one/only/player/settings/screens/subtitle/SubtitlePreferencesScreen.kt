@@ -4,7 +4,7 @@ import android.content.Intent
 import android.provider.Settings
 import android.widget.Toast
 import androidx.activity.compose.rememberLauncherForActivityResult
-import androidx.activity.result.contract.ActivityResultContracts.OpenDocument
+import androidx.activity.result.contract.ActivityResultContracts.OpenMultipleDocuments
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.fillMaxSize
@@ -75,15 +75,15 @@ private fun SubtitlePreferencesContent(
     val charsetResource = stringArrayResource(id = R.array.charsets_list)
     val context = LocalContext.current
     val importFontLauncher = rememberLauncherForActivityResult(
-        contract = OpenDocument(),
-    ) { uri ->
-        onEvent(SubtitlePreferencesUiEvent.OnExternalSubtitleFontSelected(uri))
+        contract = OpenMultipleDocuments(),
+    ) { uris ->
+        onEvent(SubtitlePreferencesUiEvent.OnExternalSubtitleFontsSelected(uris))
     }
 
     LaunchedEffect(uiState.pendingAction) {
         when (uiState.pendingAction) {
             SubtitlePreferencesPendingAction.OpenExternalSubtitleFontPicker -> {
-                importFontLauncher.launch(arrayOf("font/*", "application/x-font-ttf", "application/x-font-otf"))
+                importFontLauncher.launch(arrayOf("*/*"))
             }
             null -> Unit
         }

@@ -42,15 +42,24 @@ class LocalMediaInfoSynchronizer @Inject constructor(
     private var queueProcessorJob: Job? = null
 
     override fun sync(uri: Uri) {
-        val uriString = uri.toString()
+        syncAll(listOf(uri))
+    }
+
+    override fun syncAll(uris: List<Uri>) {
+        val uriStrings = uris.map(Uri::toString).distinct()
+        if (uriStrings.isEmpty()) return
+
         applicationScope.launch(dispatcher) {
             val shouldStartProcessor = mutex.withLock {
-                if (uriString in activeSyncUris || uriString in pendingSyncUris) {
-                    return@withLock false
+                var hasNewPendingUri = false
+                uriStrings.forEach { uriString ->
+                    if (uriString in activeSyncUris || uriString in pendingSyncUris) return@forEach
+
+                    pendingSyncUris += uriString
+                    hasNewPendingUri = true
                 }
 
-                pendingSyncUris += uriString
-                queueProcessorJob?.isActive != true
+                hasNewPendingUri && queueProcessorJob?.isActive != true
             }
 
             if (shouldStartProcessor) {

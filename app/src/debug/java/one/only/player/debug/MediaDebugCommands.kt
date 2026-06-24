@@ -6,7 +6,9 @@ import androidx.core.net.toUri
 import dagger.hilt.android.EntryPointAccessors
 import java.io.File
 import kotlinx.coroutines.flow.first
+import kotlinx.coroutines.launch
 import kotlinx.coroutines.runBlocking
+import one.only.player.core.common.Logger
 import one.only.player.core.data.repository.MediaMoveSummary
 import one.only.player.core.data.repository.MediaRepository
 import one.only.player.core.model.Video
@@ -100,34 +102,43 @@ private suspend fun DebugCommandEntryPoint.runMediaAction(
         }
         "move_to_recycle_bin" -> {
             val video = repository.requireDebugVideo(extras.requiredMediaTarget())
-            repository.moveVideosToRecycleBin(listOf(video.uriString))
-            val movedVideo = repository.findDebugVideo(video.displayName, includeRecycleBin = true)
+            val movedUri = repository.moveVideosToRecycleBin(listOf(video.uriString)).firstOrNull()
+            val movedVideo = movedUri?.let { repository.getVideoByUri(it) }
             val didMove = movedVideo?.isInRecycleBin == true
             debugResult(
                 isOk = didMove,
                 message = movedVideo?.debugSummary() ?: "Failed to move to recycle bin: ${video.nameWithExtension}",
                 command = command,
                 target = action,
-                value = movedVideo?.uriString ?: video.uriString,
+                value = movedUri ?: video.uriString,
             )
         }
         "restore_from_recycle_bin" -> {
             val video = repository.requireDebugVideo(extras.requiredMediaTarget(), includeRecycleBin = true)
-            repository.restoreVideosFromRecycleBin(listOf(video.uriString))
-            val restoredVideo = repository.findDebugVideo(video.displayName, includeRecycleBin = true)
+            val restoredUri = repository.restoreVideosFromRecycleBin(listOf(video.uriString)).firstOrNull()
+            val restoredVideo = restoredUri?.let { repository.getVideoByUri(it) }
             val didRestore = restoredVideo != null && !restoredVideo.isInRecycleBin
             debugResult(
                 isOk = didRestore,
                 message = restoredVideo?.debugSummary() ?: "Failed to restore from recycle bin: ${video.nameWithExtension}",
                 command = command,
                 target = action,
-                value = restoredVideo?.uriString ?: video.uriString,
+                value = restoredUri ?: video.uriString,
             )
         }
         "delete_permanently" -> {
             val video = repository.requireDebugVideo(extras.requiredMediaTarget(), includeRecycleBin = true)
             val didDelete = mediaService().deleteMedia(listOf(video.uriString.toUri()))
-            if (didDelete) mediaSynchronizer().refresh(video.path)
+            if (didDelete) {
+                mediaSynchronizer().removeDeleted(listOf(video.uriString))
+                applicationScope().launch {
+                    runCatching {
+                        mediaSynchronizer().refresh(video.path)
+                    }.onFailure { throwable ->
+                        Logger.error("MediaDebugCommands", "Failed to refresh deleted path: ${video.path}", throwable)
+                    }
+                }
+            }
             debugResult(
                 isOk = didDelete,
                 message = if (didDelete) "Deleted permanently: ${video.nameWithExtension}" else "Failed to delete permanently: ${video.nameWithExtension}",
@@ -149,10 +160,20 @@ private suspend fun DebugCommandEntryPoint.runMediaAction(
         }
         "scan_path" -> {
             val path = extras.requiredMediaTarget()
+            if (!File(path).exists()) {
+                return debugResult(
+                    isOk = false,
+                    message = "Path not found: $path",
+                    command = command,
+                    target = action,
+                    value = path,
+                )
+            }
+
             val didRefresh = mediaSynchronizer().refresh(path)
             debugResult(
                 isOk = didRefresh,
-                message = "Scanned path ${if (didRefresh) "succeeded" else "failed"}: $path",
+                message = "Scan path refresh ${if (didRefresh) "succeeded" else "failed"}: $path",
                 command = command,
                 target = action,
                 value = path,
@@ -191,6 +212,8 @@ private suspend fun MediaRepository.findDebugVideo(
     includeRecycleBin: Boolean = false,
 ): Video? {
     getVideoByUri(target)?.let { return it }
+    if (target.isPreciseMediaTarget()) return null
+
     val videos = if (includeRecycleBin) {
         getVideosFlow().first() + getRecycleBinVideosFlow().first()
     } else {
@@ -213,6 +236,11 @@ private suspend fun MediaRepository.findDebugVideo(
     }
     if (partialMatches.size > 1) error("Ambiguous media target: $target; matches=${partialMatches.joinToString { it.nameWithExtension }}")
     return partialMatches.singleOrNull()
+}
+
+private fun String.isPreciseMediaTarget(): Boolean {
+    val uri = toUri()
+    return uri.scheme in setOf("content", "file") || startsWith(File.separator)
 }
 
 private suspend fun MediaRepository.requireDebugVideo(

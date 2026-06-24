@@ -8,7 +8,7 @@ interface SubtitleFontRepository {
 
     val source: StateFlow<ExternalSubtitleFontSource?>
 
-    suspend fun importFont(uri: Uri)
+    suspend fun importFonts(uris: List<Uri>)
 
     suspend fun clearFont()
 }
@@ -19,5 +19,13 @@ data class ExternalSubtitleFontState(
 )
 
 data class ExternalSubtitleFontSource(
+    val fonts: List<ExternalSubtitleFontFile>,
+) {
+    val absolutePath: String?
+        get() = fonts.firstOrNull()?.absolutePath
+}
+
+data class ExternalSubtitleFontFile(
+    val displayName: String,
     val absolutePath: String,
 )

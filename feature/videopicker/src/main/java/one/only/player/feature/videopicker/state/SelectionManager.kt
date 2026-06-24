@@ -126,6 +126,9 @@ data class SelectedVideo(
     val name: String,
     val nameWithExtension: String,
     val uriString: String,
+    val path: String,
+    val size: Long,
+    val duration: Long,
 ) : Serializable
 
 private fun Folder.toSelectedFolder() = SelectedFolder(
@@ -138,4 +141,7 @@ private fun Video.toSelectedVideo() = SelectedVideo(
     name = displayName,
     nameWithExtension = nameWithExtension,
     uriString = uriString,
+    path = path,
+    size = size,
+    duration = duration,
 )

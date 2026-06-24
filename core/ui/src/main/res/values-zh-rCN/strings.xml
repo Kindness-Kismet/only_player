@@ -169,7 +169,7 @@
     <string name="reset_subtitle_shadow_strength">重置字幕阴影强度</string>
     <string name="subtitle_font">字幕字体</string>
     <string name="external_subtitle_font_import">导入外部字幕字体</string>
-    <string name="external_subtitle_font_import_desc">导入一个用于普通文本字幕的 .ttf 或 .otf 字体文件</string>
+    <string name="external_subtitle_font_import_desc">导入一个或多个 .ttf 或 .otf 字幕字体文件</string>
     <string name="external_subtitle_font_current">当前导入字体</string>
     <string name="external_subtitle_font_not_imported">未导入</string>
     <string name="external_subtitle_font_clear">清除导入字幕字体</string>
@@ -376,6 +376,12 @@
     <string name="delete_items">删除 %1$d 个项目吗？</string>
     <string name="delete_item_info">此操作无法撤销。所选项目会被永久删除。</string>
     <string name="delete_items_info">此操作无法撤销。所选项目会被永久删除。</string>
+    <string name="delete_summary_count">文件数：%1$d</string>
+    <string name="delete_summary_size">总大小：%1$s</string>
+    <string name="delete_summary_duration">总时长：%1$s</string>
+    <string name="delete_summary_more">还有 %1$d 个文件</string>
+    <string name="delete_success">文件已删除</string>
+    <string name="delete_failed">文件删除失败</string>
     <string name="gestures">手势</string>
     <string name="swipe_gestures">滑动手势</string>
     <string name="tap_gestures">点击手势</string>
@@ -482,6 +488,7 @@
     <string name="restore_settings_failed">恢复设置失败</string>
     <string name="move_to_recycle_bin">回收站</string>
     <string name="move_to_recycle_bin_info">所选项目将移至回收站</string>
+    <string name="move_to_recycle_bin_success">文件已移至回收站</string>
     <string name="move">移动</string>
     <string name="move_here">移动到此处</string>
     <string name="moving">移动中…</string>

@@ -1,0 +1,771 @@
+{
+  "formatVersion": 1,
+  "database": {
+    "version": 10,
+    "identityHash": "7cb670c581d15b2c4f44204e3509bd1a",
+    "entities": [
+      {
+        "tableName": "directories",
+        "createSql": "CREATE TABLE IF NOT EXISTS `${TABLE_NAME}` (`path` TEXT NOT NULL, `filename` TEXT NOT NULL, `last_modified` INTEGER NOT NULL, `parent_path` TEXT, PRIMARY KEY(`path`))",
+        "fields": [
+          {
+            "fieldPath": "path",
+            "columnName": "path",
+            "affinity": "TEXT",
+            "notNull": true
+          },
+          {
+            "fieldPath": "name",
+            "columnName": "filename",
+            "affinity": "TEXT",
+            "notNull": true
+          },
+          {
+            "fieldPath": "modified",
+            "columnName": "last_modified",
+            "affinity": "INTEGER",
+            "notNull": true
+          },
+          {
+            "fieldPath": "parentPath",
+            "columnName": "parent_path",
+            "affinity": "TEXT"
+          }
+        ],
+        "primaryKey": {
+          "autoGenerate": false,
+          "columnNames": [
+            "path"
+          ]
+        },
+        "indices": [
+          {
+            "name": "index_directories_parent_path",
+            "unique": false,
+            "columnNames": [
+              "parent_path"
+            ],
+            "orders": [],
+            "createSql": "CREATE INDEX IF NOT EXISTS `index_directories_parent_path` ON `${TABLE_NAME}` (`parent_path`)"
+          }
+        ]
+      },
+      {
+        "tableName": "media",
+        "createSql": "CREATE TABLE IF NOT EXISTS `${TABLE_NAME}` (`uri` TEXT NOT NULL, `path` TEXT NOT NULL, `filename` TEXT NOT NULL, `parent_path` TEXT NOT NULL, `last_modified` INTEGER NOT NULL, `size` INTEGER NOT NULL, `width` INTEGER NOT NULL, `height` INTEGER NOT NULL, `duration` INTEGER NOT NULL, `media_store_id` INTEGER NOT NULL, `format` TEXT, `thumbnail_path` TEXT, PRIMARY KEY(`uri`))",
+        "fields": [
+          {
+            "fieldPath": "uriString",
+            "columnName": "uri",
+            "affinity": "TEXT",
+            "notNull": true
+          },
+          {
+            "fieldPath": "path",
+            "columnName": "path",
+            "affinity": "TEXT",
+            "notNull": true
+          },
+          {
+            "fieldPath": "name",
+            "columnName": "filename",
+            "affinity": "TEXT",
+            "notNull": true
+          },
+          {
+            "fieldPath": "parentPath",
+            "columnName": "parent_path",
+            "affinity": "TEXT",
+            "notNull": true
+          },
+          {
+            "fieldPath": "modified",
+            "columnName": "last_modified",
+            "affinity": "INTEGER",
+            "notNull": true
+          },
+          {
+            "fieldPath": "size",
+            "columnName": "size",
+            "affinity": "INTEGER",
+            "notNull": true
+          },
+          {
+            "fieldPath": "width",
+            "columnName": "width",
+            "affinity": "INTEGER",
+            "notNull": true
+          },
+          {
+            "fieldPath": "height",
+            "columnName": "height",
+            "affinity": "INTEGER",
+            "notNull": true
+          },
+          {
+            "fieldPath": "duration",
+            "columnName": "duration",
+            "affinity": "INTEGER",
+            "notNull": true
+          },
+          {
+            "fieldPath": "mediaStoreId",
+            "columnName": "media_store_id",
+            "affinity": "INTEGER",
+            "notNull": true
+          },
+          {
+            "fieldPath": "format",
+            "columnName": "format",
+            "affinity": "TEXT"
+          },
+          {
+            "fieldPath": "thumbnailPath",
+            "columnName": "thumbnail_path",
+            "affinity": "TEXT"
+          }
+        ],
+        "primaryKey": {
+          "autoGenerate": false,
+          "columnNames": [
+            "uri"
+          ]
+        },
+        "indices": [
+          {
+            "name": "index_media_uri",
+            "unique": true,
+            "columnNames": [
+              "uri"
+            ],
+            "orders": [],
+            "createSql": "CREATE UNIQUE INDEX IF NOT EXISTS `index_media_uri` ON `${TABLE_NAME}` (`uri`)"
+          },
+          {
+            "name": "index_media_path",
+            "unique": false,
+            "columnNames": [
+              "path"
+            ],
+            "orders": [],
+            "createSql": "CREATE INDEX IF NOT EXISTS `index_media_path` ON `${TABLE_NAME}` (`path`)"
+          },
+          {
+            "name": "index_media_parent_path",
+            "unique": false,
+            "columnNames": [
+              "parent_path"
+            ],
+            "orders": [],
+            "createSql": "CREATE INDEX IF NOT EXISTS `index_media_parent_path` ON `${TABLE_NAME}` (`parent_path`)"
+          }
+        ]
+      },
+      {
+        "tableName": "media_state",
+        "createSql": "CREATE TABLE IF NOT EXISTS `${TABLE_NAME}` (`uri` TEXT NOT NULL, `playback_position` INTEGER NOT NULL, `audio_track_index` INTEGER, `subtitle_track_index` INTEGER, `playback_speed` REAL, `last_played_time` INTEGER, `external_subs` TEXT NOT NULL, `video_scale` REAL NOT NULL, `subtitle_delay` INTEGER NOT NULL, `subtitle_speed` REAL NOT NULL, `is_in_recycle_bin` INTEGER NOT NULL, `original_path` TEXT, `original_parent_path` TEXT, `original_file_name` TEXT, PRIMARY KEY(`uri`))",
+        "fields": [
+          {
+            "fieldPath": "uriString",
+            "columnName": "uri",
+            "affinity": "TEXT",
+            "notNull": true
+          },
+          {
+            "fieldPath": "playbackPosition",
+            "columnName": "playback_position",
+            "affinity": "INTEGER",
+            "notNull": true
+          },
+          {
+            "fieldPath": "audioTrackIndex",
+            "columnName": "audio_track_index",
+            "affinity": "INTEGER"
+          },
+          {
+            "fieldPath": "subtitleTrackIndex",
+            "columnName": "subtitle_track_index",
+            "affinity": "INTEGER"
+          },
+          {
+            "fieldPath": "playbackSpeed",
+            "columnName": "playback_speed",
+            "affinity": "REAL"
+          },
+          {
+            "fieldPath": "lastPlayedTime",
+            "columnName": "last_played_time",
+            "affinity": "INTEGER"
+          },
+          {
+            "fieldPath": "externalSubs",
+            "columnName": "external_subs",
+            "affinity": "TEXT",
+            "notNull": true
+          },
+          {
+            "fieldPath": "videoScale",
+            "columnName": "video_scale",
+            "affinity": "REAL",
+            "notNull": true
+          },
+          {
+            "fieldPath": "subtitleDelayMilliseconds",
+            "columnName": "subtitle_delay",
+            "affinity": "INTEGER",
+            "notNull": true
+          },
+          {
+            "fieldPath": "subtitleSpeed",
+            "columnName": "subtitle_speed",
+            "affinity": "REAL",
+            "notNull": true
+          },
+          {
+            "fieldPath": "isInRecycleBin",
+            "columnName": "is_in_recycle_bin",
+            "affinity": "INTEGER",
+            "notNull": true
+          },
+          {
+            "fieldPath": "originalPath",
+            "columnName": "original_path",
+            "affinity": "TEXT"
+          },
+          {
+            "fieldPath": "originalParentPath",
+            "columnName": "original_parent_path",
+            "affinity": "TEXT"
+          },
+          {
+            "fieldPath": "originalFileName",
+            "columnName": "original_file_name",
+            "affinity": "TEXT"
+          }
+        ],
+        "primaryKey": {
+          "autoGenerate": false,
+          "columnNames": [
+            "uri"
+          ]
+        },
+        "indices": [
+          {
+            "name": "index_media_state_uri",
+            "unique": true,
+            "columnNames": [
+              "uri"
+            ],
+            "orders": [],
+            "createSql": "CREATE UNIQUE INDEX IF NOT EXISTS `index_media_state_uri` ON `${TABLE_NAME}` (`uri`)"
+          }
+        ]
+      },
+      {
+        "tableName": "video_stream_info",
+        "createSql": "CREATE TABLE IF NOT EXISTS `${TABLE_NAME}` (`stream_index` INTEGER NOT NULL, `title` TEXT, `codec_name` TEXT NOT NULL, `language` TEXT, `disposition` INTEGER NOT NULL, `bit_rate` INTEGER NOT NULL, `frame_rate` REAL NOT NULL, `width` INTEGER NOT NULL, `height` INTEGER NOT NULL, `medium_uri` TEXT NOT NULL, PRIMARY KEY(`medium_uri`, `stream_index`), FOREIGN KEY(`medium_uri`) REFERENCES `media`(`uri`) ON UPDATE NO ACTION ON DELETE CASCADE )",
+        "fields": [
+          {
+            "fieldPath": "index",
+            "columnName": "stream_index",
+            "affinity": "INTEGER",
+            "notNull": true
+          },
+          {
+            "fieldPath": "title",
+            "columnName": "title",
+            "affinity": "TEXT"
+          },
+          {
+            "fieldPath": "codecName",
+            "columnName": "codec_name",
+            "affinity": "TEXT",
+            "notNull": true
+          },
+          {
+            "fieldPath": "language",
+            "columnName": "language",
+            "affinity": "TEXT"
+          },
+          {
+            "fieldPath": "disposition",
+            "columnName": "disposition",
+            "affinity": "INTEGER",
+            "notNull": true
+          },
+          {
+            "fieldPath": "bitRate",
+            "columnName": "bit_rate",
+            "affinity": "INTEGER",
+            "notNull": true
+          },
+          {
+            "fieldPath": "frameRate",
+            "columnName": "frame_rate",
+            "affinity": "REAL",
+            "notNull": true
+          },
+          {
+            "fieldPath": "frameWidth",
+            "columnName": "width",
+            "affinity": "INTEGER",
+            "notNull": true
+          },
+          {
+            "fieldPath": "frameHeight",
+            "columnName": "height",
+            "affinity": "INTEGER",
+            "notNull": true
+          },
+          {
+            "fieldPath": "mediumUri",
+            "columnName": "medium_uri",
+            "affinity": "TEXT",
+            "notNull": true
+          }
+        ],
+        "primaryKey": {
+          "autoGenerate": false,
+          "columnNames": [
+            "medium_uri",
+            "stream_index"
+          ]
+        },
+        "foreignKeys": [
+          {
+            "table": "media",
+            "onDelete": "CASCADE",
+            "onUpdate": "NO ACTION",
+            "columns": [
+              "medium_uri"
+            ],
+            "referencedColumns": [
+              "uri"
+            ]
+          }
+        ]
+      },
+      {
+        "tableName": "audio_stream_info",
+        "createSql": "CREATE TABLE IF NOT EXISTS `${TABLE_NAME}` (`stream_index` INTEGER NOT NULL, `title` TEXT, `codec_name` TEXT NOT NULL, `language` TEXT, `disposition` INTEGER NOT NULL, `bit_rate` INTEGER NOT NULL, `sample_format` TEXT, `sample_rate` INTEGER NOT NULL, `channels` INTEGER NOT NULL, `channel_layout` TEXT, `medium_uri` TEXT NOT NULL, PRIMARY KEY(`medium_uri`, `stream_index`), FOREIGN KEY(`medium_uri`) REFERENCES `media`(`uri`) ON UPDATE NO ACTION ON DELETE CASCADE )",
+        "fields": [
+          {
+            "fieldPath": "index",
+            "columnName": "stream_index",
+            "affinity": "INTEGER",
+            "notNull": true
+          },
+          {
+            "fieldPath": "title",
+            "columnName": "title",
+            "affinity": "TEXT"
+          },
+          {
+            "fieldPath": "codecName",
+            "columnName": "codec_name",
+            "affinity": "TEXT",
+            "notNull": true
+          },
+          {
+            "fieldPath": "language",
+            "columnName": "language",
+            "affinity": "TEXT"
+          },
+          {
+            "fieldPath": "disposition",
+            "columnName": "disposition",
+            "affinity": "INTEGER",
+            "notNull": true
+          },
+          {
+            "fieldPath": "bitRate",
+            "columnName": "bit_rate",
+            "affinity": "INTEGER",
+            "notNull": true
+          },
+          {
+            "fieldPath": "sampleFormat",
+            "columnName": "sample_format",
+            "affinity": "TEXT"
+          },
+          {
+            "fieldPath": "sampleRate",
+            "columnName": "sample_rate",
+            "affinity": "INTEGER",
+            "notNull": true
+          },
+          {
+            "fieldPath": "channels",
+            "columnName": "channels",
+            "affinity": "INTEGER",
+            "notNull": true
+          },
+          {
+            "fieldPath": "channelLayout",
+            "columnName": "channel_layout",
+            "affinity": "TEXT"
+          },
+          {
+            "fieldPath": "mediumUri",
+            "columnName": "medium_uri",
+            "affinity": "TEXT",
+            "notNull": true
+          }
+        ],
+        "primaryKey": {
+          "autoGenerate": false,
+          "columnNames": [
+            "medium_uri",
+            "stream_index"
+          ]
+        },
+        "foreignKeys": [
+          {
+            "table": "media",
+            "onDelete": "CASCADE",
+            "onUpdate": "NO ACTION",
+            "columns": [
+              "medium_uri"
+            ],
+            "referencedColumns": [
+              "uri"
+            ]
+          }
+        ]
+      },
+      {
+        "tableName": "subtitle_stream_info",
+        "createSql": "CREATE TABLE IF NOT EXISTS `${TABLE_NAME}` (`stream_index` INTEGER NOT NULL, `title` TEXT, `codec_name` TEXT NOT NULL, `language` TEXT, `disposition` INTEGER NOT NULL, `medium_uri` TEXT NOT NULL, PRIMARY KEY(`medium_uri`, `stream_index`), FOREIGN KEY(`medium_uri`) REFERENCES `media`(`uri`) ON UPDATE NO ACTION ON DELETE CASCADE )",
+        "fields": [
+          {
+            "fieldPath": "index",
+            "columnName": "stream_index",
+            "affinity": "INTEGER",
+            "notNull": true
+          },
+          {
+            "fieldPath": "title",
+            "columnName": "title",
+            "affinity": "TEXT"
+          },
+          {
+            "fieldPath": "codecName",
+            "columnName": "codec_name",
+            "affinity": "TEXT",
+            "notNull": true
+          },
+          {
+            "fieldPath": "language",
+            "columnName": "language",
+            "affinity": "TEXT"
+          },
+          {
+            "fieldPath": "disposition",
+            "columnName": "disposition",
+            "affinity": "INTEGER",
+            "notNull": true
+          },
+          {
+            "fieldPath": "mediumUri",
+            "columnName": "medium_uri",
+            "affinity": "TEXT",
+            "notNull": true
+          }
+        ],
+        "primaryKey": {
+          "autoGenerate": false,
+          "columnNames": [
+            "medium_uri",
+            "stream_index"
+          ]
+        },
+        "foreignKeys": [
+          {
+            "table": "media",
+            "onDelete": "CASCADE",
+            "onUpdate": "NO ACTION",
+            "columns": [
+              "medium_uri"
+            ],
+            "referencedColumns": [
+              "uri"
+            ]
+          }
+        ]
+      },
+      {
+        "tableName": "remote_server",
+        "createSql": "CREATE TABLE IF NOT EXISTS `${TABLE_NAME}` (`id` INTEGER PRIMARY KEY AUTOINCREMENT NOT NULL, `name` TEXT NOT NULL, `protocol` TEXT NOT NULL, `host` TEXT NOT NULL, `port` INTEGER, `path` TEXT NOT NULL, `username` TEXT NOT NULL, `password` TEXT NOT NULL, `is_proxy_enabled` INTEGER NOT NULL, `proxy_host` TEXT NOT NULL, `proxy_port` INTEGER)",
+        "fields": [
+          {
+            "fieldPath": "id",
+            "columnName": "id",
+            "affinity": "INTEGER",
+            "notNull": true
+          },
+          {
+            "fieldPath": "name",
+            "columnName": "name",
+            "affinity": "TEXT",
+            "notNull": true
+          },
+          {
+            "fieldPath": "protocol",
+            "columnName": "protocol",
+            "affinity": "TEXT",
+            "notNull": true
+          },
+          {
+            "fieldPath": "host",
+            "columnName": "host",
+            "affinity": "TEXT",
+            "notNull": true
+          },
+          {
+            "fieldPath": "port",
+            "columnName": "port",
+            "affinity": "INTEGER"
+          },
+          {
+            "fieldPath": "path",
+            "columnName": "path",
+            "affinity": "TEXT",
+            "notNull": true
+          },
+          {
+            "fieldPath": "username",
+            "columnName": "username",
+            "affinity": "TEXT",
+            "notNull": true
+          },
+          {
+            "fieldPath": "password",
+            "columnName": "password",
+            "affinity": "TEXT",
+            "notNull": true
+          },
+          {
+            "fieldPath": "isProxyEnabled",
+            "columnName": "is_proxy_enabled",
+            "affinity": "INTEGER",
+            "notNull": true
+          },
+          {
+            "fieldPath": "proxyHost",
+            "columnName": "proxy_host",
+            "affinity": "TEXT",
+            "notNull": true
+          },
+          {
+            "fieldPath": "proxyPort",
+            "columnName": "proxy_port",
+            "affinity": "INTEGER"
+          }
+        ],
+        "primaryKey": {
+          "autoGenerate": true,
+          "columnNames": [
+            "id"
+          ]
+        }
+      },
+      {
+        "tableName": "favorite_item",
+        "createSql": "CREATE TABLE IF NOT EXISTS `${TABLE_NAME}` (`id` INTEGER PRIMARY KEY AUTOINCREMENT NOT NULL, `parent_id` INTEGER, `target_type` TEXT NOT NULL, `target_key` TEXT NOT NULL, `title` TEXT NOT NULL, `subtitle` TEXT NOT NULL, `local_uri` TEXT, `local_path` TEXT, `remote_server_id` INTEGER, `remote_protocol` TEXT, `remote_path` TEXT, `remote_server_name` TEXT, `created_at` INTEGER NOT NULL, `updated_at` INTEGER NOT NULL, `sort_order` INTEGER NOT NULL)",
+        "fields": [
+          {
+            "fieldPath": "id",
+            "columnName": "id",
+            "affinity": "INTEGER",
+            "notNull": true
+          },
+          {
+            "fieldPath": "parentId",
+            "columnName": "parent_id",
+            "affinity": "INTEGER"
+          },
+          {
+            "fieldPath": "targetType",
+            "columnName": "target_type",
+            "affinity": "TEXT",
+            "notNull": true
+          },
+          {
+            "fieldPath": "targetKey",
+            "columnName": "target_key",
+            "affinity": "TEXT",
+            "notNull": true
+          },
+          {
+            "fieldPath": "title",
+            "columnName": "title",
+            "affinity": "TEXT",
+            "notNull": true
+          },
+          {
+            "fieldPath": "subtitle",
+            "columnName": "subtitle",
+            "affinity": "TEXT",
+            "notNull": true
+          },
+          {
+            "fieldPath": "localUri",
+            "columnName": "local_uri",
+            "affinity": "TEXT"
+          },
+          {
+            "fieldPath": "localPath",
+            "columnName": "local_path",
+            "affinity": "TEXT"
+          },
+          {
+            "fieldPath": "remoteServerId",
+            "columnName": "remote_server_id",
+            "affinity": "INTEGER"
+          },
+          {
+            "fieldPath": "remoteProtocol",
+            "columnName": "remote_protocol",
+            "affinity": "TEXT"
+          },
+          {
+            "fieldPath": "remotePath",
+            "columnName": "remote_path",
+            "affinity": "TEXT"
+          },
+          {
+            "fieldPath": "remoteServerName",
+            "columnName": "remote_server_name",
+            "affinity": "TEXT"
+          },
+          {
+            "fieldPath": "createdAt",
+            "columnName": "created_at",
+            "affinity": "INTEGER",
+            "notNull": true
+          },
+          {
+            "fieldPath": "updatedAt",
+            "columnName": "updated_at",
+            "affinity": "INTEGER",
+            "notNull": true
+          },
+          {
+            "fieldPath": "sortOrder",
+            "columnName": "sort_order",
+            "affinity": "INTEGER",
+            "notNull": true
+          }
+        ],
+        "primaryKey": {
+          "autoGenerate": true,
+          "columnNames": [
+            "id"
+          ]
+        },
+        "indices": [
+          {
+            "name": "index_favorite_item_target_key",
+            "unique": true,
+            "columnNames": [
+              "target_key"
+            ],
+            "orders": [],
+            "createSql": "CREATE UNIQUE INDEX IF NOT EXISTS `index_favorite_item_target_key` ON `${TABLE_NAME}` (`target_key`)"
+          },
+          {
+            "name": "index_favorite_item_parent_id",
+            "unique": false,
+            "columnNames": [
+              "parent_id"
+            ],
+            "orders": [],
+            "createSql": "CREATE INDEX IF NOT EXISTS `index_favorite_item_parent_id` ON `${TABLE_NAME}` (`parent_id`)"
+          },
+          {
+            "name": "index_favorite_item_target_type",
+            "unique": false,
+            "columnNames": [
+              "target_type"
+            ],
+            "orders": [],
+            "createSql": "CREATE INDEX IF NOT EXISTS `index_favorite_item_target_type` ON `${TABLE_NAME}` (`target_type`)"
+          }
+        ]
+      },
+      {
+        "tableName": "playback_mark",
+        "createSql": "CREATE TABLE IF NOT EXISTS `${TABLE_NAME}` (`id` INTEGER PRIMARY KEY AUTOINCREMENT NOT NULL, `media_uri` TEXT NOT NULL, `position_ms` INTEGER NOT NULL, `duration_ms` INTEGER NOT NULL, `label` TEXT NOT NULL, `created_at` INTEGER NOT NULL)",
+        "fields": [
+          {
+            "fieldPath": "id",
+            "columnName": "id",
+            "affinity": "INTEGER",
+            "notNull": true
+          },
+          {
+            "fieldPath": "mediaUri",
+            "columnName": "media_uri",
+            "affinity": "TEXT",
+            "notNull": true
+          },
+          {
+            "fieldPath": "positionMs",
+            "columnName": "position_ms",
+            "affinity": "INTEGER",
+            "notNull": true
+          },
+          {
+            "fieldPath": "durationMs",
+            "columnName": "duration_ms",
+            "affinity": "INTEGER",
+            "notNull": true
+          },
+          {
+            "fieldPath": "label",
+            "columnName": "label",
+            "affinity": "TEXT",
+            "notNull": true
+          },
+          {
+            "fieldPath": "createdAt",
+            "columnName": "created_at",
+            "affinity": "INTEGER",
+            "notNull": true
+          }
+        ],
+        "primaryKey": {
+          "autoGenerate": true,
+          "columnNames": [
+            "id"
+          ]
+        },
+        "indices": [
+          {
+            "name": "index_playback_mark_media_uri_position_ms",
+            "unique": false,
+            "columnNames": [
+              "media_uri",
+              "position_ms"
+            ],
+            "orders": [],
+            "createSql": "CREATE INDEX IF NOT EXISTS `index_playback_mark_media_uri_position_ms` ON `${TABLE_NAME}` (`media_uri`, `position_ms`)"
+          },
+          {
+            "name": "index_playback_mark_created_at",
+            "unique": false,
+            "columnNames": [
+              "created_at"
+            ],
+            "orders": [],
+            "createSql": "CREATE INDEX IF NOT EXISTS `index_playback_mark_created_at` ON `${TABLE_NAME}` (`created_at`)"
+          }
+        ]
+      }
+    ],
+    "setupQueries": [
+      "CREATE TABLE IF NOT EXISTS room_master_table (id INTEGER PRIMARY KEY,identity_hash TEXT)",
+      "INSERT OR REPLACE INTO room_master_table (id,identity_hash) VALUES(42, '7cb670c581d15b2c4f44204e3509bd1a')"
+    ]
+  }
+}
