@@ -1,6 +1,8 @@
 package one.only.player.feature.videopicker.composables
 
 import androidx.compose.foundation.background
+import androidx.compose.foundation.clickable
+import androidx.compose.foundation.interaction.MutableInteractionSource
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -24,6 +26,7 @@ import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.material3.surfaceColorAtElevation
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.remember
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
@@ -59,6 +62,7 @@ fun VideoItem(
     isSelected: Boolean = false,
     onClick: () -> Unit = {},
     onLongClick: (() -> Unit)? = null,
+    onThumbnailClick: (() -> Unit)? = null,
 ) {
     when (preferences.mediaLayoutMode) {
         MediaLayoutMode.LIST -> VideoListItem(
@@ -71,6 +75,7 @@ fun VideoItem(
             isSelected = isSelected,
             onClick = onClick,
             onLongClick = onLongClick,
+            onThumbnailClick = onThumbnailClick,
         )
         MediaLayoutMode.GRID -> VideoGridItem(
             video = video,
@@ -82,6 +87,7 @@ fun VideoItem(
             isSelected = isSelected,
             onClick = onClick,
             onLongClick = onLongClick,
+            onThumbnailClick = onThumbnailClick,
         )
     }
 }
@@ -98,6 +104,7 @@ private fun VideoListItem(
     isSelected: Boolean = false,
     onClick: () -> Unit = {},
     onLongClick: (() -> Unit)? = null,
+    onThumbnailClick: (() -> Unit)? = null,
 ) {
     NextSegmentedListItem(
         modifier = modifier.testTag("item_video_${video.displayName}"),
@@ -121,12 +128,24 @@ private fun VideoListItem(
         onClick = onClick,
         onLongClick = onLongClick,
         leadingContent = {
-            ThumbnailView(
-                video = video,
-                preferences = preferences,
-                modifier = Modifier
-                    .width(min(150.dp, LocalConfiguration.current.screenWidthDp.dp * 0.35f)),
-            )
+            Box(
+                modifier = if (onThumbnailClick != null) {
+                    Modifier.clickable(
+                        interactionSource = remember { MutableInteractionSource() },
+                        indication = null,
+                        onClick = onThumbnailClick,
+                    )
+                } else {
+                    Modifier
+                },
+            ) {
+                ThumbnailView(
+                    video = video,
+                    preferences = preferences,
+                    modifier = Modifier
+                        .width(min(150.dp, LocalConfiguration.current.screenWidthDp.dp * 0.35f)),
+                )
+            }
         },
         content = {
             Text(
@@ -177,6 +196,7 @@ private fun VideoGridItem(
     isSelected: Boolean = false,
     onClick: () -> Unit = {},
     onLongClick: (() -> Unit)? = null,
+    onThumbnailClick: (() -> Unit)? = null,
 ) {
     NextSegmentedListItem(
         modifier = modifier
@@ -206,10 +226,22 @@ private fun VideoGridItem(
                 verticalArrangement = Arrangement.spacedBy(8.dp),
                 horizontalAlignment = Alignment.CenterHorizontally,
             ) {
-                ThumbnailView(
-                    video = video,
-                    preferences = preferences,
-                )
+                Box(
+                    modifier = if (onThumbnailClick != null) {
+                        Modifier.clickable(
+                            interactionSource = remember { MutableInteractionSource() },
+                            indication = null,
+                            onClick = onThumbnailClick,
+                        )
+                    } else {
+                        Modifier
+                    },
+                ) {
+                    ThumbnailView(
+                        video = video,
+                        preferences = preferences,
+                    )
+                }
                 Text(
                     text = if (preferences.shouldShowExtensionField) video.nameWithExtension else video.displayName,
                     maxLines = 2,

@@ -139,6 +139,10 @@ fun MediaView(
                         haptic.performHapticFeedback(HapticFeedbackType.LongPress)
                         selectionManager.toggleFolderSelection(folder)
                     },
+                    onThumbnailClick = {
+                        haptic.performHapticFeedback(HapticFeedbackType.VirtualKey)
+                        selectionManager.toggleFolderSelection(folder)
+                    },
                 )
             }
 
@@ -177,6 +181,10 @@ fun MediaView(
                     },
                     onLongClick = {
                         haptic.performHapticFeedback(HapticFeedbackType.LongPress)
+                        selectionManager.toggleVideoSelection(video)
+                    },
+                    onThumbnailClick = {
+                        haptic.performHapticFeedback(HapticFeedbackType.VirtualKey)
                         selectionManager.toggleVideoSelection(video)
                     },
                     modifier = Modifier.onVideoFirstVisible {
