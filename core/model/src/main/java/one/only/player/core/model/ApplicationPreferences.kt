@@ -24,6 +24,7 @@ data class ApplicationPreferences(
     val mediaLayoutMode: MediaLayoutMode = MediaLayoutMode.LIST,
     val mediaLayoutScale: Float = DEFAULT_MEDIA_LAYOUT_SCALE,
     val cloudQuickSettingsByServerId: Map<String, CloudQuickSettings> = emptyMap(),
+    val pinnedCloudServerIds: Set<Long> = emptySet(),
 
     // 字段显示
     val shouldShowDurationField: Boolean = true,
@@ -77,6 +78,14 @@ data class ApplicationPreferences(
 
     fun withoutCloudQuickSettings(serverId: Long): ApplicationPreferences = copy(
         cloudQuickSettingsByServerId = cloudQuickSettingsByServerId - serverId.toString(),
+    )
+
+    fun withPinnedCloudServer(serverId: Long): ApplicationPreferences = copy(
+        pinnedCloudServerIds = pinnedCloudServerIds + serverId,
+    )
+
+    fun withoutPinnedCloudServer(serverId: Long): ApplicationPreferences = copy(
+        pinnedCloudServerIds = pinnedCloudServerIds - serverId,
     )
 
     companion object {

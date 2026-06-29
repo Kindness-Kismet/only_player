@@ -542,6 +542,8 @@
     <string name="proxy_settings">Proxy</string>
     <string name="proxy_host">Proxy host</string>
     <string name="proxy_port">Proxy port</string>
+    <string name="add_to_homescreen">Add to Home Screen</string>
+    <string name="remove_from_homescreen">Remove from Home Screen</string>
     <string name="proxy_enabled">Enable proxy</string>
     <string name="browsing">Browsing</string>
     <string name="connection_failed">Connection failed</string>

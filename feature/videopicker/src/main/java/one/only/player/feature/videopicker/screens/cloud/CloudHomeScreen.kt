@@ -155,11 +155,13 @@ internal fun CloudHomeScreen(
                             val index = uiState.servers.indexOf(server)
                             ServerListItem(
                                 server = server,
+                                isPinned = server.id in uiState.pinnedServerIds,
                                 isFirstItem = index == 0,
                                 isLastItem = index == uiState.servers.lastIndex,
                                 onClick = { onServerClick(server.id) },
                                 onEditClick = { editingServer = server },
                                 onDeleteClick = { deletingServer = server },
+                                onPinClick = { onEvent(CloudHomeEvent.TogglePinServer(server.id)) },
                             )
                         }
                     }
@@ -246,11 +248,13 @@ private fun EmptyCloudHomeContent(
 @Composable
 private fun ServerListItem(
     server: RemoteServer,
+    isPinned: Boolean,
     isFirstItem: Boolean,
     isLastItem: Boolean,
     onClick: () -> Unit,
     onEditClick: () -> Unit,
     onDeleteClick: () -> Unit,
+    onPinClick: () -> Unit,
 ) {
     NextSegmentedListItem(
         onClick = onClick,
@@ -267,6 +271,14 @@ private fun ServerListItem(
         },
         trailingContent = {
             Row {
+                IconButton(onClick = onPinClick) {
+                    Icon(
+                        imageVector = if (isPinned) NextIcons.Star else NextIcons.StarBorder,
+                        contentDescription = stringResource(
+                            if (isPinned) R.string.remove_from_homescreen else R.string.add_to_homescreen,
+                        ),
+                    )
+                }
                 IconButton(onClick = onEditClick) {
                     Icon(
                         imageVector = NextIcons.Edit,

@@ -110,6 +110,7 @@ fun MediaPickerRoute(
     onExitAppClick: () -> Unit,
     onNavigateUp: () -> Unit,
     onNavigateHome: () -> Unit,
+    onCloudServerClick: (Long) -> Unit = {},
 ) {
     val uiState by viewModel.uiState.collectAsStateWithLifecycle()
 
@@ -126,6 +127,7 @@ fun MediaPickerRoute(
         onFavoritesClick = onFavoritesClick,
         onSettingsClick = onSettingsClick,
         onExitAppClick = onExitAppClick,
+        onCloudServerClick = onCloudServerClick,
         onEvent = viewModel::onEvent,
     )
 }
@@ -155,6 +157,7 @@ internal fun MediaPickerScreen(
     onFavoritesClick: () -> Unit = {},
     onSettingsClick: () -> Unit = {},
     onExitAppClick: () -> Unit = {},
+    onCloudServerClick: (Long) -> Unit = {},
     onEvent: (MediaPickerUiEvent) -> Unit = {},
 ) {
     val selectionManager = rememberSelectionManager()
@@ -580,12 +583,19 @@ internal fun MediaPickerScreen(
 
                             is DataState.Success -> {
                                 val rootFolder = uiState.mediaDataState.value
-                                if (rootFolder == null || rootFolder.folderList.isEmpty() && rootFolder.mediaList.isEmpty()) {
+                                val hasPinnedServers = uiState.pinnedCloudServers.isNotEmpty()
+                                if ((rootFolder == null || rootFolder.folderList.isEmpty() && rootFolder.mediaList.isEmpty()) && !hasPinnedServers) {
                                     NoVideosFound(contentPadding = updatedScaffoldPadding)
                                 } else {
                                     MediaView(
-                                        rootFolder = rootFolder,
+                                        rootFolder = rootFolder ?: Folder(
+                                            name = "",
+                                            path = uiState.folderPath ?: "/",
+                                            dateModified = 0,
+                                        ),
                                         preferences = uiState.preferences,
+                                        pinnedServers = uiState.pinnedCloudServers,
+                                        onPinnedServerClick = onCloudServerClick,
                                         onFolderClick = {
                                             onEvent(MediaPickerUiEvent.CacheFolderSnapshot(it))
                                             onFolderClick(it.path, uiState.screenMode)

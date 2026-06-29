@@ -539,6 +539,8 @@
     <string name="proxy_settings">代理</string>
     <string name="proxy_host">代理主机</string>
     <string name="proxy_port">代理端口</string>
+    <string name="add_to_homescreen">添加到主界面</string>
+    <string name="remove_from_homescreen">从主界面移除</string>
     <string name="proxy_enabled">启用代理</string>
     <string name="browsing">浏览中</string>
     <string name="connection_failed">连接失败</string>

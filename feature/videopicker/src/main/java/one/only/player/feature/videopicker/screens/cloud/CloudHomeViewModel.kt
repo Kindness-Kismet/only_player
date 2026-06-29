@@ -7,7 +7,7 @@ import dagger.hilt.android.lifecycle.HiltViewModel
 import javax.inject.Inject
 import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
-import kotlinx.coroutines.flow.map
+import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.launch
 import one.only.player.core.data.repository.PreferencesRepository
@@ -21,18 +21,26 @@ class CloudHomeViewModel @Inject constructor(
     private val preferencesRepository: PreferencesRepository,
 ) : ViewModel() {
 
-    val uiState: StateFlow<CloudHomeUiState> = repository.getAll()
-        .map { servers -> CloudHomeUiState(servers = servers) }
-        .stateIn(
-            scope = viewModelScope,
-            started = SharingStarted.WhileSubscribed(5000),
-            initialValue = CloudHomeUiState(),
+    val uiState: StateFlow<CloudHomeUiState> = combine(
+        repository.getAll(),
+        preferencesRepository.applicationPreferences,
+    ) { servers, preferences ->
+        val pinnedIds = preferences.pinnedCloudServerIds
+        CloudHomeUiState(
+            servers = servers,
+            pinnedServerIds = pinnedIds,
         )
+    }.stateIn(
+        scope = viewModelScope,
+        started = SharingStarted.WhileSubscribed(5000),
+        initialValue = CloudHomeUiState(),
+    )
 
     fun onEvent(event: CloudHomeEvent) {
         when (event) {
             is CloudHomeEvent.SaveServer -> saveServer(event.server)
             is CloudHomeEvent.DeleteServer -> deleteServer(event.id)
+            is CloudHomeEvent.TogglePinServer -> togglePinServer(event.id)
         }
     }
 
@@ -49,7 +57,22 @@ class CloudHomeViewModel @Inject constructor(
     private fun deleteServer(id: Long) {
         viewModelScope.launch {
             repository.deleteById(id)
-            preferencesRepository.updateApplicationPreferences { it.withoutCloudQuickSettings(id) }
+            preferencesRepository.updateApplicationPreferences {
+                it.withoutCloudQuickSettings(id).withoutPinnedCloudServer(id)
+            }
+        }
+    }
+
+    private fun togglePinServer(id: Long) {
+        viewModelScope.launch {
+            preferencesRepository.updateApplicationPreferences { preferences ->
+                val pinnedIds = preferences.pinnedCloudServerIds
+                if (id in pinnedIds) {
+                    preferences.copy(pinnedCloudServerIds = pinnedIds - id)
+                } else {
+                    preferences.copy(pinnedCloudServerIds = pinnedIds + id)
+                }
+            }
         }
     }
 }
@@ -57,11 +80,13 @@ class CloudHomeViewModel @Inject constructor(
 @Stable
 data class CloudHomeUiState(
     val servers: List<RemoteServer> = emptyList(),
+    val pinnedServerIds: Set<Long> = emptySet(),
 )
 
 sealed interface CloudHomeEvent {
     data class SaveServer(val server: RemoteServer) : CloudHomeEvent
     data class DeleteServer(val id: Long) : CloudHomeEvent
+    data class TogglePinServer(val id: Long) : CloudHomeEvent
 }
 
 // 新建服务器的默认模板

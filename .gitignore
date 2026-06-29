@@ -51,6 +51,9 @@ codex.*
 .gemini/**
 .gemini*
 
+# vscode local files
+.vsocde/
+
 # Claude local files
 .claude/
 .claude/**

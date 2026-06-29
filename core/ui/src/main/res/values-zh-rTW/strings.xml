@@ -533,6 +533,8 @@
     <string name="proxy_settings">代理</string>
     <string name="proxy_host">代理主機</string>
     <string name="proxy_port">代理連接埠</string>
+    <string name="add_to_homescreen">新增到主畫面</string>
+    <string name="remove_from_homescreen">從主畫面移除</string>
     <string name="proxy_enabled">啟用代理</string>
     <string name="browsing">瀏覽中</string>
     <string name="connection_failed">連線失敗</string>

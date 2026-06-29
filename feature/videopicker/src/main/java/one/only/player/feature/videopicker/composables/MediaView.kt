@@ -31,6 +31,7 @@ import one.only.player.core.model.ApplicationPreferences
 import one.only.player.core.model.Folder
 import one.only.player.core.model.MediaLayoutMode
 import one.only.player.core.model.MediaViewMode
+import one.only.player.core.model.RemoteServer
 import one.only.player.core.model.Video
 import one.only.player.core.ui.R
 import one.only.player.core.ui.components.ListSectionTitle
@@ -47,6 +48,8 @@ fun MediaView(
     contentPadding: PaddingValues = PaddingValues(),
     selectionManager: SelectionManager = rememberSelectionManager(),
     lazyGridState: LazyGridState = rememberLazyGridState(),
+    pinnedServers: List<RemoteServer> = emptyList(),
+    onPinnedServerClick: (Long) -> Unit = {},
     onFolderClick: (Folder) -> Unit,
     onVideoClick: (Video) -> Unit,
     onVideoLoaded: (Uri) -> Unit,
@@ -90,6 +93,22 @@ fun MediaView(
             verticalArrangement = Arrangement.spacedBy(itemSpacing),
             horizontalArrangement = Arrangement.spacedBy(itemSpacing),
         ) {
+            if (pinnedServers.isNotEmpty()) {
+                item(span = { GridItemSpan(maxLineSpan) }) {
+                    ListSectionTitle(text = stringResource(id = R.string.cloud_servers))
+                }
+                itemsIndexed(
+                    items = pinnedServers,
+                    key = { _, server -> "pinned_server_${server.id}" },
+                    span = { _, _ -> GridItemSpan(singleFolderSpan) },
+                ) { _, server ->
+                    PinnedServerItem(
+                        server = server,
+                        onClick = { onPinnedServerClick(server.id) },
+                    )
+                }
+            }
+
             if (shouldShowHeaders && rootFolder.folderList.isNotEmpty()) {
                 item(span = { GridItemSpan(maxLineSpan) }) {
                     ListSectionTitle(text = stringResource(id = R.string.folders) + " (${rootFolder.folderList.size})")
