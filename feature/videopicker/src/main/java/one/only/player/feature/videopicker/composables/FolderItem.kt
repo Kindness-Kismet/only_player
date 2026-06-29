@@ -1,5 +1,8 @@
 package one.only.player.feature.videopicker.composables
 
+import androidx.compose.foundation.background
+import androidx.compose.foundation.clickable
+import androidx.compose.foundation.interaction.MutableInteractionSource
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -17,6 +20,7 @@ import androidx.compose.material3.ListItemDefaults
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.remember
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
@@ -51,6 +55,7 @@ fun FolderItem(
     isSelected: Boolean = false,
     onClick: () -> Unit = {},
     onLongClick: (() -> Unit)? = null,
+    onThumbnailClick: (() -> Unit)? = null,
 ) {
     when (preferences.mediaLayoutMode) {
         MediaLayoutMode.LIST -> FolderListItem(
@@ -63,6 +68,7 @@ fun FolderItem(
             isSelected = isSelected,
             onClick = onClick,
             onLongClick = onLongClick,
+            onThumbnailClick = onThumbnailClick,
         )
         MediaLayoutMode.GRID -> FolderGridItem(
             folder = folder,
@@ -74,6 +80,7 @@ fun FolderItem(
             isSelected = isSelected,
             onClick = onClick,
             onLongClick = onLongClick,
+            onThumbnailClick = onThumbnailClick,
         )
     }
 }
@@ -90,6 +97,7 @@ private fun FolderListItem(
     isSelected: Boolean = false,
     onClick: () -> Unit = {},
     onLongClick: (() -> Unit)? = null,
+    onThumbnailClick: (() -> Unit)? = null,
 ) {
     NextSegmentedListItem(
         modifier = modifier.testTag("item_folder_${folder.name}"),
@@ -113,27 +121,39 @@ private fun FolderListItem(
         onClick = onClick,
         onLongClick = onLongClick,
         leadingContent = {
-            Box(modifier = Modifier.padding(horizontal = 8.dp)) {
-                Icon(
-                    imageVector = ImageVector.vectorResource(id = R.drawable.folder_thumb),
-                    contentDescription = "",
-                    tint = MaterialTheme.colorScheme.surfaceContainerHigh,
-                    modifier = Modifier
-                        .width(min(90.dp, LocalConfiguration.current.screenWidthDp.dp * 0.3f))
-                        .aspectRatio(20 / 17f),
-                )
-
-                if (preferences.shouldShowDurationField) {
-                    InfoChip(
-                        text = Utils.formatDurationMillis(folder.mediaDuration),
-                        modifier = Modifier
-                            .padding(5.dp)
-                            .padding(bottom = 3.dp)
-                            .align(Alignment.BottomEnd),
-                        backgroundColor = Color.Black.copy(alpha = 0.6f),
-                        contentColor = Color.White,
-                        shape = MaterialTheme.shapes.extraSmall,
+            Box(
+                modifier = if (onThumbnailClick != null) {
+                    Modifier.clickable(
+                        interactionSource = remember { MutableInteractionSource() },
+                        indication = null,
+                        onClick = onThumbnailClick,
                     )
+                } else {
+                    Modifier
+                },
+            ) {
+                Box(modifier = Modifier.padding(horizontal = 8.dp)) {
+                    Icon(
+                        imageVector = ImageVector.vectorResource(id = R.drawable.folder_thumb),
+                        contentDescription = "",
+                        tint = MaterialTheme.colorScheme.surfaceContainerHigh,
+                        modifier = Modifier
+                            .width(min(90.dp, LocalConfiguration.current.screenWidthDp.dp * 0.3f))
+                            .aspectRatio(20 / 17f),
+                    )
+
+                    if (preferences.shouldShowDurationField) {
+                        InfoChip(
+                            text = Utils.formatDurationMillis(folder.mediaDuration),
+                            modifier = Modifier
+                                .padding(5.dp)
+                                .padding(bottom = 3.dp)
+                                .align(Alignment.BottomEnd),
+                            backgroundColor = Color.Black.copy(alpha = 0.6f),
+                            contentColor = Color.White,
+                            shape = MaterialTheme.shapes.extraSmall,
+                        )
+                    }
                 }
             }
         },
@@ -195,6 +215,7 @@ private fun FolderGridItem(
     isSelected: Boolean = false,
     onClick: () -> Unit = {},
     onLongClick: (() -> Unit)? = null,
+    onThumbnailClick: (() -> Unit)? = null,
 ) {
     NextSegmentedListItem(
         modifier = modifier
@@ -225,7 +246,17 @@ private fun FolderGridItem(
                 verticalArrangement = Arrangement.spacedBy(8.dp),
                 horizontalAlignment = Alignment.CenterHorizontally,
             ) {
-                Box {
+                Box(
+                    modifier = if (onThumbnailClick != null) {
+                        Modifier.clickable(
+                            interactionSource = remember { MutableInteractionSource() },
+                            indication = null,
+                            onClick = onThumbnailClick,
+                        )
+                    } else {
+                        Modifier
+                    },
+                ) {
                     Icon(
                         imageVector = ImageVector.vectorResource(id = R.drawable.folder_thumb),
                         contentDescription = "",
