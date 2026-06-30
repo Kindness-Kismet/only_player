@@ -323,21 +323,21 @@ internal fun CloudBrowseScreen(
                         }
                     } else {
                         IconButton(
-                            onClick = { shouldShowQuickSettingsDialog = true },
-                            modifier = Modifier.testTag("btn_cloud_quick_settings"),
-                        ) {
-                            Icon(
-                                imageVector = NextIcons.DashBoard,
-                                contentDescription = stringResource(R.string.cloud_quick_settings),
-                            )
-                        }
-                        IconButton(
                             onClick = { shouldShowEditServerDialog = true },
                             modifier = Modifier.testTag("btn_cloud_edit_server"),
                         ) {
                             Icon(
                                 imageVector = NextIcons.Edit,
                                 contentDescription = stringResource(R.string.edit_server_settings),
+                            )
+                        }
+                        IconButton(
+                            onClick = { shouldShowQuickSettingsDialog = true },
+                            modifier = Modifier.testTag("btn_cloud_quick_settings"),
+                        ) {
+                            Icon(
+                                imageVector = NextIcons.DashBoard,
+                                contentDescription = stringResource(R.string.cloud_quick_settings),
                             )
                         }
                     }

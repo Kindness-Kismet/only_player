@@ -583,7 +583,7 @@ internal fun MediaPickerScreen(
 
                             is DataState.Success -> {
                                 val rootFolder = uiState.mediaDataState.value
-                                val hasPinnedServers = uiState.pinnedCloudServers.isNotEmpty()
+                                val hasPinnedServers = uiState.pinnedCloudServers.isNotEmpty() && uiState.folderPath == null
                                 if ((rootFolder == null || rootFolder.folderList.isEmpty() && rootFolder.mediaList.isEmpty()) && !hasPinnedServers) {
                                     NoVideosFound(contentPadding = updatedScaffoldPadding)
                                 } else {
@@ -594,7 +594,7 @@ internal fun MediaPickerScreen(
                                             dateModified = 0,
                                         ),
                                         preferences = uiState.preferences,
-                                        pinnedServers = uiState.pinnedCloudServers,
+                                        pinnedServers = if (uiState.folderPath == null) uiState.pinnedCloudServers else emptyList(),
                                         onPinnedServerClick = onCloudServerClick,
                                         onPinnedServerRemove = { serverId -> onEvent(MediaPickerUiEvent.RemovePinnedServer(serverId)) },
                                         onFolderClick = {

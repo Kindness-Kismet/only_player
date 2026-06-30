@@ -513,6 +513,7 @@
     <string name="update_dialog_message">Version %1$s is available. Do you want to view the update now?</string>
     <string name="update_dialog_confirm">View update</string>
     <string name="tab_local">Local</string>
+    <string name="local_folder">Local folder</string>
     <string name="tab_cloud">Cloud</string>
     <string name="tab_settings">Settings</string>
     <string name="cloud_servers">Cloud servers</string>

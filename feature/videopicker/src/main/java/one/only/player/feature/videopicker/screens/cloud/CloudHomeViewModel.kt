@@ -12,6 +12,7 @@ import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.launch
 import one.only.player.core.data.repository.PreferencesRepository
 import one.only.player.core.data.repository.RemoteServerRepository
+import one.only.player.core.model.ApplicationPreferences
 import one.only.player.core.model.RemoteServer
 import one.only.player.core.model.ServerProtocol
 
@@ -28,6 +29,7 @@ class CloudHomeViewModel @Inject constructor(
         CloudHomeUiState(
             servers = servers,
             pinnedServerIds = preferences.pinnedCloudServerIds,
+            preferences = preferences,
         )
     }.stateIn(
         scope = viewModelScope,
@@ -40,6 +42,13 @@ class CloudHomeViewModel @Inject constructor(
             is CloudHomeEvent.SaveServer -> saveServer(event.server, event.showOnHomeScreen)
             is CloudHomeEvent.DeleteServer -> deleteServer(event.id)
             is CloudHomeEvent.TogglePinnedServer -> togglePinnedServer(event.serverId, event.showOnHomeScreen)
+            is CloudHomeEvent.UpdateQuickSettings -> updateQuickSettings(event.preferences)
+        }
+    }
+
+    private fun updateQuickSettings(preferences: ApplicationPreferences) {
+        viewModelScope.launch {
+            preferencesRepository.updateApplicationPreferences { preferences }
         }
     }
 
@@ -87,12 +96,14 @@ class CloudHomeViewModel @Inject constructor(
 data class CloudHomeUiState(
     val servers: List<RemoteServer> = emptyList(),
     val pinnedServerIds: Set<Long> = emptySet(),
+    val preferences: ApplicationPreferences = ApplicationPreferences(),
 )
 
 sealed interface CloudHomeEvent {
     data class SaveServer(val server: RemoteServer, val showOnHomeScreen: Boolean) : CloudHomeEvent
     data class DeleteServer(val id: Long) : CloudHomeEvent
     data class TogglePinnedServer(val serverId: Long, val showOnHomeScreen: Boolean) : CloudHomeEvent
+    data class UpdateQuickSettings(val preferences: ApplicationPreferences) : CloudHomeEvent
 }
 
 // 新建服务器的默认模板

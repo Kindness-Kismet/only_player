@@ -299,18 +299,6 @@ private fun ThumbnailView(
                 modifier = Modifier.fillMaxSize(),
             )
         }
-        if (preferences.shouldShowDurationField) {
-            InfoChip(
-                text = video.formattedDuration,
-                modifier = Modifier
-                    .padding(5.dp)
-                    .align(Alignment.BottomEnd),
-                backgroundColor = Color.Black.copy(alpha = 0.6f),
-                contentColor = Color.White,
-                shape = MaterialTheme.shapes.extraSmall,
-            )
-        }
-
         if (preferences.shouldShowPlayedProgress && video.playedPercentage > 0) {
             Box(
                 modifier = Modifier
@@ -331,6 +319,17 @@ private fun ThumbnailView(
                         .background(MaterialTheme.colorScheme.primary),
                 )
             }
+        }
+        if (preferences.shouldShowDurationField) {
+            InfoChip(
+                text = video.formattedDuration,
+                modifier = Modifier
+                    .padding(5.dp)
+                    .align(Alignment.BottomEnd),
+                backgroundColor = Color.Black.copy(alpha = 0.6f),
+                contentColor = Color.White,
+                shape = MaterialTheme.shapes.extraSmall,
+            )
         }
     }
 }

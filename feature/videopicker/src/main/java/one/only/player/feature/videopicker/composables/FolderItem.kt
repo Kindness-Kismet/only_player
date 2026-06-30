@@ -58,6 +58,7 @@ fun FolderItem(
     isLastItem: Boolean = false,
     isSelected: Boolean = false,
     isCloudBadge: Boolean = false,
+    isLocalBadge: Boolean = false,
     onClick: () -> Unit = {},
     onLongClick: (() -> Unit)? = null,
     onThumbnailClick: (() -> Unit)? = null,
@@ -72,6 +73,7 @@ fun FolderItem(
             isLastItem = isLastItem,
             isSelected = isSelected,
             isCloudBadge = isCloudBadge,
+            isLocalBadge = isLocalBadge,
             onClick = onClick,
             onLongClick = onLongClick,
             onThumbnailClick = onThumbnailClick,
@@ -85,6 +87,7 @@ fun FolderItem(
             isLastItem = isLastItem,
             isSelected = isSelected,
             isCloudBadge = isCloudBadge,
+            isLocalBadge = isLocalBadge,
             onClick = onClick,
             onLongClick = onLongClick,
             onThumbnailClick = onThumbnailClick,
@@ -103,6 +106,7 @@ private fun FolderListItem(
     isLastItem: Boolean = false,
     isSelected: Boolean = false,
     isCloudBadge: Boolean = false,
+    isLocalBadge: Boolean = false,
     onClick: () -> Unit = {},
     onLongClick: (() -> Unit)? = null,
     onThumbnailClick: (() -> Unit)? = null,
@@ -153,10 +157,18 @@ private fun FolderListItem(
                     if (isCloudBadge) {
                         CloudBadge(
                             modifier = Modifier
-                                .align(Alignment.BottomEnd)
+                                .align(Alignment.BottomStart)
                                 .padding(5.dp),
                         )
-                    } else if (preferences.shouldShowDurationField) {
+                    }
+                    if (isLocalBadge) {
+                        LocalBadge(
+                            modifier = Modifier
+                                .align(Alignment.BottomStart)
+                                .padding(5.dp),
+                        )
+                    }
+                    if (preferences.shouldShowDurationField) {
                         InfoChip(
                             text = Utils.formatDurationMillis(folder.mediaDuration),
                             modifier = Modifier
@@ -228,6 +240,7 @@ private fun FolderGridItem(
     isLastItem: Boolean = false,
     isSelected: Boolean = false,
     isCloudBadge: Boolean = false,
+    isLocalBadge: Boolean = false,
     onClick: () -> Unit = {},
     onLongClick: (() -> Unit)? = null,
     onThumbnailClick: (() -> Unit)? = null,
@@ -284,10 +297,18 @@ private fun FolderGridItem(
                     if (isCloudBadge) {
                         CloudBadge(
                             modifier = Modifier
-                                .align(Alignment.BottomEnd)
+                                .align(Alignment.BottomStart)
                                 .padding(5.dp),
                         )
-                    } else if (preferences.shouldShowDurationField) {
+                    }
+                    if (isLocalBadge) {
+                        LocalBadge(
+                            modifier = Modifier
+                                .align(Alignment.BottomStart)
+                                .padding(5.dp),
+                        )
+                    }
+                    if (preferences.shouldShowDurationField) {
                         InfoChip(
                             text = Utils.formatDurationMillis(folder.mediaDuration),
                             modifier = Modifier
@@ -334,7 +355,7 @@ private fun FolderGridItem(
                                 append(it)
                                 folderCount?.let {
                                     append(", ")
-                                    append(" ")
+                                    append(" ")
                                 }
                             }
                             folderCount?.let {
@@ -362,8 +383,26 @@ private fun CloudBadge(modifier: Modifier = Modifier) {
     ) {
         Icon(
             imageVector = NextIcons.Cloud,
-            contentDescription = null,
+            contentDescription = stringResource(R.string.cloud_servers),
             tint = MaterialTheme.colorScheme.primary,
+            modifier = Modifier.size(14.dp),
+        )
+    }
+}
+
+@Composable
+private fun LocalBadge(modifier: Modifier = Modifier) {
+    Box(
+        modifier = modifier
+            .size(22.dp)
+            .clip(CircleShape)
+            .background(MaterialTheme.colorScheme.surface.copy(alpha = 0.85f)),
+        contentAlignment = Alignment.Center,
+    ) {
+        Icon(
+            imageVector = NextIcons.Folder,
+            contentDescription = stringResource(R.string.local_folder),
+            tint = MaterialTheme.colorScheme.tertiary,
             modifier = Modifier.size(14.dp),
         )
     }

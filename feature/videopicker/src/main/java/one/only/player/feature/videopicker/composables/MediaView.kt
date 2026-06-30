@@ -128,11 +128,13 @@ fun MediaView(
                 span = { _, _ -> GridItemSpan(singleFolderSpan) },
             ) { index, folder ->
                 val isFolderSelected by remember { derivedStateOf { selectionManager.isFolderSelected(folder) } }
+                val hasCloudServers = pinnedServers.isNotEmpty()
                 FolderItem(
                     folder = folder,
                     isRecentlyPlayedFolder = rootFolder.isRecentlyPlayedVideo(folder.recentlyPlayedVideo),
                     preferences = preferences,
                     isSelected = isFolderSelected,
+                    isLocalBadge = hasCloudServers,
                     isFirstItem = index == 0,
                     isLastItem = index == rootFolder.folderList.lastIndex,
                     onClick = {

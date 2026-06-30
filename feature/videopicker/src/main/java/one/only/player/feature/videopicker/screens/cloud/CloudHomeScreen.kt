@@ -67,6 +67,8 @@ import one.only.player.core.ui.components.PreferenceSwitch
 import one.only.player.core.ui.designsystem.NextIcons
 import one.only.player.core.ui.extensions.copy
 import one.only.player.core.ui.extensions.withBottomFallback
+import one.only.player.feature.videopicker.composables.QuickSettingsDialog
+import one.only.player.feature.videopicker.composables.QuickSettingsTarget
 
 @Composable
 fun CloudHomeRoute(
@@ -96,6 +98,7 @@ internal fun CloudHomeScreen(
     var editingServer: RemoteServer? by remember { mutableStateOf(null) }
     var deletingServer: RemoteServer? by remember { mutableStateOf(null) }
     var editingShowOnHomeScreen by remember { mutableStateOf(false) }
+    var quickSettingsServerId by rememberSaveable { mutableStateOf<Long?>(null) }
 
     Scaffold(
         topBar = {
@@ -168,7 +171,9 @@ internal fun CloudHomeScreen(
                                     editingServer = server
                                     editingShowOnHomeScreen = isPinned
                                 },
-                                onDeleteClick = { deletingServer = server },
+                                onQuickSettingsClick = {
+                                    quickSettingsServerId = server.id
+                                },
                             )
                         }
                     }
@@ -223,6 +228,16 @@ internal fun CloudHomeScreen(
             dismissButton = { CancelButton(onClick = { deletingServer = null }) },
         )
     }
+
+    quickSettingsServerId?.let { serverId ->
+        QuickSettingsDialog(
+            applicationPreferences = uiState.preferences,
+            target = QuickSettingsTarget.CLOUD,
+            cloudServerId = serverId,
+            onDismiss = { quickSettingsServerId = null },
+            updatePreferences = { onEvent(CloudHomeEvent.UpdateQuickSettings(it)) },
+        )
+    }
 }
 
 @Composable
@@ -267,7 +282,7 @@ private fun ServerListItem(
     onClick: () -> Unit,
     onTogglePinned: () -> Unit,
     onEditClick: () -> Unit,
-    onDeleteClick: () -> Unit,
+    onQuickSettingsClick: () -> Unit,
 ) {
     NextSegmentedListItem(
         onClick = onClick,
@@ -275,28 +290,27 @@ private fun ServerListItem(
         isLastItem = isLastItem,
         contentPadding = PaddingValues(8.dp),
         modifier = Modifier.testTag("cloud_server_item_${server.id}"),
-        leadingContent = {
-            IconButton(onClick = onTogglePinned) {
-                Icon(
-                    imageVector = if (isPinned) NextIcons.Visibility else NextIcons.VisibilityOff,
-                    contentDescription = stringResource(
-                        if (isPinned) R.string.remove_from_homescreen else R.string.add_to_homescreen,
-                    ),
-                )
-            }
-        },
+        leadingContent = null,
         trailingContent = {
             Row {
+                IconButton(onClick = onTogglePinned) {
+                    Icon(
+                        imageVector = if (isPinned) NextIcons.Visibility else NextIcons.VisibilityOff,
+                        contentDescription = stringResource(
+                            if (isPinned) R.string.remove_from_homescreen else R.string.add_to_homescreen,
+                        ),
+                    )
+                }
                 IconButton(onClick = onEditClick) {
                     Icon(
                         imageVector = NextIcons.Edit,
                         contentDescription = stringResource(R.string.edit_server),
                     )
                 }
-                IconButton(onClick = onDeleteClick) {
+                IconButton(onClick = onQuickSettingsClick) {
                     Icon(
-                        imageVector = NextIcons.Delete,
-                        contentDescription = stringResource(R.string.delete_server),
+                        imageVector = NextIcons.DashBoard,
+                        contentDescription = stringResource(R.string.cloud_quick_settings),
                     )
                 }
             }
