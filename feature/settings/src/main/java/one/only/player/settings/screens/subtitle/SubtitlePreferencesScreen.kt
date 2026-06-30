@@ -35,6 +35,8 @@ import androidx.hilt.lifecycle.viewmodel.compose.hiltViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import java.nio.charset.Charset
 import one.only.player.core.model.Font
+import one.only.player.core.model.SubtitleColor
+import one.only.player.core.model.SubtitleEdgeStyle
 import one.only.player.core.ui.R
 import one.only.player.core.ui.components.ClickablePreferenceItem
 import one.only.player.core.ui.components.ListSectionTitle
@@ -240,6 +242,8 @@ private fun SubtitlePreferencesContent(
             SubtitleStylePanel(
                 preferences = uiState.preferences,
                 onPreferencesChange = { onEvent(SubtitlePreferencesUiEvent.UpdateSubtitleStyle(it)) },
+                onSubtitleColorClick = { onEvent(SubtitlePreferencesUiEvent.ShowDialog(SubtitlePreferenceDialog.SubtitleColorDialog)) },
+                onSubtitleEdgeStyleClick = { onEvent(SubtitlePreferencesUiEvent.ShowDialog(SubtitlePreferenceDialog.SubtitleEdgeStyleDialog)) },
             )
         }
 
@@ -301,6 +305,44 @@ private fun SubtitlePreferencesContent(
                                     },
                                 )
                             }
+                        }
+                    }
+                }
+
+                SubtitlePreferenceDialog.SubtitleColorDialog -> {
+                    OptionsDialog(
+                        text = stringResource(id = R.string.subtitle_text_color),
+                        onDismissClick = { onEvent(SubtitlePreferencesUiEvent.ShowDialog(null)) },
+                    ) {
+                        items(SubtitleColor.entries.toTypedArray()) {
+                            RadioTextButton(
+                                modifier = Modifier.testTag("option_settings_subtitle_color_${it.name.lowercase()}"),
+                                text = it.name(),
+                                isSelected = it == uiState.preferences.subtitleColor,
+                                onClick = {
+                                    onEvent(SubtitlePreferencesUiEvent.UpdateSubtitleColor(it))
+                                    onEvent(SubtitlePreferencesUiEvent.ShowDialog(null))
+                                },
+                            )
+                        }
+                    }
+                }
+
+                SubtitlePreferenceDialog.SubtitleEdgeStyleDialog -> {
+                    OptionsDialog(
+                        text = stringResource(id = R.string.subtitle_edge_style),
+                        onDismissClick = { onEvent(SubtitlePreferencesUiEvent.ShowDialog(null)) },
+                    ) {
+                        items(SubtitleEdgeStyle.entries.toTypedArray()) {
+                            RadioTextButton(
+                                modifier = Modifier.testTag("option_settings_subtitle_edge_style_${it.name.lowercase()}"),
+                                text = it.name(),
+                                isSelected = it == uiState.preferences.subtitleEdgeStyle,
+                                onClick = {
+                                    onEvent(SubtitlePreferencesUiEvent.UpdateSubtitleEdgeStyle(it))
+                                    onEvent(SubtitlePreferencesUiEvent.ShowDialog(null))
+                                },
+                            )
                         }
                     }
                 }

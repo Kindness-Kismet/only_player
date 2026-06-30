@@ -65,6 +65,7 @@ import androidx.compose.material.icons.rounded.Pinch
 import androidx.compose.material.icons.rounded.PlayArrow
 import androidx.compose.material.icons.rounded.PlayCircle
 import androidx.compose.material.icons.rounded.PriorityHigh
+import androidx.compose.material.icons.rounded.PushPin
 import androidx.compose.material.icons.rounded.RadioButtonUnchecked
 import androidx.compose.material.icons.rounded.Remove
 import androidx.compose.material.icons.rounded.Replay10
@@ -80,6 +81,8 @@ import androidx.compose.material.icons.rounded.SkipNext
 import androidx.compose.material.icons.rounded.SkipPrevious
 import androidx.compose.material.icons.rounded.SmartButton
 import androidx.compose.material.icons.rounded.Speed
+import androidx.compose.material.icons.rounded.Star
+import androidx.compose.material.icons.rounded.StarBorder
 import androidx.compose.material.icons.rounded.Straighten
 import androidx.compose.material.icons.rounded.Style
 import androidx.compose.material.icons.rounded.Subtitles
@@ -91,6 +94,8 @@ import androidx.compose.material.icons.rounded.TouchApp
 import androidx.compose.material.icons.rounded.Translate
 import androidx.compose.material.icons.rounded.Tune
 import androidx.compose.material.icons.rounded.Update
+import androidx.compose.material.icons.rounded.Visibility
+import androidx.compose.material.icons.rounded.VisibilityOff
 
 object NextIcons {
     val Add = Icons.Rounded.Add
@@ -137,6 +142,7 @@ object NextIcons {
     val Play = Icons.Rounded.PlayArrow
     val Player = Icons.Rounded.PlayCircle
     val Priority = Icons.Rounded.PriorityHigh
+    val PushPin = Icons.Rounded.PushPin
     val PlaylistPlay = Icons.AutoMirrored.Rounded.PlaylistPlay
     val Remove = Icons.Rounded.Remove
     val Replay = Icons.Rounded.Replay10
@@ -184,4 +190,8 @@ object NextIcons {
     val Loop = Icons.Rounded.Loop
     val Shuffle = Icons.Rounded.Shuffle
     val Screenshot = Icons.Rounded.PhotoCamera
+    val Star = Icons.Rounded.Star
+    val StarBorder = Icons.Rounded.StarBorder
+    val Visibility = Icons.Rounded.Visibility
+    val VisibilityOff = Icons.Rounded.VisibilityOff
 }

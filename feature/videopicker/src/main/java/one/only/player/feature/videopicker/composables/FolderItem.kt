@@ -1,5 +1,8 @@
 package one.only.player.feature.videopicker.composables
 
+import androidx.compose.foundation.background
+import androidx.compose.foundation.clickable
+import androidx.compose.foundation.interaction.MutableInteractionSource
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -10,15 +13,19 @@ import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.aspectRatio
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
+import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.material3.ExperimentalMaterial3ExpressiveApi
 import androidx.compose.material3.Icon
 import androidx.compose.material3.ListItemDefaults
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.remember
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.luminance
 import androidx.compose.ui.graphics.vector.ImageVector
@@ -38,6 +45,7 @@ import one.only.player.core.model.Folder
 import one.only.player.core.model.MediaLayoutMode
 import one.only.player.core.ui.R
 import one.only.player.core.ui.components.NextSegmentedListItem
+import one.only.player.core.ui.designsystem.NextIcons
 import one.only.player.core.ui.theme.OnlyPlayerTheme
 
 @Composable
@@ -49,8 +57,11 @@ fun FolderItem(
     isFirstItem: Boolean = false,
     isLastItem: Boolean = false,
     isSelected: Boolean = false,
+    isCloudBadge: Boolean = false,
+    isLocalBadge: Boolean = false,
     onClick: () -> Unit = {},
     onLongClick: (() -> Unit)? = null,
+    onThumbnailClick: (() -> Unit)? = null,
 ) {
     when (preferences.mediaLayoutMode) {
         MediaLayoutMode.LIST -> FolderListItem(
@@ -61,8 +72,11 @@ fun FolderItem(
             isFirstItem = isFirstItem,
             isLastItem = isLastItem,
             isSelected = isSelected,
+            isCloudBadge = isCloudBadge,
+            isLocalBadge = isLocalBadge,
             onClick = onClick,
             onLongClick = onLongClick,
+            onThumbnailClick = onThumbnailClick,
         )
         MediaLayoutMode.GRID -> FolderGridItem(
             folder = folder,
@@ -72,8 +86,11 @@ fun FolderItem(
             isFirstItem = isFirstItem,
             isLastItem = isLastItem,
             isSelected = isSelected,
+            isCloudBadge = isCloudBadge,
+            isLocalBadge = isLocalBadge,
             onClick = onClick,
             onLongClick = onLongClick,
+            onThumbnailClick = onThumbnailClick,
         )
     }
 }
@@ -88,8 +105,11 @@ private fun FolderListItem(
     isFirstItem: Boolean = false,
     isLastItem: Boolean = false,
     isSelected: Boolean = false,
+    isCloudBadge: Boolean = false,
+    isLocalBadge: Boolean = false,
     onClick: () -> Unit = {},
     onLongClick: (() -> Unit)? = null,
+    onThumbnailClick: (() -> Unit)? = null,
 ) {
     NextSegmentedListItem(
         modifier = modifier.testTag("item_folder_${folder.name}"),
@@ -113,27 +133,53 @@ private fun FolderListItem(
         onClick = onClick,
         onLongClick = onLongClick,
         leadingContent = {
-            Box(modifier = Modifier.padding(horizontal = 8.dp)) {
-                Icon(
-                    imageVector = ImageVector.vectorResource(id = R.drawable.folder_thumb),
-                    contentDescription = "",
-                    tint = MaterialTheme.colorScheme.surfaceContainerHigh,
-                    modifier = Modifier
-                        .width(min(90.dp, LocalConfiguration.current.screenWidthDp.dp * 0.3f))
-                        .aspectRatio(20 / 17f),
-                )
-
-                if (preferences.shouldShowDurationField) {
-                    InfoChip(
-                        text = Utils.formatDurationMillis(folder.mediaDuration),
-                        modifier = Modifier
-                            .padding(5.dp)
-                            .padding(bottom = 3.dp)
-                            .align(Alignment.BottomEnd),
-                        backgroundColor = Color.Black.copy(alpha = 0.6f),
-                        contentColor = Color.White,
-                        shape = MaterialTheme.shapes.extraSmall,
+            Box(
+                modifier = if (onThumbnailClick != null) {
+                    Modifier.clickable(
+                        interactionSource = remember { MutableInteractionSource() },
+                        indication = null,
+                        onClick = onThumbnailClick,
                     )
+                } else {
+                    Modifier
+                },
+            ) {
+                Box(modifier = Modifier.padding(horizontal = 8.dp)) {
+                    Icon(
+                        imageVector = ImageVector.vectorResource(id = R.drawable.folder_thumb),
+                        contentDescription = "",
+                        tint = MaterialTheme.colorScheme.surfaceContainerHigh,
+                        modifier = Modifier
+                            .width(min(90.dp, LocalConfiguration.current.screenWidthDp.dp * 0.3f))
+                            .aspectRatio(20 / 17f),
+                    )
+
+                    if (isCloudBadge) {
+                        CloudBadge(
+                            modifier = Modifier
+                                .align(Alignment.BottomStart)
+                                .padding(5.dp),
+                        )
+                    }
+                    if (isLocalBadge) {
+                        LocalBadge(
+                            modifier = Modifier
+                                .align(Alignment.BottomStart)
+                                .padding(5.dp),
+                        )
+                    }
+                    if (preferences.shouldShowDurationField) {
+                        InfoChip(
+                            text = Utils.formatDurationMillis(folder.mediaDuration),
+                            modifier = Modifier
+                                .padding(5.dp)
+                                .padding(bottom = 3.dp)
+                                .align(Alignment.BottomEnd),
+                            backgroundColor = Color.Black.copy(alpha = 0.6f),
+                            contentColor = Color.White,
+                            shape = MaterialTheme.shapes.extraSmall,
+                        )
+                    }
                 }
             }
         },
@@ -193,8 +239,11 @@ private fun FolderGridItem(
     isFirstItem: Boolean = false,
     isLastItem: Boolean = false,
     isSelected: Boolean = false,
+    isCloudBadge: Boolean = false,
+    isLocalBadge: Boolean = false,
     onClick: () -> Unit = {},
     onLongClick: (() -> Unit)? = null,
+    onThumbnailClick: (() -> Unit)? = null,
 ) {
     NextSegmentedListItem(
         modifier = modifier
@@ -225,7 +274,17 @@ private fun FolderGridItem(
                 verticalArrangement = Arrangement.spacedBy(8.dp),
                 horizontalAlignment = Alignment.CenterHorizontally,
             ) {
-                Box {
+                Box(
+                    modifier = if (onThumbnailClick != null) {
+                        Modifier.clickable(
+                            interactionSource = remember { MutableInteractionSource() },
+                            indication = null,
+                            onClick = onThumbnailClick,
+                        )
+                    } else {
+                        Modifier
+                    },
+                ) {
                     Icon(
                         imageVector = ImageVector.vectorResource(id = R.drawable.folder_thumb),
                         contentDescription = "",
@@ -235,6 +294,20 @@ private fun FolderGridItem(
                             .aspectRatio(20 / 17f),
                     )
 
+                    if (isCloudBadge) {
+                        CloudBadge(
+                            modifier = Modifier
+                                .align(Alignment.BottomStart)
+                                .padding(5.dp),
+                        )
+                    }
+                    if (isLocalBadge) {
+                        LocalBadge(
+                            modifier = Modifier
+                                .align(Alignment.BottomStart)
+                                .padding(5.dp),
+                        )
+                    }
                     if (preferences.shouldShowDurationField) {
                         InfoChip(
                             text = Utils.formatDurationMillis(folder.mediaDuration),
@@ -282,7 +355,7 @@ private fun FolderGridItem(
                                 append(it)
                                 folderCount?.let {
                                     append(", ")
-                                    append("\u00A0")
+                                    append(" ")
                                 }
                             }
                             folderCount?.let {
@@ -297,6 +370,42 @@ private fun FolderGridItem(
             }
         },
     )
+}
+
+@Composable
+private fun CloudBadge(modifier: Modifier = Modifier) {
+    Box(
+        modifier = modifier
+            .size(22.dp)
+            .clip(CircleShape)
+            .background(MaterialTheme.colorScheme.surface.copy(alpha = 0.85f)),
+        contentAlignment = Alignment.Center,
+    ) {
+        Icon(
+            imageVector = NextIcons.Cloud,
+            contentDescription = stringResource(R.string.cloud_servers),
+            tint = MaterialTheme.colorScheme.primary,
+            modifier = Modifier.size(14.dp),
+        )
+    }
+}
+
+@Composable
+private fun LocalBadge(modifier: Modifier = Modifier) {
+    Box(
+        modifier = modifier
+            .size(22.dp)
+            .clip(CircleShape)
+            .background(MaterialTheme.colorScheme.surface.copy(alpha = 0.85f)),
+        contentAlignment = Alignment.Center,
+    ) {
+        Icon(
+            imageVector = NextIcons.Folder,
+            contentDescription = stringResource(R.string.local_folder),
+            tint = MaterialTheme.colorScheme.tertiary,
+            modifier = Modifier.size(14.dp),
+        )
+    }
 }
 
 @Composable

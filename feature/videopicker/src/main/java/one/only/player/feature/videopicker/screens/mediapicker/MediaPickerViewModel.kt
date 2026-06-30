@@ -13,6 +13,7 @@ import javax.inject.Singleton
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.asStateFlow
+import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
 import one.only.player.core.common.Logger
@@ -24,6 +25,7 @@ import one.only.player.core.data.repository.FavoriteRepository
 import one.only.player.core.data.repository.MediaMoveSummary
 import one.only.player.core.data.repository.MediaRepository
 import one.only.player.core.data.repository.PreferencesRepository
+import one.only.player.core.data.repository.RemoteServerRepository
 import one.only.player.core.data.repository.toFavoriteItem
 import one.only.player.core.domain.GetSortedMediaUseCase
 import one.only.player.core.media.services.MediaService
@@ -32,6 +34,7 @@ import one.only.player.core.media.sync.MediaSynchronizer
 import one.only.player.core.model.ApplicationPreferences
 import one.only.player.core.model.Folder
 import one.only.player.core.model.PlayerPreferences
+import one.only.player.core.model.RemoteServer
 import one.only.player.core.model.Video
 import one.only.player.core.ui.base.DataState
 import one.only.player.feature.videopicker.navigation.FolderArgs
@@ -46,6 +49,7 @@ class MediaPickerViewModel @Inject constructor(
     private val mediaRepository: MediaRepository,
     private val favoriteRepository: FavoriteRepository,
     private val preferencesRepository: PreferencesRepository,
+    private val remoteServerRepository: RemoteServerRepository,
     private val mediaInfoSynchronizer: MediaInfoSynchronizer,
     private val mediaSynchronizer: MediaSynchronizer,
     private val snapshotCache: MediaPickerSnapshotCache,
@@ -134,6 +138,20 @@ class MediaPickerViewModel @Inject constructor(
                 }
             }
         }
+
+        viewModelScope.launch {
+            combine(
+                remoteServerRepository.getAll(),
+                preferencesRepository.applicationPreferences,
+            ) { servers, preferences ->
+                val pinnedIds = preferences.pinnedCloudServerIds
+                servers.filter { it.id in pinnedIds }
+            }.collect { pinnedServers ->
+                uiStateInternal.update { currentState ->
+                    currentState.copy(pinnedCloudServers = pinnedServers)
+                }
+            }
+        }
     }
 
     fun onEvent(event: MediaPickerUiEvent) {
@@ -157,6 +175,15 @@ class MediaPickerViewModel @Inject constructor(
             is MediaPickerUiEvent.UpdateMenu -> updateMenu(event.preferences)
             is MediaPickerUiEvent.CacheFolderSnapshot -> cacheFolderSnapshot(event.folder)
             MediaPickerUiEvent.ClearDeleteResult -> clearDeleteResult()
+            is MediaPickerUiEvent.RemovePinnedServer -> removePinnedServer(event.serverId)
+        }
+    }
+
+    private fun removePinnedServer(serverId: Long) {
+        viewModelScope.launch {
+            preferencesRepository.updateApplicationPreferences {
+                it.copy(pinnedCloudServerIds = it.pinnedCloudServerIds - serverId)
+            }
         }
     }
 
@@ -410,6 +437,7 @@ data class MediaPickerUiState(
     val moveProgress: MediaPickerMoveProgress? = null,
     val moveResult: MediaMoveSummary? = null,
     val deleteResult: MediaPickerDeleteResult? = null,
+    val pinnedCloudServers: List<RemoteServer> = emptyList(),
 )
 
 sealed interface MediaPickerUiEvent {
@@ -438,6 +466,7 @@ sealed interface MediaPickerUiEvent {
     data class UpdateMenu(val preferences: ApplicationPreferences) : MediaPickerUiEvent
     data class CacheFolderSnapshot(val folder: Folder) : MediaPickerUiEvent
     data object ClearDeleteResult : MediaPickerUiEvent
+    data class RemovePinnedServer(val serverId: Long) : MediaPickerUiEvent
 }
 
 sealed interface MediaPickerDeleteResult {

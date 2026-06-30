@@ -13,6 +13,8 @@ import kotlinx.coroutines.launch
 import one.only.player.core.data.repository.PreferencesRepository
 import one.only.player.core.data.repository.SubtitleFontRepository
 import one.only.player.core.model.Font
+import one.only.player.core.model.SubtitleColor
+import one.only.player.core.model.SubtitleEdgeStyle
 import one.only.player.core.model.PlayerPreferences
 import one.only.player.core.model.withSubtitleStyleFrom
 
@@ -56,6 +58,8 @@ class SubtitlePreferencesViewModel @Inject constructor(
             SubtitlePreferencesUiEvent.ToggleRememberSubtitleTrack -> toggleRememberSubtitleTrack()
             is SubtitlePreferencesUiEvent.UpdateSubtitleLanguage -> updateSubtitleLanguage(event.value)
             is SubtitlePreferencesUiEvent.UpdateSubtitleFont -> updateSubtitleFont(event.value)
+            is SubtitlePreferencesUiEvent.UpdateSubtitleColor -> updateSubtitleColor(event.value)
+            is SubtitlePreferencesUiEvent.UpdateSubtitleEdgeStyle -> updateSubtitleEdgeStyle(event.value)
             SubtitlePreferencesUiEvent.ToggleSubtitleTextBold -> toggleSubtitleTextBold()
             is SubtitlePreferencesUiEvent.UpdateSubtitleFontSize -> updateSubtitleFontSize(event.value)
             is SubtitlePreferencesUiEvent.UpdateSubtitleStyle -> updateSubtitleStyle(event.preferences)
@@ -104,6 +108,22 @@ class SubtitlePreferencesViewModel @Inject constructor(
         viewModelScope.launch {
             preferencesRepository.updatePlayerPreferences {
                 it.copy(subtitleFont = value)
+            }
+        }
+    }
+
+    private fun updateSubtitleColor(value: SubtitleColor) {
+        viewModelScope.launch {
+            preferencesRepository.updatePlayerPreferences {
+                it.copy(subtitleColor = value)
+            }
+        }
+    }
+
+    private fun updateSubtitleEdgeStyle(value: SubtitleEdgeStyle) {
+        viewModelScope.launch {
+            preferencesRepository.updatePlayerPreferences {
+                it.copy(subtitleEdgeStyle = value)
             }
         }
     }
@@ -207,6 +227,8 @@ sealed interface SubtitlePreferenceDialog {
     data object SubtitleLanguageDialog : SubtitlePreferenceDialog
     data object SubtitleFontDialog : SubtitlePreferenceDialog
     data object SubtitleEncodingDialog : SubtitlePreferenceDialog
+    data object SubtitleColorDialog : SubtitlePreferenceDialog
+    data object SubtitleEdgeStyleDialog : SubtitlePreferenceDialog
 }
 
 sealed interface SubtitlePreferencesPendingAction {
@@ -225,6 +247,8 @@ sealed interface SubtitlePreferencesUiEvent {
     data object ToggleRememberSubtitleTrack : SubtitlePreferencesUiEvent
     data class UpdateSubtitleLanguage(val value: String) : SubtitlePreferencesUiEvent
     data class UpdateSubtitleFont(val value: Font) : SubtitlePreferencesUiEvent
+    data class UpdateSubtitleColor(val value: SubtitleColor) : SubtitlePreferencesUiEvent
+    data class UpdateSubtitleEdgeStyle(val value: SubtitleEdgeStyle) : SubtitlePreferencesUiEvent
     data object ToggleSubtitleTextBold : SubtitlePreferencesUiEvent
     data class UpdateSubtitleFontSize(val value: Float) : SubtitlePreferencesUiEvent
     data class UpdateSubtitleStyle(val preferences: PlayerPreferences) : SubtitlePreferencesUiEvent

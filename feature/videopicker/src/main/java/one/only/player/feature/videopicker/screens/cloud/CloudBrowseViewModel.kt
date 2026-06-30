@@ -80,6 +80,7 @@ class CloudBrowseViewModel @Inject constructor(
             CloudBrowseEvent.RefreshPlaybackStates -> loadPlaybackStates()
             is CloudBrowseEvent.AddFavorites -> addFavorites(event.files)
             is CloudBrowseEvent.UpdateQuickSettings -> updateQuickSettings(event.preferences)
+            is CloudBrowseEvent.UpdateServer -> updateServer(event.server)
         }
     }
 
@@ -310,6 +311,13 @@ class CloudBrowseViewModel @Inject constructor(
         }
     }
 
+    private fun updateServer(server: RemoteServer) {
+        viewModelScope.launch {
+            repository.update(server)
+            _uiState.update { it.copy(server = server) }
+        }
+    }
+
     private fun buildProbeUrl(
         server: RemoteServer,
         file: RemoteFile,
@@ -405,4 +413,5 @@ sealed interface CloudBrowseEvent {
     data object RefreshPlaybackStates : CloudBrowseEvent
     data class AddFavorites(val files: List<RemoteFile>) : CloudBrowseEvent
     data class UpdateQuickSettings(val preferences: ApplicationPreferences) : CloudBrowseEvent
+    data class UpdateServer(val server: RemoteServer) : CloudBrowseEvent
 }

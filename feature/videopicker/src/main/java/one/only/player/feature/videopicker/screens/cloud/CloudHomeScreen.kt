@@ -67,6 +67,8 @@ import one.only.player.core.ui.components.PreferenceSwitch
 import one.only.player.core.ui.designsystem.NextIcons
 import one.only.player.core.ui.extensions.copy
 import one.only.player.core.ui.extensions.withBottomFallback
+import one.only.player.feature.videopicker.composables.QuickSettingsDialog
+import one.only.player.feature.videopicker.composables.QuickSettingsTarget
 
 @Composable
 fun CloudHomeRoute(
@@ -95,6 +97,8 @@ internal fun CloudHomeScreen(
     var shouldShowAddDialog by rememberSaveable { mutableStateOf(false) }
     var editingServer: RemoteServer? by remember { mutableStateOf(null) }
     var deletingServer: RemoteServer? by remember { mutableStateOf(null) }
+    var editingShowOnHomeScreen by remember { mutableStateOf(false) }
+    var quickSettingsServerId by rememberSaveable { mutableStateOf<Long?>(null) }
 
     Scaffold(
         topBar = {
@@ -153,13 +157,23 @@ internal fun CloudHomeScreen(
                     ) {
                         items(uiState.servers, key = { it.id }) { server ->
                             val index = uiState.servers.indexOf(server)
+                            val isPinned = server.id in uiState.pinnedServerIds
                             ServerListItem(
                                 server = server,
+                                isPinned = isPinned,
                                 isFirstItem = index == 0,
                                 isLastItem = index == uiState.servers.lastIndex,
                                 onClick = { onServerClick(server.id) },
-                                onEditClick = { editingServer = server },
-                                onDeleteClick = { deletingServer = server },
+                                onTogglePinned = {
+                                    onEvent(CloudHomeEvent.TogglePinnedServer(server.id, !isPinned))
+                                },
+                                onEditClick = {
+                                    editingServer = server
+                                    editingShowOnHomeScreen = isPinned
+                                },
+                                onQuickSettingsClick = {
+                                    quickSettingsServerId = server.id
+                                },
                             )
                         }
                     }
@@ -171,9 +185,10 @@ internal fun CloudHomeScreen(
     if (shouldShowAddDialog) {
         AddEditServerDialog(
             server = null,
+            pinned = false,
             onDismiss = { shouldShowAddDialog = false },
-            onSave = { server ->
-                onEvent(CloudHomeEvent.SaveServer(server))
+            onSave = { server, showOnHomeScreen ->
+                onEvent(CloudHomeEvent.SaveServer(server, showOnHomeScreen))
                 shouldShowAddDialog = false
             },
         )
@@ -182,10 +197,15 @@ internal fun CloudHomeScreen(
     editingServer?.let { server ->
         AddEditServerDialog(
             server = server,
-            onDismiss = { editingServer = null },
-            onSave = { updated ->
-                onEvent(CloudHomeEvent.SaveServer(updated))
+            pinned = editingShowOnHomeScreen,
+            onDismiss = {
                 editingServer = null
+                editingShowOnHomeScreen = false
+            },
+            onSave = { updated, showOnHomeScreen ->
+                onEvent(CloudHomeEvent.SaveServer(updated, showOnHomeScreen))
+                editingServer = null
+                editingShowOnHomeScreen = false
             },
         )
     }
@@ -206,6 +226,16 @@ internal fun CloudHomeScreen(
                 }
             },
             dismissButton = { CancelButton(onClick = { deletingServer = null }) },
+        )
+    }
+
+    quickSettingsServerId?.let { serverId ->
+        QuickSettingsDialog(
+            applicationPreferences = uiState.preferences,
+            target = QuickSettingsTarget.CLOUD,
+            cloudServerId = serverId,
+            onDismiss = { quickSettingsServerId = null },
+            updatePreferences = { onEvent(CloudHomeEvent.UpdateQuickSettings(it)) },
         )
     }
 }
@@ -246,11 +276,13 @@ private fun EmptyCloudHomeContent(
 @Composable
 private fun ServerListItem(
     server: RemoteServer,
+    isPinned: Boolean,
     isFirstItem: Boolean,
     isLastItem: Boolean,
     onClick: () -> Unit,
+    onTogglePinned: () -> Unit,
     onEditClick: () -> Unit,
-    onDeleteClick: () -> Unit,
+    onQuickSettingsClick: () -> Unit,
 ) {
     NextSegmentedListItem(
         onClick = onClick,
@@ -258,25 +290,27 @@ private fun ServerListItem(
         isLastItem = isLastItem,
         contentPadding = PaddingValues(8.dp),
         modifier = Modifier.testTag("cloud_server_item_${server.id}"),
-        leadingContent = {
-            Icon(
-                imageVector = NextIcons.Cloud,
-                contentDescription = null,
-                modifier = Modifier.size(24.dp),
-            )
-        },
+        leadingContent = null,
         trailingContent = {
             Row {
+                IconButton(onClick = onTogglePinned) {
+                    Icon(
+                        imageVector = if (isPinned) NextIcons.Visibility else NextIcons.VisibilityOff,
+                        contentDescription = stringResource(
+                            if (isPinned) R.string.remove_from_homescreen else R.string.add_to_homescreen,
+                        ),
+                    )
+                }
                 IconButton(onClick = onEditClick) {
                     Icon(
                         imageVector = NextIcons.Edit,
                         contentDescription = stringResource(R.string.edit_server),
                     )
                 }
-                IconButton(onClick = onDeleteClick) {
+                IconButton(onClick = onQuickSettingsClick) {
                     Icon(
-                        imageVector = NextIcons.Delete,
-                        contentDescription = stringResource(R.string.delete_server),
+                        imageVector = NextIcons.DashBoard,
+                        contentDescription = stringResource(R.string.cloud_quick_settings),
                     )
                 }
             }
@@ -302,10 +336,11 @@ private fun ServerListItem(
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
-private fun AddEditServerDialog(
+internal fun AddEditServerDialog(
     server: RemoteServer?,
+    pinned: Boolean,
     onDismiss: () -> Unit,
-    onSave: (RemoteServer) -> Unit,
+    onSave: (RemoteServer, Boolean) -> Unit,
 ) {
     val isEditing = server != null
     var name by rememberSaveable { mutableStateOf(server?.name ?: "") }
@@ -319,6 +354,7 @@ private fun AddEditServerDialog(
     var proxyHost by rememberSaveable { mutableStateOf(server?.proxyHost ?: "") }
     var proxyPort by rememberSaveable { mutableStateOf(server?.proxyPort?.toString() ?: "") }
     var isProtocolExpanded by rememberSaveable { mutableStateOf(false) }
+    var showOnHomeScreen by rememberSaveable { mutableStateOf(pinned) }
 
     NextDialog(
         onDismissRequest = onDismiss,
@@ -450,6 +486,16 @@ private fun AddEditServerDialog(
                         )
                     }
                 }
+
+                PreferenceSwitch(
+                    title = stringResource(R.string.show_on_home_screen),
+                    description = stringResource(R.string.show_on_home_screen),
+                    icon = if (showOnHomeScreen) NextIcons.Visibility else NextIcons.VisibilityOff,
+                    isChecked = showOnHomeScreen,
+                    onClick = { showOnHomeScreen = !showOnHomeScreen },
+                    isFirstItem = true,
+                    isLastItem = true,
+                )
             }
         },
         confirmButton = {
@@ -469,7 +515,7 @@ private fun AddEditServerDialog(
                         proxyHost = proxyHost.trim(),
                         proxyPort = proxyPort.toIntOrNull(),
                     )
-                    onSave(result)
+                    onSave(result, showOnHomeScreen)
                 },
             ) {
                 Text(stringResource(R.string.save))

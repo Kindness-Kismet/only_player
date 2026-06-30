@@ -7,11 +7,12 @@ import dagger.hilt.android.lifecycle.HiltViewModel
 import javax.inject.Inject
 import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
-import kotlinx.coroutines.flow.map
+import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.launch
 import one.only.player.core.data.repository.PreferencesRepository
 import one.only.player.core.data.repository.RemoteServerRepository
+import one.only.player.core.model.ApplicationPreferences
 import one.only.player.core.model.RemoteServer
 import one.only.player.core.model.ServerProtocol
 
@@ -21,27 +22,62 @@ class CloudHomeViewModel @Inject constructor(
     private val preferencesRepository: PreferencesRepository,
 ) : ViewModel() {
 
-    val uiState: StateFlow<CloudHomeUiState> = repository.getAll()
-        .map { servers -> CloudHomeUiState(servers = servers) }
-        .stateIn(
-            scope = viewModelScope,
-            started = SharingStarted.WhileSubscribed(5000),
-            initialValue = CloudHomeUiState(),
+    val uiState: StateFlow<CloudHomeUiState> = combine(
+        repository.getAll(),
+        preferencesRepository.applicationPreferences,
+    ) { servers, preferences ->
+        CloudHomeUiState(
+            servers = servers,
+            pinnedServerIds = preferences.pinnedCloudServerIds,
+            preferences = preferences,
         )
+    }.stateIn(
+        scope = viewModelScope,
+        started = SharingStarted.WhileSubscribed(5000),
+        initialValue = CloudHomeUiState(),
+    )
 
     fun onEvent(event: CloudHomeEvent) {
         when (event) {
-            is CloudHomeEvent.SaveServer -> saveServer(event.server)
+            is CloudHomeEvent.SaveServer -> saveServer(event.server, event.showOnHomeScreen)
             is CloudHomeEvent.DeleteServer -> deleteServer(event.id)
+            is CloudHomeEvent.TogglePinnedServer -> togglePinnedServer(event.serverId, event.showOnHomeScreen)
+            is CloudHomeEvent.UpdateQuickSettings -> updateQuickSettings(event.preferences)
         }
     }
 
-    private fun saveServer(server: RemoteServer) {
+    private fun updateQuickSettings(preferences: ApplicationPreferences) {
         viewModelScope.launch {
-            if (server.id == 0L) {
+            preferencesRepository.updateApplicationPreferences { preferences }
+        }
+    }
+
+    private fun saveServer(server: RemoteServer, showOnHomeScreen: Boolean) {
+        viewModelScope.launch {
+            val serverId = if (server.id == 0L) {
                 repository.insert(server)
             } else {
                 repository.update(server)
+                server.id
+            }
+            preferencesRepository.updateApplicationPreferences { prefs ->
+                if (showOnHomeScreen) {
+                    prefs.copy(pinnedCloudServerIds = prefs.pinnedCloudServerIds + serverId)
+                } else {
+                    prefs.copy(pinnedCloudServerIds = prefs.pinnedCloudServerIds - serverId)
+                }
+            }
+        }
+    }
+
+    private fun togglePinnedServer(serverId: Long, showOnHomeScreen: Boolean) {
+        viewModelScope.launch {
+            preferencesRepository.updateApplicationPreferences { prefs ->
+                if (showOnHomeScreen) {
+                    prefs.copy(pinnedCloudServerIds = prefs.pinnedCloudServerIds + serverId)
+                } else {
+                    prefs.copy(pinnedCloudServerIds = prefs.pinnedCloudServerIds - serverId)
+                }
             }
         }
     }
@@ -49,7 +85,9 @@ class CloudHomeViewModel @Inject constructor(
     private fun deleteServer(id: Long) {
         viewModelScope.launch {
             repository.deleteById(id)
-            preferencesRepository.updateApplicationPreferences { it.withoutCloudQuickSettings(id) }
+            preferencesRepository.updateApplicationPreferences {
+                it.withoutCloudQuickSettings(id).withoutPinnedCloudServer(id)
+            }
         }
     }
 }
@@ -57,11 +95,15 @@ class CloudHomeViewModel @Inject constructor(
 @Stable
 data class CloudHomeUiState(
     val servers: List<RemoteServer> = emptyList(),
+    val pinnedServerIds: Set<Long> = emptySet(),
+    val preferences: ApplicationPreferences = ApplicationPreferences(),
 )
 
 sealed interface CloudHomeEvent {
-    data class SaveServer(val server: RemoteServer) : CloudHomeEvent
+    data class SaveServer(val server: RemoteServer, val showOnHomeScreen: Boolean) : CloudHomeEvent
     data class DeleteServer(val id: Long) : CloudHomeEvent
+    data class TogglePinnedServer(val serverId: Long, val showOnHomeScreen: Boolean) : CloudHomeEvent
+    data class UpdateQuickSettings(val preferences: ApplicationPreferences) : CloudHomeEvent
 }
 
 // 新建服务器的默认模板

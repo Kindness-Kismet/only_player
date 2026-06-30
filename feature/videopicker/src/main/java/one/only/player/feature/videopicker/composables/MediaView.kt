@@ -31,6 +31,7 @@ import one.only.player.core.model.ApplicationPreferences
 import one.only.player.core.model.Folder
 import one.only.player.core.model.MediaLayoutMode
 import one.only.player.core.model.MediaViewMode
+import one.only.player.core.model.RemoteServer
 import one.only.player.core.model.Video
 import one.only.player.core.ui.R
 import one.only.player.core.ui.components.ListSectionTitle
@@ -47,6 +48,9 @@ fun MediaView(
     contentPadding: PaddingValues = PaddingValues(),
     selectionManager: SelectionManager = rememberSelectionManager(),
     lazyGridState: LazyGridState = rememberLazyGridState(),
+    pinnedServers: List<RemoteServer> = emptyList(),
+    onPinnedServerClick: (Long) -> Unit = {},
+    onPinnedServerRemove: (Long) -> Unit = {},
     onFolderClick: (Folder) -> Unit,
     onVideoClick: (Video) -> Unit,
     onVideoLoaded: (Uri) -> Unit,
@@ -90,6 +94,29 @@ fun MediaView(
             verticalArrangement = Arrangement.spacedBy(itemSpacing),
             horizontalArrangement = Arrangement.spacedBy(itemSpacing),
         ) {
+            if (pinnedServers.isNotEmpty()) {
+                item(span = { GridItemSpan(maxLineSpan) }) {
+                    ListSectionTitle(text = stringResource(id = R.string.cloud_servers))
+                }
+                itemsIndexed(
+                    items = pinnedServers,
+                    key = { _, server -> "pinned_server_${server.id}" },
+                    span = { _, _ -> GridItemSpan(singleFolderSpan) },
+                ) { _, server ->
+                    FolderItem(
+                        folder = Folder(
+                            name = server.name.ifBlank { server.host },
+                            path = "cloud://${server.id}",
+                            dateModified = 0,
+                        ),
+                        isRecentlyPlayedFolder = false,
+                        preferences = preferences,
+                        isCloudBadge = true,
+                        onClick = { onPinnedServerClick(server.id) },
+                    )
+                }
+            }
+
             if (shouldShowHeaders && rootFolder.folderList.isNotEmpty()) {
                 item(span = { GridItemSpan(maxLineSpan) }) {
                     ListSectionTitle(text = stringResource(id = R.string.folders) + " (${rootFolder.folderList.size})")
@@ -101,11 +128,13 @@ fun MediaView(
                 span = { _, _ -> GridItemSpan(singleFolderSpan) },
             ) { index, folder ->
                 val isFolderSelected by remember { derivedStateOf { selectionManager.isFolderSelected(folder) } }
+                val hasCloudServers = pinnedServers.isNotEmpty()
                 FolderItem(
                     folder = folder,
                     isRecentlyPlayedFolder = rootFolder.isRecentlyPlayedVideo(folder.recentlyPlayedVideo),
                     preferences = preferences,
                     isSelected = isFolderSelected,
+                    isLocalBadge = hasCloudServers,
                     isFirstItem = index == 0,
                     isLastItem = index == rootFolder.folderList.lastIndex,
                     onClick = {
@@ -118,6 +147,10 @@ fun MediaView(
                     },
                     onLongClick = {
                         haptic.performHapticFeedback(HapticFeedbackType.LongPress)
+                        selectionManager.toggleFolderSelection(folder)
+                    },
+                    onThumbnailClick = {
+                        haptic.performHapticFeedback(HapticFeedbackType.VirtualKey)
                         selectionManager.toggleFolderSelection(folder)
                     },
                 )
@@ -158,6 +191,10 @@ fun MediaView(
                     },
                     onLongClick = {
                         haptic.performHapticFeedback(HapticFeedbackType.LongPress)
+                        selectionManager.toggleVideoSelection(video)
+                    },
+                    onThumbnailClick = {
+                        haptic.performHapticFeedback(HapticFeedbackType.VirtualKey)
                         selectionManager.toggleVideoSelection(video)
                     },
                     modifier = Modifier.onVideoFirstVisible {

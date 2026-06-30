@@ -23,6 +23,8 @@ import one.only.player.core.ui.designsystem.NextIcons
 fun SubtitleStylePanel(
     preferences: PlayerPreferences,
     onPreferencesChange: (PlayerPreferences) -> Unit,
+    onSubtitleColorClick: (() -> Unit)? = null,
+    onSubtitleEdgeStyleClick: (() -> Unit)? = null,
 ) {
     val isEnabled = preferences.shouldUseSystemCaptionStyle.not()
     val subtitleBottomPaddingFraction = preferences.subtitleBottomPaddingFraction
@@ -120,7 +122,7 @@ fun SubtitleStylePanel(
             description = preferences.subtitleColor.displayName(),
             icon = NextIcons.Appearance,
             isEnabled = isEnabled,
-            onClick = { onPreferencesChange(preferences.copy(subtitleColor = preferences.subtitleColor.next())) },
+            onClick = { onSubtitleColorClick?.invoke() ?: run { onPreferencesChange(preferences.copy(subtitleColor = preferences.subtitleColor.next())) } },
         )
         ClickablePreferenceItem(
             modifier = Modifier.testTag("item_settings_subtitle_edge_style"),
@@ -128,7 +130,7 @@ fun SubtitleStylePanel(
             description = preferences.subtitleEdgeStyle.displayName(),
             icon = NextIcons.Style,
             isEnabled = isEnabled,
-            onClick = { onPreferencesChange(preferences.copy(subtitleEdgeStyle = preferences.subtitleEdgeStyle.next())) },
+            onClick = { onSubtitleEdgeStyleClick?.invoke() ?: run { onPreferencesChange(preferences.copy(subtitleEdgeStyle = preferences.subtitleEdgeStyle.next())) } },
         )
         PreferenceSlider(
             modifier = Modifier.testTag("item_settings_subtitle_outline_thickness"),
