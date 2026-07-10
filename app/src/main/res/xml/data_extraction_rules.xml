@@ -1,7 +1,27 @@
 <?xml version="1.0" encoding="utf-8"?>
 <data-extraction-rules>
     <cloud-backup>
-        
+        <exclude domain="database" path="." />
+        <exclude domain="file" path="datastore/app_preferences.json" />
+        <exclude domain="file" path="datastore/search_history.json" />
+        <exclude domain="file" path="only_player.log" />
+        <exclude domain="file" path="thumbnails" />
+        <exclude domain="device_database" path="." />
+        <exclude domain="device_file" path="datastore/app_preferences.json" />
+        <exclude domain="device_file" path="datastore/search_history.json" />
+        <exclude domain="device_file" path="only_player.log" />
+        <exclude domain="device_file" path="thumbnails" />
     </cloud-backup>
-    
+    <device-transfer>
+        <exclude domain="database" path="." />
+        <exclude domain="file" path="datastore/app_preferences.json" />
+        <exclude domain="file" path="datastore/search_history.json" />
+        <exclude domain="file" path="only_player.log" />
+        <exclude domain="file" path="thumbnails" />
+        <exclude domain="device_database" path="." />
+        <exclude domain="device_file" path="datastore/app_preferences.json" />
+        <exclude domain="device_file" path="datastore/search_history.json" />
+        <exclude domain="device_file" path="only_player.log" />
+        <exclude domain="device_file" path="thumbnails" />
+    </device-transfer>
 </data-extraction-rules>
