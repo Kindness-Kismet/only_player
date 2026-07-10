@@ -189,7 +189,7 @@ private fun FloatingRootBottomBar(
     val containerColor = if (blurBackdrop != null) {
         MiuixTheme.colorScheme.surfaceContainer.copy(alpha = 0.42f)
     } else {
-        MiuixTheme.colorScheme.surfaceContainer.copy(alpha = 0.96f)
+        MiuixTheme.colorScheme.surface
     }
     val selectedIndex = RootDestination.entries.indexOf(currentRoot).coerceAtLeast(0)
 

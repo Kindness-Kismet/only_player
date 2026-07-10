@@ -11,6 +11,7 @@ import androidx.compose.foundation.layout.height
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.remember
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.unit.dp
 import top.yukonga.miuix.kmp.basic.BasicComponent
@@ -46,19 +47,22 @@ fun NextSegmentedListItem(
     @Suppress("UNUSED_VARIABLE")
     val ignoredMaterialCompatibility = colors to shapes
     val itemInteractionSource = interactionSource ?: remember { MutableInteractionSource() }
+    val itemShape = preferenceSegmentShape(isFirstItem, isLastItem)
     val clickableModifier = if (isEnabled) {
-        Modifier.combinedClickable(
-            interactionSource = itemInteractionSource,
-            indication = LocalIndication.current,
-            onClick = onClick,
-            onLongClick = onLongClick,
-        )
+        Modifier
+            .clip(itemShape)
+            .combinedClickable(
+                interactionSource = itemInteractionSource,
+                indication = LocalIndication.current,
+                onClick = onClick,
+                onLongClick = onLongClick,
+            )
     } else {
         Modifier
     }
 
     Surface(
-        shape = preferenceSegmentShape(isFirstItem, isLastItem),
+        shape = itemShape,
         color = if (isSelected) {
             selectedContainerColor
         } else {

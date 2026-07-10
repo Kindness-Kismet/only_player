@@ -90,7 +90,7 @@ private fun FolderListItem(
 ) {
     NextSegmentedListItem(
         modifier = modifier.testTag("item_folder_${folder.name}"),
-        isSelected = isSelected,
+        isSelected = false,
         containerColor = Color.Transparent,
         contentPadding = PaddingValues(8.dp),
         isFirstItem = isFirstItem,
@@ -121,6 +121,9 @@ private fun FolderListItem(
                     )
                 }
             }
+        },
+        trailingContent = {
+            SelectionCheckIndicator(isSelected = isSelected)
         },
         content = {
             Text(
@@ -184,13 +187,16 @@ private fun FolderGridItem(
         modifier = modifier
             .fillMaxWidth()
             .testTag("item_folder_${folder.name}"),
-        isSelected = isSelected,
+        isSelected = false,
         containerColor = Color.Transparent,
         contentPadding = PaddingValues(8.dp),
         isFirstItem = isFirstItem,
         isLastItem = isLastItem,
         onClick = onClick,
         onLongClick = onLongClick,
+        trailingContent = {
+            SelectionCheckIndicator(isSelected = isSelected)
+        },
         content = {
             Column(
                 modifier = Modifier.fillMaxWidth(),

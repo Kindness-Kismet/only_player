@@ -4,7 +4,6 @@ import android.net.Uri
 import android.provider.DocumentsContract
 import androidx.activity.compose.BackHandler
 import androidx.compose.foundation.background
-import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.BoxWithConstraints
@@ -12,7 +11,6 @@ import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.ExperimentalLayoutApi
 import androidx.compose.foundation.layout.FlowRow
 import androidx.compose.foundation.layout.PaddingValues
-import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.aspectRatio
 import androidx.compose.foundation.layout.calculateStartPadding
 import androidx.compose.foundation.layout.fillMaxSize
@@ -79,6 +77,7 @@ import one.only.player.feature.videopicker.composables.InfoChip
 import one.only.player.feature.videopicker.composables.QuickSettingsDialog
 import one.only.player.feature.videopicker.composables.QuickSettingsTarget
 import one.only.player.feature.videopicker.composables.SelectionActionsPopup
+import one.only.player.feature.videopicker.composables.SelectionCheckIndicator
 import one.only.player.feature.videopicker.composables.SelectionMenuAction
 import one.only.player.feature.videopicker.composables.VideoInfoDialog
 import top.yukonga.miuix.kmp.basic.CircularProgressIndicator
@@ -87,6 +86,7 @@ import top.yukonga.miuix.kmp.basic.IconButton as MiuixIconButton
 import top.yukonga.miuix.kmp.basic.MiuixScrollBehavior
 import top.yukonga.miuix.kmp.basic.PullToRefresh
 import top.yukonga.miuix.kmp.basic.Scaffold
+import top.yukonga.miuix.kmp.basic.SmallTopAppBar
 import top.yukonga.miuix.kmp.basic.Text
 import top.yukonga.miuix.kmp.basic.TextButton
 import top.yukonga.miuix.kmp.basic.TopAppBar
@@ -221,46 +221,22 @@ internal fun CloudBrowseScreen(
 
     Scaffold(
         topBar = {
-            TopAppBar(
-                title = serverName.takeIf { !isInSelectionMode } ?: "",
-                scrollBehavior = scrollBehavior,
-                navigationIcon = {
-                    if (isInSelectionMode) {
-                        Row(
-                            modifier = Modifier
-                                .padding(start = 12.dp)
-                                .clip(CircleShape)
-                                .clickable { clearSelection() }
-                                .padding(horizontal = 12.dp, vertical = 6.dp),
-                            verticalAlignment = Alignment.CenterVertically,
-                            horizontalArrangement = Arrangement.spacedBy(6.dp),
+            if (isInSelectionMode) {
+                SmallTopAppBar(
+                    title = stringResource(R.string.m_n_selected, selectedItemsSize, totalItemsSize),
+                    navigationIcon = {
+                        MiuixIconButton(
+                            onClick = { clearSelection() },
+                            modifier = Modifier.padding(start = 12.dp),
                         ) {
                             MiuixIcon(
                                 imageVector = NextIcons.Close,
                                 contentDescription = stringResource(id = R.string.navigate_up),
                                 tint = MiuixTheme.colorScheme.onBackground,
                             )
-                            Text(
-                                text = stringResource(R.string.m_n_selected, selectedItemsSize, totalItemsSize),
-                                style = MiuixTheme.textStyles.button,
-                                color = MiuixTheme.colorScheme.onBackground,
-                            )
                         }
-                    } else {
-                        MiuixIconButton(
-                            onClick = onNavigateUp,
-                            modifier = Modifier.padding(start = 12.dp),
-                        ) {
-                            MiuixIcon(
-                                imageVector = NextIcons.ArrowBack,
-                                contentDescription = stringResource(R.string.navigate_up),
-                                tint = MiuixTheme.colorScheme.onBackground,
-                            )
-                        }
-                    }
-                },
-                actions = {
-                    if (isInSelectionMode) {
+                    },
+                    actions = {
                         MiuixIconButton(
                             onClick = {
                                 selectedFilePaths = if (selectedItemsSize != totalItemsSize) {
@@ -323,7 +299,25 @@ internal fun CloudBrowseScreen(
                                 },
                             )
                         }
-                    } else {
+                    },
+                )
+            } else {
+                TopAppBar(
+                    title = serverName,
+                    scrollBehavior = scrollBehavior,
+                    navigationIcon = {
+                        MiuixIconButton(
+                            onClick = onNavigateUp,
+                            modifier = Modifier.padding(start = 12.dp),
+                        ) {
+                            MiuixIcon(
+                                imageVector = NextIcons.ArrowBack,
+                                contentDescription = stringResource(R.string.navigate_up),
+                                tint = MiuixTheme.colorScheme.onBackground,
+                            )
+                        }
+                    },
+                    actions = {
                         MiuixIconButton(
                             onClick = { shouldShowQuickSettingsDialog = true },
                             modifier = Modifier
@@ -336,9 +330,9 @@ internal fun CloudBrowseScreen(
                                 tint = MiuixTheme.colorScheme.onBackground,
                             )
                         }
-                    }
-                },
-            )
+                    },
+                )
+            }
         },
         containerColor = MiuixTheme.colorScheme.background,
     ) { innerPadding ->
@@ -680,7 +674,7 @@ private fun RemoteFileListItem(
     val highlightColor = MiuixTheme.colorScheme.primary
     NextSegmentedListItem(
         modifier = Modifier.testTag("remote_file_${file.name}"),
-        isSelected = isSelected,
+        isSelected = false,
         containerColor = Color.Transparent,
         isFirstItem = isFirstItem,
         isLastItem = isLastItem,
@@ -700,6 +694,9 @@ private fun RemoteFileListItem(
                     modifier = Modifier.width(min(150.dp, LocalConfiguration.current.screenWidthDp.dp * 0.35f)),
                 )
             }
+        },
+        trailingContent = {
+            SelectionCheckIndicator(isSelected = isSelected)
         },
         content = {
             Text(
@@ -764,13 +761,16 @@ private fun RemoteFileGridItem(
         modifier = Modifier
             .fillMaxWidth()
             .testTag("remote_file_${file.name}"),
-        isSelected = isSelected,
+        isSelected = false,
         containerColor = Color.Transparent,
         isFirstItem = isFirstItem,
         isLastItem = isLastItem,
         contentPadding = PaddingValues(8.dp),
         onClick = onClick,
         onLongClick = onLongClick,
+        trailingContent = {
+            SelectionCheckIndicator(isSelected = isSelected)
+        },
         content = {
             Column(
                 horizontalAlignment = Alignment.CenterHorizontally,

@@ -21,8 +21,6 @@ import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.lazy.itemsIndexed
-import androidx.compose.foundation.text.KeyboardActions
-import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
@@ -32,14 +30,10 @@ import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.focus.FocusRequester
-import androidx.compose.ui.focus.focusRequester
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalLayoutDirection
-import androidx.compose.ui.platform.LocalSoftwareKeyboardController
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.res.stringResource
-import androidx.compose.ui.text.input.ImeAction
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.tooling.preview.PreviewLightDark
@@ -60,6 +54,7 @@ import one.only.player.core.ui.components.CancelButton
 import one.only.player.core.ui.components.DoneButton
 import one.only.player.core.ui.components.ListSectionTitle
 import one.only.player.core.ui.components.NextDialog
+import one.only.player.core.ui.components.NextSearchTopAppBar
 import one.only.player.core.ui.components.NextSegmentedListItem
 import one.only.player.core.ui.designsystem.NextIcons
 import one.only.player.core.ui.extensions.copy
@@ -75,13 +70,12 @@ import one.only.player.feature.videopicker.composables.VideoInfoDialog
 import one.only.player.feature.videopicker.state.SelectedVideo
 import one.only.player.feature.videopicker.state.rememberSelectionManager
 import top.yukonga.miuix.kmp.basic.CircularProgressIndicator
-import top.yukonga.miuix.kmp.basic.Icon as MiuixIcon
-import top.yukonga.miuix.kmp.basic.IconButton as MiuixIconButton
+import top.yukonga.miuix.kmp.basic.Icon
+import top.yukonga.miuix.kmp.basic.IconButton
 import top.yukonga.miuix.kmp.basic.Scaffold
+import top.yukonga.miuix.kmp.basic.SmallTopAppBar
 import top.yukonga.miuix.kmp.basic.Text
 import top.yukonga.miuix.kmp.basic.TextButton
-import top.yukonga.miuix.kmp.basic.TextField
-import top.yukonga.miuix.kmp.basic.TopAppBar
 import top.yukonga.miuix.kmp.theme.MiuixTheme
 
 @Composable
@@ -111,8 +105,6 @@ internal fun SearchScreen(
     onEvent: (SearchUiEvent) -> Unit = {},
 ) {
     val context = LocalContext.current
-    val focusRequester = remember { FocusRequester() }
-    val keyboardController = LocalSoftwareKeyboardController.current
     val selectionManager = rememberSelectionManager()
     var shouldShowSelectionMenu by rememberSaveable { mutableStateOf(false) }
     var showRenameActionFor: Video? by rememberSaveable { mutableStateOf(null) }
@@ -143,10 +135,6 @@ internal fun SearchScreen(
         onFolderClick(folder)
     }
 
-    LaunchedEffect(Unit) {
-        focusRequester.requestFocus()
-    }
-
     LaunchedEffect(deleteResultMessage) {
         val message = deleteResultMessage ?: return@LaunchedEffect
         Toast.makeText(context, message, Toast.LENGTH_SHORT).show()
@@ -155,153 +143,114 @@ internal fun SearchScreen(
 
     Scaffold(
         topBar = {
-            TopAppBar(
-                title = if (selectionManager.isInSelectionMode) {
-                    stringResource(R.string.m_n_selected, selectedItemsSize, totalItemsSize)
-                } else {
-                    ""
-                },
-                largeTitle = if (selectionManager.isInSelectionMode) {
-                    stringResource(R.string.m_n_selected, selectedItemsSize, totalItemsSize)
-                } else {
-                    ""
-                },
-                bottomContent = {
-                    if (!selectionManager.isInSelectionMode) {
-                        TextField(
-                            value = uiState.query,
-                            onValueChange = { onEvent(SearchUiEvent.OnQueryChange(it)) },
-                            label = stringResource(R.string.search_videos_and_folders),
-                            useLabelAsPlaceholder = true,
-                            modifier = Modifier
-                                .fillMaxWidth()
-                                .padding(horizontal = 16.dp, vertical = 8.dp)
-                                .focusRequester(focusRequester),
-                            trailingIcon = {
-                                if (uiState.query.isNotEmpty()) {
-                                    MiuixIconButton(onClick = { onEvent(SearchUiEvent.OnQueryChange("")) }) {
-                                        MiuixIcon(
-                                            imageVector = NextIcons.Close,
-                                            contentDescription = stringResource(R.string.clear_history),
-                                        )
-                                    }
-                                } else if (uiState.isSearching) {
-                                    CircularProgressIndicator(
-                                        strokeWidth = 2.dp,
-                                        size = 24.dp,
-                                    )
-                                }
-                            },
-                            singleLine = true,
-                            keyboardOptions = KeyboardOptions(imeAction = ImeAction.Search),
-                            keyboardActions = KeyboardActions(
-                                onSearch = {
-                                    onEvent(SearchUiEvent.OnSearch(uiState.query))
-                                    keyboardController?.hide()
-                                },
-                            ),
-                        )
-                    }
-                },
-                navigationIcon = {
-                    MiuixIconButton(
-                        onClick = {
-                            if (selectionManager.isInSelectionMode) {
-                                selectionManager.exitSelectionMode()
-                            } else {
-                                onNavigateUp()
-                            }
-                        },
-                        modifier = Modifier.padding(start = 12.dp),
-                    ) {
-                        MiuixIcon(
-                            imageVector = if (selectionManager.isInSelectionMode) NextIcons.Close else NextIcons.ArrowBack,
-                            contentDescription = stringResource(id = R.string.navigate_up),
-                            tint = MiuixTheme.colorScheme.onBackground,
-                        )
-                    }
-                },
-                actions = {
-                    if (selectionManager.isInSelectionMode) {
-                        MiuixIconButton(
-                            onClick = {
-                                if (selectedItemsSize != totalItemsSize) {
-                                    rootFolder.folderList.forEach { selectionManager.selectFolder(it) }
-                                    rootFolder.mediaList.forEach { selectionManager.selectVideo(it) }
-                                } else {
-                                    selectionManager.exitSelectionMode()
-                                }
-                            },
-                            modifier = Modifier.padding(end = 6.dp),
+            if (!selectionManager.isInSelectionMode) {
+                NextSearchTopAppBar(
+                    query = uiState.query,
+                    placeholder = stringResource(R.string.search_videos_and_folders),
+                    searchFieldTestTag = "input_search_query",
+                    clearButtonTestTag = "btn_search_clear",
+                    closeButtonTestTag = "btn_search_close",
+                    onQueryChange = { onEvent(SearchUiEvent.OnQueryChange(it)) },
+                    onSearch = { onEvent(SearchUiEvent.OnSearch(uiState.query)) },
+                    onClose = onNavigateUp,
+                )
+            } else {
+                SmallTopAppBar(
+                    title = stringResource(R.string.m_n_selected, selectedItemsSize, totalItemsSize),
+                    navigationIcon = {
+                        IconButton(
+                            onClick = { selectionManager.exitSelectionMode() },
+                            modifier = Modifier.padding(start = 12.dp),
                         ) {
-                            MiuixIcon(
-                                imageVector = if (selectedItemsSize != totalItemsSize) {
-                                    NextIcons.SelectAll
-                                } else {
-                                    NextIcons.DeselectAll
-                                },
-                                contentDescription = if (selectedItemsSize != totalItemsSize) {
-                                    stringResource(R.string.select_all)
-                                } else {
-                                    stringResource(R.string.deselect_all)
-                                },
+                            Icon(
+                                imageVector = NextIcons.Close,
+                                contentDescription = stringResource(id = R.string.navigate_up),
                                 tint = MiuixTheme.colorScheme.onBackground,
                             )
                         }
-                        Box(modifier = Modifier.padding(end = 12.dp)) {
-                            MiuixIconButton(
-                                onClick = { shouldShowSelectionMenu = true },
-                                modifier = Modifier.testTag("btn_search_selection_actions"),
+                    },
+                    actions = {
+                        if (selectionManager.isInSelectionMode) {
+                            IconButton(
+                                onClick = {
+                                    if (selectedItemsSize != totalItemsSize) {
+                                        rootFolder.folderList.forEach { selectionManager.selectFolder(it) }
+                                        rootFolder.mediaList.forEach { selectionManager.selectVideo(it) }
+                                    } else {
+                                        selectionManager.exitSelectionMode()
+                                    }
+                                },
+                                modifier = Modifier.padding(end = 6.dp),
                             ) {
-                                MiuixIcon(
-                                    imageVector = NextIcons.Menu,
-                                    contentDescription = stringResource(id = R.string.menu),
+                                Icon(
+                                    imageVector = if (selectedItemsSize != totalItemsSize) {
+                                        NextIcons.SelectAll
+                                    } else {
+                                        NextIcons.DeselectAll
+                                    },
+                                    contentDescription = if (selectedItemsSize != totalItemsSize) {
+                                        stringResource(R.string.select_all)
+                                    } else {
+                                        stringResource(R.string.deselect_all)
+                                    },
                                     tint = MiuixTheme.colorScheme.onBackground,
                                 )
                             }
-                            SearchSelectionActionsMenu(
-                                expanded = shouldShowSelectionMenu,
-                                onDismissRequest = { shouldShowSelectionMenu = false },
-                                shouldShowRenameAction = selectionManager.isSingleVideoSelected,
-                                shouldShowInfoAction = selectionManager.isSingleVideoSelected,
-                                onMoveAction = {
-                                    shouldShowSelectionMenu = false
-                                    onEvent(
-                                        SearchUiEvent.StartMoveSelection(
-                                            videoUris = selectionManager.selectedVideos.map { it.uriString },
-                                            folderPaths = selectionManager.selectedFolders.map { it.path },
-                                        ),
+                            Box(modifier = Modifier.padding(end = 12.dp)) {
+                                IconButton(
+                                    onClick = { shouldShowSelectionMenu = true },
+                                    modifier = Modifier.testTag("btn_search_selection_actions"),
+                                ) {
+                                    Icon(
+                                        imageVector = NextIcons.Menu,
+                                        contentDescription = stringResource(id = R.string.menu),
+                                        tint = MiuixTheme.colorScheme.onBackground,
                                     )
-                                    selectionManager.exitSelectionMode()
-                                    onNavigateUp()
-                                },
-                                onFavoriteAction = {
-                                    shouldShowSelectionMenu = false
-                                    onEvent(SearchUiEvent.AddFavorites(selectedVideos, selectedFolders))
-                                    selectionManager.exitSelectionMode()
-                                },
-                                onRenameAction = {
-                                    shouldShowSelectionMenu = false
-                                    showRenameActionFor = selectedVideos.firstOrNull()
-                                },
-                                onInfoAction = {
-                                    shouldShowSelectionMenu = false
-                                    showInfoActionFor = selectedVideos.firstOrNull()
-                                    selectionManager.exitSelectionMode()
-                                },
-                                onShareAction = {
-                                    shouldShowSelectionMenu = false
-                                    onEvent(SearchUiEvent.ShareVideos(selectedVideoUris))
-                                },
-                                onDeleteAction = {
-                                    shouldShowSelectionMenu = false
-                                    shouldShowDeleteConfirmation = true
-                                },
-                            )
+                                }
+                                SearchSelectionActionsMenu(
+                                    expanded = shouldShowSelectionMenu,
+                                    onDismissRequest = { shouldShowSelectionMenu = false },
+                                    shouldShowRenameAction = selectionManager.isSingleVideoSelected,
+                                    shouldShowInfoAction = selectionManager.isSingleVideoSelected,
+                                    onMoveAction = {
+                                        shouldShowSelectionMenu = false
+                                        onEvent(
+                                            SearchUiEvent.StartMoveSelection(
+                                                videoUris = selectionManager.selectedVideos.map { it.uriString },
+                                                folderPaths = selectionManager.selectedFolders.map { it.path },
+                                            ),
+                                        )
+                                        selectionManager.exitSelectionMode()
+                                        onNavigateUp()
+                                    },
+                                    onFavoriteAction = {
+                                        shouldShowSelectionMenu = false
+                                        onEvent(SearchUiEvent.AddFavorites(selectedVideos, selectedFolders))
+                                        selectionManager.exitSelectionMode()
+                                    },
+                                    onRenameAction = {
+                                        shouldShowSelectionMenu = false
+                                        showRenameActionFor = selectedVideos.firstOrNull()
+                                    },
+                                    onInfoAction = {
+                                        shouldShowSelectionMenu = false
+                                        showInfoActionFor = selectedVideos.firstOrNull()
+                                        selectionManager.exitSelectionMode()
+                                    },
+                                    onShareAction = {
+                                        shouldShowSelectionMenu = false
+                                        onEvent(SearchUiEvent.ShareVideos(selectedVideoUris))
+                                    },
+                                    onDeleteAction = {
+                                        shouldShowSelectionMenu = false
+                                        shouldShowDeleteConfirmation = true
+                                    },
+                                )
+                            }
                         }
-                    }
-                },
-            )
+                    },
+                )
+            }
         },
         contentWindowInsets = WindowInsets.displayCutout,
         containerColor = MiuixTheme.colorScheme.background,
@@ -471,7 +420,7 @@ private fun SuggestionsContent(
                         horizontalAlignment = Alignment.CenterHorizontally,
                         verticalArrangement = Arrangement.spacedBy(8.dp),
                     ) {
-                        MiuixIcon(
+                        Icon(
                             imageVector = NextIcons.Search,
                             contentDescription = null,
                             modifier = Modifier.size(48.dp),
@@ -501,18 +450,18 @@ private fun SearchHistoryItem(
         contentPadding = PaddingValues(horizontal = 16.dp, vertical = 12.dp),
         onClick = onClick,
         leadingContent = {
-            MiuixIcon(
+            Icon(
                 imageVector = NextIcons.History,
                 contentDescription = null,
                 tint = MiuixTheme.colorScheme.onSurfaceVariantSummary,
             )
         },
         trailingContent = {
-            MiuixIconButton(
+            IconButton(
                 onClick = onRemove,
                 modifier = Modifier.size(24.dp),
             ) {
-                MiuixIcon(
+                Icon(
                     imageVector = NextIcons.Close,
                     contentDescription = stringResource(R.string.delete),
                     modifier = Modifier.size(18.dp),
@@ -569,7 +518,7 @@ private fun SearchResultsContent(
                     horizontalAlignment = Alignment.CenterHorizontally,
                     verticalArrangement = Arrangement.spacedBy(8.dp),
                 ) {
-                    MiuixIcon(
+                    Icon(
                         imageVector = NextIcons.Search,
                         contentDescription = null,
                         modifier = Modifier.size(48.dp),

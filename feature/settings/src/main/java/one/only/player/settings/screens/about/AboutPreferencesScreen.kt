@@ -120,6 +120,7 @@ fun AboutPreferencesScreen(
                 currentVersionName = currentVersionName,
                 onEvent = viewModel::onEvent,
             )
+            ListSectionTitle(text = stringResource(id = R.string.device_info))
             Column(
                 verticalArrangement = Arrangement.spacedBy(SegmentedItemGap),
             ) {

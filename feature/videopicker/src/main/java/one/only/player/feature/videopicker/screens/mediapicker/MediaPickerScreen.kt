@@ -28,7 +28,6 @@ import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.systemBars
 import androidx.compose.foundation.layout.windowInsetsPadding
 import androidx.compose.foundation.lazy.grid.rememberLazyGridState
-import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
@@ -37,7 +36,6 @@ import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.draw.clip
 import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalLayoutDirection
@@ -231,8 +229,9 @@ internal fun MediaPickerScreen(
     }
     val moveProgress = uiState.moveProgress
 
+    val selectedCountTitle = stringResource(R.string.m_n_selected, selectedItemsSize, totalItemsSize)
     val topBarTitle = when {
-        selectionManager.isInSelectionMode -> ""
+        selectionManager.isInSelectionMode -> selectedCountTitle
         isMoveMode -> stringResource(R.string.move_here)
         else -> uiState.folderName ?: stringResource(
             if (isRecycleBinMode) R.string.recycle_bin else R.string.app_name,
@@ -254,24 +253,16 @@ internal fun MediaPickerScreen(
                 onTitleLongPress = onNavigateHome,
                 navigationIcon = {
                     if (selectionManager.isInSelectionMode) {
-                        Row(
+                        IconButton(
+                            onClick = { selectionManager.exitSelectionMode() },
                             modifier = Modifier
                                 .padding(start = 12.dp)
-                                .clip(CircleShape)
-                                .clickable { selectionManager.exitSelectionMode() }
-                                .padding(horizontal = 12.dp, vertical = 6.dp)
                                 .testTag("btn_selection_exit"),
-                            verticalAlignment = Alignment.CenterVertically,
-                            horizontalArrangement = Arrangement.spacedBy(6.dp),
                         ) {
                             Icon(
                                 imageVector = NextIcons.Close,
                                 contentDescription = stringResource(id = R.string.navigate_up),
                                 tint = MiuixTheme.colorScheme.onBackground,
-                            )
-                            Text(
-                                text = stringResource(R.string.m_n_selected, selectedItemsSize, totalItemsSize),
-                                color = MiuixTheme.colorScheme.onBackground,
                             )
                         }
                     } else if (uiState.folderName != null || isRecycleBinMode) {

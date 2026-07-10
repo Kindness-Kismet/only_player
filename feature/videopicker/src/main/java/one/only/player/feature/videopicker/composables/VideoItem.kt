@@ -97,7 +97,7 @@ private fun VideoListItem(
 ) {
     NextSegmentedListItem(
         modifier = modifier.testTag("item_video_${video.displayName}"),
-        isSelected = isSelected,
+        isSelected = false,
         containerColor = Color.Transparent,
         contentPadding = PaddingValues(8.dp),
         isFirstItem = isFirstItem,
@@ -111,6 +111,9 @@ private fun VideoListItem(
                 modifier = Modifier
                     .width(min(150.dp, LocalConfiguration.current.screenWidthDp.dp * 0.35f)),
             )
+        },
+        trailingContent = {
+            SelectionCheckIndicator(isSelected = isSelected)
         },
         content = {
             Text(
@@ -165,13 +168,16 @@ private fun VideoGridItem(
         modifier = modifier
             .fillMaxWidth()
             .testTag("item_video_${video.displayName}"),
-        isSelected = isSelected,
+        isSelected = false,
         containerColor = Color.Transparent,
         contentPadding = PaddingValues(8.dp),
         isFirstItem = isFirstItem,
         isLastItem = isLastItem,
         onClick = onClick,
         onLongClick = onLongClick,
+        trailingContent = {
+            SelectionCheckIndicator(isSelected = isSelected)
+        },
         content = {
             Column(
                 verticalArrangement = Arrangement.spacedBy(8.dp),

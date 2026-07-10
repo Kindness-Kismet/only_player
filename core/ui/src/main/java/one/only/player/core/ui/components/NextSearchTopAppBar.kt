@@ -1,5 +1,6 @@
 package one.only.player.core.ui.components
 
+import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
@@ -20,8 +21,8 @@ import one.only.player.core.ui.R
 import one.only.player.core.ui.designsystem.NextIcons
 import top.yukonga.miuix.kmp.basic.Icon
 import top.yukonga.miuix.kmp.basic.IconButton
+import top.yukonga.miuix.kmp.basic.SmallTopAppBar
 import top.yukonga.miuix.kmp.basic.TextField
-import top.yukonga.miuix.kmp.basic.TopAppBar
 
 @Composable
 fun NextSearchTopAppBar(
@@ -31,6 +32,8 @@ fun NextSearchTopAppBar(
     clearButtonTestTag: String,
     onQueryChange: (String) -> Unit,
     onClose: () -> Unit,
+    closeButtonTestTag: String = "${searchFieldTestTag}_close",
+    onSearch: () -> Unit = {},
 ) {
     val focusRequester = remember { FocusRequester() }
     val keyboardController = LocalSoftwareKeyboardController.current
@@ -39,50 +42,57 @@ fun NextSearchTopAppBar(
         focusRequester.requestFocus()
     }
 
-    TopAppBar(
-        title = "",
-        largeTitle = "",
-        bottomContent = {
-            Row(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .padding(horizontal = 16.dp, vertical = 8.dp),
-            ) {
-                TextField(
-                    value = query,
-                    onValueChange = onQueryChange,
-                    label = placeholder,
-                    useLabelAsPlaceholder = true,
-                    singleLine = true,
-                    keyboardOptions = KeyboardOptions(imeAction = ImeAction.Search),
-                    keyboardActions = KeyboardActions(onSearch = { keyboardController?.hide() }),
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .focusRequester(focusRequester)
-                        .testTag(searchFieldTestTag),
-                )
-            }
-        },
-        navigationIcon = {
-            IconButton(onClick = onClose) {
-                Icon(
-                    imageVector = NextIcons.ArrowBack,
-                    contentDescription = stringResource(R.string.navigate_up),
-                )
-            }
-        },
-        actions = {
-            if (query.isNotEmpty()) {
+    Column {
+        SmallTopAppBar(
+            title = "",
+            navigationIcon = {
                 IconButton(
-                    modifier = Modifier.testTag(clearButtonTestTag),
-                    onClick = { onQueryChange("") },
+                    onClick = onClose,
+                    modifier = Modifier.testTag(closeButtonTestTag),
                 ) {
                     Icon(
-                        imageVector = NextIcons.Close,
-                        contentDescription = stringResource(R.string.search),
+                        imageVector = NextIcons.ArrowBack,
+                        contentDescription = stringResource(R.string.navigate_up),
                     )
                 }
-            }
-        },
-    )
+            },
+            actions = {
+                if (query.isNotEmpty()) {
+                    IconButton(
+                        modifier = Modifier.testTag(clearButtonTestTag),
+                        onClick = { onQueryChange("") },
+                    ) {
+                        Icon(
+                            imageVector = NextIcons.Close,
+                            contentDescription = stringResource(R.string.clear_history),
+                        )
+                    }
+                }
+            },
+        )
+        Row(
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(horizontal = 16.dp, vertical = 8.dp),
+        ) {
+            TextField(
+                value = query,
+                onValueChange = onQueryChange,
+                label = placeholder,
+                useLabelAsPlaceholder = true,
+                singleLine = true,
+                keyboardOptions = KeyboardOptions(imeAction = ImeAction.Search),
+                keyboardActions = KeyboardActions(
+                    onSearch = {
+                        onSearch()
+                        keyboardController?.hide()
+                    },
+                ),
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .focusRequester(focusRequester)
+                    .testTag(searchFieldTestTag),
+            )
+        }
+    }
 }
