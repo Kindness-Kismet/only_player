@@ -3,7 +3,6 @@ package one.only.player.feature.videopicker.screens.cloud
 import android.net.Uri
 import android.provider.DocumentsContract
 import androidx.activity.compose.BackHandler
-import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
@@ -12,7 +11,6 @@ import androidx.compose.foundation.layout.BoxWithConstraints
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.ExperimentalLayoutApi
 import androidx.compose.foundation.layout.FlowRow
-import androidx.compose.foundation.layout.IntrinsicSize
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.aspectRatio
@@ -30,21 +28,6 @@ import androidx.compose.foundation.lazy.grid.itemsIndexed
 import androidx.compose.foundation.lazy.grid.rememberLazyGridState
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
-import androidx.compose.material3.CircularProgressIndicator
-import androidx.compose.material3.DropdownMenu
-import androidx.compose.material3.ExperimentalMaterial3Api
-import androidx.compose.material3.ExperimentalMaterial3ExpressiveApi
-import androidx.compose.material3.FilledTonalIconButton
-import androidx.compose.material3.Icon
-import androidx.compose.material3.IconButton
-import androidx.compose.material3.ListItemDefaults
-import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.Scaffold
-import androidx.compose.material3.Surface
-import androidx.compose.material3.Text
-import androidx.compose.material3.TextButton
-import androidx.compose.material3.pulltorefresh.PullToRefreshBox
-import androidx.compose.material3.surfaceColorAtElevation
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
@@ -56,9 +39,9 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
-import androidx.compose.ui.graphics.luminance
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.hapticfeedback.HapticFeedbackType
+import androidx.compose.ui.input.nestedscroll.nestedScroll
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.LocalConfiguration
 import androidx.compose.ui.platform.LocalContext
@@ -88,7 +71,6 @@ import one.only.player.core.ui.R
 import one.only.player.core.ui.components.ListSectionTitle
 import one.only.player.core.ui.components.NextDialog
 import one.only.player.core.ui.components.NextSegmentedListItem
-import one.only.player.core.ui.components.NextTopAppBar
 import one.only.player.core.ui.designsystem.NextIcons
 import one.only.player.core.ui.extensions.copy
 import one.only.player.core.ui.extensions.plus
@@ -96,8 +78,19 @@ import one.only.player.core.ui.extensions.withBottomFallback
 import one.only.player.feature.videopicker.composables.InfoChip
 import one.only.player.feature.videopicker.composables.QuickSettingsDialog
 import one.only.player.feature.videopicker.composables.QuickSettingsTarget
-import one.only.player.feature.videopicker.composables.SelectionMenuItem
+import one.only.player.feature.videopicker.composables.SelectionActionsPopup
+import one.only.player.feature.videopicker.composables.SelectionMenuAction
 import one.only.player.feature.videopicker.composables.VideoInfoDialog
+import top.yukonga.miuix.kmp.basic.CircularProgressIndicator
+import top.yukonga.miuix.kmp.basic.Icon as MiuixIcon
+import top.yukonga.miuix.kmp.basic.IconButton as MiuixIconButton
+import top.yukonga.miuix.kmp.basic.MiuixScrollBehavior
+import top.yukonga.miuix.kmp.basic.PullToRefresh
+import top.yukonga.miuix.kmp.basic.Scaffold
+import top.yukonga.miuix.kmp.basic.Text
+import top.yukonga.miuix.kmp.basic.TextButton
+import top.yukonga.miuix.kmp.basic.TopAppBar
+import top.yukonga.miuix.kmp.theme.MiuixTheme
 
 @Composable
 fun CloudBrowseRoute(
@@ -152,7 +145,6 @@ fun CloudBrowseRoute(
     )
 }
 
-@OptIn(ExperimentalMaterial3Api::class, ExperimentalMaterial3ExpressiveApi::class)
 @Composable
 internal fun CloudBrowseScreen(
     uiState: CloudBrowseUiState,
@@ -225,45 +217,51 @@ internal fun CloudBrowseScreen(
         onNavigateUp()
     }
 
+    val scrollBehavior = MiuixScrollBehavior()
+
     Scaffold(
         topBar = {
-            NextTopAppBar(
+            TopAppBar(
                 title = serverName.takeIf { !isInSelectionMode } ?: "",
+                scrollBehavior = scrollBehavior,
                 navigationIcon = {
                     if (isInSelectionMode) {
                         Row(
                             modifier = Modifier
+                                .padding(start = 12.dp)
                                 .clip(CircleShape)
-                                .background(MaterialTheme.colorScheme.secondaryContainer)
                                 .clickable { clearSelection() }
-                                .padding(8.dp)
-                                .padding(end = 8.dp),
+                                .padding(horizontal = 12.dp, vertical = 6.dp),
                             verticalAlignment = Alignment.CenterVertically,
-                            horizontalArrangement = Arrangement.spacedBy(8.dp),
+                            horizontalArrangement = Arrangement.spacedBy(6.dp),
                         ) {
-                            Icon(
+                            MiuixIcon(
                                 imageVector = NextIcons.Close,
                                 contentDescription = stringResource(id = R.string.navigate_up),
+                                tint = MiuixTheme.colorScheme.onBackground,
                             )
                             Text(
                                 text = stringResource(R.string.m_n_selected, selectedItemsSize, totalItemsSize),
-                                style = MaterialTheme.typography.labelLarge,
+                                style = MiuixTheme.textStyles.button,
+                                color = MiuixTheme.colorScheme.onBackground,
                             )
                         }
                     } else {
-                        FilledTonalIconButton(onClick = {
-                            onNavigateUp()
-                        }) {
-                            Icon(
+                        MiuixIconButton(
+                            onClick = onNavigateUp,
+                            modifier = Modifier.padding(start = 12.dp),
+                        ) {
+                            MiuixIcon(
                                 imageVector = NextIcons.ArrowBack,
                                 contentDescription = stringResource(R.string.navigate_up),
+                                tint = MiuixTheme.colorScheme.onBackground,
                             )
                         }
                     }
                 },
                 actions = {
                     if (isInSelectionMode) {
-                        FilledTonalIconButton(
+                        MiuixIconButton(
                             onClick = {
                                 selectedFilePaths = if (selectedItemsSize != totalItemsSize) {
                                     uiState.files
@@ -277,7 +275,7 @@ internal fun CloudBrowseScreen(
                                 }
                             },
                         ) {
-                            Icon(
+                            MiuixIcon(
                                 imageVector = if (selectedItemsSize != totalItemsSize) {
                                     NextIcons.SelectAll
                                 } else {
@@ -288,16 +286,21 @@ internal fun CloudBrowseScreen(
                                 } else {
                                     stringResource(R.string.deselect_all)
                                 },
+                                tint = MiuixTheme.colorScheme.onBackground,
                             )
                         }
                         Box {
-                            FilledTonalIconButton(
+                            MiuixIconButton(
                                 onClick = { shouldShowSelectionMenu = true },
-                                modifier = Modifier.testTag("btn_cloud_selection_actions"),
+                                holdDownState = shouldShowSelectionMenu,
+                                modifier = Modifier
+                                    .padding(end = 12.dp)
+                                    .testTag("btn_cloud_selection_actions"),
                             ) {
-                                Icon(
+                                MiuixIcon(
                                     imageVector = NextIcons.Menu,
                                     contentDescription = stringResource(id = R.string.menu),
+                                    tint = MiuixTheme.colorScheme.onBackground,
                                 )
                             }
                             val selectedFiles = uiState.files.filter { it.path in selectedFilePaths }
@@ -321,34 +324,38 @@ internal fun CloudBrowseScreen(
                             )
                         }
                     } else {
-                        IconButton(
+                        MiuixIconButton(
                             onClick = { shouldShowQuickSettingsDialog = true },
-                            modifier = Modifier.testTag("btn_cloud_quick_settings"),
+                            modifier = Modifier
+                                .padding(end = 12.dp)
+                                .testTag("btn_cloud_quick_settings"),
                         ) {
-                            Icon(
+                            MiuixIcon(
                                 imageVector = NextIcons.DashBoard,
                                 contentDescription = stringResource(R.string.cloud_quick_settings),
+                                tint = MiuixTheme.colorScheme.onBackground,
                             )
                         }
                     }
                 },
             )
         },
-        containerColor = MaterialTheme.colorScheme.surfaceContainer,
+        containerColor = MiuixTheme.colorScheme.background,
     ) { innerPadding ->
         Column(
             modifier = Modifier
                 .fillMaxSize()
+                .nestedScroll(scrollBehavior.nestedScrollConnection)
                 .padding(top = innerPadding.calculateTopPadding())
                 .padding(start = innerPadding.calculateStartPadding(LocalLayoutDirection.current)),
         ) {
-            Surface(
-                modifier = Modifier.fillMaxSize(),
-                color = MaterialTheme.colorScheme.background,
-                shape = RoundedCornerShape(topStart = 24.dp, topEnd = 24.dp),
+            Box(
+                modifier = Modifier
+                    .fillMaxSize()
+                    .background(MiuixTheme.colorScheme.background),
             ) {
                 val contentPadding = innerPadding.copy(top = 0.dp, start = 0.dp).withBottomFallback()
-                PullToRefreshBox(
+                PullToRefresh(
                     modifier = Modifier.fillMaxSize(),
                     isRefreshing = uiState.isRefreshing,
                     onRefresh = { onEvent(CloudBrowseEvent.Retry) },
@@ -580,36 +587,36 @@ private fun CloudBrowseMessageState(
             horizontalAlignment = Alignment.CenterHorizontally,
             verticalArrangement = Arrangement.spacedBy(12.dp),
         ) {
-            Icon(
+            MiuixIcon(
                 imageVector = icon,
                 contentDescription = null,
                 modifier = Modifier.size(48.dp),
-                tint = MaterialTheme.colorScheme.onSurfaceVariant,
+                tint = MiuixTheme.colorScheme.onSurfaceVariantSummary,
             )
             Text(
                 text = title,
-                style = MaterialTheme.typography.bodyLarge,
-                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                style = MiuixTheme.textStyles.main,
+                color = MiuixTheme.colorScheme.onSurfaceVariantSummary,
                 textAlign = TextAlign.Center,
             )
             if (!message.isNullOrBlank()) {
                 Text(
                     text = message,
-                    style = MaterialTheme.typography.bodyMedium,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    style = MiuixTheme.textStyles.body2,
+                    color = MiuixTheme.colorScheme.onSurfaceVariantSummary,
                     textAlign = TextAlign.Center,
                 )
             }
             if (!actionText.isNullOrBlank() && onActionClick != null) {
-                TextButton(onClick = onActionClick) {
-                    Text(text = actionText)
-                }
+                TextButton(
+                    text = actionText,
+                    onClick = onActionClick,
+                )
             }
         }
     }
 }
 
-@OptIn(ExperimentalMaterial3ExpressiveApi::class)
 @Composable
 private fun RemoteFileItem(
     file: RemoteFile,
@@ -654,7 +661,7 @@ private fun RemoteFileItem(
     }
 }
 
-@OptIn(ExperimentalLayoutApi::class, ExperimentalMaterial3ExpressiveApi::class)
+@OptIn(ExperimentalLayoutApi::class)
 @Composable
 private fun RemoteFileListItem(
     file: RemoteFile,
@@ -670,26 +677,14 @@ private fun RemoteFileListItem(
     onLongClick: (() -> Unit)?,
 ) {
     val shouldHighlight = isRecentlyPlayed && shouldMarkLastPlayedMedia
-    val highlightColor = MaterialTheme.colorScheme.primary
+    val highlightColor = MiuixTheme.colorScheme.primary
     NextSegmentedListItem(
         modifier = Modifier.testTag("remote_file_${file.name}"),
         isSelected = isSelected,
+        containerColor = Color.Transparent,
         isFirstItem = isFirstItem,
         isLastItem = isLastItem,
         contentPadding = PaddingValues(8.dp),
-        colors = ListItemDefaults.segmentedColors(
-            contentColor = if (shouldHighlight) {
-                highlightColor
-            } else {
-                ListItemDefaults.segmentedColors().contentColor
-            },
-            supportingContentColor = if (shouldHighlight) {
-                highlightColor
-            } else {
-                ListItemDefaults.colors().supportingContentColor
-            },
-            selectedContainerColor = selectedRemoteMediaContainerColor(),
-        ),
         onClick = onClick,
         onLongClick = onLongClick,
         leadingContent = {
@@ -710,7 +705,8 @@ private fun RemoteFileListItem(
             Text(
                 text = file.displayName(settings),
                 maxLines = 2,
-                style = MaterialTheme.typography.titleMedium,
+                style = MiuixTheme.textStyles.title4,
+                color = if (shouldHighlight) highlightColor else MiuixTheme.colorScheme.onSurface,
                 overflow = TextOverflow.Ellipsis,
             )
         },
@@ -722,7 +718,8 @@ private fun RemoteFileListItem(
                     Text(
                         text = file.parentDirectoryPath(),
                         maxLines = 2,
-                        style = MaterialTheme.typography.bodySmall,
+                        style = MiuixTheme.textStyles.body2,
+                        color = if (shouldHighlight) highlightColor else MiuixTheme.colorScheme.onSurfaceVariantSummary,
                         overflow = TextOverflow.Ellipsis,
                     )
                 }
@@ -747,7 +744,6 @@ private fun RemoteFileListItem(
     )
 }
 
-@OptIn(ExperimentalMaterial3ExpressiveApi::class)
 @Composable
 private fun RemoteFileGridItem(
     file: RemoteFile,
@@ -763,28 +759,16 @@ private fun RemoteFileGridItem(
     onLongClick: (() -> Unit)?,
 ) {
     val shouldHighlight = isRecentlyPlayed && shouldMarkLastPlayedMedia
-    val highlightColor = MaterialTheme.colorScheme.primary
+    val highlightColor = MiuixTheme.colorScheme.primary
     NextSegmentedListItem(
         modifier = Modifier
-            .width(IntrinsicSize.Min)
+            .fillMaxWidth()
             .testTag("remote_file_${file.name}"),
         isSelected = isSelected,
+        containerColor = Color.Transparent,
         isFirstItem = isFirstItem,
         isLastItem = isLastItem,
         contentPadding = PaddingValues(8.dp),
-        colors = ListItemDefaults.segmentedColors(
-            contentColor = if (shouldHighlight) {
-                highlightColor
-            } else {
-                ListItemDefaults.segmentedColors().contentColor
-            },
-            supportingContentColor = if (shouldHighlight) {
-                highlightColor
-            } else {
-                ListItemDefaults.colors().supportingContentColor
-            },
-            selectedContainerColor = selectedRemoteMediaContainerColor(),
-        ),
         onClick = onClick,
         onLongClick = onLongClick,
         content = {
@@ -804,7 +788,8 @@ private fun RemoteFileGridItem(
                 Text(
                     text = file.displayName(settings),
                     maxLines = 2,
-                    style = MaterialTheme.typography.titleMedium,
+                    style = MiuixTheme.textStyles.title4,
+                    color = if (shouldHighlight) highlightColor else MiuixTheme.colorScheme.onSurface,
                     overflow = TextOverflow.Ellipsis,
                     textAlign = TextAlign.Center,
                 )
@@ -831,15 +816,15 @@ private fun RemoteThumbnailView(
     val cacheKey = thumbnailUri?.let(file::remoteThumbnailCacheKey)
     Box(
         modifier = modifier
-            .clip(MaterialTheme.shapes.small)
-            .background(MaterialTheme.colorScheme.surfaceColorAtElevation(1.dp))
+            .clip(RoundedCornerShape(8.dp))
+            .background(MiuixTheme.colorScheme.surfaceContainerHigh)
             .testTag("remote_thumbnail_${thumbnailUri?.scheme ?: "none"}")
             .aspectRatio(16f / 10f),
     ) {
-        Icon(
+        MiuixIcon(
             imageVector = NextIcons.Video,
             contentDescription = null,
-            tint = MaterialTheme.colorScheme.surfaceColorAtElevation(100.dp),
+            tint = MiuixTheme.colorScheme.onSurfaceContainerVariant,
             modifier = Modifier
                 .align(Alignment.Center)
                 .fillMaxSize(0.5f),
@@ -886,21 +871,14 @@ private fun RemoteServer.remoteThumbnailCacheIdentity(): String {
 private fun RemoteFolderThumbnail(
     modifier: Modifier = Modifier,
 ) {
-    Icon(
+    MiuixIcon(
         imageVector = ImageVector.vectorResource(id = R.drawable.folder_thumb),
         contentDescription = null,
-        tint = MaterialTheme.colorScheme.surfaceContainerHigh,
+        tint = MiuixTheme.colorScheme.surfaceContainerHigh,
         modifier = modifier
             .width(min(90.dp, LocalConfiguration.current.screenWidthDp.dp * 0.3f))
             .aspectRatio(20 / 17f),
     )
-}
-
-@Composable
-private fun selectedRemoteMediaContainerColor(): Color = if (MaterialTheme.colorScheme.background.luminance() < 0.5f) {
-    Color(0xFFFFFFFF).copy(alpha = 0.20f)
-} else {
-    Color(0xFF212121).copy(alpha = 0.30f)
 }
 
 @Composable
@@ -911,34 +889,31 @@ private fun CloudSelectionActionsMenu(
     onFavoriteAction: () -> Unit,
     onInfoAction: () -> Unit,
 ) {
-    DropdownMenu(
-        expanded = expanded,
-        onDismissRequest = onDismissRequest,
-        modifier = Modifier.testTag("menu_cloud_selection_actions"),
-        shape = RoundedCornerShape(10.dp),
-        containerColor = MaterialTheme.colorScheme.surface,
-        tonalElevation = 0.dp,
-        shadowElevation = 0.dp,
-        border = BorderStroke(
-            width = 1.dp,
-            color = MaterialTheme.colorScheme.outline.copy(alpha = 0.15f),
-        ),
-    ) {
-        SelectionMenuItem(
-            text = stringResource(id = R.string.add_to_favorites),
-            icon = NextIcons.LibraryBooks,
-            testTag = "item_cloud_selection_add_favorites",
-            onClick = onFavoriteAction,
+    val actions = buildList {
+        add(
+            SelectionMenuAction(
+                text = stringResource(id = R.string.add_to_favorites),
+                icon = NextIcons.LibraryBooks,
+                testTag = "item_cloud_selection_add_favorites",
+                onClick = onFavoriteAction,
+            ),
         )
         if (shouldShowInfoAction) {
-            SelectionMenuItem(
-                text = stringResource(id = R.string.info),
-                icon = NextIcons.Info,
-                testTag = "item_cloud_selection_info",
-                onClick = onInfoAction,
+            add(
+                SelectionMenuAction(
+                    text = stringResource(id = R.string.info),
+                    icon = NextIcons.Info,
+                    testTag = "item_cloud_selection_info",
+                    onClick = onInfoAction,
+                ),
             )
         }
     }
+    SelectionActionsPopup(
+        expanded = expanded,
+        onDismissRequest = onDismissRequest,
+        groups = listOf(actions),
+    )
 }
 
 private fun resolveCloudRestoreScrollIndex(

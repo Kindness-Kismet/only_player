@@ -1,16 +1,18 @@
 package one.only.player.core.ui.composables
 
 import android.Manifest
-import androidx.compose.material3.AlertDialog
-import androidx.compose.material3.Button
-import androidx.compose.material3.Surface
-import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.res.stringResource
 import one.only.player.core.ui.R
+import one.only.player.core.ui.components.NextDialog
 import one.only.player.core.ui.preview.DayNightPreview
 import one.only.player.core.ui.theme.OnlyPlayerTheme
+import top.yukonga.miuix.kmp.basic.ButtonDefaults
+import top.yukonga.miuix.kmp.basic.Surface
+import top.yukonga.miuix.kmp.basic.Text
+import top.yukonga.miuix.kmp.basic.TextButton
 
 @Composable
 fun PermissionRationaleDialog(
@@ -18,21 +20,20 @@ fun PermissionRationaleDialog(
     modifier: Modifier = Modifier,
     onConfirmButtonClick: () -> Unit,
 ) {
-    AlertDialog(
+    NextDialog(
         onDismissRequest = {},
         modifier = modifier,
-        title = {
-            Text(
-                text = stringResource(R.string.permission_request),
-            )
-        },
-        text = {
+        title = stringResource(R.string.permission_request),
+        content = {
             Text(text = text)
         },
         confirmButton = {
-            Button(onClick = onConfirmButtonClick) {
-                Text(stringResource(R.string.grant_permission))
-            }
+            TextButton(
+                modifier = Modifier.testTag("btn_permission_grant"),
+                text = stringResource(R.string.grant_permission),
+                onClick = onConfirmButtonClick,
+                colors = ButtonDefaults.textButtonColorsPrimary(),
+            )
         },
     )
 }

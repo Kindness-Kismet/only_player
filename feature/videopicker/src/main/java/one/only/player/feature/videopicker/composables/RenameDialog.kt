@@ -1,8 +1,6 @@
 package one.only.player.feature.videopicker.composables
 
 import androidx.compose.foundation.layout.fillMaxWidth
-import androidx.compose.material3.OutlinedTextField
-import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
@@ -20,6 +18,7 @@ import one.only.player.core.ui.R
 import one.only.player.core.ui.components.CancelButton
 import one.only.player.core.ui.components.DoneButton
 import one.only.player.core.ui.components.NextDialog
+import top.yukonga.miuix.kmp.basic.TextField
 
 @Composable
 fun RenameDialog(
@@ -31,9 +30,9 @@ fun RenameDialog(
     val focusRequester = remember { FocusRequester() }
     NextDialog(
         onDismissRequest = onDismiss,
-        title = { Text(stringResource(R.string.rename_to)) },
+        title = stringResource(R.string.rename_to),
         content = {
-            OutlinedTextField(
+            TextField(
                 value = mediaName,
                 onValueChange = { mediaName = it },
                 modifier = Modifier

@@ -10,10 +10,6 @@ import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
-import androidx.compose.material3.Button
-import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.Surface
-import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -25,6 +21,10 @@ import androidx.compose.ui.unit.dp
 import one.only.player.core.ui.R
 import one.only.player.core.ui.preview.DayNightPreview
 import one.only.player.core.ui.theme.OnlyPlayerTheme
+import top.yukonga.miuix.kmp.basic.Button
+import top.yukonga.miuix.kmp.basic.Surface
+import top.yukonga.miuix.kmp.basic.Text
+import top.yukonga.miuix.kmp.theme.MiuixTheme
 
 @Composable
 fun PermissionDetailView(
@@ -39,7 +39,7 @@ fun PermissionDetailView(
     ) {
         Text(
             text = stringResource(id = R.string.permission_not_granted),
-            style = MaterialTheme.typography.titleLarge,
+            style = MiuixTheme.textStyles.title2,
             fontWeight = FontWeight.SemiBold,
             textAlign = TextAlign.Center,
             modifier = Modifier.padding(horizontal = 5.dp),
@@ -47,7 +47,7 @@ fun PermissionDetailView(
         Spacer(modifier = Modifier.height(10.dp))
         Text(
             text = text,
-            style = MaterialTheme.typography.bodyLarge,
+            style = MiuixTheme.textStyles.body1,
             textAlign = TextAlign.Center,
             modifier = Modifier.padding(horizontal = 5.dp),
         )

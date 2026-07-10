@@ -19,16 +19,6 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
-import androidx.compose.material3.AlertDialog
-import androidx.compose.material3.Button
-import androidx.compose.material3.ExperimentalMaterial3Api
-import androidx.compose.material3.ExperimentalMaterial3ExpressiveApi
-import androidx.compose.material3.FilledTonalIconButton
-import androidx.compose.material3.Icon
-import androidx.compose.material3.ListItemDefaults
-import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.Scaffold
-import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
@@ -58,13 +48,22 @@ import one.only.player.core.common.extensions.appIcon
 import one.only.player.core.ui.R
 import one.only.player.core.ui.components.ClickablePreferenceItem
 import one.only.player.core.ui.components.ListSectionTitle
-import one.only.player.core.ui.components.NextTopAppBar
+import one.only.player.core.ui.components.NextDialog
 import one.only.player.core.ui.components.PreferenceItem
 import one.only.player.core.ui.components.PreferenceSwitch
+import one.only.player.core.ui.components.SegmentedItemGap
+import one.only.player.core.ui.components.SettingsContentTopPadding
 import one.only.player.core.ui.designsystem.NextIcons
 import one.only.player.core.ui.extensions.withBottomFallback
+import top.yukonga.miuix.kmp.basic.ButtonDefaults
+import top.yukonga.miuix.kmp.basic.Icon as MiuixIcon
+import top.yukonga.miuix.kmp.basic.IconButton as MiuixIconButton
+import top.yukonga.miuix.kmp.basic.Scaffold
+import top.yukonga.miuix.kmp.basic.Text as MiuixText
+import top.yukonga.miuix.kmp.basic.TextButton as MiuixTextButton
+import top.yukonga.miuix.kmp.basic.TopAppBar
+import top.yukonga.miuix.kmp.theme.MiuixTheme
 
-@OptIn(ExperimentalMaterial3Api::class, ExperimentalMaterial3ExpressiveApi::class)
 @Composable
 fun AboutPreferencesScreen(
     onLibrariesClick: () -> Unit,
@@ -82,25 +81,32 @@ fun AboutPreferencesScreen(
 
     Scaffold(
         topBar = {
-            NextTopAppBar(
+            TopAppBar(
                 title = stringResource(id = R.string.about_name),
                 navigationIcon = {
-                    FilledTonalIconButton(onClick = onNavigateUp) {
-                        Icon(
+                    MiuixIconButton(
+                        onClick = onNavigateUp,
+                        modifier = Modifier
+                            .padding(start = 12.dp)
+                            .testTag("button_about_back"),
+                    ) {
+                        MiuixIcon(
                             imageVector = NextIcons.ArrowBack,
                             contentDescription = stringResource(id = R.string.navigate_up),
+                            tint = MiuixTheme.colorScheme.onBackground,
                         )
                     }
                 },
             )
         },
-        containerColor = MaterialTheme.colorScheme.surfaceContainer,
+        containerColor = MiuixTheme.colorScheme.background,
     ) { innerPadding ->
         Column(
             modifier = Modifier
                 .fillMaxSize()
                 .verticalScroll(rememberScrollState())
                 .padding(innerPadding.withBottomFallback())
+                .padding(top = SettingsContentTopPadding)
                 .padding(horizontal = 16.dp),
         ) {
             AboutApp(
@@ -114,9 +120,8 @@ fun AboutPreferencesScreen(
                 currentVersionName = currentVersionName,
                 onEvent = viewModel::onEvent,
             )
-            ListSectionTitle(text = stringResource(id = R.string.device_info))
             Column(
-                verticalArrangement = Arrangement.spacedBy(ListItemDefaults.SegmentedGap),
+                verticalArrangement = Arrangement.spacedBy(SegmentedItemGap),
             ) {
                 PreferenceItem(
                     title = stringResource(R.string.architecture),
@@ -142,14 +147,13 @@ fun AboutPreferencesScreen(
     }
 }
 
-@OptIn(ExperimentalMaterial3ExpressiveApi::class)
 @Composable
 private fun DiagnosticsSection(
     onLogsClick: () -> Unit,
 ) {
     ListSectionTitle(text = stringResource(id = R.string.diagnostics))
     Column(
-        verticalArrangement = Arrangement.spacedBy(ListItemDefaults.SegmentedGap),
+        verticalArrangement = Arrangement.spacedBy(SegmentedItemGap),
     ) {
         ClickablePreferenceItem(
             modifier = Modifier.testTag("item_settings_about_logs"),
@@ -163,7 +167,6 @@ private fun DiagnosticsSection(
     }
 }
 
-@OptIn(ExperimentalMaterial3ExpressiveApi::class)
 @Composable
 private fun UpdateSection(
     uiState: AboutPreferencesUiState,
@@ -175,7 +178,7 @@ private fun UpdateSection(
 
     ListSectionTitle(text = stringResource(id = R.string.update_check))
     Column(
-        verticalArrangement = Arrangement.spacedBy(ListItemDefaults.SegmentedGap),
+        verticalArrangement = Arrangement.spacedBy(SegmentedItemGap),
     ) {
         ClickablePreferenceItem(
             modifier = Modifier.testTag("item_settings_about_check_updates"),
@@ -224,26 +227,32 @@ private fun StartupUpdateDialog(
     val context = LocalContext.current
     val uriHandler = LocalUriHandler.current
 
-    AlertDialog(
+    NextDialog(
         onDismissRequest = { onEvent(AboutPreferencesUiEvent.DismissStartupUpdateDialog) },
-        title = { Text(text = stringResource(R.string.update_dialog_title)) },
-        text = { Text(text = stringResource(R.string.update_dialog_message, state.latestVersion)) },
+        title = {
+            MiuixText(
+                text = stringResource(R.string.update_dialog_title),
+                style = MiuixTheme.textStyles.title4,
+            )
+        },
+        content = { MiuixText(text = stringResource(R.string.update_dialog_message, state.latestVersion)) },
         confirmButton = {
-            Button(
+            MiuixTextButton(
+                modifier = Modifier.testTag("btn_about_update_confirm"),
+                text = stringResource(R.string.update_dialog_confirm),
+                colors = ButtonDefaults.textButtonColorsPrimary(),
                 onClick = {
                     onEvent(AboutPreferencesUiEvent.DismissStartupUpdateDialog)
                     uriHandler.openUriOrShowToast(state.releaseUrl, context)
                 },
-            ) {
-                Text(text = stringResource(R.string.update_dialog_confirm))
-            }
+            )
         },
         dismissButton = {
-            Button(
+            MiuixTextButton(
+                modifier = Modifier.testTag("btn_about_update_not_now"),
+                text = stringResource(R.string.not_now),
                 onClick = { onEvent(AboutPreferencesUiEvent.DismissStartupUpdateDialog) },
-            ) {
-                Text(text = stringResource(R.string.not_now))
-            }
+            )
         },
     )
 }
@@ -258,8 +267,8 @@ fun AboutApp(
     val appVersion = remember { context.appVersion() }
     val appIcon = remember { context.appIcon()?.asImageBitmap() }
 
-    val colorPrimary = MaterialTheme.colorScheme.primaryContainer
-    val colorTertiary = MaterialTheme.colorScheme.tertiaryContainer
+    val colorPrimary = MiuixTheme.colorScheme.primaryContainer
+    val colorTertiary = MiuixTheme.colorScheme.tertiaryContainer
 
     val transition = rememberInfiniteTransition()
     val fraction by transition.animateFloat(
@@ -318,10 +327,10 @@ fun AboutApp(
             Column(
                 modifier = Modifier.weight(1f),
             ) {
-                Text(
+                MiuixText(
                     text = stringResource(id = R.string.app_name),
                     fontSize = 22.sp,
-                    color = MaterialTheme.colorScheme.onSurface,
+                    color = MiuixTheme.colorScheme.onSurface,
                     maxLines = 1,
                     overflow = TextOverflow.Clip,
                 )
@@ -330,10 +339,9 @@ fun AboutApp(
                     horizontalArrangement = Arrangement.spacedBy(4.dp),
                     verticalAlignment = Alignment.CenterVertically,
                 ) {
-                    Text(
+                    MiuixText(
                         text = appVersion,
-                        style = MaterialTheme.typography.titleSmall,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        color = MiuixTheme.colorScheme.onSurfaceVariantSummary,
                         fontSize = 12.sp,
                     )
                 }
@@ -373,13 +381,14 @@ private fun AboutIconButton(
     testTag: String,
     onClick: () -> Unit,
 ) {
-    FilledTonalIconButton(
+    MiuixIconButton(
         modifier = Modifier.testTag(testTag),
         onClick = onClick,
     ) {
-        Icon(
+        MiuixIcon(
             painter = icon,
             contentDescription = contentDescription,
+            tint = MiuixTheme.colorScheme.onBackground,
         )
     }
 }
@@ -391,13 +400,14 @@ private fun AboutIconButton(
     testTag: String,
     onClick: () -> Unit,
 ) {
-    FilledTonalIconButton(
+    MiuixIconButton(
         modifier = Modifier.testTag(testTag),
         onClick = onClick,
     ) {
-        Icon(
+        MiuixIcon(
             imageVector = icon,
             contentDescription = contentDescription,
+            tint = MiuixTheme.colorScheme.onBackground,
         )
     }
 }

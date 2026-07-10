@@ -10,7 +10,12 @@ data class ApplicationPreferences(
     val sortOrder: Sort.Order = Sort.Order.ASCENDING,
     val themeConfig: ThemeConfig = ThemeConfig.SYSTEM,
     val shouldUseDynamicColors: Boolean = true,
+    val themeSeedColor: Long = DEFAULT_THEME_SEED_COLOR,
+    val themePaletteStyle: ThemePaletteStyle = ThemePaletteStyle.TONAL_SPOT,
+    val themeColorSpec: ThemeColorSpec = ThemeColorSpec.SPEC_2025,
     val shouldNavigateHomeOnTitleLongPress: Boolean = false,
+    val shouldUseFloatingNavigationBar: Boolean = false,
+    val shouldBlurFloatingNavigationBar: Boolean = true,
     val shouldPreventScreenshots: Boolean = false,
     val shouldHideInRecents: Boolean = false,
     val shouldMarkLastPlayedMedia: Boolean = true,
@@ -80,6 +85,8 @@ data class ApplicationPreferences(
     )
 
     companion object {
+        // 默认主题色种子，ARGB 打包，紫色 0xFF6750A4
+        const val DEFAULT_THEME_SEED_COLOR = 0xFF6750A4L
         const val DEFAULT_THUMBNAIL_FRAME_POSITION = 0.5f
         const val DEFAULT_MEDIA_LAYOUT_SCALE = 1f
         const val MIN_MEDIA_LAYOUT_SCALE = 0.75f

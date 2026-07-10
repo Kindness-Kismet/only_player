@@ -10,33 +10,15 @@ import androidx.compose.foundation.layout.calculateStartPadding
 import androidx.compose.foundation.layout.displayCutout
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
-import androidx.compose.foundation.layout.navigationBarsPadding
+import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.rememberScrollState
-import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.foundation.verticalScroll
-import androidx.compose.material3.DropdownMenuItem
-import androidx.compose.material3.ExperimentalMaterial3Api
-import androidx.compose.material3.ExperimentalMaterial3ExpressiveApi
-import androidx.compose.material3.ExposedDropdownMenuAnchorType
-import androidx.compose.material3.ExposedDropdownMenuBox
-import androidx.compose.material3.ExposedDropdownMenuDefaults
-import androidx.compose.material3.FilledTonalIconButton
-import androidx.compose.material3.FloatingActionButton
-import androidx.compose.material3.Icon
-import androidx.compose.material3.IconButton
-import androidx.compose.material3.ListItemDefaults
-import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.OutlinedTextField
-import androidx.compose.material3.Scaffold
-import androidx.compose.material3.Surface
-import androidx.compose.material3.Text
-import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
@@ -45,10 +27,10 @@ import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.input.nestedscroll.nestedScroll
 import androidx.compose.ui.platform.LocalLayoutDirection
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.res.stringResource
-import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.text.input.PasswordVisualTransformation
 import androidx.compose.ui.text.style.TextAlign
@@ -61,12 +43,23 @@ import one.only.player.core.model.ServerProtocol
 import one.only.player.core.ui.R
 import one.only.player.core.ui.components.CancelButton
 import one.only.player.core.ui.components.NextDialog
-import one.only.player.core.ui.components.NextSegmentedListItem
-import one.only.player.core.ui.components.NextTopAppBar
 import one.only.player.core.ui.components.PreferenceSwitch
 import one.only.player.core.ui.designsystem.NextIcons
 import one.only.player.core.ui.extensions.copy
 import one.only.player.core.ui.extensions.withBottomFallback
+import top.yukonga.miuix.kmp.basic.ButtonDefaults
+import top.yukonga.miuix.kmp.basic.Card
+import top.yukonga.miuix.kmp.basic.DropdownItem
+import top.yukonga.miuix.kmp.basic.Icon
+import top.yukonga.miuix.kmp.basic.IconButton
+import top.yukonga.miuix.kmp.basic.MiuixScrollBehavior
+import top.yukonga.miuix.kmp.basic.Scaffold
+import top.yukonga.miuix.kmp.basic.Text
+import top.yukonga.miuix.kmp.basic.TextButton
+import top.yukonga.miuix.kmp.basic.TextField
+import top.yukonga.miuix.kmp.basic.TopAppBar
+import top.yukonga.miuix.kmp.preference.WindowSpinnerPreference
+import top.yukonga.miuix.kmp.theme.MiuixTheme
 
 @Composable
 fun CloudHomeRoute(
@@ -84,7 +77,6 @@ fun CloudHomeRoute(
     )
 }
 
-@OptIn(ExperimentalMaterial3Api::class, ExperimentalMaterial3ExpressiveApi::class)
 @Composable
 internal fun CloudHomeScreen(
     uiState: CloudHomeUiState,
@@ -95,73 +87,55 @@ internal fun CloudHomeScreen(
     var shouldShowAddDialog by rememberSaveable { mutableStateOf(false) }
     var editingServer: RemoteServer? by remember { mutableStateOf(null) }
     var deletingServer: RemoteServer? by remember { mutableStateOf(null) }
+    val scrollBehavior = MiuixScrollBehavior()
 
     Scaffold(
         topBar = {
-            NextTopAppBar(
+            TopAppBar(
                 title = stringResource(R.string.cloud_servers),
-                fontWeight = FontWeight.Bold,
-                navigationIcon = {
-                    FilledTonalIconButton(onClick = onNavigateUp) {
+                scrollBehavior = scrollBehavior,
+                actions = {
+                    IconButton(
+                        onClick = { shouldShowAddDialog = true },
+                        modifier = Modifier
+                            .padding(end = 12.dp)
+                            .testTag("btn_cloud_add_server"),
+                    ) {
                         Icon(
-                            imageVector = NextIcons.ArrowBack,
-                            contentDescription = stringResource(id = R.string.navigate_up),
+                            imageVector = NextIcons.Add,
+                            contentDescription = stringResource(R.string.add_server),
+                            tint = MiuixTheme.colorScheme.onBackground,
                         )
                     }
                 },
-                actions = {},
             )
         },
-        floatingActionButton = {
-            FloatingActionButton(
-                onClick = { shouldShowAddDialog = true },
-                modifier = Modifier
-                    .navigationBarsPadding()
-                    .padding(end = 16.dp, bottom = 24.dp)
-                    .testTag("cloud_add_server_fab"),
-            ) {
-                Icon(
-                    imageVector = NextIcons.Add,
-                    contentDescription = stringResource(R.string.add_server),
-                )
-            }
-        },
         contentWindowInsets = WindowInsets.displayCutout,
-        containerColor = MaterialTheme.colorScheme.surfaceContainer,
+        containerColor = MiuixTheme.colorScheme.background,
     ) { innerPadding ->
         Column(
             modifier = Modifier
                 .fillMaxSize()
+                .nestedScroll(scrollBehavior.nestedScrollConnection)
                 .padding(top = innerPadding.calculateTopPadding())
                 .padding(start = innerPadding.calculateStartPadding(LocalLayoutDirection.current)),
         ) {
-            Surface(
-                modifier = Modifier.fillMaxSize(),
-                color = MaterialTheme.colorScheme.background,
-                shape = RoundedCornerShape(topStart = 24.dp, topEnd = 24.dp),
-            ) {
-                val contentPadding = innerPadding.copy(top = 8.dp, start = 0.dp).withBottomFallback()
-                if (uiState.servers.isEmpty()) {
-                    EmptyCloudHomeContent(contentPadding = contentPadding)
-                } else {
-                    LazyColumn(
-                        modifier = Modifier
-                            .fillMaxSize()
-                            .padding(horizontal = 16.dp),
-                        contentPadding = contentPadding,
-                        verticalArrangement = Arrangement.spacedBy(ListItemDefaults.SegmentedGap),
-                    ) {
-                        items(uiState.servers, key = { it.id }) { server ->
-                            val index = uiState.servers.indexOf(server)
-                            ServerListItem(
-                                server = server,
-                                isFirstItem = index == 0,
-                                isLastItem = index == uiState.servers.lastIndex,
-                                onClick = { onServerClick(server.id) },
-                                onEditClick = { editingServer = server },
-                                onDeleteClick = { deletingServer = server },
-                            )
-                        }
+            val contentPadding = innerPadding.copy(top = 8.dp, start = 0.dp).withBottomFallback()
+            if (uiState.servers.isEmpty()) {
+                EmptyCloudHomeContent(contentPadding = contentPadding)
+            } else {
+                LazyColumn(
+                    modifier = Modifier
+                        .fillMaxSize(),
+                    contentPadding = contentPadding,
+                ) {
+                    items(uiState.servers, key = { it.id }) { server ->
+                        ServerListItem(
+                            server = server,
+                            onClick = { onServerClick(server.id) },
+                            onEditClick = { editingServer = server },
+                            onDeleteClick = { deletingServer = server },
+                        )
                     }
                 }
             }
@@ -193,17 +167,20 @@ internal fun CloudHomeScreen(
     deletingServer?.let { server ->
         NextDialog(
             onDismissRequest = { deletingServer = null },
-            title = { Text(stringResource(R.string.delete_server)) },
+            title = stringResource(R.string.delete_server),
             content = {
-                Text(stringResource(R.string.delete_server_confirmation, server.name))
+                Text(text = stringResource(R.string.delete_server_confirmation, server.name))
             },
             confirmButton = {
-                TextButton(onClick = {
-                    onEvent(CloudHomeEvent.DeleteServer(server.id))
-                    deletingServer = null
-                }) {
-                    Text(stringResource(R.string.delete))
-                }
+                TextButton(
+                    modifier = Modifier.testTag("btn_cloud_delete_server_confirm"),
+                    text = stringResource(R.string.delete),
+                    onClick = {
+                        onEvent(CloudHomeEvent.DeleteServer(server.id))
+                        deletingServer = null
+                    },
+                    colors = ButtonDefaults.textButtonColorsPrimary(),
+                )
             },
             dismissButton = { CancelButton(onClick = { deletingServer = null }) },
         )
@@ -229,12 +206,12 @@ private fun EmptyCloudHomeContent(
                 imageVector = NextIcons.Cloud,
                 contentDescription = null,
                 modifier = Modifier.size(48.dp),
-                tint = MaterialTheme.colorScheme.onSurfaceVariant,
+                tint = MiuixTheme.colorScheme.onSurfaceContainer,
             )
             Text(
                 text = stringResource(R.string.no_servers_configured),
-                style = MaterialTheme.typography.bodyLarge,
-                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                style = MiuixTheme.textStyles.body1,
+                color = MiuixTheme.colorScheme.onSurfaceContainer,
                 textAlign = TextAlign.Center,
                 modifier = Modifier.padding(horizontal = 32.dp),
             )
@@ -242,65 +219,77 @@ private fun EmptyCloudHomeContent(
     }
 }
 
-@OptIn(ExperimentalMaterial3ExpressiveApi::class)
 @Composable
 private fun ServerListItem(
     server: RemoteServer,
-    isFirstItem: Boolean,
-    isLastItem: Boolean,
     onClick: () -> Unit,
     onEditClick: () -> Unit,
     onDeleteClick: () -> Unit,
 ) {
-    NextSegmentedListItem(
+    Card(
+        modifier = Modifier
+            .padding(horizontal = 12.dp)
+            .padding(bottom = 12.dp)
+            .testTag("cloud_server_item_${server.id}"),
         onClick = onClick,
-        isFirstItem = isFirstItem,
-        isLastItem = isLastItem,
-        contentPadding = PaddingValues(8.dp),
-        modifier = Modifier.testTag("cloud_server_item_${server.id}"),
-        leadingContent = {
-            Icon(
-                imageVector = NextIcons.Cloud,
-                contentDescription = null,
-                modifier = Modifier.size(24.dp),
-            )
-        },
-        trailingContent = {
+        showIndication = true,
+        insideMargin = PaddingValues(start = 10.dp, end = 16.dp, top = 10.dp, bottom = 10.dp),
+    ) {
+        Row(
+            modifier = Modifier.heightIn(min = 56.dp),
+            verticalAlignment = Alignment.CenterVertically,
+        ) {
+            Box(
+                modifier = Modifier
+                    .padding(end = 10.dp)
+                    .size(40.dp),
+                contentAlignment = Alignment.Center,
+            ) {
+                Icon(
+                    imageVector = NextIcons.Cloud,
+                    contentDescription = null,
+                    tint = MiuixTheme.colorScheme.onSurface,
+                    modifier = Modifier.size(25.dp),
+                )
+            }
+            Column(
+                modifier = Modifier.weight(1f),
+            ) {
+                Text(
+                    text = server.name.ifBlank { server.host },
+                    maxLines = 1,
+                    style = MiuixTheme.textStyles.headline1,
+                    color = MiuixTheme.colorScheme.onSurface,
+                    overflow = TextOverflow.Ellipsis,
+                )
+                Text(
+                    text = "${server.protocol.name} · ${server.host}${server.port?.let { ":$it" } ?: ""}",
+                    maxLines = 1,
+                    style = MiuixTheme.textStyles.body2,
+                    color = MiuixTheme.colorScheme.onSurfaceVariantSummary,
+                    overflow = TextOverflow.Ellipsis,
+                )
+            }
             Row {
                 IconButton(onClick = onEditClick) {
                     Icon(
                         imageVector = NextIcons.Edit,
                         contentDescription = stringResource(R.string.edit_server),
+                        tint = MiuixTheme.colorScheme.onSurface,
                     )
                 }
                 IconButton(onClick = onDeleteClick) {
                     Icon(
                         imageVector = NextIcons.Delete,
                         contentDescription = stringResource(R.string.delete_server),
+                        tint = MiuixTheme.colorScheme.onSurface,
                     )
                 }
             }
-        },
-        supportingContent = {
-            Text(
-                text = "${server.protocol.name} · ${server.host}${server.port?.let { ":$it" } ?: ""}",
-                maxLines = 2,
-                style = MaterialTheme.typography.bodySmall,
-                overflow = TextOverflow.Ellipsis,
-            )
-        },
-        content = {
-            Text(
-                text = server.name.ifBlank { server.host },
-                maxLines = 2,
-                style = MaterialTheme.typography.titleMedium,
-                overflow = TextOverflow.Ellipsis,
-            )
-        },
-    )
+        }
+    }
 }
 
-@OptIn(ExperimentalMaterial3Api::class)
 @Composable
 private fun AddEditServerDialog(
     server: RemoteServer?,
@@ -318,18 +307,13 @@ private fun AddEditServerDialog(
     var isProxyEnabled by rememberSaveable { mutableStateOf(server?.isProxyEnabled ?: false) }
     var proxyHost by rememberSaveable { mutableStateOf(server?.proxyHost ?: "") }
     var proxyPort by rememberSaveable { mutableStateOf(server?.proxyPort?.toString() ?: "") }
-    var isProtocolExpanded by rememberSaveable { mutableStateOf(false) }
+    val protocolItems = remember { ServerProtocol.entries.map { DropdownItem(text = it.name) } }
 
     NextDialog(
         onDismissRequest = onDismiss,
-        title = {
-            Text(
-                text = stringResource(
-                    if (isEditing) R.string.edit_server else R.string.add_server,
-                ),
-                style = MaterialTheme.typography.titleMedium,
-            )
-        },
+        title = stringResource(
+            if (isEditing) R.string.edit_server else R.string.add_server,
+        ),
         content = {
             Column(
                 modifier = Modifier
@@ -337,79 +321,58 @@ private fun AddEditServerDialog(
                     .fillMaxWidth(),
                 verticalArrangement = Arrangement.spacedBy(8.dp),
             ) {
-                ExposedDropdownMenuBox(
-                    expanded = isProtocolExpanded,
-                    onExpandedChange = { isProtocolExpanded = it },
-                ) {
-                    OutlinedTextField(
-                        value = protocol.name,
-                        onValueChange = {},
-                        readOnly = true,
-                        label = { Text(stringResource(R.string.server_protocol)) },
-                        trailingIcon = { ExposedDropdownMenuDefaults.TrailingIcon(expanded = isProtocolExpanded) },
-                        modifier = Modifier
-                            .menuAnchor(type = ExposedDropdownMenuAnchorType.PrimaryNotEditable)
-                            .fillMaxWidth(),
-                    )
-                    ExposedDropdownMenu(
-                        expanded = isProtocolExpanded,
-                        onDismissRequest = { isProtocolExpanded = false },
-                    ) {
-                        ServerProtocol.entries.forEach { proto ->
-                            DropdownMenuItem(
-                                text = { Text(proto.name) },
-                                onClick = {
-                                    protocol = proto
-                                    isProtocolExpanded = false
-                                },
-                            )
-                        }
-                    }
-                }
+                WindowSpinnerPreference(
+                    items = protocolItems,
+                    selectedIndex = ServerProtocol.entries.indexOf(protocol),
+                    title = stringResource(R.string.server_protocol),
+                    dialogButtonString = stringResource(R.string.done),
+                    modifier = Modifier.fillMaxWidth(),
+                    onSelectedIndexChange = { index -> protocol = ServerProtocol.entries[index] },
+                )
 
-                OutlinedTextField(
+                TextField(
                     value = name,
                     onValueChange = { name = it },
-                    label = { Text(stringResource(R.string.server_name)) },
+                    label = stringResource(R.string.server_name),
                     singleLine = true,
                     modifier = Modifier.fillMaxWidth(),
                 )
                 Row(horizontalArrangement = Arrangement.spacedBy(12.dp)) {
-                    OutlinedTextField(
+                    TextField(
                         value = host,
                         onValueChange = { host = it },
-                        label = { Text(stringResource(R.string.server_host)) },
+                        label = stringResource(R.string.server_host),
                         singleLine = true,
                         modifier = Modifier.weight(1f),
                     )
-                    OutlinedTextField(
+                    TextField(
                         value = port,
                         onValueChange = { port = it.filter { c -> c.isDigit() } },
-                        label = { Text(stringResource(R.string.server_port)) },
+                        label = stringResource(R.string.server_port),
                         singleLine = true,
                         keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
                         modifier = Modifier.width(140.dp),
                     )
                 }
-                OutlinedTextField(
+                TextField(
                     value = path,
                     onValueChange = { path = it },
-                    label = { Text(stringResource(R.string.server_path)) },
+                    label = stringResource(R.string.server_path),
                     singleLine = true,
                     modifier = Modifier.fillMaxWidth(),
                 )
                 Row(horizontalArrangement = Arrangement.spacedBy(12.dp)) {
-                    OutlinedTextField(
+                    TextField(
                         value = username,
                         onValueChange = { username = it },
-                        label = { Text(stringResource(R.string.server_username)) },
+                        label = stringResource(R.string.server_username),
                         singleLine = true,
                         modifier = Modifier.weight(1f),
                     )
-                    OutlinedTextField(
+                    TextField(
                         value = password,
                         onValueChange = { password = it },
-                        label = { Text(stringResource(R.string.server_password)) },
+                        label = stringResource(R.string.server_password),
                         singleLine = true,
                         visualTransformation = PasswordVisualTransformation(),
                         modifier = Modifier.weight(1f),
@@ -418,8 +381,8 @@ private fun AddEditServerDialog(
 
                 Text(
                     text = stringResource(R.string.proxy_settings),
-                    style = MaterialTheme.typography.labelLarge,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    style = MiuixTheme.textStyles.title4,
+                    color = MiuixTheme.colorScheme.onSurfaceVariantSummary,
                     modifier = Modifier.padding(start = 12.dp, top = 12.dp, bottom = 4.dp),
                 )
                 PreferenceSwitch(
@@ -433,17 +396,17 @@ private fun AddEditServerDialog(
                 )
                 if (isProxyEnabled) {
                     Row(horizontalArrangement = Arrangement.spacedBy(12.dp)) {
-                        OutlinedTextField(
+                        TextField(
                             value = proxyHost,
                             onValueChange = { proxyHost = it },
-                            label = { Text(stringResource(R.string.proxy_host)) },
+                            label = stringResource(R.string.proxy_host),
                             singleLine = true,
                             modifier = Modifier.weight(1f),
                         )
-                        OutlinedTextField(
+                        TextField(
                             value = proxyPort,
                             onValueChange = { proxyPort = it.filter { c -> c.isDigit() } },
-                            label = { Text(stringResource(R.string.proxy_port)) },
+                            label = stringResource(R.string.proxy_port),
                             singleLine = true,
                             keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
                             modifier = Modifier.width(140.dp),
@@ -454,7 +417,10 @@ private fun AddEditServerDialog(
         },
         confirmButton = {
             TextButton(
+                modifier = Modifier.testTag("btn_cloud_server_save"),
+                text = stringResource(R.string.save),
                 enabled = host.isNotBlank(),
+                colors = ButtonDefaults.textButtonColorsPrimary(),
                 onClick = {
                     val result = RemoteServer(
                         id = server?.id ?: 0,
@@ -471,9 +437,7 @@ private fun AddEditServerDialog(
                     )
                     onSave(result)
                 },
-            ) {
-                Text(stringResource(R.string.save))
-            }
+            )
         },
         dismissButton = { CancelButton(onClick = onDismiss) },
     )

@@ -18,17 +18,7 @@ import androidx.compose.foundation.layout.navigationBarsPadding
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.rememberScrollState
-import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
-import androidx.compose.material3.ButtonDefaults
-import androidx.compose.material3.Card
-import androidx.compose.material3.CardDefaults
-import androidx.compose.material3.ExperimentalMaterial3Api
-import androidx.compose.material3.FilledTonalIconButton
-import androidx.compose.material3.Icon
-import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.Scaffold
-import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
@@ -36,10 +26,13 @@ import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
+import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.drawBehind
 import androidx.compose.ui.geometry.Offset
+import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.text.style.TextOverflow
@@ -51,11 +44,19 @@ import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 import one.only.player.core.common.Logger
 import one.only.player.core.ui.R
-import one.only.player.core.ui.components.NextTopAppBar
+import one.only.player.core.ui.components.SettingsContentTopPadding
 import one.only.player.core.ui.designsystem.NextIcons
 import one.only.player.core.ui.extensions.withBottomFallback
+import top.yukonga.miuix.kmp.basic.Button
+import top.yukonga.miuix.kmp.basic.ButtonDefaults
+import top.yukonga.miuix.kmp.basic.Card
+import top.yukonga.miuix.kmp.basic.Icon
+import top.yukonga.miuix.kmp.basic.IconButton
+import top.yukonga.miuix.kmp.basic.Scaffold
+import top.yukonga.miuix.kmp.basic.Text
+import top.yukonga.miuix.kmp.basic.TopAppBar
+import top.yukonga.miuix.kmp.theme.MiuixTheme
 
-@OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun LogsScreen(
     onNavigateUp: () -> Unit,
@@ -65,6 +66,10 @@ fun LogsScreen(
     var logPreview by remember { mutableStateOf("") }
     var hasLogs by remember { mutableStateOf(false) }
     var isLoading by remember { mutableStateOf(true) }
+    val logsSavedMessage = stringResource(R.string.logs_saved)
+    val logsSaveFailedMessage = stringResource(R.string.logs_save_failed)
+    val logsClearedMessage = stringResource(R.string.logs_cleared)
+    val logsClearFailedMessage = stringResource(R.string.logs_clear_failed)
     val saveLogsLauncher = rememberLauncherForActivityResult(
         contract = ActivityResultContracts.CreateDocument("text/plain"),
     ) { uri ->
@@ -73,7 +78,7 @@ fun LogsScreen(
             val isSaved = context.saveLogsToUri(uri)
             Toast.makeText(
                 context,
-                context.getString(if (isSaved) R.string.logs_saved else R.string.logs_save_failed),
+                if (isSaved) logsSavedMessage else logsSaveFailedMessage,
                 Toast.LENGTH_SHORT,
             ).show()
         }
@@ -88,13 +93,19 @@ fun LogsScreen(
 
     Scaffold(
         topBar = {
-            NextTopAppBar(
+            TopAppBar(
                 title = stringResource(id = R.string.app_logs),
                 navigationIcon = {
-                    FilledTonalIconButton(onClick = onNavigateUp) {
+                    IconButton(
+                        onClick = onNavigateUp,
+                        modifier = Modifier
+                            .padding(start = 12.dp)
+                            .testTag("button_logs_back"),
+                    ) {
                         Icon(
                             imageVector = NextIcons.ArrowBack,
                             contentDescription = stringResource(id = R.string.navigate_up),
+                            tint = MiuixTheme.colorScheme.onBackground,
                         )
                     }
                 },
@@ -116,40 +127,42 @@ fun LogsScreen(
                         }
                         Toast.makeText(
                             context,
-                            context.getString(if (isCleared) R.string.logs_cleared else R.string.logs_clear_failed),
+                            if (isCleared) logsClearedMessage else logsClearFailedMessage,
                             Toast.LENGTH_SHORT,
                         ).show()
                     }
                 },
             )
         },
-        containerColor = MaterialTheme.colorScheme.surfaceContainer,
+        containerColor = MiuixTheme.colorScheme.background,
     ) { innerPadding ->
         Column(
             modifier = Modifier
                 .fillMaxSize()
                 .verticalScroll(rememberScrollState())
                 .padding(innerPadding.withBottomFallback())
-                .padding(16.dp),
+                .padding(top = SettingsContentTopPadding)
+                .padding(start = 16.dp, end = 16.dp, bottom = 16.dp),
             verticalArrangement = Arrangement.spacedBy(8.dp),
         ) {
             Icon(
                 imageVector = NextIcons.BugReport,
                 contentDescription = null,
                 modifier = Modifier.size(48.dp),
-                tint = MaterialTheme.colorScheme.primary,
+                tint = MiuixTheme.colorScheme.primary,
             )
             Text(
                 text = stringResource(R.string.app_logs),
-                style = MaterialTheme.typography.headlineLarge,
+                style = MiuixTheme.textStyles.headline1,
             )
             Text(
                 text = stringResource(R.string.app_logs_description),
-                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                color = MiuixTheme.colorScheme.onSurfaceSecondary,
+                style = MiuixTheme.textStyles.body2,
             )
             Text(
                 text = stringResource(R.string.crash_screen_logcat),
-                style = MaterialTheme.typography.headlineSmall,
+                style = MiuixTheme.textStyles.title3,
             )
             LogsTextContainer(
                 text = when {
@@ -168,17 +181,11 @@ private fun LogsTextContainer(
     text: String,
     modifier: Modifier = Modifier,
 ) {
-    Card(
-        modifier = modifier.fillMaxWidth(),
-        shape = RoundedCornerShape(16.dp),
-        colors = CardDefaults.cardColors(
-            containerColor = MaterialTheme.colorScheme.surface,
-        ),
-    ) {
+    Card(modifier = modifier.fillMaxWidth()) {
         Text(
             text = text,
             fontFamily = FontFamily.Monospace,
-            style = MaterialTheme.typography.labelMedium,
+            style = MiuixTheme.textStyles.footnote1,
             maxLines = LOG_PREVIEW_MAX_LINES,
             overflow = TextOverflow.Ellipsis,
             modifier = Modifier.padding(12.dp),
@@ -193,11 +200,11 @@ private fun LogsBottomBar(
     onSaveLogsClick: () -> Unit,
     onClearLogsClick: () -> Unit,
 ) {
-    val borderColor = MaterialTheme.colorScheme.outlineVariant
+    val borderColor = MiuixTheme.colorScheme.dividerLine
     Row(
         Modifier
             .fillMaxWidth()
-            .background(MaterialTheme.colorScheme.surfaceContainerHigh)
+            .background(MiuixTheme.colorScheme.surface)
             .drawBehind {
                 drawLine(
                     color = borderColor,
@@ -212,22 +219,22 @@ private fun LogsBottomBar(
     ) {
         LogActionButton(
             text = stringResource(R.string.share_logs),
-            icon = { Icon(imageVector = NextIcons.Share, contentDescription = null) },
-            enabled = hasLogs,
+            icon = NextIcons.Share,
+            isEnabled = hasLogs,
             onClick = onShareLogsClick,
             modifier = Modifier.weight(1f),
         )
         LogActionButton(
             text = stringResource(R.string.save_logs),
-            icon = { Icon(imageVector = NextIcons.Save, contentDescription = null) },
-            enabled = hasLogs,
+            icon = NextIcons.Save,
+            isEnabled = hasLogs,
             onClick = onSaveLogsClick,
             modifier = Modifier.weight(1f),
         )
         LogActionButton(
             text = stringResource(R.string.clear_logs),
-            icon = { Icon(imageVector = NextIcons.DeleteSweep, contentDescription = null) },
-            enabled = hasLogs,
+            icon = NextIcons.DeleteSweep,
+            isEnabled = hasLogs,
             onClick = onClearLogsClick,
             modifier = Modifier.weight(1f),
         )
@@ -237,24 +244,33 @@ private fun LogsBottomBar(
 @Composable
 private fun LogActionButton(
     text: String,
-    icon: @Composable () -> Unit,
-    enabled: Boolean,
+    icon: ImageVector,
+    isEnabled: Boolean,
     onClick: () -> Unit,
     modifier: Modifier = Modifier,
 ) {
-    androidx.compose.material3.FilledTonalButton(
+    Button(
         onClick = onClick,
-        enabled = enabled,
+        enabled = isEnabled,
         modifier = modifier.height(48.dp),
-        contentPadding = ButtonDefaults.ButtonWithIconContentPadding,
+        colors = ButtonDefaults.buttonColors(),
     ) {
-        icon()
-        Spacer(Modifier.size(ButtonDefaults.IconSpacing))
-        Text(
-            text = text,
-            maxLines = 1,
-            overflow = TextOverflow.Ellipsis,
-        )
+        Row(
+            verticalAlignment = Alignment.CenterVertically,
+            horizontalArrangement = Arrangement.spacedBy(6.dp),
+        ) {
+            Icon(
+                imageVector = icon,
+                contentDescription = null,
+                modifier = Modifier.size(18.dp),
+            )
+            Text(
+                text = text,
+                maxLines = 1,
+                overflow = TextOverflow.Ellipsis,
+                style = MiuixTheme.textStyles.button,
+            )
+        }
     }
 }
 

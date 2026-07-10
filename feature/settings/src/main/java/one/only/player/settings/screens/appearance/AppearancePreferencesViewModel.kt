@@ -16,7 +16,9 @@ import one.only.player.core.common.AppThemeMode
 import one.only.player.core.common.AppThemeModeManager
 import one.only.player.core.data.repository.PreferencesRepository
 import one.only.player.core.model.ApplicationPreferences
+import one.only.player.core.model.ThemeColorSpec
 import one.only.player.core.model.ThemeConfig
+import one.only.player.core.model.ThemePaletteStyle
 
 @HiltViewModel
 class AppearancePreferencesViewModel @Inject constructor(
@@ -44,8 +46,13 @@ class AppearancePreferencesViewModel @Inject constructor(
             is AppearancePreferencesEvent.ShowDialog -> showDialog(event.value)
             is AppearancePreferencesEvent.UpdateThemeConfig -> updateThemeConfig(event.themeConfig)
             is AppearancePreferencesEvent.UpdateAppLanguage -> updateAppLanguage(event.languageTag)
+            is AppearancePreferencesEvent.UpdateThemeSeedColor -> updateThemeSeedColor(event.color)
+            is AppearancePreferencesEvent.UpdatePaletteStyle -> updatePaletteStyle(event.style)
+            is AppearancePreferencesEvent.UpdateColorSpec -> updateColorSpec(event.spec)
             AppearancePreferencesEvent.ToggleUseDynamicColors -> toggleUseDynamicColors()
             AppearancePreferencesEvent.ToggleNavigateHomeOnTitleLongPress -> toggleNavigateHomeOnTitleLongPress()
+            AppearancePreferencesEvent.ToggleUseFloatingNavigationBar -> toggleUseFloatingNavigationBar()
+            AppearancePreferencesEvent.ToggleBlurFloatingNavigationBar -> toggleBlurFloatingNavigationBar()
         }
     }
 
@@ -76,6 +83,30 @@ class AppearancePreferencesViewModel @Inject constructor(
         }
     }
 
+    private fun updateThemeSeedColor(color: Long) {
+        viewModelScope.launch {
+            preferencesRepository.updateApplicationPreferences {
+                it.copy(themeSeedColor = color)
+            }
+        }
+    }
+
+    private fun updatePaletteStyle(style: ThemePaletteStyle) {
+        viewModelScope.launch {
+            preferencesRepository.updateApplicationPreferences {
+                it.copy(themePaletteStyle = style)
+            }
+        }
+    }
+
+    private fun updateColorSpec(spec: ThemeColorSpec) {
+        viewModelScope.launch {
+            preferencesRepository.updateApplicationPreferences {
+                it.copy(themeColorSpec = spec)
+            }
+        }
+    }
+
     private fun toggleUseDynamicColors() {
         viewModelScope.launch {
             preferencesRepository.updateApplicationPreferences {
@@ -89,6 +120,26 @@ class AppearancePreferencesViewModel @Inject constructor(
             preferencesRepository.updateApplicationPreferences {
                 it.copy(
                     shouldNavigateHomeOnTitleLongPress = !it.shouldNavigateHomeOnTitleLongPress,
+                )
+            }
+        }
+    }
+
+    private fun toggleUseFloatingNavigationBar() {
+        viewModelScope.launch {
+            preferencesRepository.updateApplicationPreferences {
+                it.copy(
+                    shouldUseFloatingNavigationBar = !it.shouldUseFloatingNavigationBar,
+                )
+            }
+        }
+    }
+
+    private fun toggleBlurFloatingNavigationBar() {
+        viewModelScope.launch {
+            preferencesRepository.updateApplicationPreferences {
+                it.copy(
+                    shouldBlurFloatingNavigationBar = !it.shouldBlurFloatingNavigationBar,
                 )
             }
         }
@@ -111,8 +162,13 @@ sealed interface AppearancePreferencesEvent {
     data class ShowDialog(val value: AppearancePreferenceDialog?) : AppearancePreferencesEvent
     data class UpdateThemeConfig(val themeConfig: ThemeConfig) : AppearancePreferencesEvent
     data class UpdateAppLanguage(val languageTag: String) : AppearancePreferencesEvent
+    data class UpdateThemeSeedColor(val color: Long) : AppearancePreferencesEvent
+    data class UpdatePaletteStyle(val style: ThemePaletteStyle) : AppearancePreferencesEvent
+    data class UpdateColorSpec(val spec: ThemeColorSpec) : AppearancePreferencesEvent
     data object ToggleUseDynamicColors : AppearancePreferencesEvent
     data object ToggleNavigateHomeOnTitleLongPress : AppearancePreferencesEvent
+    data object ToggleUseFloatingNavigationBar : AppearancePreferencesEvent
+    data object ToggleBlurFloatingNavigationBar : AppearancePreferencesEvent
 }
 
 sealed interface AppearancePreferenceDialog {

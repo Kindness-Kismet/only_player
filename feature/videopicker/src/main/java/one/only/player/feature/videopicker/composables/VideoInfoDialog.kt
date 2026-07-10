@@ -7,19 +7,20 @@ import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
-import androidx.compose.material3.HorizontalDivider
-import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.Text
-import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.res.stringResource
-import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import one.only.player.core.common.Utils
 import one.only.player.core.model.Video
 import one.only.player.core.ui.R
 import one.only.player.core.ui.components.NextDialog
+import top.yukonga.miuix.kmp.basic.ButtonDefaults
+import top.yukonga.miuix.kmp.basic.HorizontalDivider
+import top.yukonga.miuix.kmp.basic.Text
+import top.yukonga.miuix.kmp.basic.TextButton
+import top.yukonga.miuix.kmp.theme.MiuixTheme
 
 @Composable
 fun VideoInfoDialog(
@@ -28,13 +29,7 @@ fun VideoInfoDialog(
 ) {
     NextDialog(
         onDismissRequest = onDismiss,
-        title = {
-            Text(
-                text = video.displayName,
-                maxLines = 1,
-                overflow = TextOverflow.Ellipsis,
-            )
-        },
+        title = video.displayName,
         content = {
             HorizontalDivider()
             Column(
@@ -150,9 +145,12 @@ fun VideoInfoDialog(
             }
         },
         confirmButton = {
-            TextButton(onClick = onDismiss) {
-                Text(text = stringResource(id = R.string.okay))
-            }
+            TextButton(
+                modifier = Modifier.testTag("btn_video_info_ok"),
+                text = stringResource(id = R.string.okay),
+                onClick = onDismiss,
+                colors = ButtonDefaults.textButtonColorsPrimary(),
+            )
         },
     )
 }
@@ -164,8 +162,8 @@ private fun MediaInfoTitle(
 ) {
     Text(
         text = text,
-        style = MaterialTheme.typography.titleLarge,
-        color = MaterialTheme.colorScheme.onSurface,
+        style = MiuixTheme.textStyles.title3,
+        color = MiuixTheme.colorScheme.onSurface,
         modifier = Modifier.padding(paddingValues),
     )
 }
@@ -177,7 +175,7 @@ private fun MediaInfoText(
     modifier: Modifier = Modifier,
 ) {
     Row(modifier = modifier) {
-        Text(text = "$title: ", style = MaterialTheme.typography.titleSmall)
+        Text(text = "$title: ", style = MiuixTheme.textStyles.title4)
         Text(text = subText)
     }
 }

@@ -1,18 +1,12 @@
 package one.only.player.core.ui.components
 
-import androidx.compose.foundation.layout.Column
-import androidx.compose.foundation.layout.fillMaxWidth
-import androidx.compose.foundation.layout.size
-import androidx.compose.material3.ExperimentalMaterial3ExpressiveApi
-import androidx.compose.material3.Icon
-import androidx.compose.material3.Slider
-import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.vector.ImageVector
-import androidx.compose.ui.unit.dp
+import top.yukonga.miuix.kmp.basic.Surface
+import top.yukonga.miuix.kmp.preference.SliderPreference
+import top.yukonga.miuix.kmp.theme.MiuixTheme
 
-@OptIn(ExperimentalMaterial3ExpressiveApi::class)
 @Composable
 fun PreferenceSlider(
     modifier: Modifier = Modifier,
@@ -30,40 +24,21 @@ fun PreferenceSlider(
     onValueChangeFinished: () -> Unit = {},
     trailingContent: @Composable () -> Unit = {},
 ) {
-    NextSegmentedListItem(
+    Surface(
+        shape = preferenceSegmentShape(isFirstItem, isLastItem),
+        color = MiuixTheme.colorScheme.surfaceContainer,
         modifier = modifier,
-        onClick = {},
-        onLongClick = null,
-        isEnabled = isEnabled,
-        isFirstItem = isFirstItem,
-        isLastItem = isLastItem,
-        leadingContent = icon?.let {
-            {
-                Icon(
-                    imageVector = icon,
-                    contentDescription = null,
-                    modifier = Modifier.size(24.dp),
-                )
-            }
-        },
-        supportingContent = {
-            Column {
-                description?.let {
-                    Text(text = description)
-                }
-                Slider(
-                    modifier = sliderModifier.fillMaxWidth(),
-                    enabled = isSliderEnabled,
-                    value = value,
-                    valueRange = valueRange,
-                    onValueChange = onValueChange,
-                    onValueChangeFinished = onValueChangeFinished,
-                )
-            }
-        },
-        content = {
-            Text(text = title)
-        },
-        trailingContent = trailingContent,
-    )
+    ) {
+        SliderPreference(
+            value = value,
+            onValueChange = onValueChange,
+            title = title,
+            summary = description,
+            startAction = icon?.let { { PreferenceIcon(it, isEnabled) } },
+            endActions = { trailingContent() },
+            enabled = isEnabled && isSliderEnabled,
+            valueRange = valueRange,
+            onValueChangeFinished = onValueChangeFinished,
+        )
+    }
 }

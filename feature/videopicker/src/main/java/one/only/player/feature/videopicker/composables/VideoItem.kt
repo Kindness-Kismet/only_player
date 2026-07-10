@@ -6,7 +6,6 @@ import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.ExperimentalLayoutApi
 import androidx.compose.foundation.layout.FlowRow
-import androidx.compose.foundation.layout.IntrinsicSize
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.aspectRatio
 import androidx.compose.foundation.layout.fillMaxHeight
@@ -16,19 +15,12 @@ import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.shape.CircleShape
-import androidx.compose.material3.ExperimentalMaterial3ExpressiveApi
-import androidx.compose.material3.Icon
-import androidx.compose.material3.ListItemDefaults
-import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.Surface
-import androidx.compose.material3.Text
-import androidx.compose.material3.surfaceColorAtElevation
+import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
-import androidx.compose.ui.graphics.luminance
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.LocalConfiguration
 import androidx.compose.ui.platform.LocalContext
@@ -47,6 +39,10 @@ import one.only.player.core.model.Video
 import one.only.player.core.ui.components.NextSegmentedListItem
 import one.only.player.core.ui.designsystem.NextIcons
 import one.only.player.core.ui.theme.OnlyPlayerTheme
+import top.yukonga.miuix.kmp.basic.Icon
+import top.yukonga.miuix.kmp.basic.Surface
+import top.yukonga.miuix.kmp.basic.Text
+import top.yukonga.miuix.kmp.theme.MiuixTheme
 
 @Composable
 fun VideoItem(
@@ -86,7 +82,7 @@ fun VideoItem(
     }
 }
 
-@OptIn(ExperimentalLayoutApi::class, ExperimentalMaterial3ExpressiveApi::class)
+@OptIn(ExperimentalLayoutApi::class)
 @Composable
 private fun VideoListItem(
     video: Video,
@@ -102,20 +98,8 @@ private fun VideoListItem(
     NextSegmentedListItem(
         modifier = modifier.testTag("item_video_${video.displayName}"),
         isSelected = isSelected,
+        containerColor = Color.Transparent,
         contentPadding = PaddingValues(8.dp),
-        colors = ListItemDefaults.segmentedColors(
-            contentColor = if (isRecentlyPlayedVideo && preferences.shouldMarkLastPlayedMedia) {
-                MaterialTheme.colorScheme.primary
-            } else {
-                ListItemDefaults.segmentedColors().contentColor
-            },
-            supportingContentColor = if (isRecentlyPlayedVideo && preferences.shouldMarkLastPlayedMedia) {
-                MaterialTheme.colorScheme.primary
-            } else {
-                ListItemDefaults.colors().supportingContentColor
-            },
-            selectedContainerColor = selectedMediaContainerColor(),
-        ),
         isFirstItem = isFirstItem,
         isLastItem = isLastItem,
         onClick = onClick,
@@ -132,7 +116,7 @@ private fun VideoListItem(
             Text(
                 text = if (preferences.shouldShowExtensionField) video.nameWithExtension else video.displayName,
                 maxLines = 2,
-                style = MaterialTheme.typography.titleMedium,
+                style = MiuixTheme.textStyles.title4,
                 overflow = TextOverflow.Ellipsis,
             )
         },
@@ -144,7 +128,7 @@ private fun VideoListItem(
                     Text(
                         text = video.path.substringBeforeLast("/"),
                         maxLines = 2,
-                        style = MaterialTheme.typography.bodySmall,
+                        style = MiuixTheme.textStyles.body2,
                         overflow = TextOverflow.Ellipsis,
                     )
                 }
@@ -165,7 +149,6 @@ private fun VideoListItem(
     )
 }
 
-@OptIn(ExperimentalMaterial3ExpressiveApi::class)
 @Composable
 private fun VideoGridItem(
     video: Video,
@@ -180,23 +163,11 @@ private fun VideoGridItem(
 ) {
     NextSegmentedListItem(
         modifier = modifier
-            .width(IntrinsicSize.Min)
+            .fillMaxWidth()
             .testTag("item_video_${video.displayName}"),
         isSelected = isSelected,
+        containerColor = Color.Transparent,
         contentPadding = PaddingValues(8.dp),
-        colors = ListItemDefaults.segmentedColors(
-            contentColor = if (isRecentlyPlayedVideo && preferences.shouldMarkLastPlayedMedia) {
-                MaterialTheme.colorScheme.primary
-            } else {
-                ListItemDefaults.segmentedColors().contentColor
-            },
-            supportingContentColor = if (isRecentlyPlayedVideo && preferences.shouldMarkLastPlayedMedia) {
-                MaterialTheme.colorScheme.primary
-            } else {
-                ListItemDefaults.colors().supportingContentColor
-            },
-            selectedContainerColor = selectedMediaContainerColor(),
-        ),
         isFirstItem = isFirstItem,
         isLastItem = isLastItem,
         onClick = onClick,
@@ -213,25 +184,18 @@ private fun VideoGridItem(
                 Text(
                     text = if (preferences.shouldShowExtensionField) video.nameWithExtension else video.displayName,
                     maxLines = 2,
-                    style = MaterialTheme.typography.titleMedium,
+                    style = MiuixTheme.textStyles.title4,
                     overflow = TextOverflow.Ellipsis,
                     textAlign = TextAlign.Center,
                     color = if (isRecentlyPlayedVideo && preferences.shouldMarkLastPlayedMedia) {
-                        MaterialTheme.colorScheme.primary
+                        MiuixTheme.colorScheme.primary
                     } else {
-                        ListItemDefaults.colors().contentColor
+                        MiuixTheme.colorScheme.onSurface
                     },
                 )
             }
         },
     )
-}
-
-@Composable
-private fun selectedMediaContainerColor(): Color = if (MaterialTheme.colorScheme.background.luminance() < 0.5f) {
-    Color(0xFFFFFFFF).copy(alpha = 0.20f)
-} else {
-    Color(0xFF212121).copy(alpha = 0.30f)
 }
 
 @Composable
@@ -243,14 +207,14 @@ private fun ThumbnailView(
     val context = LocalContext.current
     Box(
         modifier = modifier
-            .clip(MaterialTheme.shapes.small)
-            .background(MaterialTheme.colorScheme.surfaceColorAtElevation(1.dp))
+            .clip(RoundedCornerShape(8.dp))
+            .background(MiuixTheme.colorScheme.surfaceContainerHigh)
             .aspectRatio(16f / 10f),
     ) {
         Icon(
             imageVector = NextIcons.Video,
             contentDescription = null,
-            tint = MaterialTheme.colorScheme.surfaceColorAtElevation(100.dp),
+            tint = MiuixTheme.colorScheme.onSurfaceContainerVariant,
             modifier = Modifier
                 .align(Alignment.Center)
                 .fillMaxSize(0.5f),
@@ -275,7 +239,7 @@ private fun ThumbnailView(
                     .align(Alignment.BottomEnd),
                 backgroundColor = Color.Black.copy(alpha = 0.6f),
                 contentColor = Color.White,
-                shape = MaterialTheme.shapes.extraSmall,
+                shape = RoundedCornerShape(4.dp),
             )
         }
 
@@ -289,14 +253,14 @@ private fun ThumbnailView(
                 Box(
                     modifier = Modifier
                         .fillMaxSize()
-                        .background(MaterialTheme.colorScheme.secondaryContainer),
+                        .background(MiuixTheme.colorScheme.secondaryContainer),
                 )
                 Box(
                     modifier = Modifier
                         .fillMaxWidth(video.playedPercentage)
                         .fillMaxHeight()
                         .clip(CircleShape)
-                        .background(MaterialTheme.colorScheme.primary),
+                        .background(MiuixTheme.colorScheme.primary),
                 )
             }
         }

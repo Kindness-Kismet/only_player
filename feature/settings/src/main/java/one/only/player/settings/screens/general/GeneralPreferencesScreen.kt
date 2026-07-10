@@ -7,19 +7,9 @@ import androidx.activity.result.contract.ActivityResultContracts.OpenDocument
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.fillMaxSize
-import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
-import androidx.compose.material3.ExperimentalMaterial3Api
-import androidx.compose.material3.ExperimentalMaterial3ExpressiveApi
-import androidx.compose.material3.FilledTonalIconButton
-import androidx.compose.material3.Icon
-import androidx.compose.material3.ListItemDefaults
-import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.Scaffold
-import androidx.compose.material3.Text
-import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
@@ -33,11 +23,19 @@ import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import one.only.player.core.ui.R
 import one.only.player.core.ui.components.CancelButton
 import one.only.player.core.ui.components.ClickablePreferenceItem
-import one.only.player.core.ui.components.ListSectionTitle
 import one.only.player.core.ui.components.NextDialog
-import one.only.player.core.ui.components.NextTopAppBar
+import one.only.player.core.ui.components.SegmentedItemGap
+import one.only.player.core.ui.components.SettingsContentTopPadding
 import one.only.player.core.ui.designsystem.NextIcons
 import one.only.player.core.ui.extensions.withBottomFallback
+import top.yukonga.miuix.kmp.basic.ButtonDefaults
+import top.yukonga.miuix.kmp.basic.Icon as MiuixIcon
+import top.yukonga.miuix.kmp.basic.IconButton as MiuixIconButton
+import top.yukonga.miuix.kmp.basic.Scaffold
+import top.yukonga.miuix.kmp.basic.Text
+import top.yukonga.miuix.kmp.basic.TextButton
+import top.yukonga.miuix.kmp.basic.TopAppBar
+import top.yukonga.miuix.kmp.theme.MiuixTheme
 
 @Composable
 fun GeneralPreferencesScreen(
@@ -53,7 +51,6 @@ fun GeneralPreferencesScreen(
     )
 }
 
-@OptIn(ExperimentalMaterial3Api::class, ExperimentalMaterial3ExpressiveApi::class)
 @Composable
 private fun GeneralPreferencesContent(
     uiState: GeneralPreferencesUiState,
@@ -61,6 +58,11 @@ private fun GeneralPreferencesContent(
     onNavigateUp: () -> Unit,
 ) {
     val context = LocalContext.current
+    val backupFileName = stringResource(R.string.settings_backup_file_name)
+    val backupSucceededMessage = stringResource(R.string.backup_settings_success)
+    val backupFailedMessage = stringResource(R.string.backup_settings_failed)
+    val restoreSucceededMessage = stringResource(R.string.restore_settings_success)
+    val restoreFailedMessage = stringResource(R.string.restore_settings_failed)
     val createBackupLauncher = rememberLauncherForActivityResult(
         contract = CreateDocument("application/json"),
     ) { uri ->
@@ -75,7 +77,7 @@ private fun GeneralPreferencesContent(
     LaunchedEffect(uiState.pendingAction) {
         when (uiState.pendingAction) {
             GeneralPreferencesPendingAction.BackupSettings -> {
-                createBackupLauncher.launch(context.getString(R.string.settings_backup_file_name))
+                createBackupLauncher.launch(backupFileName)
             }
             GeneralPreferencesPendingAction.RestoreSettings -> {
                 restoreBackupLauncher.launch(arrayOf("application/json"))
@@ -86,10 +88,10 @@ private fun GeneralPreferencesContent(
 
     LaunchedEffect(uiState.resultMessage) {
         val message = when (uiState.resultMessage) {
-            GeneralPreferencesResultMessage.BackupSucceeded -> context.getString(R.string.backup_settings_success)
-            GeneralPreferencesResultMessage.BackupFailed -> context.getString(R.string.backup_settings_failed)
-            GeneralPreferencesResultMessage.RestoreSucceeded -> context.getString(R.string.restore_settings_success)
-            GeneralPreferencesResultMessage.RestoreFailed -> context.getString(R.string.restore_settings_failed)
+            GeneralPreferencesResultMessage.BackupSucceeded -> backupSucceededMessage
+            GeneralPreferencesResultMessage.BackupFailed -> backupFailedMessage
+            GeneralPreferencesResultMessage.RestoreSucceeded -> restoreSucceededMessage
+            GeneralPreferencesResultMessage.RestoreFailed -> restoreFailedMessage
             null -> null
         } ?: return@LaunchedEffect
 
@@ -99,30 +101,36 @@ private fun GeneralPreferencesContent(
 
     Scaffold(
         topBar = {
-            NextTopAppBar(
+            TopAppBar(
                 title = stringResource(id = R.string.general_name),
                 navigationIcon = {
-                    FilledTonalIconButton(onClick = onNavigateUp) {
-                        Icon(
+                    MiuixIconButton(
+                        onClick = onNavigateUp,
+                        modifier = Modifier
+                            .padding(start = 12.dp)
+                            .testTag("button_general_back"),
+                    ) {
+                        MiuixIcon(
                             imageVector = NextIcons.ArrowBack,
                             contentDescription = stringResource(id = R.string.navigate_up),
+                            tint = MiuixTheme.colorScheme.onBackground,
                         )
                     }
                 },
             )
         },
-        containerColor = MaterialTheme.colorScheme.surfaceContainer,
+        containerColor = MiuixTheme.colorScheme.background,
     ) { innerPadding ->
         Column(
             modifier = Modifier
                 .fillMaxSize()
                 .verticalScroll(state = rememberScrollState())
                 .padding(innerPadding.withBottomFallback())
+                .padding(top = SettingsContentTopPadding)
                 .padding(horizontal = 16.dp),
         ) {
-            ListSectionTitle(text = stringResource(id = R.string.user_data))
             Column(
-                verticalArrangement = Arrangement.spacedBy(ListItemDefaults.SegmentedGap),
+                verticalArrangement = Arrangement.spacedBy(SegmentedItemGap),
             ) {
                 ClickablePreferenceItem(
                     modifier = Modifier.testTag("item_settings_general_backup_settings"),
@@ -162,28 +170,23 @@ private fun GeneralPreferencesContent(
                 GeneralPreferencesDialog.ClearVideoCacheDialog -> {
                     NextDialog(
                         onDismissRequest = { onEvent(GeneralPreferencesUiEvent.ShowDialog(null)) },
-                        title = {
-                            Text(
-                                text = stringResource(R.string.delete_video_cache),
-                                modifier = Modifier.fillMaxWidth(),
-                            )
-                        },
+                        title = stringResource(R.string.delete_video_cache),
                         confirmButton = {
                             TextButton(
+                                text = stringResource(R.string.delete),
                                 modifier = Modifier.testTag("btn_confirm_settings_general_clear_video_cache"),
+                                colors = ButtonDefaults.textButtonColorsPrimary(),
                                 onClick = {
                                     onEvent(GeneralPreferencesUiEvent.ClearVideoCache)
                                     onEvent(GeneralPreferencesUiEvent.ShowDialog(null))
                                 },
-                            ) {
-                                Text(text = stringResource(R.string.delete))
-                            }
+                            )
                         },
                         dismissButton = { CancelButton(onClick = { onEvent(GeneralPreferencesUiEvent.ShowDialog(null)) }) },
                         content = {
                             Text(
                                 text = stringResource(R.string.delete_video_cache_confirmation),
-                                style = MaterialTheme.typography.titleSmall,
+                                style = MiuixTheme.textStyles.body1,
                             )
                         },
                     )
@@ -191,28 +194,23 @@ private fun GeneralPreferencesContent(
                 GeneralPreferencesDialog.ResetSettingsDialog -> {
                     NextDialog(
                         onDismissRequest = { onEvent(GeneralPreferencesUiEvent.ShowDialog(null)) },
-                        title = {
-                            Text(
-                                text = stringResource(R.string.reset_settings),
-                                modifier = Modifier.fillMaxWidth(),
-                            )
-                        },
+                        title = stringResource(R.string.reset_settings),
                         confirmButton = {
                             TextButton(
+                                text = stringResource(R.string.reset),
                                 modifier = Modifier.testTag("btn_confirm_settings_general_reset_settings"),
+                                colors = ButtonDefaults.textButtonColorsPrimary(),
                                 onClick = {
                                     onEvent(GeneralPreferencesUiEvent.ResetSettings)
                                     onEvent(GeneralPreferencesUiEvent.ShowDialog(null))
                                 },
-                            ) {
-                                Text(text = stringResource(R.string.reset))
-                            }
+                            )
                         },
                         dismissButton = { CancelButton(onClick = { onEvent(GeneralPreferencesUiEvent.ShowDialog(null)) }) },
                         content = {
                             Text(
                                 text = stringResource(R.string.reset_settings_confirmation),
-                                style = MaterialTheme.typography.titleSmall,
+                                style = MiuixTheme.textStyles.body1,
                             )
                         },
                     )

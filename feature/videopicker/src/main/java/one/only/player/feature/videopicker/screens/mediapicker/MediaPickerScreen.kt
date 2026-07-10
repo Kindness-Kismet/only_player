@@ -5,40 +5,30 @@ import android.widget.Toast
 import androidx.activity.compose.BackHandler
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
-import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
+import androidx.compose.foundation.gestures.detectTapGestures
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.RowScope
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.WindowInsets
+import androidx.compose.foundation.layout.WindowInsetsSides
 import androidx.compose.foundation.layout.calculateStartPadding
 import androidx.compose.foundation.layout.displayCutout
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.navigationBars
+import androidx.compose.foundation.layout.only
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.layout.systemBars
+import androidx.compose.foundation.layout.windowInsetsPadding
 import androidx.compose.foundation.lazy.grid.rememberLazyGridState
 import androidx.compose.foundation.shape.CircleShape
-import androidx.compose.foundation.shape.RoundedCornerShape
-import androidx.compose.material3.CircularProgressIndicator
-import androidx.compose.material3.DropdownMenu
-import androidx.compose.material3.ExperimentalMaterial3Api
-import androidx.compose.material3.ExperimentalMaterial3ExpressiveApi
-import androidx.compose.material3.FilledTonalIconButton
-import androidx.compose.material3.HorizontalDivider
-import androidx.compose.material3.Icon
-import androidx.compose.material3.IconButton
-import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.OutlinedTextField
-import androidx.compose.material3.Scaffold
-import androidx.compose.material3.Surface
-import androidx.compose.material3.Text
-import androidx.compose.material3.TextButton
-import androidx.compose.material3.pulltorefresh.PullToRefreshBox
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
@@ -48,15 +38,18 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalLayoutDirection
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.tooling.preview.PreviewLightDark
 import androidx.compose.ui.tooling.preview.PreviewParameter
 import androidx.compose.ui.tooling.preview.PreviewScreenSizes
+import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import androidx.core.net.toUri
 import androidx.hilt.lifecycle.viewmodel.compose.hiltViewModel
@@ -75,7 +68,6 @@ import one.only.player.core.ui.base.DataState
 import one.only.player.core.ui.components.CancelButton
 import one.only.player.core.ui.components.DoneButton
 import one.only.player.core.ui.components.NextDialog
-import one.only.player.core.ui.components.NextTopAppBar
 import one.only.player.core.ui.composables.PermissionMissingView
 import one.only.player.core.ui.composables.rememberRuntimePermissionState
 import one.only.player.core.ui.designsystem.NextIcons
@@ -88,13 +80,30 @@ import one.only.player.feature.videopicker.composables.MediaView
 import one.only.player.feature.videopicker.composables.NoVideosFound
 import one.only.player.feature.videopicker.composables.QuickSettingsDialog
 import one.only.player.feature.videopicker.composables.RenameDialog
-import one.only.player.feature.videopicker.composables.SelectionMenuItem
 import one.only.player.feature.videopicker.composables.TextIconToggleButton
 import one.only.player.feature.videopicker.composables.VideoInfoDialog
 import one.only.player.feature.videopicker.navigation.MediaPickerScreenMode
 import one.only.player.feature.videopicker.state.SelectedFolder
 import one.only.player.feature.videopicker.state.SelectedVideo
 import one.only.player.feature.videopicker.state.rememberSelectionManager
+import top.yukonga.miuix.kmp.basic.ButtonDefaults
+import top.yukonga.miuix.kmp.basic.CircularProgressIndicator
+import top.yukonga.miuix.kmp.basic.HorizontalDivider
+import top.yukonga.miuix.kmp.basic.Icon
+import top.yukonga.miuix.kmp.basic.IconButton
+import top.yukonga.miuix.kmp.basic.ListPopupColumn
+import top.yukonga.miuix.kmp.basic.ListPopupDefaults
+import top.yukonga.miuix.kmp.basic.PopupPositionProvider
+import top.yukonga.miuix.kmp.basic.PullToRefresh
+import top.yukonga.miuix.kmp.basic.Scaffold
+import top.yukonga.miuix.kmp.basic.Surface
+import top.yukonga.miuix.kmp.basic.Text
+import top.yukonga.miuix.kmp.basic.TextButton
+import top.yukonga.miuix.kmp.basic.TextField
+import top.yukonga.miuix.kmp.basic.TopAppBar
+import top.yukonga.miuix.kmp.basic.TopAppBarDefaults
+import top.yukonga.miuix.kmp.overlay.OverlayListPopup
+import top.yukonga.miuix.kmp.theme.MiuixTheme
 
 @Composable
 fun MediaPickerRoute(
@@ -140,7 +149,6 @@ internal fun shouldEnableTitleLongPressHomeNavigation(
     return shouldNavigateHomeOnTitleLongPress
 }
 
-@OptIn(ExperimentalMaterial3Api::class, ExperimentalMaterial3ExpressiveApi::class)
 @Composable
 internal fun MediaPickerScreen(
     uiState: MediaPickerUiState,
@@ -223,50 +231,60 @@ internal fun MediaPickerScreen(
     }
     val moveProgress = uiState.moveProgress
 
+    val topBarTitle = when {
+        selectionManager.isInSelectionMode -> ""
+        isMoveMode -> stringResource(R.string.move_here)
+        else -> uiState.folderName ?: stringResource(
+            if (isRecycleBinMode) R.string.recycle_bin else R.string.app_name,
+        )
+    }
+    val shouldUseLargeTopBar = !selectionManager.isInSelectionMode &&
+        !isMoveMode &&
+        isLibraryMode &&
+        uiState.folderName == null
+
     Scaffold(
         topBar = {
-            NextTopAppBar(
-                title = (
-                    uiState.folderName ?: stringResource(
-                        if (isRecycleBinMode) {
-                            R.string.recycle_bin
-                        } else {
-                            R.string.app_name
-                        },
-                    )
-                    ).takeIf { !selectionManager.isInSelectionMode } ?: "",
-                fontWeight = FontWeight.Bold.takeIf { uiState.folderName == null },
-                onTitleLongClick = if (isTitleLongPressHomeNavigationEnabled) {
-                    { onNavigateHome() }
-                } else {
-                    null
-                },
+            MediaPickerTopAppBar(
+                title = topBarTitle,
+                shouldUseLargeTitle = shouldUseLargeTopBar,
+                largeTitlePadding = TopAppBarDefaults.TitlePadding,
+                smallTitlePadding = 16.dp,
+                isTitleLongPressHomeNavigationEnabled = isTitleLongPressHomeNavigationEnabled,
+                onTitleLongPress = onNavigateHome,
                 navigationIcon = {
                     if (selectionManager.isInSelectionMode) {
                         Row(
                             modifier = Modifier
+                                .padding(start = 12.dp)
                                 .clip(CircleShape)
-                                .background(MaterialTheme.colorScheme.secondaryContainer)
                                 .clickable { selectionManager.exitSelectionMode() }
-                                .padding(8.dp)
-                                .padding(end = 8.dp),
+                                .padding(horizontal = 12.dp, vertical = 6.dp)
+                                .testTag("btn_selection_exit"),
                             verticalAlignment = Alignment.CenterVertically,
-                            horizontalArrangement = Arrangement.spacedBy(8.dp),
+                            horizontalArrangement = Arrangement.spacedBy(6.dp),
                         ) {
                             Icon(
                                 imageVector = NextIcons.Close,
                                 contentDescription = stringResource(id = R.string.navigate_up),
+                                tint = MiuixTheme.colorScheme.onBackground,
                             )
                             Text(
                                 text = stringResource(R.string.m_n_selected, selectedItemsSize, totalItemsSize),
-                                style = MaterialTheme.typography.labelLarge,
+                                color = MiuixTheme.colorScheme.onBackground,
                             )
                         }
                     } else if (uiState.folderName != null || isRecycleBinMode) {
-                        FilledTonalIconButton(onClick = onNavigateUp) {
+                        IconButton(
+                            onClick = onNavigateUp,
+                            modifier = Modifier
+                                .padding(start = 12.dp)
+                                .testTag("btn_media_picker_back"),
+                        ) {
                             Icon(
                                 imageVector = NextIcons.ArrowBack,
                                 contentDescription = stringResource(id = R.string.navigate_up),
+                                tint = MiuixTheme.colorScheme.onBackground,
                             )
                         }
                     }
@@ -274,6 +292,9 @@ internal fun MediaPickerScreen(
                 actions = {
                     if (isMoveMode) {
                         TextButton(
+                            text = stringResource(
+                                if (uiState.isMovingSelection) R.string.moving else R.string.move_here,
+                            ),
                             onClick = {
                                 uiState.folderPath?.let { folderPath ->
                                     onEvent(MediaPickerUiEvent.MoveSelectionToFolder(folderPath))
@@ -281,25 +302,22 @@ internal fun MediaPickerScreen(
                             },
                             enabled = canMoveToCurrentFolder && !uiState.isMovingSelection,
                             modifier = Modifier.testTag("btn_move_here"),
-                        ) {
-                            Text(
-                                text = stringResource(
-                                    if (uiState.isMovingSelection) R.string.moving else R.string.move_here,
-                                ),
-                            )
-                        }
-                        FilledTonalIconButton(
+                        )
+                        IconButton(
                             onClick = { onEvent(MediaPickerUiEvent.CancelMoveSelection) },
                             enabled = !uiState.isMovingSelection,
-                            modifier = Modifier.testTag("btn_cancel_move"),
+                            modifier = Modifier
+                                .padding(end = 12.dp)
+                                .testTag("btn_cancel_move"),
                         ) {
                             Icon(
                                 imageVector = NextIcons.Close,
                                 contentDescription = stringResource(id = R.string.cancel),
+                                tint = MiuixTheme.colorScheme.onBackground,
                             )
                         }
                     } else if (selectionManager.isInSelectionMode) {
-                        FilledTonalIconButton(
+                        IconButton(
                             onClick = {
                                 if (selectedItemsSize != totalItemsSize) {
                                     (uiState.mediaDataState as? DataState.Success)?.value?.let { folder ->
@@ -310,6 +328,7 @@ internal fun MediaPickerScreen(
                                     selectionManager.clearSelection()
                                 }
                             },
+                            modifier = Modifier.testTag("btn_selection_toggle_all"),
                         ) {
                             Icon(
                                 imageVector = if (selectedItemsSize != totalItemsSize) {
@@ -322,16 +341,21 @@ internal fun MediaPickerScreen(
                                 } else {
                                     stringResource(R.string.deselect_all)
                                 },
+                                tint = MiuixTheme.colorScheme.onBackground,
                             )
                         }
                         Box {
-                            FilledTonalIconButton(
+                            IconButton(
                                 onClick = { shouldShowSelectionMenu = true },
-                                modifier = Modifier.testTag("btn_selection_actions"),
+                                holdDownState = shouldShowSelectionMenu,
+                                modifier = Modifier
+                                    .padding(end = 12.dp)
+                                    .testTag("btn_selection_actions"),
                             ) {
                                 Icon(
                                     imageVector = NextIcons.Menu,
                                     contentDescription = stringResource(id = R.string.menu),
+                                    tint = MiuixTheme.colorScheme.onBackground,
                                 )
                             }
                             SelectionActionsMenu(
@@ -404,17 +428,25 @@ internal fun MediaPickerScreen(
                         }
                     } else {
                         if (isLibraryMode) {
-                            IconButton(onClick = onSearchClick) {
+                            IconButton(
+                                onClick = onSearchClick,
+                                modifier = Modifier.testTag("btn_media_picker_search"),
+                            ) {
                                 Icon(
                                     imageVector = NextIcons.Search,
                                     contentDescription = stringResource(id = R.string.search),
+                                    tint = MiuixTheme.colorScheme.onBackground,
                                 )
                             }
                             if (shouldShowRecycleBinEntry) {
-                                IconButton(onClick = onRecycleBinClick) {
+                                IconButton(
+                                    onClick = onRecycleBinClick,
+                                    modifier = Modifier.testTag("btn_media_picker_recycle_bin"),
+                                ) {
                                     Icon(
                                         imageVector = NextIcons.DeleteSweep,
                                         contentDescription = stringResource(id = R.string.recycle_bin),
+                                        tint = MiuixTheme.colorScheme.onBackground,
                                     )
                                 }
                             }
@@ -425,107 +457,45 @@ internal fun MediaPickerScreen(
                                 Icon(
                                     imageVector = NextIcons.DashBoard,
                                     contentDescription = stringResource(id = R.string.quick_settings),
+                                    tint = MiuixTheme.colorScheme.onBackground,
                                 )
                             }
                             Box {
                                 IconButton(
                                     onClick = { shouldShowMainMenu = true },
-                                    modifier = Modifier.testTag("btn_main_menu"),
+                                    holdDownState = shouldShowMainMenu,
+                                    modifier = Modifier
+                                        .padding(end = 12.dp)
+                                        .testTag("btn_main_menu"),
                                 ) {
                                     Icon(
                                         imageVector = NextIcons.ExpandMore,
                                         contentDescription = stringResource(id = R.string.menu),
+                                        tint = MiuixTheme.colorScheme.onBackground,
                                     )
                                 }
-                                DropdownMenu(
+                                MainMenuPopup(
                                     expanded = shouldShowMainMenu,
                                     onDismissRequest = { shouldShowMainMenu = false },
-                                    modifier = Modifier.testTag("menu_main_actions"),
-                                    shape = RoundedCornerShape(10.dp),
-                                    containerColor = MaterialTheme.colorScheme.surface,
-                                    tonalElevation = 0.dp,
-                                    shadowElevation = 0.dp,
-                                    border = BorderStroke(
-                                        width = 1.dp,
-                                        color = MaterialTheme.colorScheme.outline.copy(alpha = 0.15f),
-                                    ),
-                                ) {
-                                    SelectionMenuItem(
-                                        text = stringResource(id = R.string.open_network_stream),
-                                        icon = NextIcons.Link,
-                                        testTag = "item_main_menu_network_stream",
-                                        onClick = {
+                                    onOpenNetworkStream = {
+                                        shouldShowMainMenu = false
+                                        shouldShowUrlDialog = true
+                                    },
+                                    onOpenLocalVideo = {
+                                        shouldShowMainMenu = false
+                                        selectVideoFileLauncher.launch("video/*")
+                                    },
+                                    onOpenRecentlyPlayed = recentlyPlayedVideo?.let { video ->
+                                        {
                                             shouldShowMainMenu = false
-                                            shouldShowUrlDialog = true
-                                        },
-                                    )
-                                    SelectionMenuItem(
-                                        text = stringResource(id = R.string.open_local_video),
-                                        icon = NextIcons.FileOpen,
-                                        testTag = "item_main_menu_local_video",
-                                        onClick = {
-                                            shouldShowMainMenu = false
-                                            selectVideoFileLauncher.launch("video/*")
-                                        },
-                                    )
-                                    recentlyPlayedVideo?.let { video ->
-                                        SelectionMenuItem(
-                                            text = stringResource(id = R.string.recently_played),
-                                            icon = NextIcons.History,
-                                            testTag = "item_main_menu_recently_played",
-                                            onClick = {
-                                                shouldShowMainMenu = false
-                                                onPlayVideo(video, uiState.playerPreferences)
-                                            },
-                                        )
-                                    }
-                                    HorizontalDivider(
-                                        modifier = Modifier.padding(horizontal = 14.dp, vertical = 2.dp),
-                                        thickness = 1.dp,
-                                        color = MaterialTheme.colorScheme.outline.copy(alpha = 0.16f),
-                                    )
-                                    SelectionMenuItem(
-                                        text = stringResource(id = R.string.favorites),
-                                        icon = NextIcons.LibraryBooks,
-                                        testTag = "item_main_menu_favorites",
-                                        onClick = {
-                                            shouldShowMainMenu = false
-                                            onFavoritesClick()
-                                        },
-                                    )
-                                    SelectionMenuItem(
-                                        text = stringResource(id = R.string.cloud_servers),
-                                        icon = NextIcons.Cloud,
-                                        testTag = "item_main_menu_cloud",
-                                        onClick = {
-                                            shouldShowMainMenu = false
-                                            onCloudClick()
-                                        },
-                                    )
-                                    SelectionMenuItem(
-                                        text = stringResource(id = R.string.settings),
-                                        icon = NextIcons.Settings,
-                                        testTag = "item_main_menu_settings",
-                                        onClick = {
-                                            shouldShowMainMenu = false
-                                            onSettingsClick()
-                                        },
-                                    )
-                                    HorizontalDivider(
-                                        modifier = Modifier.padding(horizontal = 14.dp, vertical = 2.dp),
-                                        thickness = 1.dp,
-                                        color = MaterialTheme.colorScheme.outline.copy(alpha = 0.16f),
-                                    )
-                                    SelectionMenuItem(
-                                        text = stringResource(id = R.string.exit),
-                                        icon = NextIcons.Close,
-                                        testTag = "item_main_menu_exit_app",
-                                        onClick = {
-                                            shouldShowMainMenu = false
-                                            onExitAppClick()
-                                        },
-                                    )
-                                }
+                                            onPlayVideo(video, uiState.playerPreferences)
+                                        }
+                                    },
+                                    onExit = {
+                                        shouldShowMainMenu = false
+                                        onExitAppClick()
+                                    },
+                                )
                             }
                         }
                     }
@@ -533,7 +503,7 @@ internal fun MediaPickerScreen(
             )
         },
         contentWindowInsets = WindowInsets.displayCutout,
-        containerColor = MaterialTheme.colorScheme.surfaceContainer,
+        containerColor = MiuixTheme.colorScheme.background,
     ) { scaffoldPadding ->
         Column(
             modifier = Modifier
@@ -544,8 +514,7 @@ internal fun MediaPickerScreen(
             Box(
                 modifier = Modifier
                     .fillMaxSize()
-                    .clip(RoundedCornerShape(topStart = 24.dp, topEnd = 24.dp))
-                    .background(MaterialTheme.colorScheme.background),
+                    .background(MiuixTheme.colorScheme.background),
             ) {
                 PermissionMissingView(
                     isGranted = permissionState.isGranted,
@@ -555,7 +524,7 @@ internal fun MediaPickerScreen(
                 ) {
                     val shouldShowRefreshIndicator = uiState.isRefreshing || uiState.mediaDataState is DataState.Loading
                     val updatedScaffoldPadding = scaffoldPadding.copy(top = 0.dp, start = 0.dp).withBottomFallback()
-                    PullToRefreshBox(
+                    PullToRefresh(
                         modifier = Modifier.fillMaxSize(),
                         isRefreshing = shouldShowRefreshIndicator,
                         onRefresh = { onEvent(MediaPickerUiEvent.Refresh) },
@@ -566,14 +535,14 @@ internal fun MediaPickerScreen(
                             }
 
                             is DataState.Error -> {
-                                Surface(
-                                    modifier = Modifier.fillMaxSize(),
-                                    color = MaterialTheme.colorScheme.background,
+                                Box(
+                                    modifier = Modifier
+                                        .fillMaxSize()
+                                        .background(MiuixTheme.colorScheme.background),
                                 ) {
                                     Text(
                                         text = stringResource(id = R.string.unknown_error),
                                         modifier = Modifier.padding(16.dp),
-                                        style = MaterialTheme.typography.bodyMedium,
                                     )
                                 }
                             }
@@ -743,21 +712,111 @@ internal fun MediaPickerScreen(
     }
 }
 
-@OptIn(ExperimentalMaterial3ExpressiveApi::class)
+@Composable
+private fun MediaPickerTopAppBar(
+    title: String,
+    shouldUseLargeTitle: Boolean,
+    largeTitlePadding: Dp,
+    smallTitlePadding: Dp,
+    isTitleLongPressHomeNavigationEnabled: Boolean,
+    onTitleLongPress: () -> Unit,
+    navigationIcon: @Composable () -> Unit,
+    actions: @Composable RowScope.() -> Unit,
+) {
+    if (shouldUseLargeTitle) {
+        TopAppBar(
+            title = title,
+            titlePadding = largeTitlePadding,
+            navigationIcon = navigationIcon,
+            actions = actions,
+        )
+        return
+    }
+
+    MediaPickerSmallTitleTopAppBar(
+        title = title,
+        titlePadding = smallTitlePadding,
+        isTitleLongPressHomeNavigationEnabled = isTitleLongPressHomeNavigationEnabled,
+        onTitleLongPress = onTitleLongPress,
+        navigationIcon = navigationIcon,
+        actions = actions,
+    )
+}
+
+@Composable
+private fun MediaPickerSmallTitleTopAppBar(
+    title: String,
+    titlePadding: Dp,
+    isTitleLongPressHomeNavigationEnabled: Boolean,
+    onTitleLongPress: () -> Unit,
+    navigationIcon: @Composable () -> Unit,
+    actions: @Composable RowScope.() -> Unit,
+) {
+    val titleLongPressModifier = if (isTitleLongPressHomeNavigationEnabled) {
+        Modifier.pointerInput(onTitleLongPress) {
+            detectTapGestures(onLongPress = { onTitleLongPress() })
+        }
+    } else {
+        Modifier
+    }
+
+    Surface(
+        color = MiuixTheme.colorScheme.surface,
+        modifier = Modifier
+            .fillMaxWidth()
+            .windowInsetsPadding(WindowInsets.displayCutout.only(WindowInsetsSides.Horizontal))
+            .windowInsetsPadding(WindowInsets.navigationBars.only(WindowInsetsSides.Horizontal))
+            .windowInsetsPadding(WindowInsets.systemBars.only(WindowInsetsSides.Top)),
+    ) {
+        Row(
+            modifier = Modifier
+                .fillMaxWidth()
+                .height(MediaPickerSmallTopBarHeight),
+            verticalAlignment = Alignment.CenterVertically,
+        ) {
+            Box {
+                navigationIcon()
+            }
+            Text(
+                text = title,
+                modifier = Modifier
+                    .weight(1f)
+                    .padding(start = titlePadding)
+                    .then(titleLongPressModifier)
+                    .testTag("title_media_picker"),
+                color = MiuixTheme.colorScheme.onSurface,
+                fontSize = MiuixTheme.textStyles.title3.fontSize,
+                fontWeight = FontWeight.Medium,
+                maxLines = 1,
+                overflow = TextOverflow.Ellipsis,
+                softWrap = false,
+            )
+            Row(
+                horizontalArrangement = Arrangement.End,
+                verticalAlignment = Alignment.CenterVertically,
+                content = actions,
+            )
+        }
+    }
+}
+
+private val MediaPickerSmallTopBarHeight = 52.dp
+
 @Composable
 private fun MoveProgressButton(
     progress: Float,
     onClick: () -> Unit,
     modifier: Modifier = Modifier,
 ) {
-    FilledTonalIconButton(
+    IconButton(
         onClick = onClick,
-        modifier = modifier
-            .size(56.dp)
-            .testTag("btn_move_progress"),
+        minWidth = 56.dp,
+        minHeight = 56.dp,
+        cornerRadius = 28.dp,
+        modifier = modifier.testTag("btn_move_progress"),
     ) {
         CircularProgressIndicator(
-            progress = { progress },
+            progress = progress,
             modifier = Modifier.size(26.dp),
             strokeWidth = 3.dp,
         )
@@ -773,7 +832,7 @@ private fun MoveProgressDialog(
 ) {
     NextDialog(
         onDismissRequest = onContinue,
-        title = { Text(stringResource(R.string.move_progress_title)) },
+        title = stringResource(R.string.move_progress_title),
         content = {
             Text(
                 text = stringResource(
@@ -784,14 +843,19 @@ private fun MoveProgressDialog(
             )
         },
         confirmButton = {
-            TextButton(onClick = onCancelRemaining) {
-                Text(stringResource(R.string.cancel_remaining_move))
-            }
+            TextButton(
+                text = stringResource(R.string.cancel_remaining_move),
+                onClick = onCancelRemaining,
+                modifier = Modifier.testTag("btn_move_progress_cancel_remaining"),
+                colors = ButtonDefaults.textButtonColorsPrimary(),
+            )
         },
         dismissButton = {
-            TextButton(onClick = onContinue) {
-                Text(stringResource(R.string.continue_move))
-            }
+            TextButton(
+                text = stringResource(R.string.continue_move),
+                onClick = onContinue,
+                modifier = Modifier.testTag("btn_move_progress_continue"),
+            )
         },
     )
 }
@@ -831,21 +895,24 @@ private fun DeleteConfirmationDialog(
         },
         confirmButton = {
             TextButton(
+                text = stringResource(
+                    if (deleteAction == MediaPickerDeleteAction.MoveToRecycleBin) {
+                        R.string.move_to_recycle_bin
+                    } else {
+                        R.string.delete_permanently
+                    },
+                ),
                 onClick = onConfirm,
-                modifier = modifier,
-            ) {
-                Text(
-                    text = stringResource(
-                        if (deleteAction == MediaPickerDeleteAction.MoveToRecycleBin) {
-                            R.string.move_to_recycle_bin
-                        } else {
-                            R.string.delete_permanently
-                        },
-                    ),
-                )
-            }
+                modifier = modifier.testTag("btn_delete_confirm"),
+                colors = ButtonDefaults.textButtonColorsPrimary(),
+            )
         },
-        dismissButton = { CancelButton(onClick = onCancel) },
+        dismissButton = {
+            CancelButton(
+                onClick = onCancel,
+                modifier = Modifier.testTag("btn_delete_cancel"),
+            )
+        },
         modifier = modifier,
         content = {
             val selectedVideoList = selectedVideos.toList()
@@ -863,29 +930,20 @@ private fun DeleteConfirmationDialog(
             Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
                 Text(
                     text = warningText,
-                    style = MaterialTheme.typography.titleSmall,
+                    fontSize = MiuixTheme.textStyles.body2.fontSize,
                 )
                 if (allSelectedVideos.isNotEmpty()) {
-                    Text(
-                        text = stringResource(R.string.delete_summary_count, allSelectedVideos.size),
-                        style = MaterialTheme.typography.bodyMedium,
-                    )
-                    Text(
-                        text = stringResource(R.string.delete_summary_size, Utils.formatFileSize(totalSize)),
-                        style = MaterialTheme.typography.bodyMedium,
-                    )
-                    Text(
-                        text = stringResource(R.string.delete_summary_duration, Utils.formatDurationMillis(totalDuration)),
-                        style = MaterialTheme.typography.bodyMedium,
-                    )
+                    Text(text = stringResource(R.string.delete_summary_count, allSelectedVideos.size))
+                    Text(text = stringResource(R.string.delete_summary_size, Utils.formatFileSize(totalSize)))
+                    Text(text = stringResource(R.string.delete_summary_duration, Utils.formatDurationMillis(totalDuration)))
                     Text(
                         text = allSelectedVideos.take(5).joinToString(separator = "\n") { it.nameWithExtension },
-                        style = MaterialTheme.typography.bodySmall,
+                        fontSize = MiuixTheme.textStyles.footnote1.fontSize,
                     )
                     if (allSelectedVideos.size > 5) {
                         Text(
                             text = stringResource(R.string.delete_summary_more, allSelectedVideos.size - 5),
-                            style = MaterialTheme.typography.bodySmall,
+                            fontSize = MiuixTheme.textStyles.footnote1.fontSize,
                         )
                     }
                 }
@@ -961,89 +1019,172 @@ private fun SelectionActionsMenu(
     onDeleteAction: () -> Unit,
     onExcludeAction: () -> Unit,
 ) {
-    DropdownMenu(
-        expanded = expanded,
+    OverlayListPopup(
+        show = expanded,
+        popupPositionProvider = ListPopupDefaults.DropdownPositionProvider,
+        alignment = PopupPositionProvider.Align.TopEnd,
         onDismissRequest = onDismissRequest,
-        modifier = Modifier.testTag("menu_selection_actions"),
-        shape = RoundedCornerShape(10.dp),
-        containerColor = MaterialTheme.colorScheme.surface,
-        tonalElevation = 0.dp,
-        shadowElevation = 0.dp,
-        border = BorderStroke(
-            width = 1.dp,
-            color = MaterialTheme.colorScheme.outline.copy(alpha = 0.15f),
-        ),
     ) {
-        if (shouldShowRestoreAction) {
-            SelectionMenuItem(
-                text = stringResource(id = R.string.restore),
-                icon = NextIcons.ArrowUpward,
-                testTag = "item_selection_restore",
-                onClick = onRestoreAction,
+        ListPopupColumn {
+            if (shouldShowRestoreAction) {
+                PopupMenuItem(
+                    text = stringResource(id = R.string.restore),
+                    icon = NextIcons.ArrowUpward,
+                    testTag = "item_selection_restore",
+                    onClick = onRestoreAction,
+                )
+            }
+            if (shouldShowMoveAction) {
+                PopupMenuItem(
+                    text = stringResource(id = R.string.move),
+                    icon = NextIcons.Folder,
+                    testTag = "item_selection_move",
+                    onClick = onMoveAction,
+                )
+            }
+            if (shouldShowFavoriteAction) {
+                PopupMenuItem(
+                    text = stringResource(id = R.string.add_to_favorites),
+                    icon = NextIcons.LibraryBooks,
+                    testTag = "item_selection_add_favorites",
+                    onClick = onFavoriteAction,
+                )
+            }
+            if (shouldShowRenameAction) {
+                PopupMenuItem(
+                    text = stringResource(id = R.string.rename),
+                    icon = NextIcons.Edit,
+                    testTag = "item_selection_rename",
+                    onClick = onRenameAction,
+                )
+            }
+            if (shouldShowInfoAction) {
+                PopupMenuItem(
+                    text = stringResource(id = R.string.info),
+                    icon = NextIcons.Info,
+                    testTag = "item_selection_info",
+                    onClick = onInfoAction,
+                )
+            }
+            PopupMenuItem(
+                text = stringResource(id = R.string.share),
+                icon = NextIcons.Share,
+                testTag = "item_selection_share",
+                onClick = onShareAction,
             )
-        }
-        if (shouldShowMoveAction) {
-            SelectionMenuItem(
-                text = stringResource(id = R.string.move),
-                icon = NextIcons.Folder,
-                testTag = "item_selection_move",
-                onClick = onMoveAction,
-            )
-        }
-        if (shouldShowFavoriteAction) {
-            SelectionMenuItem(
-                text = stringResource(id = R.string.add_to_favorites),
-                icon = NextIcons.LibraryBooks,
-                testTag = "item_selection_add_favorites",
-                onClick = onFavoriteAction,
-            )
-        }
-        if (shouldShowRenameAction) {
-            SelectionMenuItem(
-                text = stringResource(id = R.string.rename),
-                icon = NextIcons.Edit,
-                testTag = "item_selection_rename",
-                onClick = onRenameAction,
-            )
-        }
-        if (shouldShowInfoAction) {
-            SelectionMenuItem(
-                text = stringResource(id = R.string.info),
-                icon = NextIcons.Info,
-                testTag = "item_selection_info",
-                onClick = onInfoAction,
-            )
-        }
-        SelectionMenuItem(
-            text = stringResource(id = R.string.share),
-            icon = NextIcons.Share,
-            testTag = "item_selection_share",
-            onClick = onShareAction,
-        )
-        if (shouldShowExcludeAction) {
-            SelectionMenuItem(
-                text = stringResource(id = R.string.exclude),
-                icon = NextIcons.FolderOff,
-                testTag = "item_selection_exclude",
-                onClick = onExcludeAction,
-            )
-        }
-        SelectionMenuItem(
-            text = stringResource(
-                id = when (deleteAction) {
-                    MediaPickerDeleteAction.MoveToRecycleBin -> R.string.move_to_recycle_bin
-                    MediaPickerDeleteAction.PermanentlyDelete -> {
-                        if (shouldShowRestoreAction) {
-                            R.string.delete_permanently
-                        } else {
-                            R.string.delete
+            if (shouldShowExcludeAction) {
+                PopupMenuItem(
+                    text = stringResource(id = R.string.exclude),
+                    icon = NextIcons.FolderOff,
+                    testTag = "item_selection_exclude",
+                    onClick = onExcludeAction,
+                )
+            }
+            PopupMenuItem(
+                text = stringResource(
+                    id = when (deleteAction) {
+                        MediaPickerDeleteAction.MoveToRecycleBin -> R.string.move_to_recycle_bin
+                        MediaPickerDeleteAction.PermanentlyDelete -> {
+                            if (shouldShowRestoreAction) {
+                                R.string.delete_permanently
+                            } else {
+                                R.string.delete
+                            }
                         }
-                    }
-                },
-            ),
-            icon = NextIcons.Delete,
-            testTag = "item_selection_delete",
-            onClick = onDeleteAction,
+                    },
+                ),
+                icon = NextIcons.Delete,
+                testTag = "item_selection_delete",
+                onClick = onDeleteAction,
+                isDestructive = true,
+            )
+        }
+    }
+}
+
+// 顶栏主菜单，miuix overlay popup 承载本地打开、网络流、最近播放、退出等入口
+@Composable
+private fun MainMenuPopup(
+    expanded: Boolean,
+    onDismissRequest: () -> Unit,
+    onOpenNetworkStream: () -> Unit,
+    onOpenLocalVideo: () -> Unit,
+    onOpenRecentlyPlayed: (() -> Unit)?,
+    onExit: () -> Unit,
+) {
+    OverlayListPopup(
+        show = expanded,
+        popupPositionProvider = ListPopupDefaults.DropdownPositionProvider,
+        alignment = PopupPositionProvider.Align.TopEnd,
+        onDismissRequest = onDismissRequest,
+    ) {
+        ListPopupColumn {
+            PopupMenuItem(
+                text = stringResource(id = R.string.open_network_stream),
+                icon = NextIcons.Link,
+                testTag = "item_main_menu_network_stream",
+                onClick = onOpenNetworkStream,
+            )
+            PopupMenuItem(
+                text = stringResource(id = R.string.open_local_video),
+                icon = NextIcons.FileOpen,
+                testTag = "item_main_menu_local_video",
+                onClick = onOpenLocalVideo,
+            )
+            if (onOpenRecentlyPlayed != null) {
+                PopupMenuItem(
+                    text = stringResource(id = R.string.recently_played),
+                    icon = NextIcons.History,
+                    testTag = "item_main_menu_recently_played",
+                    onClick = onOpenRecentlyPlayed,
+                )
+            }
+            HorizontalDivider(
+                modifier = Modifier.padding(horizontal = 20.dp, vertical = 4.dp),
+                thickness = 1.dp,
+            )
+            PopupMenuItem(
+                text = stringResource(id = R.string.exit),
+                icon = NextIcons.Close,
+                testTag = "item_main_menu_exit_app",
+                onClick = onExit,
+            )
+        }
+    }
+}
+
+// miuix popup 通用行：左图标 + 文本，宽度自适应
+@Composable
+private fun PopupMenuItem(
+    text: String,
+    icon: androidx.compose.ui.graphics.vector.ImageVector,
+    testTag: String,
+    onClick: () -> Unit,
+    isDestructive: Boolean = false,
+) {
+    val tint = if (isDestructive) {
+        MiuixTheme.colorScheme.onErrorContainer
+    } else {
+        MiuixTheme.colorScheme.onSurface
+    }
+    Row(
+        modifier = Modifier
+            .fillMaxWidth()
+            .clickable(onClick = onClick)
+            .padding(horizontal = 20.dp, vertical = 12.dp)
+            .testTag(testTag),
+        verticalAlignment = Alignment.CenterVertically,
+        horizontalArrangement = Arrangement.spacedBy(14.dp),
+    ) {
+        Icon(
+            imageVector = icon,
+            contentDescription = null,
+            tint = tint,
+            modifier = Modifier.size(20.dp),
+        )
+        Text(
+            text = text,
+            color = tint,
         )
     }
 }
@@ -1057,24 +1198,33 @@ private fun NetworkUrlDialog(
 
     NextDialog(
         onDismissRequest = onDismiss,
-        title = { Text(stringResource(R.string.network_stream)) },
+        title = stringResource(R.string.network_stream),
         content = {
             Text(text = stringResource(R.string.enter_a_network_url))
             Spacer(modifier = Modifier.height(10.dp))
-            OutlinedTextField(
+            TextField(
                 value = url,
                 onValueChange = { url = it },
-                modifier = Modifier.fillMaxWidth(),
-                placeholder = { Text(text = stringResource(R.string.example_url)) },
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .testTag("input_network_url"),
+                label = stringResource(R.string.example_url),
+                useLabelAsPlaceholder = true,
             )
         },
         confirmButton = {
             DoneButton(
                 isEnabled = url.isNotBlank(),
                 onClick = { onDone(url) },
+                modifier = Modifier.testTag("btn_network_url_done"),
             )
         },
-        dismissButton = { CancelButton(onClick = onDismiss) },
+        dismissButton = {
+            CancelButton(
+                onClick = onDismiss,
+                modifier = Modifier.testTag("btn_network_url_cancel"),
+            )
+        },
     )
 }
 

@@ -8,14 +8,6 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
-import androidx.compose.material3.ExperimentalMaterial3Api
-import androidx.compose.material3.ExperimentalMaterial3ExpressiveApi
-import androidx.compose.material3.FilledIconButton
-import androidx.compose.material3.FilledTonalIconButton
-import androidx.compose.material3.Icon
-import androidx.compose.material3.ListItemDefaults
-import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.Scaffold
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.ui.Alignment
@@ -26,21 +18,29 @@ import androidx.compose.ui.tooling.preview.PreviewLightDark
 import androidx.compose.ui.unit.dp
 import androidx.hilt.lifecycle.viewmodel.compose.hiltViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
+import java.util.Locale
 import one.only.player.core.model.DecoderPriority
 import one.only.player.core.model.PlayerPreferences
 import one.only.player.core.ui.R
 import one.only.player.core.ui.components.ClickablePreferenceItem
 import one.only.player.core.ui.components.ListSectionTitle
+import one.only.player.core.ui.components.NextResetIconButton
 import one.only.player.core.ui.components.NextSwitch
-import one.only.player.core.ui.components.NextTopAppBar
 import one.only.player.core.ui.components.PreferenceSlider
 import one.only.player.core.ui.components.PreferenceSwitch
 import one.only.player.core.ui.components.RadioTextButton
+import one.only.player.core.ui.components.SegmentedItemGap
+import one.only.player.core.ui.components.SettingsContentTopPadding
 import one.only.player.core.ui.designsystem.NextIcons
 import one.only.player.core.ui.extensions.withBottomFallback
 import one.only.player.core.ui.theme.OnlyPlayerTheme
 import one.only.player.settings.composables.OptionsDialog
 import one.only.player.settings.extensions.name
+import top.yukonga.miuix.kmp.basic.Icon as MiuixIcon
+import top.yukonga.miuix.kmp.basic.IconButton as MiuixIconButton
+import top.yukonga.miuix.kmp.basic.Scaffold
+import top.yukonga.miuix.kmp.basic.TopAppBar
+import top.yukonga.miuix.kmp.theme.MiuixTheme
 
 @Composable
 fun DecoderPreferencesScreen(
@@ -56,7 +56,6 @@ fun DecoderPreferencesScreen(
     )
 }
 
-@OptIn(ExperimentalMaterial3Api::class, ExperimentalMaterial3ExpressiveApi::class)
 @Composable
 private fun DecoderPreferencesContent(
     uiState: DecoderPreferencesUiState,
@@ -67,30 +66,36 @@ private fun DecoderPreferencesContent(
 
     Scaffold(
         topBar = {
-            NextTopAppBar(
+            TopAppBar(
                 title = stringResource(id = R.string.video_processing),
                 navigationIcon = {
-                    FilledTonalIconButton(onClick = onNavigateUp) {
-                        Icon(
+                    MiuixIconButton(
+                        onClick = onNavigateUp,
+                        modifier = Modifier
+                            .padding(start = 12.dp)
+                            .testTag("button_decoder_back"),
+                    ) {
+                        MiuixIcon(
                             imageVector = NextIcons.ArrowBack,
                             contentDescription = stringResource(id = R.string.navigate_up),
+                            tint = MiuixTheme.colorScheme.onBackground,
                         )
                     }
                 },
             )
         },
-        containerColor = MaterialTheme.colorScheme.surfaceContainer,
+        containerColor = MiuixTheme.colorScheme.background,
     ) { innerPadding ->
         Column(
             modifier = Modifier
                 .fillMaxSize()
                 .verticalScroll(state = rememberScrollState())
                 .padding(innerPadding.withBottomFallback())
+                .padding(top = SettingsContentTopPadding)
                 .padding(horizontal = 16.dp),
         ) {
-            ListSectionTitle(text = stringResource(id = R.string.decoder))
             Column(
-                verticalArrangement = Arrangement.spacedBy(ListItemDefaults.SegmentedGap),
+                verticalArrangement = Arrangement.spacedBy(SegmentedItemGap),
             ) {
                 ClickablePreferenceItem(
                     modifier = Modifier.testTag("item_settings_decoder_priority"),
@@ -135,14 +140,13 @@ private fun DecoderPreferencesContent(
     }
 }
 
-@OptIn(ExperimentalMaterial3ExpressiveApi::class)
 @Composable
 private fun VideoFiltersSettings(
     preferences: PlayerPreferences,
     onEvent: (DecoderPreferencesUiEvent) -> Unit,
 ) {
     Column(
-        verticalArrangement = Arrangement.spacedBy(ListItemDefaults.SegmentedGap),
+        verticalArrangement = Arrangement.spacedBy(SegmentedItemGap),
     ) {
         PreferenceSwitch(
             modifier = Modifier.testTag("switch_settings_video_filters"),
@@ -249,7 +253,7 @@ private fun VideoFiltersSettings(
             modifier = Modifier.testTag("item_settings_video_gamma"),
             sliderModifier = Modifier.testTag("slider_settings_video_gamma"),
             title = stringResource(R.string.video_gamma),
-            description = String.format("%.2f", preferences.videoGamma),
+            description = String.format(Locale.ROOT, "%.2f", preferences.videoGamma),
             icon = NextIcons.Sensitivity,
             isEnabled = preferences.shouldApplyVideoFilters,
             isSliderEnabled = preferences.shouldApplyVideoFilters && preferences.isVideoGammaFilterEnabled,
@@ -315,16 +319,12 @@ private fun VideoFilterActions(
             onCheckedChange = { onToggle() },
             isEnabled = isEnabled,
         )
-        FilledIconButton(
+        NextResetIconButton(
             modifier = Modifier.testTag(resetTestTag),
             enabled = isEnabled,
             onClick = onReset,
-        ) {
-            Icon(
-                imageVector = NextIcons.History,
-                contentDescription = resetContentDescription,
-            )
-        }
+            contentDescription = resetContentDescription,
+        )
     }
 }
 

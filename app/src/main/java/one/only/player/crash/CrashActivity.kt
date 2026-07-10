@@ -22,23 +22,19 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
-import androidx.compose.material3.Button
-import androidx.compose.material3.FilledIconButton
-import androidx.compose.material3.Icon
-import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.OutlinedButton
-import androidx.compose.material3.Scaffold
-import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.setValue
+import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.drawBehind
 import androidx.compose.ui.geometry.Offset
+import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.platform.LocalClipboard
 import androidx.compose.ui.res.stringResource
+import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.tooling.preview.PreviewLightDark
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
@@ -68,6 +64,12 @@ import one.only.player.core.ui.theme.OnlyPlayerTheme
 import one.only.player.navigation.NavigationBarColorEffect
 import one.only.player.shouldUseDarkTheme
 import one.only.player.shouldUseDynamicTheming
+import top.yukonga.miuix.kmp.basic.Button
+import top.yukonga.miuix.kmp.basic.ButtonDefaults
+import top.yukonga.miuix.kmp.basic.Icon
+import top.yukonga.miuix.kmp.basic.Scaffold
+import top.yukonga.miuix.kmp.basic.Text
+import top.yukonga.miuix.kmp.theme.MiuixTheme
 
 @AndroidEntryPoint
 class CrashActivity : AppCompatActivity() {
@@ -141,7 +143,7 @@ class CrashActivity : AppCompatActivity() {
             ) {
                 NavigationBarColorEffect(
                     activity = this@CrashActivity,
-                    color = MaterialTheme.colorScheme.surfaceContainer,
+                    color = MiuixTheme.colorScheme.surfaceContainer,
                 )
                 val clipboard = LocalClipboard.current
                 CrashScreen(
@@ -255,41 +257,11 @@ private fun CrashScreen(
     Scaffold(
         modifier = modifier.fillMaxSize(),
         bottomBar = {
-            val borderColor = MaterialTheme.colorScheme.outline
-            Column(
-                Modifier
-                    .drawBehind {
-                        drawLine(
-                            color = borderColor,
-                            start = Offset.Zero,
-                            end = Offset(size.width, 0f),
-                            strokeWidth = Dp.Hairline.value,
-                        )
-                    }
-                    .background(MaterialTheme.colorScheme.surfaceContainer)
-                    .navigationBarsPadding()
-                    .padding(horizontal = 8.dp)
-                    .padding(top = 8.dp, bottom = 24.dp),
-                verticalArrangement = Arrangement.spacedBy(2.dp),
-            ) {
-                Row(horizontalArrangement = Arrangement.spacedBy(4.dp)) {
-                    Button(
-                        onClick = onShareLogsClick,
-                        modifier = Modifier.weight(1f),
-                    ) {
-                        Text(stringResource(R.string.crash_screen_share))
-                    }
-                    FilledIconButton(onClick = onCopyLogsClick) {
-                        Icon(imageVector = NextIcons.Copy, contentDescription = null)
-                    }
-                }
-                OutlinedButton(
-                    onClick = onRestartClick,
-                    modifier = Modifier.fillMaxWidth(),
-                ) {
-                    Text(text = stringResource(R.string.crash_screen_restart))
-                }
-            }
+            CrashBottomBar(
+                onShareLogsClick = onShareLogsClick,
+                onCopyLogsClick = onCopyLogsClick,
+                onRestartClick = onRestartClick,
+            )
         },
     ) { paddingValues ->
         Column(
@@ -303,27 +275,102 @@ private fun CrashScreen(
                 imageVector = NextIcons.BugReport,
                 contentDescription = null,
                 modifier = Modifier.size(48.dp),
-                tint = MaterialTheme.colorScheme.primary,
+                tint = MiuixTheme.colorScheme.primary,
             )
             Text(
                 text = stringResource(R.string.crash_screen_title),
-                style = MaterialTheme.typography.headlineLarge,
+                style = MiuixTheme.textStyles.title1,
             )
             Text(
                 text = stringResource(R.string.crash_screen_subtitle, stringResource(R.string.app_name)),
-                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                color = MiuixTheme.colorScheme.onSurfaceVariantSummary,
             )
             Text(
                 text = stringResource(R.string.crash_screen_logs_title),
-                style = MaterialTheme.typography.headlineSmall,
+                style = MiuixTheme.textStyles.title3,
             )
             LogsSelectionContainer(logs = exceptionString)
             Text(
                 text = stringResource(R.string.crash_screen_logcat),
-                style = MaterialTheme.typography.headlineSmall,
+                style = MiuixTheme.textStyles.title3,
             )
             LogsSelectionContainer(logs = logcat)
             Spacer(Modifier.height(8.dp))
+        }
+    }
+}
+
+@Composable
+private fun CrashBottomBar(
+    onShareLogsClick: () -> Unit,
+    onCopyLogsClick: () -> Unit,
+    onRestartClick: () -> Unit,
+) {
+    val borderColor = MiuixTheme.colorScheme.dividerLine
+    Row(
+        Modifier
+            .fillMaxWidth()
+            .background(MiuixTheme.colorScheme.surface)
+            .drawBehind {
+                drawLine(
+                    color = borderColor,
+                    start = Offset.Zero,
+                    end = Offset(size.width, 0f),
+                    strokeWidth = Dp.Hairline.value,
+                )
+            }
+            .navigationBarsPadding()
+            .padding(horizontal = 16.dp, vertical = 12.dp),
+        horizontalArrangement = Arrangement.spacedBy(8.dp),
+    ) {
+        CrashActionButton(
+            text = stringResource(R.string.crash_screen_share),
+            icon = NextIcons.Share,
+            onClick = onShareLogsClick,
+            modifier = Modifier.weight(1f),
+        )
+        CrashActionButton(
+            text = stringResource(R.string.crash_screen_copy),
+            icon = NextIcons.Copy,
+            onClick = onCopyLogsClick,
+            modifier = Modifier.weight(1f),
+        )
+        CrashActionButton(
+            text = stringResource(R.string.crash_screen_restart),
+            icon = NextIcons.Update,
+            onClick = onRestartClick,
+            modifier = Modifier.weight(1f),
+        )
+    }
+}
+
+@Composable
+private fun CrashActionButton(
+    text: String,
+    icon: ImageVector,
+    onClick: () -> Unit,
+    modifier: Modifier = Modifier,
+) {
+    Button(
+        onClick = onClick,
+        modifier = modifier.height(48.dp),
+        colors = ButtonDefaults.buttonColors(),
+    ) {
+        Row(
+            verticalAlignment = Alignment.CenterVertically,
+            horizontalArrangement = Arrangement.spacedBy(6.dp),
+        ) {
+            Icon(
+                imageVector = icon,
+                contentDescription = null,
+                modifier = Modifier.size(18.dp),
+            )
+            Text(
+                text = text,
+                maxLines = 1,
+                overflow = TextOverflow.Ellipsis,
+                style = MiuixTheme.textStyles.button,
+            )
         }
     }
 }

@@ -4,11 +4,12 @@ import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.LazyListScope
 import androidx.compose.foundation.selection.selectableGroup
-import androidx.compose.material3.HorizontalDivider
-import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.unit.dp
+import top.yukonga.miuix.kmp.basic.HorizontalDivider
+import top.yukonga.miuix.kmp.basic.Text
+import top.yukonga.miuix.kmp.theme.MiuixTheme
 
 @Composable
 fun OptionsDialog(
@@ -21,7 +22,10 @@ fun OptionsDialog(
         modifier = modifier,
         onDismissRequest = onDismissClick,
         title = {
-            Text(text = title)
+            Text(
+                text = title,
+                style = MiuixTheme.textStyles.title4,
+            )
         },
         content = {
             HorizontalDivider()

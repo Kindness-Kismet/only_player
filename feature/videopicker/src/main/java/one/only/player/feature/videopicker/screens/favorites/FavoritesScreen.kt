@@ -18,19 +18,6 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.itemsIndexed
-import androidx.compose.foundation.shape.RoundedCornerShape
-import androidx.compose.material3.ExperimentalMaterial3Api
-import androidx.compose.material3.ExperimentalMaterial3ExpressiveApi
-import androidx.compose.material3.FilledTonalIconButton
-import androidx.compose.material3.Icon
-import androidx.compose.material3.IconButton
-import androidx.compose.material3.ListItemDefaults
-import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.OutlinedTextField
-import androidx.compose.material3.Scaffold
-import androidx.compose.material3.Surface
-import androidx.compose.material3.Text
-import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
@@ -41,11 +28,11 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.vector.ImageVector
+import androidx.compose.ui.input.nestedscroll.nestedScroll
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalLayoutDirection
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.res.stringResource
-import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.hilt.lifecycle.viewmodel.compose.hiltViewModel
@@ -57,11 +44,21 @@ import one.only.player.core.ui.components.CancelButton
 import one.only.player.core.ui.components.NextDialog
 import one.only.player.core.ui.components.NextSearchTopAppBar
 import one.only.player.core.ui.components.NextSegmentedListItem
-import one.only.player.core.ui.components.NextTopAppBar
 import one.only.player.core.ui.components.RadioTextButton
+import one.only.player.core.ui.components.SegmentedItemGap
 import one.only.player.core.ui.designsystem.NextIcons
 import one.only.player.core.ui.extensions.copy
 import one.only.player.core.ui.extensions.withBottomFallback
+import top.yukonga.miuix.kmp.basic.ButtonDefaults
+import top.yukonga.miuix.kmp.basic.Icon as MiuixIcon
+import top.yukonga.miuix.kmp.basic.IconButton as MiuixIconButton
+import top.yukonga.miuix.kmp.basic.MiuixScrollBehavior
+import top.yukonga.miuix.kmp.basic.Scaffold
+import top.yukonga.miuix.kmp.basic.Text
+import top.yukonga.miuix.kmp.basic.TextButton
+import top.yukonga.miuix.kmp.basic.TextField
+import top.yukonga.miuix.kmp.basic.TopAppBar
+import top.yukonga.miuix.kmp.theme.MiuixTheme
 
 @Composable
 fun FavoritesRoute(
@@ -106,7 +103,6 @@ fun FavoritesRoute(
     )
 }
 
-@OptIn(ExperimentalMaterial3Api::class, ExperimentalMaterial3ExpressiveApi::class)
 @Composable
 internal fun FavoritesScreen(
     uiState: FavoritesUiState,
@@ -118,6 +114,7 @@ internal fun FavoritesScreen(
     var shouldShowAddFolderDialog by rememberSaveable { mutableStateOf(false) }
     var isSearchActive by rememberSaveable { mutableStateOf(uiState.searchQuery.isNotEmpty()) }
     val title = uiState.currentTitle ?: stringResource(R.string.favorites)
+    val scrollBehavior = MiuixScrollBehavior()
 
     LaunchedEffect(uiState.searchQuery) {
         if (uiState.searchQuery.isNotEmpty()) {
@@ -148,42 +145,47 @@ internal fun FavoritesScreen(
                         },
                     )
                 } else {
-                    NextTopAppBar(
+                    TopAppBar(
                         title = title,
-                        fontWeight = FontWeight.Bold,
+                        scrollBehavior = scrollBehavior,
                         navigationIcon = {
-                            FilledTonalIconButton(
-                                onClick = {
-                                    if (uiState.currentParentId == null) {
-                                        onNavigateUp()
-                                    } else {
-                                        onEvent(FavoritesUiEvent.NavigateParent)
-                                    }
-                                },
-                            ) {
-                                Icon(
-                                    imageVector = NextIcons.ArrowBack,
-                                    contentDescription = stringResource(id = R.string.navigate_up),
-                                )
+                            // 根目录作为底栏 Tab，不显示返回键；子目录显示返回键回到父目录
+                            if (uiState.currentParentId != null) {
+                                MiuixIconButton(
+                                    onClick = { onEvent(FavoritesUiEvent.NavigateParent) },
+                                    modifier = Modifier.padding(start = 12.dp),
+                                ) {
+                                    MiuixIcon(
+                                        imageVector = NextIcons.ArrowBack,
+                                        contentDescription = stringResource(id = R.string.navigate_up),
+                                        tint = MiuixTheme.colorScheme.onSurface,
+                                    )
+                                }
                             }
                         },
                         actions = {
-                            FilledTonalIconButton(
+                            MiuixIconButton(
                                 onClick = { isSearchActive = true },
-                                modifier = Modifier.testTag("btn_favorites_search"),
+                                modifier = Modifier
+                                    .padding(end = 6.dp)
+                                    .testTag("btn_favorites_search"),
                             ) {
-                                Icon(
+                                MiuixIcon(
                                     imageVector = NextIcons.Search,
                                     contentDescription = stringResource(R.string.search),
+                                    tint = MiuixTheme.colorScheme.onSurface,
                                 )
                             }
-                            IconButton(
+                            MiuixIconButton(
                                 onClick = { shouldShowAddFolderDialog = true },
-                                modifier = Modifier.testTag("btn_favorites_add_folder"),
+                                modifier = Modifier
+                                    .padding(end = 12.dp)
+                                    .testTag("btn_favorites_add_folder"),
                             ) {
-                                Icon(
+                                MiuixIcon(
                                     imageVector = NextIcons.Add,
                                     contentDescription = stringResource(R.string.add_favorite_folder),
+                                    tint = MiuixTheme.colorScheme.onSurface,
                                 )
                             }
                         },
@@ -192,50 +194,40 @@ internal fun FavoritesScreen(
             }
         },
         contentWindowInsets = WindowInsets.displayCutout,
-        containerColor = MaterialTheme.colorScheme.surfaceContainer,
+        containerColor = MiuixTheme.colorScheme.background,
     ) { innerPadding ->
         Column(
             modifier = Modifier
                 .fillMaxSize()
+                .nestedScroll(scrollBehavior.nestedScrollConnection)
                 .padding(top = innerPadding.calculateTopPadding())
-                .padding(start = innerPadding.calculateStartPadding(LocalLayoutDirection.current)),
+                .padding(start = innerPadding.calculateStartPadding(LocalLayoutDirection.current))
+                .padding(horizontal = 16.dp),
         ) {
-            Surface(
-                modifier = Modifier.fillMaxSize(),
-                color = MaterialTheme.colorScheme.background,
-                shape = RoundedCornerShape(topStart = 24.dp, topEnd = 24.dp),
-            ) {
-                Column(
+            if (uiState.visibleItems.isEmpty()) {
+                EmptyFavoritesContent(
                     modifier = Modifier
                         .fillMaxSize()
-                        .padding(horizontal = 16.dp),
+                        .padding(innerPadding.copy(top = 8.dp, start = 0.dp).withBottomFallback()),
+                )
+            } else {
+                LazyColumn(
+                    modifier = Modifier.fillMaxSize(),
+                    contentPadding = innerPadding.copy(top = 8.dp, start = 0.dp).withBottomFallback(),
+                    verticalArrangement = Arrangement.spacedBy(SegmentedItemGap),
                 ) {
-                    if (uiState.visibleItems.isEmpty()) {
-                        EmptyFavoritesContent(
-                            modifier = Modifier
-                                .fillMaxSize()
-                                .padding(innerPadding.copy(top = 8.dp, start = 0.dp).withBottomFallback()),
+                    itemsIndexed(
+                        uiState.visibleItems,
+                        key = { _, item -> item.id },
+                    ) { index, item ->
+                        FavoriteListItem(
+                            item = item,
+                            isFirstItem = index == 0,
+                            isLastItem = index == uiState.visibleItems.lastIndex,
+                            onClick = { onEvent(FavoritesUiEvent.OpenItem(item)) },
+                            onMoveClick = { movingItem = item },
+                            onDeleteClick = { deletingItem = item },
                         )
-                    } else {
-                        LazyColumn(
-                            modifier = Modifier.fillMaxSize(),
-                            contentPadding = innerPadding.copy(top = 8.dp, start = 0.dp).withBottomFallback(),
-                            verticalArrangement = Arrangement.spacedBy(ListItemDefaults.SegmentedGap),
-                        ) {
-                            itemsIndexed(
-                                uiState.visibleItems,
-                                key = { _, item -> item.id },
-                            ) { index, item ->
-                                FavoriteListItem(
-                                    item = item,
-                                    isFirstItem = index == 0,
-                                    isLastItem = index == uiState.visibleItems.lastIndex,
-                                    onClick = { onEvent(FavoritesUiEvent.OpenItem(item)) },
-                                    onMoveClick = { movingItem = item },
-                                    onDeleteClick = { deletingItem = item },
-                                )
-                            }
-                        }
                     }
                 }
             }
@@ -287,23 +279,22 @@ private fun EmptyFavoritesContent(modifier: Modifier = Modifier) {
             horizontalAlignment = Alignment.CenterHorizontally,
             verticalArrangement = Arrangement.spacedBy(12.dp),
         ) {
-            Icon(
+            MiuixIcon(
                 imageVector = NextIcons.LibraryBooks,
                 contentDescription = null,
                 modifier = Modifier.size(48.dp),
-                tint = MaterialTheme.colorScheme.onSurfaceVariant,
+                tint = MiuixTheme.colorScheme.onSurfaceContainer,
             )
             Text(
                 text = stringResource(R.string.no_favorites),
-                style = MaterialTheme.typography.bodyLarge,
-                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                style = MiuixTheme.textStyles.main,
+                color = MiuixTheme.colorScheme.onSurfaceContainer,
                 textAlign = TextAlign.Center,
             )
         }
     }
 }
 
-@OptIn(ExperimentalMaterial3ExpressiveApi::class)
 @Composable
 private fun FavoriteListItem(
     item: FavoriteItem,
@@ -319,7 +310,7 @@ private fun FavoriteListItem(
         isLastItem = isLastItem,
         modifier = Modifier.testTag("favorite_item_${item.id}"),
         leadingContent = {
-            Icon(
+            MiuixIcon(
                 imageVector = item.icon(),
                 contentDescription = null,
                 modifier = Modifier.size(24.dp),
@@ -330,14 +321,14 @@ private fun FavoriteListItem(
         },
         trailingContent = {
             Row {
-                IconButton(onClick = onMoveClick) {
-                    Icon(
+                MiuixIconButton(onClick = onMoveClick) {
+                    MiuixIcon(
                         imageVector = NextIcons.DriveFileMove,
                         contentDescription = stringResource(R.string.move),
                     )
                 }
-                IconButton(onClick = onDeleteClick) {
-                    Icon(
+                MiuixIconButton(onClick = onDeleteClick) {
+                    MiuixIcon(
                         imageVector = NextIcons.Delete,
                         contentDescription = stringResource(R.string.delete),
                     )
@@ -358,23 +349,24 @@ private fun AddFavoriteFolderDialog(
     var title by rememberSaveable { mutableStateOf("") }
     NextDialog(
         onDismissRequest = onDismiss,
-        title = { Text(stringResource(R.string.add_favorite_folder)) },
+        title = stringResource(R.string.add_favorite_folder),
         content = {
-            OutlinedTextField(
+            TextField(
                 value = title,
                 onValueChange = { title = it },
                 modifier = Modifier.fillMaxWidth(),
                 singleLine = true,
-                label = { Text(stringResource(R.string.name)) },
+                label = stringResource(R.string.name),
             )
         },
         confirmButton = {
             TextButton(
+                modifier = Modifier.testTag("btn_favorite_folder_add_confirm"),
+                text = stringResource(R.string.add),
                 enabled = title.isNotBlank(),
+                colors = ButtonDefaults.textButtonColorsPrimary(),
                 onClick = { onAdd(title.trim()) },
-            ) {
-                Text(stringResource(R.string.add))
-            }
+            )
         },
         dismissButton = { CancelButton(onClick = onDismiss) },
     )
@@ -394,7 +386,7 @@ private fun MoveFavoriteDialog(
 
     NextDialog(
         onDismissRequest = onDismiss,
-        title = { Text(stringResource(R.string.move_favorite)) },
+        title = stringResource(R.string.move_favorite),
         content = {
             Column {
                 RadioTextButton(
@@ -424,7 +416,7 @@ private fun DeleteFavoriteDialog(
 ) {
     NextDialog(
         onDismissRequest = onDismiss,
-        title = { Text(stringResource(R.string.delete_favorite)) },
+        title = stringResource(R.string.delete_favorite),
         content = {
             Text(
                 text = stringResource(
@@ -437,9 +429,12 @@ private fun DeleteFavoriteDialog(
             )
         },
         confirmButton = {
-            TextButton(onClick = onDelete) {
-                Text(stringResource(R.string.delete))
-            }
+            TextButton(
+                modifier = Modifier.testTag("btn_favorite_delete_confirm"),
+                text = stringResource(R.string.delete),
+                colors = ButtonDefaults.textButtonColorsPrimary(),
+                onClick = onDelete,
+            )
         },
         dismissButton = { CancelButton(onClick = onDismiss) },
     )

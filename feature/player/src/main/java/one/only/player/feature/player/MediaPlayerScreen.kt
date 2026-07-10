@@ -47,7 +47,6 @@ import androidx.compose.foundation.layout.safeDrawingPadding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.systemBars
 import androidx.compose.foundation.shape.RoundedCornerShape
-import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.FilledTonalButton
 import androidx.compose.material3.Icon
@@ -117,6 +116,7 @@ import one.only.player.core.model.PlayerIconStyle
 import one.only.player.core.model.PlayerPreferences
 import one.only.player.core.model.controllerAutoHideTimeoutSecondsOrNull
 import one.only.player.core.ui.R as coreUiR
+import one.only.player.core.ui.components.NextDialog
 import one.only.player.core.ui.components.VideoFiltersPanel
 import one.only.player.core.ui.extensions.copy
 import one.only.player.feature.player.buttons.NextButton
@@ -170,6 +170,10 @@ import one.only.player.feature.player.ui.controls.ControlsBottomView
 import one.only.player.feature.player.ui.controls.ControlsTopModernView
 import one.only.player.feature.player.ui.controls.ControlsTopView
 import one.only.player.feature.player.ui.controls.PlayerCustomizableControlButton
+import top.yukonga.miuix.kmp.basic.ButtonDefaults as MiuixButtonDefaults
+import top.yukonga.miuix.kmp.basic.Text as MiuixText
+import top.yukonga.miuix.kmp.basic.TextButton as MiuixTextButton
+import top.yukonga.miuix.kmp.theme.MiuixTheme
 
 private const val TAG = "MediaPlayerScreen"
 private const val AMBIENCE_ARTWORK_SAMPLE_SIZE = 32
@@ -1761,36 +1765,40 @@ internal fun MediaPlayerScreen(
     }
 
     errorState.error?.let { error ->
-        AlertDialog(
+        NextDialog(
             onDismissRequest = { },
             title = {
-                Text(text = stringResource(coreUiR.string.error_playing_video))
+                MiuixText(
+                    text = stringResource(coreUiR.string.error_playing_video),
+                    style = MiuixTheme.textStyles.title4,
+                )
             },
-            text = {
-                Text(text = error.message ?: stringResource(coreUiR.string.unknown_error))
+            content = {
+                MiuixText(text = error.message ?: stringResource(coreUiR.string.unknown_error))
             },
             confirmButton = {
                 if (player.hasNextMediaItem()) {
-                    TextButton(
+                    MiuixTextButton(
+                        modifier = Modifier.testTag("btn_error_play_next"),
+                        text = stringResource(coreUiR.string.play_next_video),
+                        colors = MiuixButtonDefaults.textButtonColorsPrimary(),
                         onClick = {
                             errorState.dismiss()
                             player.seekToNext()
                             player.play()
                         },
-                    ) {
-                        Text(text = stringResource(coreUiR.string.play_next_video))
-                    }
+                    )
                 }
             },
             dismissButton = {
-                TextButton(
+                MiuixTextButton(
+                    modifier = Modifier.testTag("btn_error_exit"),
+                    text = stringResource(coreUiR.string.exit),
                     onClick = {
                         errorState.dismiss()
                         onBackClick()
                     },
-                ) {
-                    Text(text = stringResource(coreUiR.string.exit))
-                }
+                )
             },
         )
     }

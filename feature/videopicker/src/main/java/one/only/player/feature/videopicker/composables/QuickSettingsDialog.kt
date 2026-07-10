@@ -1,5 +1,6 @@
 package one.only.player.feature.videopicker.composables
 
+import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
@@ -10,22 +11,13 @@ import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.wrapContentHeight
 import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
-import androidx.compose.material3.ExperimentalMaterial3Api
-import androidx.compose.material3.FilterChip
-import androidx.compose.material3.FilterChipDefaults
-import androidx.compose.material3.HorizontalDivider
-import androidx.compose.material3.Icon
-import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.SegmentedButton
-import androidx.compose.material3.SegmentedButtonDefaults
-import androidx.compose.material3.SingleChoiceSegmentedButtonRow
-import androidx.compose.material3.Surface
-import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
@@ -34,6 +26,7 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.vector.ImageVector
+import androidx.compose.ui.platform.LocalConfiguration
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.tooling.preview.Preview
@@ -50,13 +43,19 @@ import one.only.player.core.ui.components.NextDialog
 import one.only.player.core.ui.designsystem.NextIcons
 import one.only.player.core.ui.extensions.withBottomFallback
 import one.only.player.feature.videopicker.extensions.name
+import top.yukonga.miuix.kmp.basic.HorizontalDivider
+import top.yukonga.miuix.kmp.basic.Icon
+import top.yukonga.miuix.kmp.basic.Surface
+import top.yukonga.miuix.kmp.basic.TabRow
+import top.yukonga.miuix.kmp.basic.Text
+import top.yukonga.miuix.kmp.theme.MiuixTheme
 
 enum class QuickSettingsTarget {
     LOCAL,
     CLOUD,
 }
 
-@OptIn(ExperimentalLayoutApi::class, ExperimentalMaterial3Api::class)
+@OptIn(ExperimentalLayoutApi::class)
 @Composable
 fun QuickSettingsDialog(
     applicationPreferences: ApplicationPreferences,
@@ -71,6 +70,7 @@ fun QuickSettingsDialog(
     val layoutMode = preferences.layoutMode(target, cloudServerId)
     val sortBy = preferences.sortBy(target, cloudServerId)
     val sortOrder = preferences.sortOrder(target, cloudServerId)
+    val configuration = LocalConfiguration.current
 
     NextDialog(
         modifier = Modifier
@@ -90,46 +90,31 @@ fun QuickSettingsDialog(
         content = {
             HorizontalDivider()
             Column(
-                modifier = Modifier.verticalScroll(rememberScrollState()),
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .heightIn(max = configuration.screenHeightDp.dp * 0.58f)
+                    .verticalScroll(rememberScrollState()),
             ) {
                 if (target == QuickSettingsTarget.LOCAL) {
                     DialogSectionTitle(text = stringResource(R.string.media_view_mode))
-                    SingleChoiceSegmentedButtonRow(
-                        modifier = Modifier.fillMaxWidth(),
-                    ) {
-                        MediaViewMode.entries.forEachIndexed { index, viewMode ->
-                            SegmentedButton(
-                                selected = preferences.mediaViewMode == viewMode,
-                                onClick = { preferences = preferences.copy(mediaViewMode = viewMode) },
-                                shape = SegmentedButtonDefaults.itemShape(index = index, count = MediaViewMode.entries.size),
-                                colors = SegmentedButtonDefaults.colors(
-                                    activeContentColor = MaterialTheme.colorScheme.primary,
-                                    activeBorderColor = MaterialTheme.colorScheme.primary,
-                                ),
-                            ) {
-                                Text(text = viewMode.name())
-                            }
-                        }
-                    }
+                    TabRow(
+                        tabs = MediaViewMode.entries.map { it.name() },
+                        selectedTabIndex = MediaViewMode.entries.indexOf(preferences.mediaViewMode),
+                        onTabSelected = { index -> preferences = preferences.copy(mediaViewMode = MediaViewMode.entries[index]) },
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .testTag("tabs_${target.dialogTestTag}_view_mode"),
+                    )
                 }
                 DialogSectionTitle(text = stringResource(R.string.media_layout))
-                SingleChoiceSegmentedButtonRow(
-                    modifier = Modifier.fillMaxWidth(),
-                ) {
-                    MediaLayoutMode.entries.forEachIndexed { index, layoutMode ->
-                        SegmentedButton(
-                            selected = preferences.layoutMode(target, cloudServerId) == layoutMode,
-                            onClick = { preferences = preferences.withLayoutMode(target, cloudServerId, layoutMode) },
-                            shape = SegmentedButtonDefaults.itemShape(index = index, count = MediaLayoutMode.entries.size),
-                            colors = SegmentedButtonDefaults.colors(
-                                activeContentColor = MaterialTheme.colorScheme.primary,
-                                activeBorderColor = MaterialTheme.colorScheme.primary,
-                            ),
-                        ) {
-                            Text(text = layoutMode.name())
-                        }
-                    }
-                }
+                TabRow(
+                    tabs = MediaLayoutMode.entries.map { it.name() },
+                    selectedTabIndex = MediaLayoutMode.entries.indexOf(preferences.layoutMode(target, cloudServerId)),
+                    onTabSelected = { index -> preferences = preferences.withLayoutMode(target, cloudServerId, MediaLayoutMode.entries[index]) },
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .testTag("tabs_${target.dialogTestTag}_layout_mode"),
+                )
                 if (layoutMode == MediaLayoutMode.GRID) {
                     MediaLayoutScaleControls(
                         scale = preferences.normalizedLayoutScale(target, cloudServerId),
@@ -164,30 +149,14 @@ fun QuickSettingsDialog(
                     onOptionSelected = { preferences = preferences.withSortBy(target, cloudServerId, it) },
                 )
                 Spacer(modifier = Modifier.height(8.dp))
-                SingleChoiceSegmentedButtonRow(
-                    modifier = Modifier.fillMaxWidth(),
-                ) {
-                    Sort.Order.entries.forEachIndexed { index, sortOrder ->
-                        SegmentedButton(
-                            selected = preferences.sortOrder(target, cloudServerId) == sortOrder,
-                            onClick = { preferences = preferences.withSortOrder(target, cloudServerId, sortOrder) },
-                            shape = SegmentedButtonDefaults.itemShape(index = index, count = Sort.Order.entries.size),
-                            colors = SegmentedButtonDefaults.colors(
-                                activeContentColor = MaterialTheme.colorScheme.primary,
-                                activeBorderColor = MaterialTheme.colorScheme.primary,
-                            ),
-                            icon = {
-                                Icon(
-                                    imageVector = if (sortOrder == Sort.Order.ASCENDING) NextIcons.ArrowUpward else NextIcons.ArrowDownward,
-                                    contentDescription = stringResource(R.string.ascending),
-                                    modifier = Modifier.size(FilterChipDefaults.IconSize),
-                                )
-                            },
-                        ) {
-                            Text(text = sortOrder.name(sortBy = sortBy))
-                        }
-                    }
-                }
+                TabRow(
+                    tabs = Sort.Order.entries.map { it.name(sortBy = sortBy) },
+                    selectedTabIndex = Sort.Order.entries.indexOf(preferences.sortOrder(target, cloudServerId)),
+                    onTabSelected = { index -> preferences = preferences.withSortOrder(target, cloudServerId, Sort.Order.entries[index]) },
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .testTag("tabs_${target.dialogTestTag}_sort_order"),
+                )
                 HorizontalDivider(modifier = Modifier.padding(top = 16.dp))
                 DialogSectionTitle(text = stringResource(R.string.fields))
                 FlowRow(
@@ -195,6 +164,7 @@ fun QuickSettingsDialog(
                         .fillMaxWidth()
                         .wrapContentHeight(align = Alignment.Top),
                     horizontalArrangement = Arrangement.spacedBy(8.dp),
+                    verticalArrangement = Arrangement.spacedBy(8.dp),
                 ) {
                     QuickSettingsFields(
                         preferences = preferences,
@@ -211,10 +181,14 @@ fun QuickSettingsDialog(
                     updatePreferences(preferences)
                     onDismiss()
                 },
+                modifier = Modifier.testTag("btn_${target.dialogTestTag}_done"),
             )
         },
         dismissButton = {
-            CancelButton(onClick = onDismiss)
+            CancelButton(
+                onClick = onDismiss,
+                modifier = Modifier.testTag("btn_${target.dialogTestTag}_cancel"),
+            )
         },
     )
 }
@@ -234,7 +208,7 @@ private fun MediaLayoutScaleControls(
     ) {
         Text(
             text = "${(scale * 100).roundToInt()}%",
-            style = MaterialTheme.typography.titleMedium,
+            style = MiuixTheme.textStyles.title4,
             modifier = Modifier
                 .padding(horizontal = 10.dp)
                 .testTag("text_media_layout_scale"),
@@ -270,36 +244,43 @@ private fun QuickSettingsFields(
     when (target) {
         QuickSettingsTarget.LOCAL -> {
             FieldChip(
+                key = "duration",
                 label = stringResource(id = R.string.duration),
                 isSelected = preferences.shouldShowDurationField,
                 onClick = { onPreferencesChange(preferences.copy(shouldShowDurationField = !preferences.shouldShowDurationField)) },
             )
             FieldChip(
+                key = "extension",
                 label = stringResource(id = R.string.extension),
                 isSelected = preferences.shouldShowExtensionField,
                 onClick = { onPreferencesChange(preferences.copy(shouldShowExtensionField = !preferences.shouldShowExtensionField)) },
             )
             FieldChip(
+                key = "path",
                 label = stringResource(id = R.string.path),
                 isSelected = preferences.shouldShowPathField,
                 onClick = { onPreferencesChange(preferences.copy(shouldShowPathField = !preferences.shouldShowPathField)) },
             )
             FieldChip(
+                key = "played_progress",
                 label = stringResource(id = R.string.played_progress),
                 isSelected = preferences.shouldShowPlayedProgress,
                 onClick = { onPreferencesChange(preferences.copy(shouldShowPlayedProgress = !preferences.shouldShowPlayedProgress)) },
             )
             FieldChip(
+                key = "resolution",
                 label = stringResource(id = R.string.resolution),
                 isSelected = preferences.shouldShowResolutionField,
                 onClick = { onPreferencesChange(preferences.copy(shouldShowResolutionField = !preferences.shouldShowResolutionField)) },
             )
             FieldChip(
+                key = "size",
                 label = stringResource(id = R.string.size),
                 isSelected = preferences.shouldShowSizeField,
                 onClick = { onPreferencesChange(preferences.copy(shouldShowSizeField = !preferences.shouldShowSizeField)) },
             )
             FieldChip(
+                key = "thumbnail",
                 label = stringResource(id = R.string.thumbnail),
                 isSelected = preferences.shouldShowThumbnailField,
                 onClick = { onPreferencesChange(preferences.copy(shouldShowThumbnailField = !preferences.shouldShowThumbnailField)) },
@@ -308,6 +289,7 @@ private fun QuickSettingsFields(
         QuickSettingsTarget.CLOUD -> {
             val cloudSettings = preferences.cloudQuickSettings(cloudServerId)
             FieldChip(
+                key = "cloud_extension",
                 label = stringResource(id = R.string.extension),
                 isSelected = cloudSettings.shouldShowExtensionField,
                 onClick = {
@@ -320,6 +302,7 @@ private fun QuickSettingsFields(
                 },
             )
             FieldChip(
+                key = "cloud_path",
                 label = stringResource(id = R.string.path),
                 isSelected = cloudSettings.shouldShowPathField,
                 onClick = {
@@ -332,6 +315,7 @@ private fun QuickSettingsFields(
                 },
             )
             FieldChip(
+                key = "cloud_played_progress",
                 label = stringResource(id = R.string.played_progress),
                 isSelected = cloudSettings.shouldShowPlayedProgress,
                 onClick = {
@@ -344,6 +328,7 @@ private fun QuickSettingsFields(
                 },
             )
             FieldChip(
+                key = "cloud_size",
                 label = stringResource(id = R.string.size),
                 isSelected = cloudSettings.shouldShowSizeField,
                 onClick = {
@@ -356,6 +341,7 @@ private fun QuickSettingsFields(
                 },
             )
             FieldChip(
+                key = "cloud_thumbnail",
                 label = stringResource(id = R.string.thumbnail),
                 isSelected = cloudSettings.shouldShowThumbnailField,
                 onClick = {
@@ -373,6 +359,7 @@ private fun QuickSettingsFields(
 
 @Composable
 fun FieldChip(
+    key: String,
     label: String,
     isSelected: Boolean,
     onClick: () -> Unit,
@@ -380,26 +367,34 @@ fun FieldChip(
     selectedIcon: ImageVector = NextIcons.CheckBox,
     unselectedIcon: ImageVector = NextIcons.CheckBoxOutline,
 ) {
-    FilterChip(
-        selected = isSelected,
+    Surface(
         onClick = onClick,
-        label = { Text(text = label) },
-        leadingIcon = {
+        shape = RoundedCornerShape(50),
+        color = if (isSelected) MiuixTheme.colorScheme.primaryContainer else MiuixTheme.colorScheme.surfaceContainer,
+        border = if (isSelected) {
+            BorderStroke(1.dp, MiuixTheme.colorScheme.primary)
+        } else {
+            null
+        },
+        modifier = modifier.testTag("chip_quick_settings_field_$key"),
+    ) {
+        Row(
+            modifier = Modifier.padding(horizontal = 12.dp, vertical = 8.dp),
+            verticalAlignment = Alignment.CenterVertically,
+            horizontalArrangement = Arrangement.spacedBy(6.dp),
+        ) {
             Icon(
                 imageVector = if (isSelected) selectedIcon else unselectedIcon,
-                contentDescription = "",
-                modifier = Modifier.size(FilterChipDefaults.IconSize),
-                tint = MaterialTheme.colorScheme.secondary,
+                contentDescription = label,
+                modifier = Modifier.size(18.dp),
+                tint = if (isSelected) MiuixTheme.colorScheme.primary else MiuixTheme.colorScheme.secondary,
             )
-        },
-        border = FilterChipDefaults.filterChipBorder(
-            enabled = true,
-            selected = isSelected,
-            selectedBorderWidth = 1.dp,
-            selectedBorderColor = MaterialTheme.colorScheme.primary,
-        ),
-        modifier = modifier,
-    )
+            Text(
+                text = label,
+                color = if (isSelected) MiuixTheme.colorScheme.primary else MiuixTheme.colorScheme.onSurface,
+            )
+        }
+    }
 }
 
 @Composable
@@ -421,6 +416,7 @@ private fun SortOptions(
                 icon = option.icon(),
                 isSelected = selectedSortBy == option,
                 onClick = { onOptionSelected(option) },
+                modifier = Modifier.testTag("btn_quick_settings_sort_${option.name.lowercase()}"),
             )
         }
     }
@@ -555,7 +551,7 @@ private fun Sort.By.icon(): ImageVector = when (this) {
 private fun DialogSectionTitle(text: String) {
     Text(
         text = text,
-        style = MaterialTheme.typography.titleMedium,
+        style = MiuixTheme.textStyles.title4,
         modifier = Modifier.padding(top = 16.dp, bottom = 8.dp),
     )
 }

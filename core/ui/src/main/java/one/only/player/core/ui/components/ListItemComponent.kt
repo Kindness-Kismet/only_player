@@ -1,24 +1,27 @@
 package one.only.player.core.ui.components
 
+import androidx.compose.foundation.ExperimentalFoundationApi
+import androidx.compose.foundation.LocalIndication
+import androidx.compose.foundation.combinedClickable
 import androidx.compose.foundation.interaction.MutableInteractionSource
 import androidx.compose.foundation.layout.PaddingValues
-import androidx.compose.foundation.layout.padding
-import androidx.compose.foundation.shape.CornerBasedShape
-import androidx.compose.material3.ExperimentalMaterial3ExpressiveApi
-import androidx.compose.material3.ListItemColors
-import androidx.compose.material3.ListItemDefaults
-import androidx.compose.material3.ListItemShapes
-import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.SegmentedListItem
-import androidx.compose.material3.Text
+import androidx.compose.foundation.layout.RowScope
+import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.height
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.remember
-import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.unit.dp
+import top.yukonga.miuix.kmp.basic.BasicComponent
+import top.yukonga.miuix.kmp.basic.SmallTitle
+import top.yukonga.miuix.kmp.basic.Surface
+import top.yukonga.miuix.kmp.theme.MiuixTheme
 
-@OptIn(ExperimentalMaterial3ExpressiveApi::class)
+val SegmentedItemGap = 0.dp
+val SettingsContentTopPadding = 12.dp
+
+@OptIn(ExperimentalFoundationApi::class)
 @Composable
 fun NextSegmentedListItem(
     modifier: Modifier = Modifier,
@@ -27,10 +30,12 @@ fun NextSegmentedListItem(
     isFirstItem: Boolean = false,
     isLastItem: Boolean = false,
     contentPadding: PaddingValues = PaddingValues(16.dp),
-    colors: ListItemColors = ListItemDefaults.segmentedColors(),
-    shapes: ListItemShapes = ListItemDefaults.shapes(),
+    containerColor: Color = MiuixTheme.colorScheme.surfaceContainer,
+    selectedContainerColor: Color = MiuixTheme.colorScheme.primaryContainer,
+    colors: Any? = null,
+    shapes: Any? = null,
     leadingContent: @Composable (() -> Unit)? = null,
-    trailingContent: @Composable (() -> Unit)? = null,
+    trailingContent: @Composable RowScope.() -> Unit = {},
     overlineContent: @Composable (() -> Unit)? = null,
     supportingContent: @Composable (() -> Unit)? = null,
     content: @Composable () -> Unit,
@@ -38,38 +43,43 @@ fun NextSegmentedListItem(
     onLongClick: (() -> Unit)? = null,
     interactionSource: MutableInteractionSource? = null,
 ) {
-    val overrideShape = MaterialTheme.shapes.large
-    SegmentedListItem(
-        modifier = modifier,
-        selected = isSelected,
-        onClick = onClick,
-        onLongClick = onLongClick,
-        enabled = isEnabled,
-        verticalAlignment = Alignment.CenterVertically,
-        shapes = remember(isFirstItem, isLastItem, shapes) {
-            val defaultBaseShape = shapes.shape
-            if (defaultBaseShape is CornerBasedShape) {
-                shapes.copy(
-                    shape = defaultBaseShape.copy(
-                        topStart = overrideShape.topStart.takeIf { isFirstItem } ?: defaultBaseShape.topStart,
-                        topEnd = overrideShape.topEnd.takeIf { isFirstItem } ?: defaultBaseShape.topEnd,
-                        bottomStart = overrideShape.bottomStart.takeIf { isLastItem } ?: defaultBaseShape.bottomStart,
-                        bottomEnd = overrideShape.bottomEnd.takeIf { isLastItem } ?: defaultBaseShape.bottomEnd,
-                    ),
-                )
-            } else {
-                shapes
-            }
+    @Suppress("UNUSED_VARIABLE")
+    val ignoredMaterialCompatibility = colors to shapes
+    val itemInteractionSource = interactionSource ?: remember { MutableInteractionSource() }
+    val clickableModifier = if (isEnabled) {
+        Modifier.combinedClickable(
+            interactionSource = itemInteractionSource,
+            indication = LocalIndication.current,
+            onClick = onClick,
+            onLongClick = onLongClick,
+        )
+    } else {
+        Modifier
+    }
+
+    Surface(
+        shape = preferenceSegmentShape(isFirstItem, isLastItem),
+        color = if (isSelected) {
+            selectedContainerColor
+        } else {
+            containerColor
         },
-        colors = colors,
-        contentPadding = contentPadding,
-        leadingContent = leadingContent,
-        supportingContent = supportingContent,
-        trailingContent = trailingContent,
-        overlineContent = overlineContent,
-        interactionSource = interactionSource,
-        content = content,
-    )
+        modifier = modifier.then(clickableModifier),
+    ) {
+        BasicComponent(
+            startAction = leadingContent,
+            endActions = trailingContent,
+            insideMargin = contentPadding,
+            enabled = isEnabled,
+        ) {
+            overlineContent?.invoke()
+            content()
+            supportingContent?.let {
+                Spacer(modifier = Modifier.height(4.dp))
+                it()
+            }
+        }
+    }
 }
 
 @Composable
@@ -78,15 +88,15 @@ fun ListSectionTitle(
     text: String,
     contentPadding: PaddingValues = PaddingValues(
         start = 12.dp,
-        top = 20.dp,
-        bottom = 10.dp,
+        top = 4.dp,
+        bottom = 4.dp,
     ),
-    color: Color = MaterialTheme.colorScheme.primary,
+    color: Color = MiuixTheme.colorScheme.primary,
 ) {
-    Text(
+    SmallTitle(
         text = text,
-        modifier = modifier.padding(contentPadding),
-        color = color,
-        style = MaterialTheme.typography.labelLarge,
+        modifier = modifier,
+        textColor = color,
+        insideMargin = contentPadding,
     )
 }

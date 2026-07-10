@@ -8,16 +8,6 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
-import androidx.compose.material3.ExperimentalMaterial3Api
-import androidx.compose.material3.ExperimentalMaterial3ExpressiveApi
-import androidx.compose.material3.FilledIconButton
-import androidx.compose.material3.FilledTonalIconButton
-import androidx.compose.material3.Icon
-import androidx.compose.material3.ListItemDefaults
-import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.Scaffold
-import androidx.compose.material3.Slider
-import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableFloatStateOf
@@ -37,17 +27,26 @@ import one.only.player.core.model.PlayerPreferences
 import one.only.player.core.ui.R
 import one.only.player.core.ui.components.ListSectionTitle
 import one.only.player.core.ui.components.NextDialogWithDoneAndCancelButtons
-import one.only.player.core.ui.components.NextTopAppBar
+import one.only.player.core.ui.components.NextResetIconButton
 import one.only.player.core.ui.components.PreferenceSlider
 import one.only.player.core.ui.components.PreferenceSwitch
 import one.only.player.core.ui.components.PreferenceSwitchWithDivider
 import one.only.player.core.ui.components.RadioTextButton
+import one.only.player.core.ui.components.SegmentedItemGap
+import one.only.player.core.ui.components.SettingsContentTopPadding
 import one.only.player.core.ui.designsystem.NextIcons
 import one.only.player.core.ui.extensions.withBottomFallback
 import one.only.player.core.ui.preview.DayNightPreview
 import one.only.player.core.ui.theme.OnlyPlayerTheme
 import one.only.player.settings.composables.OptionsDialog
 import one.only.player.settings.extensions.name
+import top.yukonga.miuix.kmp.basic.Icon as MiuixIcon
+import top.yukonga.miuix.kmp.basic.IconButton as MiuixIconButton
+import top.yukonga.miuix.kmp.basic.Scaffold
+import top.yukonga.miuix.kmp.basic.Slider
+import top.yukonga.miuix.kmp.basic.Text
+import top.yukonga.miuix.kmp.basic.TopAppBar
+import top.yukonga.miuix.kmp.theme.MiuixTheme
 
 @Composable
 fun GesturePreferencesScreen(
@@ -63,7 +62,6 @@ fun GesturePreferencesScreen(
     )
 }
 
-@OptIn(ExperimentalMaterial3Api::class, ExperimentalMaterial3ExpressiveApi::class)
 @Composable
 private fun GesturePreferencesContent(
     uiState: GesturePreferencesUiState,
@@ -72,30 +70,36 @@ private fun GesturePreferencesContent(
 ) {
     Scaffold(
         topBar = {
-            NextTopAppBar(
+            TopAppBar(
                 title = stringResource(id = R.string.gestures),
                 navigationIcon = {
-                    FilledTonalIconButton(onClick = onNavigateUp) {
-                        Icon(
+                    MiuixIconButton(
+                        onClick = onNavigateUp,
+                        modifier = Modifier
+                            .padding(start = 12.dp)
+                            .testTag("button_gesture_back"),
+                    ) {
+                        MiuixIcon(
                             imageVector = NextIcons.ArrowBack,
                             contentDescription = stringResource(id = R.string.navigate_up),
+                            tint = MiuixTheme.colorScheme.onBackground,
                         )
                     }
                 },
             )
         },
-        containerColor = MaterialTheme.colorScheme.surfaceContainer,
+        containerColor = MiuixTheme.colorScheme.background,
     ) { innerPadding ->
         Column(
             modifier = Modifier
                 .fillMaxSize()
                 .verticalScroll(state = rememberScrollState())
                 .padding(innerPadding.withBottomFallback())
+                .padding(top = SettingsContentTopPadding)
                 .padding(horizontal = 16.dp),
         ) {
-            ListSectionTitle(text = stringResource(id = R.string.swipe_gestures))
             Column(
-                verticalArrangement = Arrangement.spacedBy(ListItemDefaults.SegmentedGap),
+                verticalArrangement = Arrangement.spacedBy(SegmentedItemGap),
             ) {
                 PreferenceSwitch(
                     modifier = Modifier.testTag("switch_settings_gesture_seek"),
@@ -117,16 +121,12 @@ private fun GesturePreferencesContent(
                     valueRange = 0.1f..2.0f,
                     onValueChange = { onEvent(GesturePreferencesUiEvent.UpdateSeekSensitivity(it)) },
                     trailingContent = {
-                        FilledIconButton(
+                        NextResetIconButton(
                             modifier = Modifier.testTag("btn_reset_settings_gesture_seek_sensitivity"),
                             enabled = uiState.preferences.shouldUseSeekControls,
                             onClick = { onEvent(GesturePreferencesUiEvent.UpdateSeekSensitivity(PlayerPreferences.DEFAULT_SEEK_SENSITIVITY)) },
-                        ) {
-                            Icon(
-                                imageVector = NextIcons.History,
-                                contentDescription = stringResource(id = R.string.reset_seek_sensitivity),
-                            )
-                        }
+                            contentDescription = stringResource(id = R.string.reset_seek_sensitivity),
+                        )
                     },
                 )
                 PreferenceSwitch(
@@ -148,16 +148,12 @@ private fun GesturePreferencesContent(
                     valueRange = 0.1f..2.0f,
                     onValueChange = { onEvent(GesturePreferencesUiEvent.UpdateBrightnessGestureSensitivity(it)) },
                     trailingContent = {
-                        FilledIconButton(
+                        NextResetIconButton(
                             modifier = Modifier.testTag("btn_reset_settings_gesture_brightness_sensitivity"),
                             enabled = uiState.preferences.isBrightnessSwipeGestureEnabled,
                             onClick = { onEvent(GesturePreferencesUiEvent.UpdateBrightnessGestureSensitivity(PlayerPreferences.DEFAULT_BRIGHTNESS_GESTURE_SENSITIVITY)) },
-                        ) {
-                            Icon(
-                                imageVector = NextIcons.History,
-                                contentDescription = stringResource(id = R.string.reset_brightness_gesture_sensitivity),
-                            )
-                        }
+                            contentDescription = stringResource(id = R.string.reset_brightness_gesture_sensitivity),
+                        )
                     },
                 )
                 PreferenceSwitch(
@@ -180,23 +176,19 @@ private fun GesturePreferencesContent(
                     onValueChange = { onEvent(GesturePreferencesUiEvent.UpdateVolumeGestureSensitivity(it)) },
                     isLastItem = true,
                     trailingContent = {
-                        FilledIconButton(
+                        NextResetIconButton(
                             modifier = Modifier.testTag("btn_reset_settings_gesture_volume_sensitivity"),
                             enabled = uiState.preferences.isVolumeSwipeGestureEnabled,
                             onClick = { onEvent(GesturePreferencesUiEvent.UpdateVolumeGestureSensitivity(PlayerPreferences.DEFAULT_VOLUME_GESTURE_SENSITIVITY)) },
-                        ) {
-                            Icon(
-                                imageVector = NextIcons.History,
-                                contentDescription = stringResource(id = R.string.reset_volume_gesture_sensitivity),
-                            )
-                        }
+                            contentDescription = stringResource(id = R.string.reset_volume_gesture_sensitivity),
+                        )
                     },
                 )
             }
 
             ListSectionTitle(text = stringResource(id = R.string.tap_gestures))
             Column(
-                verticalArrangement = Arrangement.spacedBy(ListItemDefaults.SegmentedGap),
+                verticalArrangement = Arrangement.spacedBy(SegmentedItemGap),
             ) {
                 PreferenceSwitchWithDivider(
                     modifier = Modifier.testTag("item_settings_gesture_double_tap"),
@@ -214,7 +206,7 @@ private fun GesturePreferencesContent(
 
             ListSectionTitle(text = stringResource(id = R.string.long_press_gestures))
             Column(
-                verticalArrangement = Arrangement.spacedBy(ListItemDefaults.SegmentedGap),
+                verticalArrangement = Arrangement.spacedBy(SegmentedItemGap),
             ) {
                 PreferenceSwitchWithDivider(
                     modifier = Modifier.testTag("item_settings_gesture_long_press"),
@@ -241,7 +233,7 @@ private fun GesturePreferencesContent(
 
             ListSectionTitle(text = stringResource(id = R.string.zoom_and_pan_gestures))
             Column(
-                verticalArrangement = Arrangement.spacedBy(ListItemDefaults.SegmentedGap),
+                verticalArrangement = Arrangement.spacedBy(SegmentedItemGap),
             ) {
                 PreferenceSwitch(
                     modifier = Modifier.testTag("switch_settings_gesture_zoom"),
@@ -266,7 +258,7 @@ private fun GesturePreferencesContent(
 
             ListSectionTitle(text = stringResource(id = R.string.other_gestures))
             Column(
-                verticalArrangement = Arrangement.spacedBy(ListItemDefaults.SegmentedGap),
+                verticalArrangement = Arrangement.spacedBy(SegmentedItemGap),
             ) {
                 PreferenceSlider(
                     modifier = Modifier.testTag("item_settings_gesture_seek_increment"),
@@ -280,15 +272,11 @@ private fun GesturePreferencesContent(
                     isFirstItem = true,
                     isLastItem = true,
                     trailingContent = {
-                        FilledIconButton(
+                        NextResetIconButton(
                             modifier = Modifier.testTag("btn_reset_settings_gesture_seek_increment"),
                             onClick = { onEvent(GesturePreferencesUiEvent.UpdateSeekIncrement(PlayerPreferences.DEFAULT_SEEK_INCREMENT)) },
-                        ) {
-                            Icon(
-                                imageVector = NextIcons.History,
-                                contentDescription = stringResource(id = R.string.reset_seek_increment),
-                            )
-                        }
+                            contentDescription = stringResource(id = R.string.reset_seek_increment),
+                        )
                     },
                 )
             }
@@ -334,7 +322,7 @@ private fun GesturePreferencesContent(
                                     .fillMaxWidth()
                                     .padding(vertical = 20.dp),
                                 textAlign = TextAlign.Center,
-                                style = MaterialTheme.typography.titleMedium,
+                                style = MiuixTheme.textStyles.headline1,
                             )
                             Slider(
                                 modifier = Modifier.testTag("slider_settings_gesture_long_press_speed"),

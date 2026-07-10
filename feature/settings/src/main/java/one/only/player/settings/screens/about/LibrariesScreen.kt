@@ -7,40 +7,42 @@ import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.FlowRow
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.lazy.LazyColumn
-import androidx.compose.foundation.lazy.itemsIndexed
-import androidx.compose.material3.Badge
-import androidx.compose.material3.ExperimentalMaterial3Api
-import androidx.compose.material3.ExperimentalMaterial3ExpressiveApi
-import androidx.compose.material3.FilledTonalIconButton
-import androidx.compose.material3.Icon
-import androidx.compose.material3.ListItemDefaults
-import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.Scaffold
-import androidx.compose.material3.Text
+import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.remember
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalUriHandler
+import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import com.mikepenz.aboutlibraries.Libs
+import com.mikepenz.aboutlibraries.entity.Library
 import one.only.player.core.common.Logger
 import one.only.player.core.ui.R
-import one.only.player.core.ui.components.NextSegmentedListItem
-import one.only.player.core.ui.components.NextTopAppBar
+import one.only.player.core.ui.components.SettingsContentTopPadding
 import one.only.player.core.ui.designsystem.NextIcons
 import one.only.player.core.ui.extensions.plus
 import one.only.player.core.ui.extensions.withBottomFallback
 import one.only.player.feature.settings.R as SettingsR
+import top.yukonga.miuix.kmp.basic.BasicComponent
+import top.yukonga.miuix.kmp.basic.Card
+import top.yukonga.miuix.kmp.basic.Icon as MiuixIcon
+import top.yukonga.miuix.kmp.basic.IconButton as MiuixIconButton
+import top.yukonga.miuix.kmp.basic.Scaffold
+import top.yukonga.miuix.kmp.basic.Surface
+import top.yukonga.miuix.kmp.basic.Text as MiuixText
+import top.yukonga.miuix.kmp.basic.TopAppBar
+import top.yukonga.miuix.kmp.theme.MiuixTheme
 
-@OptIn(ExperimentalMaterial3Api::class, ExperimentalMaterial3ExpressiveApi::class)
 @Composable
 fun LibrariesScreen(
     onNavigateUp: () -> Unit,
@@ -51,19 +53,25 @@ fun LibrariesScreen(
 
     Scaffold(
         topBar = {
-            NextTopAppBar(
+            TopAppBar(
                 title = stringResource(id = R.string.libraries),
                 navigationIcon = {
-                    FilledTonalIconButton(onClick = onNavigateUp) {
-                        Icon(
+                    MiuixIconButton(
+                        onClick = onNavigateUp,
+                        modifier = Modifier
+                            .padding(start = 12.dp)
+                            .testTag("button_libraries_back"),
+                    ) {
+                        MiuixIcon(
                             imageVector = NextIcons.ArrowBack,
                             contentDescription = stringResource(id = R.string.navigate_up),
+                            tint = MiuixTheme.colorScheme.onBackground,
                         )
                     }
                 },
             )
         },
-        containerColor = MaterialTheme.colorScheme.surfaceContainer,
+        containerColor = MiuixTheme.colorScheme.background,
     ) { innerPadding ->
         if (libs == null) {
             Box(
@@ -73,9 +81,9 @@ fun LibrariesScreen(
                     .padding(horizontal = 16.dp),
                 contentAlignment = Alignment.Center,
             ) {
-                Text(
+                MiuixText(
                     text = stringResource(id = R.string.unknown_error),
-                    style = MaterialTheme.typography.bodyMedium,
+                    style = MiuixTheme.textStyles.body1,
                 )
             }
 
@@ -84,57 +92,91 @@ fun LibrariesScreen(
 
         LazyColumn(
             modifier = Modifier.fillMaxSize(),
-            contentPadding = innerPadding.withBottomFallback() + PaddingValues(horizontal = 16.dp),
-            verticalArrangement = Arrangement.spacedBy(ListItemDefaults.SegmentedGap),
+            contentPadding = innerPadding.withBottomFallback() +
+                PaddingValues(top = SettingsContentTopPadding) +
+                PaddingValues(horizontal = 16.dp),
         ) {
-            itemsIndexed(libs.libraries, key = { _, library -> library.uniqueId }) { index, library ->
-                NextSegmentedListItem(
-                    content = {
-                        Row(
-                            modifier = Modifier.fillMaxWidth(),
-                            horizontalArrangement = Arrangement.spacedBy(8.dp),
-                        ) {
-                            Text(
-                                text = library.name,
-                                maxLines = 1,
-                                overflow = TextOverflow.Ellipsis,
-                                modifier = Modifier.weight(1f),
-                            )
-                            library.artifactVersion?.let {
-                                Text(text = it)
-                            }
-                        }
-                    },
-                    supportingContent = {
-                        Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
-                            Text(
-                                text = library.developers.takeIf { it.isNotEmpty() }
-                                    ?.mapNotNull { it.name }
-                                    ?.joinToString(", ")
-                                    ?: library.organization?.name ?: "",
-                            )
-                            FlowRow(
-                                verticalArrangement = Arrangement.spacedBy(4.dp),
-                                horizontalArrangement = Arrangement.spacedBy(4.dp),
-                            ) {
-                                library.licenses.forEach {
-                                    Badge(
-                                        containerColor = MaterialTheme.colorScheme.secondaryContainer,
-                                    ) {
-                                        Text(text = it.name, modifier = Modifier.padding(horizontal = 2.dp))
-                                    }
+            item(key = "libraries_card") {
+                Card(
+                    modifier = Modifier.fillMaxWidth(),
+                    insideMargin = PaddingValues(0.dp),
+                ) {
+                    libs.libraries.forEachIndexed { index, library ->
+                        LibraryItem(
+                            library = library,
+                            modifier = Modifier.testTag("item_library_$index"),
+                            onClick = {
+                                library.website?.takeIf { it.isNotBlank() }?.let {
+                                    uriHandler.openUriOrShowToast(uri = it, context = context)
                                 }
-                            }
-                        }
-                    },
-                    isFirstItem = index == 0,
-                    isLastItem = index == libs.libraries.lastIndex,
-                    onClick = {
-                        library.website?.takeIf { it.isNotBlank() }?.let {
-                            uriHandler.openUriOrShowToast(uri = it, context = context)
-                        }
-                    },
+                            },
+                        )
+                    }
+                }
+            }
+        }
+    }
+}
+
+@Composable
+private fun LibraryItem(
+    library: Library,
+    modifier: Modifier = Modifier,
+    onClick: () -> Unit,
+) {
+    BasicComponent(
+        modifier = modifier,
+        insideMargin = PaddingValues(16.dp),
+        onClick = onClick,
+    ) {
+        Row(
+            modifier = Modifier.fillMaxWidth(),
+            horizontalArrangement = Arrangement.spacedBy(8.dp),
+        ) {
+            MiuixText(
+                text = library.name,
+                maxLines = 1,
+                overflow = TextOverflow.Ellipsis,
+                style = MiuixTheme.textStyles.headline1,
+                modifier = Modifier.weight(1f),
+            )
+            library.artifactVersion?.let {
+                MiuixText(
+                    text = it,
+                    color = MiuixTheme.colorScheme.onSurfaceVariantSummary,
+                    style = MiuixTheme.textStyles.body2,
                 )
+            }
+        }
+
+        Spacer(modifier = Modifier.height(4.dp))
+
+        Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
+            MiuixText(
+                text = library.developers.takeIf { it.isNotEmpty() }
+                    ?.mapNotNull { it.name }
+                    ?.joinToString(", ")
+                    ?: library.organization?.name ?: "",
+                color = MiuixTheme.colorScheme.onSurfaceVariantSummary,
+                style = MiuixTheme.textStyles.body2,
+            )
+            FlowRow(
+                verticalArrangement = Arrangement.spacedBy(4.dp),
+                horizontalArrangement = Arrangement.spacedBy(4.dp),
+            ) {
+                library.licenses.forEach {
+                    Surface(
+                        shape = RoundedCornerShape(50),
+                        color = MiuixTheme.colorScheme.secondaryContainer,
+                    ) {
+                        MiuixText(
+                            text = it.name,
+                            color = MiuixTheme.colorScheme.onSecondaryContainer,
+                            style = MiuixTheme.textStyles.body2,
+                            modifier = Modifier.padding(horizontal = 6.dp, vertical = 2.dp),
+                        )
+                    }
+                }
             }
         }
     }

@@ -6,14 +6,14 @@ import androidx.activity.compose.BackHandler
 import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.animation.fadeIn
 import androidx.compose.animation.fadeOut
-import androidx.compose.foundation.BorderStroke
-import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.WindowInsets
 import androidx.compose.foundation.layout.calculateStartPadding
+import androidx.compose.foundation.layout.displayCutout
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
@@ -21,24 +21,8 @@ import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.lazy.itemsIndexed
-import androidx.compose.foundation.shape.CircleShape
-import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.text.KeyboardActions
 import androidx.compose.foundation.text.KeyboardOptions
-import androidx.compose.material3.CircularProgressIndicator
-import androidx.compose.material3.DropdownMenu
-import androidx.compose.material3.ExperimentalMaterial3Api
-import androidx.compose.material3.ExperimentalMaterial3ExpressiveApi
-import androidx.compose.material3.FilledTonalIconButton
-import androidx.compose.material3.HorizontalDivider
-import androidx.compose.material3.Icon
-import androidx.compose.material3.IconButton
-import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.OutlinedTextField
-import androidx.compose.material3.OutlinedTextFieldDefaults
-import androidx.compose.material3.Scaffold
-import androidx.compose.material3.Text
-import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
@@ -48,10 +32,8 @@ import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.draw.clip
 import androidx.compose.ui.focus.FocusRequester
 import androidx.compose.ui.focus.focusRequester
-import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalLayoutDirection
 import androidx.compose.ui.platform.LocalSoftwareKeyboardController
@@ -79,7 +61,6 @@ import one.only.player.core.ui.components.DoneButton
 import one.only.player.core.ui.components.ListSectionTitle
 import one.only.player.core.ui.components.NextDialog
 import one.only.player.core.ui.components.NextSegmentedListItem
-import one.only.player.core.ui.components.NextTopAppBar
 import one.only.player.core.ui.designsystem.NextIcons
 import one.only.player.core.ui.extensions.copy
 import one.only.player.core.ui.extensions.plus
@@ -88,10 +69,20 @@ import one.only.player.core.ui.theme.OnlyPlayerTheme
 import one.only.player.feature.videopicker.composables.FolderItem
 import one.only.player.feature.videopicker.composables.MediaView
 import one.only.player.feature.videopicker.composables.RenameDialog
-import one.only.player.feature.videopicker.composables.SelectionMenuItem
+import one.only.player.feature.videopicker.composables.SelectionActionsPopup
+import one.only.player.feature.videopicker.composables.SelectionMenuAction
 import one.only.player.feature.videopicker.composables.VideoInfoDialog
 import one.only.player.feature.videopicker.state.SelectedVideo
 import one.only.player.feature.videopicker.state.rememberSelectionManager
+import top.yukonga.miuix.kmp.basic.CircularProgressIndicator
+import top.yukonga.miuix.kmp.basic.Icon as MiuixIcon
+import top.yukonga.miuix.kmp.basic.IconButton as MiuixIconButton
+import top.yukonga.miuix.kmp.basic.Scaffold
+import top.yukonga.miuix.kmp.basic.Text
+import top.yukonga.miuix.kmp.basic.TextButton
+import top.yukonga.miuix.kmp.basic.TextField
+import top.yukonga.miuix.kmp.basic.TopAppBar
+import top.yukonga.miuix.kmp.theme.MiuixTheme
 
 @Composable
 fun SearchRoute(
@@ -111,7 +102,6 @@ fun SearchRoute(
     )
 }
 
-@OptIn(ExperimentalMaterial3Api::class)
 @Composable
 internal fun SearchScreen(
     uiState: SearchUiState,
@@ -165,42 +155,40 @@ internal fun SearchScreen(
 
     Scaffold(
         topBar = {
-            NextTopAppBar(
-                title = {
-                    if (selectionManager.isInSelectionMode) {
-                        Text(
-                            text = stringResource(R.string.m_n_selected, selectedItemsSize, totalItemsSize),
-                            style = MaterialTheme.typography.titleMedium,
-                        )
-                    } else {
-                        OutlinedTextField(
+            TopAppBar(
+                title = if (selectionManager.isInSelectionMode) {
+                    stringResource(R.string.m_n_selected, selectedItemsSize, totalItemsSize)
+                } else {
+                    ""
+                },
+                largeTitle = if (selectionManager.isInSelectionMode) {
+                    stringResource(R.string.m_n_selected, selectedItemsSize, totalItemsSize)
+                } else {
+                    ""
+                },
+                bottomContent = {
+                    if (!selectionManager.isInSelectionMode) {
+                        TextField(
                             value = uiState.query,
                             onValueChange = { onEvent(SearchUiEvent.OnQueryChange(it)) },
+                            label = stringResource(R.string.search_videos_and_folders),
+                            useLabelAsPlaceholder = true,
                             modifier = Modifier
                                 .fillMaxWidth()
+                                .padding(horizontal = 16.dp, vertical = 8.dp)
                                 .focusRequester(focusRequester),
-                            placeholder = {
-                                Text(
-                                    text = stringResource(R.string.search_videos_and_folders),
-                                    maxLines = 1,
-                                    overflow = TextOverflow.Ellipsis,
-                                    style = MaterialTheme.typography.bodyLarge,
-                                    color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.5f),
-                                )
-                            },
-                            textStyle = MaterialTheme.typography.bodyLarge,
                             trailingIcon = {
                                 if (uiState.query.isNotEmpty()) {
-                                    IconButton(onClick = { onEvent(SearchUiEvent.OnQueryChange("")) }) {
-                                        Icon(
+                                    MiuixIconButton(onClick = { onEvent(SearchUiEvent.OnQueryChange("")) }) {
+                                        MiuixIcon(
                                             imageVector = NextIcons.Close,
                                             contentDescription = stringResource(R.string.clear_history),
                                         )
                                     }
                                 } else if (uiState.isSearching) {
                                     CircularProgressIndicator(
-                                        modifier = Modifier.size(24.dp),
                                         strokeWidth = 2.dp,
+                                        size = 24.dp,
                                     )
                                 }
                             },
@@ -212,18 +200,11 @@ internal fun SearchScreen(
                                     keyboardController?.hide()
                                 },
                             ),
-                            shape = CircleShape,
-                            colors = OutlinedTextFieldDefaults.colors(
-                                unfocusedBorderColor = Color.Transparent,
-                                focusedBorderColor = Color.Transparent,
-                                errorBorderColor = Color.Transparent,
-                                disabledBorderColor = Color.Transparent,
-                            ),
                         )
                     }
                 },
                 navigationIcon = {
-                    FilledTonalIconButton(
+                    MiuixIconButton(
                         onClick = {
                             if (selectionManager.isInSelectionMode) {
                                 selectionManager.exitSelectionMode()
@@ -231,16 +212,18 @@ internal fun SearchScreen(
                                 onNavigateUp()
                             }
                         },
+                        modifier = Modifier.padding(start = 12.dp),
                     ) {
-                        Icon(
+                        MiuixIcon(
                             imageVector = if (selectionManager.isInSelectionMode) NextIcons.Close else NextIcons.ArrowBack,
                             contentDescription = stringResource(id = R.string.navigate_up),
+                            tint = MiuixTheme.colorScheme.onBackground,
                         )
                     }
                 },
                 actions = {
                     if (selectionManager.isInSelectionMode) {
-                        FilledTonalIconButton(
+                        MiuixIconButton(
                             onClick = {
                                 if (selectedItemsSize != totalItemsSize) {
                                     rootFolder.folderList.forEach { selectionManager.selectFolder(it) }
@@ -249,8 +232,9 @@ internal fun SearchScreen(
                                     selectionManager.exitSelectionMode()
                                 }
                             },
+                            modifier = Modifier.padding(end = 6.dp),
                         ) {
-                            Icon(
+                            MiuixIcon(
                                 imageVector = if (selectedItemsSize != totalItemsSize) {
                                     NextIcons.SelectAll
                                 } else {
@@ -261,16 +245,18 @@ internal fun SearchScreen(
                                 } else {
                                     stringResource(R.string.deselect_all)
                                 },
+                                tint = MiuixTheme.colorScheme.onBackground,
                             )
                         }
-                        Box {
-                            FilledTonalIconButton(
+                        Box(modifier = Modifier.padding(end = 12.dp)) {
+                            MiuixIconButton(
                                 onClick = { shouldShowSelectionMenu = true },
                                 modifier = Modifier.testTag("btn_search_selection_actions"),
                             ) {
-                                Icon(
+                                MiuixIcon(
                                     imageVector = NextIcons.Menu,
                                     contentDescription = stringResource(id = R.string.menu),
+                                    tint = MiuixTheme.colorScheme.onBackground,
                                 )
                             }
                             SearchSelectionActionsMenu(
@@ -317,7 +303,8 @@ internal fun SearchScreen(
                 },
             )
         },
-        containerColor = MaterialTheme.colorScheme.surfaceContainer,
+        contentWindowInsets = WindowInsets.displayCutout,
+        containerColor = MiuixTheme.colorScheme.background,
     ) { scaffoldPadding ->
         Column(
             modifier = Modifier
@@ -326,10 +313,7 @@ internal fun SearchScreen(
                 .padding(start = scaffoldPadding.calculateStartPadding(LocalLayoutDirection.current)),
         ) {
             Box(
-                modifier = Modifier
-                    .fillMaxSize()
-                    .clip(RoundedCornerShape(topStart = 24.dp, topEnd = 24.dp))
-                    .background(MaterialTheme.colorScheme.background),
+                modifier = Modifier.fillMaxSize(),
             ) {
                 val updatedScaffoldPadding = scaffoldPadding.copy(top = 0.dp, start = 0.dp).withBottomFallback()
                 if (uiState.query.isBlank()) {
@@ -426,11 +410,12 @@ private fun SuggestionsContent(
                 ) {
                     ListSectionTitle(
                         text = stringResource(R.string.recent_searches),
-                        contentPadding = PaddingValues(top = 12.dp, bottom = 8.dp),
+                        contentPadding = PaddingValues(top = 6.dp, bottom = 8.dp),
                     )
-                    TextButton(onClick = onClearHistory) {
-                        Text(text = stringResource(R.string.clear_history))
-                    }
+                    TextButton(
+                        text = stringResource(R.string.clear_history),
+                        onClick = onClearHistory,
+                    )
                 }
             }
 
@@ -452,7 +437,7 @@ private fun SuggestionsContent(
                     text = stringResource(R.string.popular_folders),
                     contentPadding = PaddingValues(
                         start = 16.dp,
-                        top = if (searchHistory.isNotEmpty()) 20.dp else 12.dp,
+                        top = if (searchHistory.isNotEmpty()) 12.dp else 6.dp,
                         bottom = 8.dp,
                     ),
                 )
@@ -486,16 +471,16 @@ private fun SuggestionsContent(
                         horizontalAlignment = Alignment.CenterHorizontally,
                         verticalArrangement = Arrangement.spacedBy(8.dp),
                     ) {
-                        Icon(
+                        MiuixIcon(
                             imageVector = NextIcons.Search,
                             contentDescription = null,
                             modifier = Modifier.size(48.dp),
-                            tint = MaterialTheme.colorScheme.onSurfaceVariant,
+                            tint = MiuixTheme.colorScheme.onSurfaceVariantSummary,
                         )
                         Text(
                             text = stringResource(R.string.search_videos_and_folders),
-                            style = MaterialTheme.typography.bodyLarge,
-                            color = MaterialTheme.colorScheme.onSurfaceVariant,
+                            style = MiuixTheme.textStyles.main,
+                            color = MiuixTheme.colorScheme.onSurfaceVariantSummary,
                             textAlign = TextAlign.Center,
                         )
                     }
@@ -505,7 +490,6 @@ private fun SuggestionsContent(
     }
 }
 
-@OptIn(ExperimentalMaterial3ExpressiveApi::class)
 @Composable
 private fun SearchHistoryItem(
     query: String,
@@ -517,29 +501,29 @@ private fun SearchHistoryItem(
         contentPadding = PaddingValues(horizontal = 16.dp, vertical = 12.dp),
         onClick = onClick,
         leadingContent = {
-            Icon(
+            MiuixIcon(
                 imageVector = NextIcons.History,
                 contentDescription = null,
-                tint = MaterialTheme.colorScheme.onSurfaceVariant,
+                tint = MiuixTheme.colorScheme.onSurfaceVariantSummary,
             )
         },
         trailingContent = {
-            IconButton(
+            MiuixIconButton(
                 onClick = onRemove,
                 modifier = Modifier.size(24.dp),
             ) {
-                Icon(
+                MiuixIcon(
                     imageVector = NextIcons.Close,
                     contentDescription = stringResource(R.string.delete),
                     modifier = Modifier.size(18.dp),
-                    tint = MaterialTheme.colorScheme.onSurfaceVariant,
+                    tint = MiuixTheme.colorScheme.onSurfaceVariantSummary,
                 )
             }
         },
         content = {
             Text(
                 text = query,
-                style = MaterialTheme.typography.bodyLarge,
+                style = MiuixTheme.textStyles.main,
                 maxLines = 1,
                 overflow = TextOverflow.Ellipsis,
             )
@@ -585,16 +569,16 @@ private fun SearchResultsContent(
                     horizontalAlignment = Alignment.CenterHorizontally,
                     verticalArrangement = Arrangement.spacedBy(8.dp),
                 ) {
-                    Icon(
+                    MiuixIcon(
                         imageVector = NextIcons.Search,
                         contentDescription = null,
                         modifier = Modifier.size(48.dp),
-                        tint = MaterialTheme.colorScheme.onSurfaceVariant,
+                        tint = MiuixTheme.colorScheme.onSurfaceVariantSummary,
                     )
                     Text(
                         text = stringResource(R.string.no_results_found),
-                        style = MaterialTheme.typography.bodyLarge,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        style = MiuixTheme.textStyles.main,
+                        color = MiuixTheme.colorScheme.onSurfaceVariantSummary,
                     )
                 }
             }
@@ -627,65 +611,65 @@ private fun SearchSelectionActionsMenu(
     onShareAction: () -> Unit,
     onDeleteAction: () -> Unit,
 ) {
-    DropdownMenu(
-        expanded = expanded,
-        onDismissRequest = onDismissRequest,
-        modifier = Modifier.testTag("menu_search_selection_actions"),
-        shape = RoundedCornerShape(10.dp),
-        containerColor = MaterialTheme.colorScheme.surface,
-        tonalElevation = 0.dp,
-        shadowElevation = 0.dp,
-        border = BorderStroke(
-            width = 1.dp,
-            color = MaterialTheme.colorScheme.outline.copy(alpha = 0.15f),
-        ),
-    ) {
-        SelectionMenuItem(
-            text = stringResource(id = R.string.move),
-            icon = NextIcons.Folder,
-            testTag = "item_search_selection_move",
-            onClick = onMoveAction,
+    val primaryActions = buildList {
+        add(
+            SelectionMenuAction(
+                text = stringResource(id = R.string.move),
+                icon = NextIcons.Folder,
+                testTag = "item_search_selection_move",
+                onClick = onMoveAction,
+            ),
         )
-        SelectionMenuItem(
-            text = stringResource(id = R.string.add_to_favorites),
-            icon = NextIcons.LibraryBooks,
-            testTag = "item_search_selection_add_favorites",
-            onClick = onFavoriteAction,
+        add(
+            SelectionMenuAction(
+                text = stringResource(id = R.string.add_to_favorites),
+                icon = NextIcons.LibraryBooks,
+                testTag = "item_search_selection_add_favorites",
+                onClick = onFavoriteAction,
+            ),
         )
         if (shouldShowRenameAction) {
-            SelectionMenuItem(
-                text = stringResource(id = R.string.rename),
-                icon = NextIcons.Edit,
-                testTag = "item_search_selection_rename",
-                onClick = onRenameAction,
+            add(
+                SelectionMenuAction(
+                    text = stringResource(id = R.string.rename),
+                    icon = NextIcons.Edit,
+                    testTag = "item_search_selection_rename",
+                    onClick = onRenameAction,
+                ),
             )
         }
         if (shouldShowInfoAction) {
-            SelectionMenuItem(
-                text = stringResource(id = R.string.info),
-                icon = NextIcons.Info,
-                testTag = "item_search_selection_info",
-                onClick = onInfoAction,
+            add(
+                SelectionMenuAction(
+                    text = stringResource(id = R.string.info),
+                    icon = NextIcons.Info,
+                    testTag = "item_search_selection_info",
+                    onClick = onInfoAction,
+                ),
             )
         }
-        HorizontalDivider(
-            modifier = Modifier.padding(horizontal = 14.dp, vertical = 2.dp),
-            thickness = 1.dp,
-            color = MaterialTheme.colorScheme.outline.copy(alpha = 0.16f),
-        )
-        SelectionMenuItem(
-            text = stringResource(id = R.string.share),
-            icon = NextIcons.Share,
-            testTag = "item_search_selection_share",
-            onClick = onShareAction,
-        )
-        SelectionMenuItem(
-            text = stringResource(id = R.string.delete),
-            icon = NextIcons.Delete,
-            testTag = "item_search_selection_delete",
-            onClick = onDeleteAction,
-        )
     }
+    SelectionActionsPopup(
+        expanded = expanded,
+        onDismissRequest = onDismissRequest,
+        groups = listOf(
+            primaryActions,
+            listOf(
+                SelectionMenuAction(
+                    text = stringResource(id = R.string.share),
+                    icon = NextIcons.Share,
+                    testTag = "item_search_selection_share",
+                    onClick = onShareAction,
+                ),
+                SelectionMenuAction(
+                    text = stringResource(id = R.string.delete),
+                    icon = NextIcons.Delete,
+                    testTag = "item_search_selection_delete",
+                    onClick = onDeleteAction,
+                ),
+            ),
+        ),
+    )
 }
 
 @Composable
@@ -721,28 +705,28 @@ private fun SearchDeleteConfirmationDialog(
             Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
                 Text(
                     text = warningText,
-                    style = MaterialTheme.typography.titleSmall,
+                    style = MiuixTheme.textStyles.title4,
                 )
                 Text(
                     text = stringResource(R.string.delete_summary_count, selectedVideoList.size),
-                    style = MaterialTheme.typography.bodyMedium,
+                    style = MiuixTheme.textStyles.main,
                 )
                 Text(
                     text = stringResource(R.string.delete_summary_size, Utils.formatFileSize(totalSize)),
-                    style = MaterialTheme.typography.bodyMedium,
+                    style = MiuixTheme.textStyles.main,
                 )
                 Text(
                     text = stringResource(R.string.delete_summary_duration, Utils.formatDurationMillis(totalDuration)),
-                    style = MaterialTheme.typography.bodyMedium,
+                    style = MiuixTheme.textStyles.main,
                 )
                 Text(
                     text = selectedVideoList.take(5).joinToString(separator = "\n") { it.nameWithExtension },
-                    style = MaterialTheme.typography.bodySmall,
+                    style = MiuixTheme.textStyles.body2,
                 )
                 if (selectedVideoList.size > 5) {
                     Text(
                         text = stringResource(R.string.delete_summary_more, selectedVideoList.size - 5),
-                        style = MaterialTheme.typography.bodySmall,
+                        style = MiuixTheme.textStyles.body2,
                     )
                 }
             }

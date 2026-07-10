@@ -1,26 +1,24 @@
 package one.only.player.core.ui.components
 
-import androidx.compose.foundation.ExperimentalFoundationApi
-import androidx.compose.foundation.layout.size
-import androidx.compose.material3.Checkbox
-import androidx.compose.material3.ExperimentalMaterial3ExpressiveApi
-import androidx.compose.material3.Icon
-import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.RadioButton
-import androidx.compose.material3.Text
+import androidx.compose.foundation.layout.RowScope
+import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.vector.ImageVector
-import androidx.compose.ui.semantics.contentDescription
-import androidx.compose.ui.semantics.semantics
-import androidx.compose.ui.text.style.TextDecoration
-import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
 import one.only.player.core.ui.designsystem.NextIcons
+import top.yukonga.miuix.kmp.basic.BasicComponent
+import top.yukonga.miuix.kmp.basic.Icon as MiuixIcon
+import top.yukonga.miuix.kmp.basic.Surface
+import top.yukonga.miuix.kmp.preference.ArrowPreference
+import top.yukonga.miuix.kmp.preference.CheckboxLocation
+import top.yukonga.miuix.kmp.preference.CheckboxPreference
+import top.yukonga.miuix.kmp.preference.RadioButtonPreference
+import top.yukonga.miuix.kmp.theme.MiuixTheme
 
-@OptIn(ExperimentalMaterial3ExpressiveApi::class)
 @Composable
 fun PreferenceItem(
     modifier: Modifier = Modifier,
@@ -32,37 +30,65 @@ fun PreferenceItem(
     onLongClick: (() -> Unit)? = null,
     isFirstItem: Boolean = false,
     isLastItem: Boolean = false,
-    trailingContent: @Composable () -> Unit = {},
+    showArrow: Boolean = false,
+    trailingContent: @Composable RowScope.() -> Unit = {},
 ) {
-    NextSegmentedListItem(
+    Surface(
+        shape = preferenceSegmentShape(isFirstItem, isLastItem),
+        color = MiuixTheme.colorScheme.surfaceContainer,
         modifier = modifier,
-        onClick = onClick,
-        onLongClick = onLongClick,
-        isEnabled = isEnabled,
-        isFirstItem = isFirstItem,
-        isLastItem = isLastItem,
-        leadingContent = icon?.let {
-            {
-                Icon(
-                    imageVector = icon,
-                    contentDescription = null,
-                    modifier = Modifier.size(24.dp),
-                )
-            }
-        },
-        supportingContent = description?.let {
-            {
-                Text(text = description)
-            }
-        },
-        content = {
-            Text(text = title)
-        },
-        trailingContent = trailingContent,
+    ) {
+        if (showArrow) {
+            ArrowPreference(
+                title = title,
+                summary = description,
+                startAction = icon?.let { { PreferenceIcon(it, isEnabled) } },
+                endActions = trailingContent,
+                onClick = onClick,
+                enabled = isEnabled,
+            )
+        } else {
+            BasicComponent(
+                title = title,
+                summary = description,
+                startAction = icon?.let { { PreferenceIcon(it, isEnabled) } },
+                endActions = trailingContent,
+                onClick = if (isEnabled) onClick else null,
+                enabled = isEnabled,
+            )
+        }
+    }
+}
+
+// 段圆角：仅在段首/段尾大圆角，中间保持小圆角
+@Composable
+internal fun preferenceSegmentShape(
+    isFirstItem: Boolean,
+    isLastItem: Boolean,
+): RoundedCornerShape {
+    val large = 24.dp
+    val small = 0.dp
+    return RoundedCornerShape(
+        topStart = if (isFirstItem) large else small,
+        topEnd = if (isFirstItem) large else small,
+        bottomStart = if (isLastItem) large else small,
+        bottomEnd = if (isLastItem) large else small,
     )
 }
 
-@OptIn(ExperimentalFoundationApi::class, ExperimentalMaterial3ExpressiveApi::class)
+@Composable
+internal fun PreferenceIcon(
+    icon: ImageVector,
+    isEnabled: Boolean,
+) {
+    MiuixIcon(
+        imageVector = icon,
+        contentDescription = null,
+        modifier = Modifier.padding(end = 12.dp),
+        tint = MiuixTheme.colorScheme.onBackground.applyAlpha(isEnabled),
+    )
+}
+
 @Composable
 fun SelectablePreference(
     title: String,
@@ -74,43 +100,21 @@ fun SelectablePreference(
     isFirstItem: Boolean = false,
     isLastItem: Boolean = false,
 ) {
-    NextSegmentedListItem(
+    Surface(
+        shape = preferenceSegmentShape(isFirstItem, isLastItem),
+        color = MiuixTheme.colorScheme.surfaceContainer,
         modifier = modifier,
-        onClick = onClick,
-        onLongClick = onLongClick,
-        isFirstItem = isFirstItem,
-        isLastItem = isLastItem,
-        content = {
-            Text(
-                text = title,
-                maxLines = 1,
-                style = MaterialTheme.typography.titleMedium.copy(
-                    textDecoration = if (isSelected) TextDecoration.LineThrough else TextDecoration.None,
-                ),
-            )
-        },
-        supportingContent = {
-            description?.let {
-                Text(
-                    text = it,
-                    overflow = TextOverflow.Ellipsis,
-                    style = MaterialTheme.typography.bodyMedium.copy(
-                        textDecoration = if (isSelected) TextDecoration.LineThrough else TextDecoration.None,
-                    ),
-                )
-            }
-        },
-        trailingContent = {
-            Checkbox(
-                modifier = Modifier.semantics { contentDescription = title },
-                checked = isSelected,
-                onCheckedChange = null,
-            )
-        },
-    )
+    ) {
+        CheckboxPreference(
+            title = title,
+            summary = description,
+            checked = isSelected,
+            onCheckedChange = { onClick() },
+            checkboxLocation = CheckboxLocation.End,
+        )
+    }
 }
 
-@OptIn(ExperimentalFoundationApi::class, ExperimentalMaterial3ExpressiveApi::class)
 @Composable
 fun SingleSelectablePreference(
     title: String,
@@ -122,33 +126,18 @@ fun SingleSelectablePreference(
     isFirstItem: Boolean = false,
     isLastItem: Boolean = false,
 ) {
-    NextSegmentedListItem(
+    Surface(
+        shape = preferenceSegmentShape(isFirstItem, isLastItem),
+        color = MiuixTheme.colorScheme.surfaceContainer,
         modifier = modifier,
-        onClick = onClick,
-        onLongClick = onLongClick,
-        isFirstItem = isFirstItem,
-        isLastItem = isLastItem,
-        content = {
-            Text(
-                text = title,
-                maxLines = 1,
-            )
-        },
-        supportingContent = {
-            description?.let {
-                Text(
-                    text = it,
-                    overflow = TextOverflow.Ellipsis,
-                )
-            }
-        },
-        leadingContent = {
-            RadioButton(
-                selected = isSelected,
-                onClick = null,
-            )
-        },
-    )
+    ) {
+        RadioButtonPreference(
+            title = title,
+            summary = description,
+            selected = isSelected,
+            onClick = onClick,
+        )
+    }
 }
 
 @Preview(showBackground = true)

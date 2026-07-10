@@ -47,6 +47,12 @@ dependencies {
     implementation(libs.androidx.lifecycle.runtimeCompose)
     implementation(libs.androidx.compose.material.iconsExtended)
 
+    // miuix UI 与主题，api 暴露给依赖方
+    api(libs.miuix.ui)
+    api(libs.miuix.icons)
+    api(libs.miuix.preference)
+    api(libs.material.kolor)
+
     implementation(libs.androidx.hilt.navigation.compose)
     debugImplementation(libs.androidx.compose.ui.tooling)
 }

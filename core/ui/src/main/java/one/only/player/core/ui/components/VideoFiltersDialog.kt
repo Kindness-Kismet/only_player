@@ -33,6 +33,7 @@ import one.only.player.core.model.withVideoSharpening
 import one.only.player.core.model.withVideoSharpeningFilterEnabled
 import one.only.player.core.ui.R
 import one.only.player.core.ui.designsystem.NextIcons
+import top.yukonga.miuix.kmp.theme.MiuixTheme
 
 @OptIn(ExperimentalMaterial3ExpressiveApi::class)
 @Composable
@@ -454,7 +455,7 @@ private fun CompactVideoFilterSlider(
                 text = spec.valueText,
                 textAlign = TextAlign.End,
                 style = MaterialTheme.typography.bodySmall,
-                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                color = MiuixTheme.colorScheme.onSurfaceVariantSummary,
             )
             NextSwitch(
                 modifier = Modifier.testTag(spec.switchTestTag),

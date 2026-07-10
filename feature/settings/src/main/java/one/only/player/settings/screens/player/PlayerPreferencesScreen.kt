@@ -12,18 +12,6 @@ import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.selection.selectableGroup
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.foundation.verticalScroll
-import androidx.compose.material3.ExperimentalMaterial3Api
-import androidx.compose.material3.ExperimentalMaterial3ExpressiveApi
-import androidx.compose.material3.FilledIconButton
-import androidx.compose.material3.FilledTonalIconButton
-import androidx.compose.material3.HorizontalDivider
-import androidx.compose.material3.Icon
-import androidx.compose.material3.ListItemDefaults
-import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.OutlinedTextField
-import androidx.compose.material3.Scaffold
-import androidx.compose.material3.Text
-import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
@@ -50,10 +38,12 @@ import one.only.player.core.ui.components.CancelButton
 import one.only.player.core.ui.components.ClickablePreferenceItem
 import one.only.player.core.ui.components.ListSectionTitle
 import one.only.player.core.ui.components.NextDialog
-import one.only.player.core.ui.components.NextTopAppBar
+import one.only.player.core.ui.components.NextResetIconButton
 import one.only.player.core.ui.components.PreferenceSlider
 import one.only.player.core.ui.components.PreferenceSwitch
 import one.only.player.core.ui.components.RadioTextButton
+import one.only.player.core.ui.components.SegmentedItemGap
+import one.only.player.core.ui.components.SettingsContentTopPadding
 import one.only.player.core.ui.designsystem.NextIcons
 import one.only.player.core.ui.extensions.withBottomFallback
 import one.only.player.core.ui.preview.DayNightPreview
@@ -61,6 +51,15 @@ import one.only.player.core.ui.theme.OnlyPlayerTheme
 import one.only.player.settings.composables.OptionsDialog
 import one.only.player.settings.extensions.isEnabled
 import one.only.player.settings.extensions.name
+import top.yukonga.miuix.kmp.basic.ButtonDefaults
+import top.yukonga.miuix.kmp.basic.HorizontalDivider
+import top.yukonga.miuix.kmp.basic.Icon as MiuixIcon
+import top.yukonga.miuix.kmp.basic.IconButton as MiuixIconButton
+import top.yukonga.miuix.kmp.basic.Scaffold
+import top.yukonga.miuix.kmp.basic.TextButton
+import top.yukonga.miuix.kmp.basic.TextField
+import top.yukonga.miuix.kmp.basic.TopAppBar
+import top.yukonga.miuix.kmp.theme.MiuixTheme
 
 @Composable
 fun PlayerPreferencesScreen(
@@ -76,7 +75,6 @@ fun PlayerPreferencesScreen(
     )
 }
 
-@OptIn(ExperimentalMaterial3Api::class, ExperimentalMaterial3ExpressiveApi::class)
 @Composable
 private fun PlayerPreferencesContent(
     uiState: PlayerPreferencesUiState,
@@ -87,30 +85,36 @@ private fun PlayerPreferencesContent(
 
     Scaffold(
         topBar = {
-            NextTopAppBar(
+            TopAppBar(
                 title = stringResource(id = R.string.player_name),
                 navigationIcon = {
-                    FilledTonalIconButton(onClick = onNavigateUp) {
-                        Icon(
+                    MiuixIconButton(
+                        onClick = onNavigateUp,
+                        modifier = Modifier
+                            .padding(start = 12.dp)
+                            .testTag("button_player_back"),
+                    ) {
+                        MiuixIcon(
                             imageVector = NextIcons.ArrowBack,
                             contentDescription = stringResource(id = R.string.navigate_up),
+                            tint = MiuixTheme.colorScheme.onBackground,
                         )
                     }
                 },
             )
         },
-        containerColor = MaterialTheme.colorScheme.surfaceContainer,
+        containerColor = MiuixTheme.colorScheme.background,
     ) { innerPadding ->
         Column(
             modifier = Modifier
                 .fillMaxSize()
                 .verticalScroll(state = rememberScrollState())
                 .padding(innerPadding.withBottomFallback())
+                .padding(top = SettingsContentTopPadding)
                 .padding(horizontal = 16.dp),
         ) {
-            ListSectionTitle(text = stringResource(id = R.string.interface_name))
             Column(
-                verticalArrangement = Arrangement.spacedBy(ListItemDefaults.SegmentedGap),
+                verticalArrangement = Arrangement.spacedBy(SegmentedItemGap),
             ) {
                 ClickablePreferenceItem(
                     modifier = Modifier.testTag("item_settings_player_controller_timeout"),
@@ -169,7 +173,7 @@ private fun PlayerPreferencesContent(
 
             ListSectionTitle(text = stringResource(id = R.string.playback_behavior))
             Column(
-                verticalArrangement = Arrangement.spacedBy(ListItemDefaults.SegmentedGap),
+                verticalArrangement = Arrangement.spacedBy(SegmentedItemGap),
             ) {
                 PreferenceSwitch(
                     modifier = Modifier.testTag("switch_settings_player_resume"),
@@ -190,15 +194,11 @@ private fun PlayerPreferencesContent(
                     valueRange = 0.2f..4.0f,
                     onValueChange = { onEvent(PlayerPreferencesUiEvent.UpdateDefaultPlaybackSpeed(it.round(2))) },
                     trailingContent = {
-                        FilledIconButton(
+                        NextResetIconButton(
                             modifier = Modifier.testTag("btn_reset_settings_player_default_speed"),
                             onClick = { onEvent(PlayerPreferencesUiEvent.UpdateDefaultPlaybackSpeed(1f)) },
-                        ) {
-                            Icon(
-                                imageVector = NextIcons.History,
-                                contentDescription = stringResource(id = R.string.reset_default_playback_speed),
-                            )
-                        }
+                            contentDescription = stringResource(id = R.string.reset_default_playback_speed),
+                        )
                     },
                 )
                 PreferenceSwitch(
@@ -256,7 +256,7 @@ private fun PlayerPreferencesContent(
 
             ListSectionTitle(text = stringResource(id = R.string.player_controls))
             Column(
-                verticalArrangement = Arrangement.spacedBy(ListItemDefaults.SegmentedGap),
+                verticalArrangement = Arrangement.spacedBy(SegmentedItemGap),
             ) {
                 ClickablePreferenceItem(
                     modifier = Modifier.testTag("item_settings_player_control_buttons_position"),
@@ -392,7 +392,7 @@ private fun ControllerAutoHideDialog(
 
     NextDialog(
         onDismissRequest = onDismiss,
-        title = { Text(stringResource(id = R.string.controller_timeout_select)) },
+        title = stringResource(id = R.string.controller_timeout_select),
         content = {
             HorizontalDivider()
             LazyColumn(
@@ -418,7 +418,7 @@ private fun ControllerAutoHideDialog(
                 }
                 if (isCustomSelected) {
                     item {
-                        OutlinedTextField(
+                        TextField(
                             value = value,
                             onValueChange = { input -> value = input.filter(Char::isDigit) },
                             modifier = Modifier
@@ -426,7 +426,7 @@ private fun ControllerAutoHideDialog(
                                 .padding(horizontal = 12.dp, vertical = 8.dp)
                                 .testTag("input_settings_player_controller_timeout_custom"),
                             singleLine = true,
-                            label = { Text(stringResource(R.string.enter_seconds)) },
+                            label = stringResource(R.string.enter_seconds),
                             keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
                         )
                     }
@@ -437,12 +437,12 @@ private fun ControllerAutoHideDialog(
         confirmButton = {
             if (isCustomSelected) {
                 TextButton(
+                    text = stringResource(R.string.done),
                     modifier = Modifier.testTag("btn_settings_player_controller_timeout_custom_confirm"),
                     enabled = seconds != null,
+                    colors = ButtonDefaults.textButtonColorsPrimary(),
                     onClick = { seconds?.let(onCustomConfirm) },
-                ) {
-                    Text(stringResource(R.string.done))
-                }
+                )
             }
         },
         dismissButton = { CancelButton(onClick = onDismiss) },

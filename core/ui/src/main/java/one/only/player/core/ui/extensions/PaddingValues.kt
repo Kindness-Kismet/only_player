@@ -7,9 +7,13 @@ import androidx.compose.foundation.layout.calculateEndPadding
 import androidx.compose.foundation.layout.calculateStartPadding
 import androidx.compose.foundation.layout.navigationBars
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.staticCompositionLocalOf
 import androidx.compose.ui.platform.LocalLayoutDirection
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
+
+// Root Tab 底栏留白（悬浮或贴底）由 RootScaffold 注入；非 root 页保持 0
+val LocalRootBottomBarPadding = staticCompositionLocalOf { PaddingValues(0.dp) }
 
 @Composable
 operator fun PaddingValues.plus(other: PaddingValues): PaddingValues = PaddingValues(
@@ -35,7 +39,8 @@ fun PaddingValues.withBottomFallback(
 ): PaddingValues {
     val bottomPadding = calculateBottomPadding()
     val navigationBarBottomPadding = WindowInsets.navigationBars.asPaddingValues().calculateBottomPadding()
+    val rootBottomBarPadding = LocalRootBottomBarPadding.current.calculateBottomPadding()
     return copy(
-        bottom = maxOf(bottomPadding, navigationBarBottomPadding) + fallback,
+        bottom = maxOf(bottomPadding, navigationBarBottomPadding, rootBottomBarPadding) + fallback,
     )
 }

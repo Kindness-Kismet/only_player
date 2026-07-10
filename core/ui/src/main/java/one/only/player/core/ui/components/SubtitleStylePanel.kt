@@ -2,10 +2,6 @@ package one.only.player.core.ui.components
 
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
-import androidx.compose.material3.ExperimentalMaterial3ExpressiveApi
-import androidx.compose.material3.FilledIconButton
-import androidx.compose.material3.Icon
-import androidx.compose.material3.ListItemDefaults
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.testTag
@@ -18,7 +14,6 @@ import one.only.player.core.model.SubtitleEdgeStyle
 import one.only.player.core.ui.R
 import one.only.player.core.ui.designsystem.NextIcons
 
-@OptIn(ExperimentalMaterial3ExpressiveApi::class)
 @Composable
 fun SubtitleStylePanel(
     preferences: PlayerPreferences,
@@ -29,7 +24,7 @@ fun SubtitleStylePanel(
         .coerceIn(SUBTITLE_POSITION_RANGE)
         .roundToStep(PlayerPreferences.SUBTITLE_BOTTOM_PADDING_FRACTION_STEP)
     Column(
-        verticalArrangement = Arrangement.spacedBy(ListItemDefaults.SegmentedGap),
+        verticalArrangement = Arrangement.spacedBy(SegmentedItemGap),
     ) {
         PreferenceSwitch(
             modifier = Modifier.testTag("switch_settings_subtitle_bold"),
@@ -52,20 +47,16 @@ fun SubtitleStylePanel(
             valueRange = SUBTITLE_TEXT_SIZE_RANGE,
             onValueChange = { onPreferencesChange(preferences.copy(subtitleTextSize = it.roundToStep(PlayerPreferences.SUBTITLE_TEXT_SIZE_STEP))) },
             trailingContent = {
-                FilledIconButton(
+                NextResetIconButton(
                     modifier = Modifier.testTag("btn_reset_settings_subtitle_size"),
                     enabled = isEnabled,
+                    contentDescription = stringResource(id = R.string.reset_subtitle_text_size),
                     onClick = {
                         onPreferencesChange(
                             preferences.copy(subtitleTextSize = PlayerPreferences.DEFAULT_SUBTITLE_TEXT_SIZE),
                         )
                     },
-                ) {
-                    Icon(
-                        imageVector = NextIcons.History,
-                        contentDescription = stringResource(id = R.string.reset_subtitle_text_size),
-                    )
-                }
+                )
             },
         )
         PreferenceSlider(
@@ -87,9 +78,10 @@ fun SubtitleStylePanel(
                 )
             },
             trailingContent = {
-                FilledIconButton(
+                NextResetIconButton(
                     modifier = Modifier.testTag("btn_reset_settings_subtitle_bottom_padding"),
                     enabled = isEnabled,
+                    contentDescription = stringResource(id = R.string.reset_subtitle_position),
                     onClick = {
                         onPreferencesChange(
                             preferences.copy(
@@ -97,12 +89,7 @@ fun SubtitleStylePanel(
                             ),
                         )
                     },
-                ) {
-                    Icon(
-                        imageVector = NextIcons.History,
-                        contentDescription = stringResource(id = R.string.reset_subtitle_position),
-                    )
-                }
+                )
             },
         )
         PreferenceSwitch(
@@ -141,20 +128,16 @@ fun SubtitleStylePanel(
             valueRange = SUBTITLE_OUTLINE_THICKNESS_RANGE,
             onValueChange = { onPreferencesChange(preferences.copy(subtitleOutlineThickness = it)) },
             trailingContent = {
-                FilledIconButton(
+                NextResetIconButton(
                     modifier = Modifier.testTag("btn_reset_settings_subtitle_outline_thickness"),
                     enabled = isEnabled,
+                    contentDescription = stringResource(id = R.string.reset_subtitle_outline_thickness),
                     onClick = {
                         onPreferencesChange(
                             preferences.copy(subtitleOutlineThickness = PlayerPreferences.DEFAULT_SUBTITLE_OUTLINE_THICKNESS),
                         )
                     },
-                ) {
-                    Icon(
-                        imageVector = NextIcons.History,
-                        contentDescription = stringResource(id = R.string.reset_subtitle_outline_thickness),
-                    )
-                }
+                )
             },
         )
         PreferenceSlider(
@@ -169,20 +152,16 @@ fun SubtitleStylePanel(
             onValueChange = { onPreferencesChange(preferences.copy(subtitleShadowStrength = it)) },
             isLastItem = true,
             trailingContent = {
-                FilledIconButton(
+                NextResetIconButton(
                     modifier = Modifier.testTag("btn_reset_settings_subtitle_shadow_strength"),
                     enabled = isEnabled,
+                    contentDescription = stringResource(id = R.string.reset_subtitle_shadow_strength),
                     onClick = {
                         onPreferencesChange(
                             preferences.copy(subtitleShadowStrength = PlayerPreferences.DEFAULT_SUBTITLE_SHADOW_STRENGTH),
                         )
                     },
-                ) {
-                    Icon(
-                        imageVector = NextIcons.History,
-                        contentDescription = stringResource(id = R.string.reset_subtitle_shadow_strength),
-                    )
-                }
+                )
             },
         )
     }

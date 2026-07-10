@@ -45,7 +45,8 @@ fun NavGraphBuilder.settingsNavGraph(
         route = SETTINGS_ROUTE,
     ) {
         settingsScreen(
-            onNavigateUp = navController::navigateUp,
+            // root Tab，不显示返回按钮
+            onNavigateUp = null,
             onItemClick = { setting ->
                 when (setting) {
                     Setting.APPEARANCE -> navController.navigateToAppearancePreferences()

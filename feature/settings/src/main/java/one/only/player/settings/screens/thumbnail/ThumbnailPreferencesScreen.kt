@@ -7,16 +7,6 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.selection.selectableGroup
 import androidx.compose.foundation.verticalScroll
-import androidx.compose.material3.ExperimentalMaterial3Api
-import androidx.compose.material3.ExperimentalMaterial3ExpressiveApi
-import androidx.compose.material3.FilledIconButton
-import androidx.compose.material3.FilledTonalIconButton
-import androidx.compose.material3.Icon
-import androidx.compose.material3.ListItemDefaults
-import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.Scaffold
-import androidx.compose.material3.Text
-import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
@@ -37,14 +27,23 @@ import one.only.player.core.model.ApplicationPreferences
 import one.only.player.core.model.ThumbnailGenerationStrategy
 import one.only.player.core.ui.R
 import one.only.player.core.ui.components.CancelButton
-import one.only.player.core.ui.components.ListSectionTitle
 import one.only.player.core.ui.components.NextDialog
-import one.only.player.core.ui.components.NextTopAppBar
+import one.only.player.core.ui.components.NextResetIconButton
 import one.only.player.core.ui.components.PreferenceSlider
+import one.only.player.core.ui.components.SegmentedItemGap
+import one.only.player.core.ui.components.SettingsContentTopPadding
 import one.only.player.core.ui.components.SingleSelectablePreference
 import one.only.player.core.ui.designsystem.NextIcons
 import one.only.player.core.ui.extensions.withBottomFallback
 import one.only.player.core.ui.theme.OnlyPlayerTheme
+import top.yukonga.miuix.kmp.basic.ButtonDefaults
+import top.yukonga.miuix.kmp.basic.Icon as MiuixIcon
+import top.yukonga.miuix.kmp.basic.IconButton as MiuixIconButton
+import top.yukonga.miuix.kmp.basic.Scaffold
+import top.yukonga.miuix.kmp.basic.Text
+import top.yukonga.miuix.kmp.basic.TextButton
+import top.yukonga.miuix.kmp.basic.TopAppBar
+import top.yukonga.miuix.kmp.theme.MiuixTheme
 
 @Composable
 fun ThumbnailPreferencesScreen(
@@ -60,7 +59,6 @@ fun ThumbnailPreferencesScreen(
     )
 }
 
-@OptIn(ExperimentalMaterial3Api::class, ExperimentalMaterial3ExpressiveApi::class)
 @Composable
 private fun ThumbnailPreferencesContent(
     uiState: ThumbnailPreferencesUiState,
@@ -79,32 +77,37 @@ private fun ThumbnailPreferencesContent(
 
     Scaffold(
         topBar = {
-            NextTopAppBar(
+            TopAppBar(
                 title = stringResource(id = R.string.thumbnail_generation),
                 navigationIcon = {
-                    FilledTonalIconButton(onClick = onNavigateUp) {
-                        Icon(
+                    MiuixIconButton(
+                        onClick = onNavigateUp,
+                        modifier = Modifier
+                            .padding(start = 12.dp)
+                            .testTag("button_thumbnail_back"),
+                    ) {
+                        MiuixIcon(
                             imageVector = NextIcons.ArrowBack,
                             contentDescription = stringResource(id = R.string.navigate_up),
+                            tint = MiuixTheme.colorScheme.onBackground,
                         )
                     }
                 },
             )
         },
-        containerColor = MaterialTheme.colorScheme.surfaceContainer,
+        containerColor = MiuixTheme.colorScheme.background,
     ) { innerPadding ->
         Column(
             modifier = Modifier
                 .fillMaxSize()
                 .verticalScroll(state = rememberScrollState())
                 .padding(innerPadding.withBottomFallback())
+                .padding(top = SettingsContentTopPadding)
                 .padding(horizontal = 16.dp),
         ) {
-            ListSectionTitle(text = stringResource(id = R.string.thumbnail_generation_strategy))
-
             Column(
                 modifier = Modifier.selectableGroup(),
-                verticalArrangement = Arrangement.spacedBy(ListItemDefaults.SegmentedGap),
+                verticalArrangement = Arrangement.spacedBy(SegmentedItemGap),
             ) {
                 SingleSelectablePreference(
                     modifier = Modifier.testTag("option_settings_thumbnail_strategy_first_frame"),
@@ -161,7 +164,7 @@ private fun ThumbnailPreferencesContent(
                     }
                 },
                 trailingContent = {
-                    FilledIconButton(
+                    NextResetIconButton(
                         modifier = Modifier.testTag("btn_reset_settings_thumbnail_frame_position"),
                         enabled = preferences.thumbnailGenerationStrategy != ThumbnailGenerationStrategy.FIRST_FRAME,
                         onClick = {
@@ -171,12 +174,8 @@ private fun ThumbnailPreferencesContent(
                                 pendingChange = ThumbnailPreferenceChange.FramePosition(defaultPosition)
                             }
                         },
-                    ) {
-                        Icon(
-                            imageVector = NextIcons.History,
-                            contentDescription = stringResource(id = R.string.reset_seek_sensitivity),
-                        )
-                    }
+                        contentDescription = stringResource(id = R.string.reset_seek_sensitivity),
+                    )
                 },
             )
         }
@@ -187,9 +186,11 @@ private fun ThumbnailPreferencesContent(
                     pendingChange = null
                     frameSliderValue = preferences.thumbnailFramePosition * 100f
                 },
-                title = { Text(text = stringResource(id = R.string.thumbnail_generation)) },
+                title = stringResource(id = R.string.thumbnail_generation),
                 confirmButton = {
                     TextButton(
+                        text = stringResource(id = R.string.okay),
+                        colors = ButtonDefaults.textButtonColorsPrimary(),
                         onClick = {
                             when (change) {
                                 is ThumbnailPreferenceChange.Strategy -> {
@@ -201,9 +202,7 @@ private fun ThumbnailPreferencesContent(
                             }
                             pendingChange = null
                         },
-                    ) {
-                        Text(text = stringResource(id = R.string.okay))
-                    }
+                    )
                 },
                 dismissButton = {
                     CancelButton(
@@ -216,7 +215,7 @@ private fun ThumbnailPreferencesContent(
                 content = {
                     Text(
                         text = stringResource(id = R.string.thumbnail_setting_change_confirmation),
-                        style = MaterialTheme.typography.titleSmall,
+                        style = MiuixTheme.textStyles.body1,
                     )
                 },
             )

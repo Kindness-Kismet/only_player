@@ -15,11 +15,6 @@ import androidx.compose.animation.core.tween
 import androidx.compose.foundation.isSystemInDarkTheme
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.fillMaxSize
-import androidx.compose.material3.AlertDialog
-import androidx.compose.material3.Button
-import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.Surface
-import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
@@ -52,14 +47,16 @@ import one.only.player.core.common.extensions.resolvePrivacyPreviewScrim
 import one.only.player.core.common.storagePermission
 import one.only.player.core.media.services.MediaService
 import one.only.player.core.media.sync.MediaSynchronizer
+import one.only.player.core.model.ThemeColorSpec
 import one.only.player.core.model.ThemeConfig
+import one.only.player.core.model.ThemePaletteStyle
 import one.only.player.core.ui.R as UiR
+import one.only.player.core.ui.components.NextDialog
 import one.only.player.core.ui.composables.rememberRuntimePermissionState
+import one.only.player.core.ui.theme.DEFAULT_SEED_COLOR
 import one.only.player.core.ui.theme.OnlyPlayerTheme
 import one.only.player.feature.player.PlayerActivity
 import one.only.player.feature.videopicker.navigation.MediaPickerRoute
-import one.only.player.feature.videopicker.navigation.navigateToCloudHome
-import one.only.player.feature.videopicker.navigation.navigateToFavorites
 import one.only.player.feature.videopicker.navigation.navigateToRecycleBinScreen
 import one.only.player.feature.videopicker.navigation.navigateToSearch
 import one.only.player.navigation.DEBUG_ACTION_OPEN_PAGE
@@ -68,8 +65,12 @@ import one.only.player.navigation.DEBUG_EXTRA_PAGE
 import one.only.player.navigation.DebugPageRoute
 import one.only.player.navigation.MediaRootRoute
 import one.only.player.navigation.NavigationBarColorEffect
+import one.only.player.navigation.RootDestination
+import one.only.player.navigation.RootScaffold
 import one.only.player.navigation.cloudNavGraph
+import one.only.player.navigation.favoritesNavGraph
 import one.only.player.navigation.mediaNavGraph
+import one.only.player.navigation.navigateToRoot
 import one.only.player.navigation.settingsNavGraph
 import one.only.player.settings.navigation.navigateToAboutPreferences
 import one.only.player.settings.navigation.navigateToAppearancePreferences
@@ -83,9 +84,13 @@ import one.only.player.settings.navigation.navigateToLogs
 import one.only.player.settings.navigation.navigateToMediaLibraryPreferencesScreen
 import one.only.player.settings.navigation.navigateToPlayerPreferences
 import one.only.player.settings.navigation.navigateToPrivacyPreferences
-import one.only.player.settings.navigation.navigateToSettings
 import one.only.player.settings.navigation.navigateToSubtitlePreferences
 import one.only.player.settings.navigation.navigateToThumbnailPreferencesScreen
+import top.yukonga.miuix.kmp.basic.ButtonDefaults
+import top.yukonga.miuix.kmp.basic.Surface
+import top.yukonga.miuix.kmp.basic.Text
+import top.yukonga.miuix.kmp.basic.TextButton
+import top.yukonga.miuix.kmp.theme.MiuixTheme
 
 @AndroidEntryPoint
 class MainActivity : AppCompatActivity() {
@@ -194,6 +199,9 @@ class MainActivity : AppCompatActivity() {
             OnlyPlayerTheme(
                 shouldUseDarkTheme = shouldUseDarkTheme,
                 shouldUseDynamicColor = shouldUseDynamicColor,
+                seedColor = preferences?.themeSeedColor ?: DEFAULT_SEED_COLOR,
+                paletteStyle = preferences?.themePaletteStyle ?: ThemePaletteStyle.TONAL_SPOT,
+                colorSpec = preferences?.themeColorSpec ?: ThemeColorSpec.SPEC_2025,
             ) {
                 if (!shouldShowStartupSplash) {
                     StartupUpdateDialog(viewModel = viewModel)
@@ -201,12 +209,14 @@ class MainActivity : AppCompatActivity() {
 
                 Surface(
                     modifier = Modifier.fillMaxSize(),
-                    color = MaterialTheme.colorScheme.surface,
+                    color = MiuixTheme.colorScheme.surface,
                 ) {
                     if (shouldShowStartupSplash) {
                         StartupSplashScreen()
                     } else {
                         MainAppContent(
+                            shouldUseFloatingNavigationBar = preferences?.shouldUseFloatingNavigationBar == true,
+                            shouldBlurFloatingNavigationBar = preferences?.shouldBlurFloatingNavigationBar != false,
                             onPermissionGranted = {
                                 synchronizer.startSync()
                                 lastAutoRefreshAt = SystemClock.elapsedRealtime()
@@ -259,12 +269,12 @@ class MainActivity : AppCompatActivity() {
     ) {
         navController.popBackStack(MediaPickerRoute(), inclusive = false)
         when (pageRoute) {
-            DebugPageRoute.HOME -> Unit
+            DebugPageRoute.HOME -> navController.navigateToRoot(RootDestination.HOME)
             DebugPageRoute.SEARCH -> navController.navigateToSearch()
             DebugPageRoute.RECYCLE_BIN -> navController.navigateToRecycleBinScreen()
-            DebugPageRoute.FAVORITES -> navController.navigateToFavorites()
-            DebugPageRoute.CLOUD -> navController.navigateToCloudHome()
-            DebugPageRoute.SETTINGS -> navController.navigateToSettings()
+            DebugPageRoute.FAVORITES -> navController.navigateToRoot(RootDestination.FAVORITES)
+            DebugPageRoute.CLOUD -> navController.navigateToRoot(RootDestination.CLOUD)
+            DebugPageRoute.SETTINGS -> navController.navigateToRoot(RootDestination.SETTINGS)
             DebugPageRoute.SETTINGS_APPEARANCE -> navController.navigateToAppearancePreferences()
             DebugPageRoute.SETTINGS_MEDIA_LIBRARY -> navController.navigateToMediaLibraryPreferencesScreen()
             DebugPageRoute.SETTINGS_FOLDERS -> navController.navigateToFolderPreferencesScreen()
@@ -285,6 +295,8 @@ class MainActivity : AppCompatActivity() {
     @OptIn(ExperimentalComposeUiApi::class)
     @Composable
     private fun MainAppContent(
+        shouldUseFloatingNavigationBar: Boolean,
+        shouldBlurFloatingNavigationBar: Boolean,
         onPermissionGranted: () -> Unit,
         onResumeWithPermission: () -> Unit,
     ) {
@@ -317,9 +329,7 @@ class MainActivity : AppCompatActivity() {
         }
         NavigationBarColorEffect(
             activity = this@MainActivity,
-            navController = mainNavController,
-            defaultColor = MaterialTheme.colorScheme.background,
-            settingsColor = MaterialTheme.colorScheme.surface,
+            color = MiuixTheme.colorScheme.surface,
         )
 
         Surface(
@@ -328,59 +338,69 @@ class MainActivity : AppCompatActivity() {
                 .semantics {
                     testTagsAsResourceId = true
                 },
-            color = MaterialTheme.colorScheme.surface,
+            color = MiuixTheme.colorScheme.surface,
         ) {
-            NavHost(
+            RootScaffold(
                 navController = mainNavController,
-                startDestination = MediaRootRoute,
-                enterTransition = {
-                    slideIntoContainer(
-                        towards = AnimatedContentTransitionScope.SlideDirection.Start,
-                        animationSpec = tween(
-                            durationMillis = 200,
-                            easing = LinearEasing,
-                        ),
-                    )
-                },
-                exitTransition = {
-                    slideOutOfContainer(
-                        towards = AnimatedContentTransitionScope.SlideDirection.Start,
-                        animationSpec = tween(
-                            durationMillis = 200,
-                            easing = LinearEasing,
-                        ),
-                        targetOffset = { fullOffset -> (fullOffset * 0.3f).toInt() },
-                    )
-                },
-                popEnterTransition = {
-                    slideIntoContainer(
-                        towards = AnimatedContentTransitionScope.SlideDirection.End,
-                        animationSpec = tween(
-                            durationMillis = 200,
-                            easing = LinearEasing,
-                        ),
-                        initialOffset = { fullOffset -> (fullOffset * 0.3f).toInt() },
-                    )
-                },
-                popExitTransition = {
-                    slideOutOfContainer(
-                        towards = AnimatedContentTransitionScope.SlideDirection.End,
-                        animationSpec = tween(
-                            durationMillis = 200,
-                            easing = LinearEasing,
-                        ),
-                    )
-                },
+                shouldUseFloatingNavigationBar = shouldUseFloatingNavigationBar,
+                shouldBlurFloatingNavigationBar = shouldBlurFloatingNavigationBar,
             ) {
-                mediaNavGraph(
-                    context = this@MainActivity,
+                NavHost(
                     navController = mainNavController,
-                )
-                cloudNavGraph(
-                    context = this@MainActivity,
-                    navController = mainNavController,
-                )
-                settingsNavGraph(navController = mainNavController)
+                    startDestination = MediaRootRoute,
+                    enterTransition = {
+                        slideIntoContainer(
+                            towards = AnimatedContentTransitionScope.SlideDirection.Start,
+                            animationSpec = tween(
+                                durationMillis = 200,
+                                easing = LinearEasing,
+                            ),
+                        )
+                    },
+                    exitTransition = {
+                        slideOutOfContainer(
+                            towards = AnimatedContentTransitionScope.SlideDirection.Start,
+                            animationSpec = tween(
+                                durationMillis = 200,
+                                easing = LinearEasing,
+                            ),
+                            targetOffset = { fullOffset -> (fullOffset * 0.3f).toInt() },
+                        )
+                    },
+                    popEnterTransition = {
+                        slideIntoContainer(
+                            towards = AnimatedContentTransitionScope.SlideDirection.End,
+                            animationSpec = tween(
+                                durationMillis = 200,
+                                easing = LinearEasing,
+                            ),
+                            initialOffset = { fullOffset -> (fullOffset * 0.3f).toInt() },
+                        )
+                    },
+                    popExitTransition = {
+                        slideOutOfContainer(
+                            towards = AnimatedContentTransitionScope.SlideDirection.End,
+                            animationSpec = tween(
+                                durationMillis = 200,
+                                easing = LinearEasing,
+                            ),
+                        )
+                    },
+                ) {
+                    mediaNavGraph(
+                        context = this@MainActivity,
+                        navController = mainNavController,
+                    )
+                    cloudNavGraph(
+                        context = this@MainActivity,
+                        navController = mainNavController,
+                    )
+                    favoritesNavGraph(
+                        context = this@MainActivity,
+                        navController = mainNavController,
+                    )
+                    settingsNavGraph(navController = mainNavController)
+                }
             }
         }
     }
@@ -517,12 +537,15 @@ private fun StartupUpdateDialog(viewModel: MainViewModel) {
 
     val uriHandler = LocalUriHandler.current
 
-    AlertDialog(
+    NextDialog(
         onDismissRequest = { viewModel.dismissUpdate() },
-        title = { Text(text = stringResource(UiR.string.update_dialog_title)) },
-        text = { Text(text = stringResource(UiR.string.update_dialog_message, info.latestVersion)) },
+        title = stringResource(UiR.string.update_dialog_title),
+        content = { Text(text = stringResource(UiR.string.update_dialog_message, info.latestVersion)) },
         confirmButton = {
-            Button(
+            TextButton(
+                modifier = Modifier.testTag("btn_update_confirm"),
+                text = stringResource(UiR.string.update_dialog_confirm),
+                colors = ButtonDefaults.textButtonColorsPrimary(),
                 onClick = {
                     viewModel.dismissUpdate()
                     try {
@@ -531,16 +554,14 @@ private fun StartupUpdateDialog(viewModel: MainViewModel) {
                         // 忽略
                     }
                 },
-            ) {
-                Text(text = stringResource(UiR.string.update_dialog_confirm))
-            }
+            )
         },
         dismissButton = {
-            Button(
+            TextButton(
+                modifier = Modifier.testTag("btn_update_not_now"),
+                text = stringResource(UiR.string.not_now),
                 onClick = { viewModel.dismissUpdate() },
-            ) {
-                Text(text = stringResource(UiR.string.not_now))
-            }
+            )
         },
     )
 }

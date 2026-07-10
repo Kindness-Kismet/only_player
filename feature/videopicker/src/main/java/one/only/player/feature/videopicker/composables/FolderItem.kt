@@ -5,22 +5,16 @@ import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.ExperimentalLayoutApi
 import androidx.compose.foundation.layout.FlowRow
-import androidx.compose.foundation.layout.IntrinsicSize
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.aspectRatio
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.width
-import androidx.compose.material3.ExperimentalMaterial3ExpressiveApi
-import androidx.compose.material3.Icon
-import androidx.compose.material3.ListItemDefaults
-import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.Text
+import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
-import androidx.compose.ui.graphics.luminance
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.platform.LocalConfiguration
 import androidx.compose.ui.platform.testTag
@@ -39,6 +33,9 @@ import one.only.player.core.model.MediaLayoutMode
 import one.only.player.core.ui.R
 import one.only.player.core.ui.components.NextSegmentedListItem
 import one.only.player.core.ui.theme.OnlyPlayerTheme
+import top.yukonga.miuix.kmp.basic.Icon
+import top.yukonga.miuix.kmp.basic.Text
+import top.yukonga.miuix.kmp.theme.MiuixTheme
 
 @Composable
 fun FolderItem(
@@ -78,7 +75,7 @@ fun FolderItem(
     }
 }
 
-@OptIn(ExperimentalLayoutApi::class, ExperimentalMaterial3ExpressiveApi::class)
+@OptIn(ExperimentalLayoutApi::class)
 @Composable
 private fun FolderListItem(
     folder: Folder,
@@ -94,20 +91,8 @@ private fun FolderListItem(
     NextSegmentedListItem(
         modifier = modifier.testTag("item_folder_${folder.name}"),
         isSelected = isSelected,
+        containerColor = Color.Transparent,
         contentPadding = PaddingValues(8.dp),
-        colors = ListItemDefaults.segmentedColors(
-            contentColor = if (isRecentlyPlayedFolder && preferences.shouldMarkLastPlayedMedia) {
-                MaterialTheme.colorScheme.primary
-            } else {
-                ListItemDefaults.colors().contentColor
-            },
-            supportingContentColor = if (isRecentlyPlayedFolder && preferences.shouldMarkLastPlayedMedia) {
-                MaterialTheme.colorScheme.primary
-            } else {
-                ListItemDefaults.colors().supportingContentColor
-            },
-            selectedContainerColor = selectedMediaContainerColor(),
-        ),
         isFirstItem = isFirstItem,
         isLastItem = isLastItem,
         onClick = onClick,
@@ -117,7 +102,7 @@ private fun FolderListItem(
                 Icon(
                     imageVector = ImageVector.vectorResource(id = R.drawable.folder_thumb),
                     contentDescription = "",
-                    tint = MaterialTheme.colorScheme.surfaceContainerHigh,
+                    tint = MiuixTheme.colorScheme.surfaceContainerHigh,
                     modifier = Modifier
                         .width(min(90.dp, LocalConfiguration.current.screenWidthDp.dp * 0.3f))
                         .aspectRatio(20 / 17f),
@@ -132,7 +117,7 @@ private fun FolderListItem(
                             .align(Alignment.BottomEnd),
                         backgroundColor = Color.Black.copy(alpha = 0.6f),
                         contentColor = Color.White,
-                        shape = MaterialTheme.shapes.extraSmall,
+                        shape = RoundedCornerShape(4.dp),
                     )
                 }
             }
@@ -141,7 +126,7 @@ private fun FolderListItem(
             Text(
                 text = folder.name,
                 maxLines = 2,
-                style = MaterialTheme.typography.titleMedium,
+                style = MiuixTheme.textStyles.title4,
                 overflow = TextOverflow.Ellipsis,
             )
         },
@@ -153,7 +138,7 @@ private fun FolderListItem(
                     Text(
                         text = folder.path.substringBeforeLast("/"),
                         maxLines = 2,
-                        style = MaterialTheme.typography.bodySmall,
+                        style = MiuixTheme.textStyles.body2,
                         overflow = TextOverflow.Ellipsis,
                     )
                 }
@@ -183,7 +168,6 @@ private fun FolderListItem(
     )
 }
 
-@OptIn(ExperimentalMaterial3ExpressiveApi::class)
 @Composable
 private fun FolderGridItem(
     folder: Folder,
@@ -198,30 +182,18 @@ private fun FolderGridItem(
 ) {
     NextSegmentedListItem(
         modifier = modifier
-            .width(IntrinsicSize.Min)
+            .fillMaxWidth()
             .testTag("item_folder_${folder.name}"),
         isSelected = isSelected,
+        containerColor = Color.Transparent,
         contentPadding = PaddingValues(8.dp),
-        colors = ListItemDefaults.segmentedColors(
-            contentColor = if (isRecentlyPlayedFolder && preferences.shouldMarkLastPlayedMedia) {
-                MaterialTheme.colorScheme.primary
-            } else {
-                ListItemDefaults.segmentedColors().contentColor
-            },
-            supportingContentColor = if (isRecentlyPlayedFolder && preferences.shouldMarkLastPlayedMedia) {
-                MaterialTheme.colorScheme.primary
-            } else {
-                ListItemDefaults.colors().supportingContentColor
-            },
-            selectedContainerColor = selectedMediaContainerColor(),
-        ),
         isFirstItem = isFirstItem,
         isLastItem = isLastItem,
         onClick = onClick,
         onLongClick = onLongClick,
         content = {
             Column(
-                modifier = modifier.fillMaxWidth(),
+                modifier = Modifier.fillMaxWidth(),
                 verticalArrangement = Arrangement.spacedBy(8.dp),
                 horizontalAlignment = Alignment.CenterHorizontally,
             ) {
@@ -229,7 +201,7 @@ private fun FolderGridItem(
                     Icon(
                         imageVector = ImageVector.vectorResource(id = R.drawable.folder_thumb),
                         contentDescription = "",
-                        tint = MaterialTheme.colorScheme.surfaceContainerHigh,
+                        tint = MiuixTheme.colorScheme.surfaceContainerHigh,
                         modifier = Modifier
                             .width(min(90.dp, LocalConfiguration.current.screenWidthDp.dp * 0.3f))
                             .aspectRatio(20 / 17f),
@@ -244,7 +216,7 @@ private fun FolderGridItem(
                                 .align(Alignment.BottomEnd),
                             backgroundColor = Color.Black.copy(alpha = 0.6f),
                             contentColor = Color.White,
-                            shape = MaterialTheme.shapes.extraSmall,
+                            shape = RoundedCornerShape(4.dp),
                         )
                     }
                 }
@@ -256,12 +228,12 @@ private fun FolderGridItem(
                     Text(
                         text = folder.name,
                         maxLines = 2,
-                        style = MaterialTheme.typography.titleMedium,
+                        style = MiuixTheme.textStyles.title4,
                         overflow = TextOverflow.Ellipsis,
                         color = if (isRecentlyPlayedFolder && preferences.shouldMarkLastPlayedMedia) {
-                            MaterialTheme.colorScheme.primary
+                            MiuixTheme.colorScheme.primary
                         } else {
-                            ListItemDefaults.colors().contentColor
+                            MiuixTheme.colorScheme.onSurface
                         },
                         textAlign = TextAlign.Center,
                     )
@@ -290,20 +262,13 @@ private fun FolderGridItem(
                             }
                         },
                         maxLines = 2,
-                        style = MaterialTheme.typography.labelSmall.copy(fontWeight = FontWeight.Normal),
+                        style = MiuixTheme.textStyles.footnote1.copy(fontWeight = FontWeight.Normal),
                         textAlign = TextAlign.Center,
                     )
                 }
             }
         },
     )
-}
-
-@Composable
-private fun selectedMediaContainerColor(): Color = if (MaterialTheme.colorScheme.background.luminance() < 0.5f) {
-    Color(0xFFFFFFFF).copy(alpha = 0.20f)
-} else {
-    Color(0xFF212121).copy(alpha = 0.30f)
 }
 
 @PreviewLightDark

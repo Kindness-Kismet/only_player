@@ -5,6 +5,9 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.tooling.preview.Preview
 import one.only.player.core.ui.designsystem.NextIcons
+import top.yukonga.miuix.kmp.basic.Surface
+import top.yukonga.miuix.kmp.preference.SwitchPreference
+import top.yukonga.miuix.kmp.theme.MiuixTheme
 
 @Composable
 fun PreferenceSwitch(
@@ -18,23 +21,20 @@ fun PreferenceSwitch(
     isFirstItem: Boolean = false,
     isLastItem: Boolean = false,
 ) {
-    PreferenceItem(
+    Surface(
+        shape = preferenceSegmentShape(isFirstItem, isLastItem),
+        color = MiuixTheme.colorScheme.surfaceContainer,
         modifier = modifier,
-        title = title,
-        description = description,
-        icon = icon,
-        isEnabled = isEnabled,
-        onClick = onClick,
-        isFirstItem = isFirstItem,
-        isLastItem = isLastItem,
-        trailingContent = {
-            NextSwitch(
-                isChecked = isChecked,
-                onCheckedChange = null,
-                isEnabled = isEnabled,
-            )
-        },
-    )
+    ) {
+        SwitchPreference(
+            title = title,
+            summary = description,
+            startAction = icon?.let { { PreferenceIcon(it, isEnabled) } },
+            checked = isChecked,
+            onCheckedChange = { onClick() },
+            enabled = isEnabled,
+        )
+    }
 }
 
 @Preview

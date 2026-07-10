@@ -1,11 +1,12 @@
 package one.only.player.core.ui.components
 
-import androidx.compose.material3.Text
-import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.res.stringResource
 import one.only.player.core.ui.R
+import top.yukonga.miuix.kmp.basic.ButtonDefaults
+import top.yukonga.miuix.kmp.basic.TextButton
 
 @Composable
 fun DoneButton(
@@ -14,12 +15,14 @@ fun DoneButton(
     isEnabled: Boolean = true,
 ) {
     TextButton(
+        text = stringResource(R.string.done),
         enabled = isEnabled,
         onClick = onClick,
-        modifier = modifier,
-    ) {
-        Text(text = stringResource(R.string.done))
-    }
+        modifier = Modifier
+            .testTag("btn_done")
+            .then(modifier),
+        colors = ButtonDefaults.textButtonColorsPrimary(),
+    )
 }
 
 @Composable
@@ -29,10 +32,11 @@ fun CancelButton(
     isEnabled: Boolean = true,
 ) {
     TextButton(
+        text = stringResource(R.string.cancel),
         enabled = isEnabled,
         onClick = onClick,
-        modifier = modifier,
-    ) {
-        Text(text = stringResource(R.string.cancel))
-    }
+        modifier = Modifier
+            .testTag("btn_cancel")
+            .then(modifier),
+    )
 }

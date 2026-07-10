@@ -11,8 +11,8 @@ import one.only.player.core.model.PlayerPreferences
 import one.only.player.core.model.Video
 import one.only.player.feature.videopicker.screens.mediapicker.MediaPickerRoute
 
-internal const val folderIdArg = "folderId"
-internal const val screenModeArg = "screenMode"
+const val folderIdArg = "folderId"
+const val screenModeArg = "screenMode"
 
 internal class FolderArgs(
     val folderId: String?,

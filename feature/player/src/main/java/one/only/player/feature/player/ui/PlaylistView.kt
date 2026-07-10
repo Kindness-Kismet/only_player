@@ -17,10 +17,8 @@ import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.itemsIndexed
 import androidx.compose.foundation.lazy.rememberLazyListState
-import androidx.compose.material3.ExperimentalMaterial3ExpressiveApi
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
-import androidx.compose.material3.ListItemDefaults
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.material3.surfaceColorAtElevation
@@ -153,7 +151,6 @@ private fun List<MediaItem>.toPlaylistEntries(): List<PlaylistEntry> {
     }
 }
 
-@kotlin.OptIn(ExperimentalMaterial3ExpressiveApi::class)
 @Composable
 private fun ReorderableCollectionItemScope.PlaylistItemView(
     mediaItem: MediaItem,
@@ -182,14 +179,6 @@ private fun ReorderableCollectionItemScope.PlaylistItemView(
         isSelected = isCurrentItem,
         contentPadding = PaddingValues(8.dp),
         interactionSource = interactionSource,
-        colors = ListItemDefaults.segmentedColors(
-            contentColor = if (isCurrentItem) {
-                MaterialTheme.colorScheme.primary
-            } else {
-                ListItemDefaults.segmentedColors().contentColor
-            },
-            selectedContainerColor = MaterialTheme.colorScheme.primaryContainer.copy(alpha = 0.3f),
-        ),
         isFirstItem = isFirstItem,
         isLastItem = isLastItem,
         onClick = onClick,

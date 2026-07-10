@@ -16,13 +16,11 @@ import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.selection.selectableGroup
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.foundation.verticalScroll
-import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.FilledTonalButton
 import androidx.compose.material3.FilledTonalIconButton
 import androidx.compose.material3.Icon
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Text
-import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
@@ -49,11 +47,16 @@ import kotlinx.coroutines.launch
 import one.only.player.core.model.PlayerPreferences
 import one.only.player.core.ui.R
 import one.only.player.core.ui.components.ListSectionTitle
+import one.only.player.core.ui.components.NextDialog
 import one.only.player.core.ui.components.SubtitleStylePanel
 import one.only.player.feature.player.extensions.getName
 import one.only.player.feature.player.state.SubtitleOptionsEvent
 import one.only.player.feature.player.state.rememberSubtitleOptionsState
 import one.only.player.feature.player.state.rememberTracksState
+import top.yukonga.miuix.kmp.basic.ButtonDefaults as MiuixButtonDefaults
+import top.yukonga.miuix.kmp.basic.Text as MiuixText
+import top.yukonga.miuix.kmp.basic.TextButton as MiuixTextButton
+import top.yukonga.miuix.kmp.theme.MiuixTheme
 
 @OptIn(UnstableApi::class)
 @Composable
@@ -171,13 +174,16 @@ fun SubtitleSelectorContent(
     }
 
     if (isOnlineSubtitleDialogVisible) {
-        AlertDialog(
+        NextDialog(
             modifier = Modifier.testTag("dialog_online_subtitle"),
             onDismissRequest = { isOnlineSubtitleDialogVisible = false },
             title = {
-                Text(text = stringResource(R.string.add_online_subtitle))
+                MiuixText(
+                    text = stringResource(R.string.add_online_subtitle),
+                    style = MiuixTheme.textStyles.title4,
+                )
             },
-            text = {
+            content = {
                 OutlinedTextField(
                     value = onlineSubtitleUrl,
                     onValueChange = { onlineSubtitleUrl = it },
@@ -197,26 +203,25 @@ fun SubtitleSelectorContent(
                 )
             },
             confirmButton = {
-                TextButton(
+                MiuixTextButton(
                     modifier = Modifier.testTag("btn_confirm_online_subtitle"),
                     enabled = onlineSubtitleUrl.isNotBlank(),
+                    text = stringResource(R.string.online_subtitle_add),
+                    colors = MiuixButtonDefaults.textButtonColorsPrimary(),
                     onClick = {
                         onAddOnlineSubtitleClick(onlineSubtitleUrl.trim())
                         onlineSubtitleUrl = ""
                         isOnlineSubtitleDialogVisible = false
                         onDismiss()
                     },
-                ) {
-                    Text(text = stringResource(R.string.online_subtitle_add))
-                }
+                )
             },
             dismissButton = {
-                TextButton(
+                MiuixTextButton(
                     modifier = Modifier.testTag("btn_cancel_online_subtitle"),
+                    text = stringResource(R.string.cancel),
                     onClick = { isOnlineSubtitleDialogVisible = false },
-                ) {
-                    Text(text = stringResource(R.string.cancel))
-                }
+                )
             },
         )
     }

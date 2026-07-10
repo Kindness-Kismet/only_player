@@ -4,16 +4,10 @@ import androidx.compose.animation.AnimatedContent
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
-import androidx.compose.material3.ExperimentalMaterial3Api
-import androidx.compose.material3.ExperimentalMaterial3ExpressiveApi
-import androidx.compose.material3.FilledTonalIconButton
-import androidx.compose.material3.Icon
-import androidx.compose.material3.ListItemDefaults
-import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.Scaffold
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
@@ -22,18 +16,24 @@ import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.vector.ImageVector
+import androidx.compose.ui.input.nestedscroll.nestedScroll
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.unit.dp
 import one.only.player.core.ui.R
-import one.only.player.core.ui.components.ClickablePreferenceItem
-import one.only.player.core.ui.components.ListSectionTitle
 import one.only.player.core.ui.components.NextSearchTopAppBar
-import one.only.player.core.ui.components.NextTopAppBar
+import one.only.player.core.ui.components.SettingsContentTopPadding
 import one.only.player.core.ui.designsystem.NextIcons
 import one.only.player.core.ui.extensions.withBottomFallback
+import top.yukonga.miuix.kmp.basic.Card
+import top.yukonga.miuix.kmp.basic.Icon as MiuixIcon
+import top.yukonga.miuix.kmp.basic.IconButton as MiuixIconButton
+import top.yukonga.miuix.kmp.basic.MiuixScrollBehavior
+import top.yukonga.miuix.kmp.basic.Scaffold
+import top.yukonga.miuix.kmp.basic.TopAppBar
+import top.yukonga.miuix.kmp.preference.ArrowPreference
+import top.yukonga.miuix.kmp.theme.MiuixTheme
 
-@OptIn(ExperimentalMaterial3Api::class, ExperimentalMaterial3ExpressiveApi::class)
 @Composable
 fun SettingsScreen(
     onNavigateUp: (() -> Unit)? = null,
@@ -41,6 +41,7 @@ fun SettingsScreen(
 ) {
     var isSearchActive by rememberSaveable { mutableStateOf(false) }
     var searchQuery by rememberSaveable { mutableStateOf("") }
+    val scrollBehavior = MiuixScrollBehavior()
 
     // resolve 标题、描述和子设置项文本，全部用于搜索匹配
     val resolvedRows = SettingRow.entries.map { row ->
@@ -88,14 +89,21 @@ fun SettingsScreen(
                         },
                     )
                 } else {
-                    NextTopAppBar(
+                    TopAppBar(
                         title = stringResource(id = R.string.settings),
+                        scrollBehavior = scrollBehavior,
                         navigationIcon = if (onNavigateUp != null) {
                             {
-                                FilledTonalIconButton(onClick = onNavigateUp) {
-                                    Icon(
+                                MiuixIconButton(
+                                    onClick = onNavigateUp,
+                                    modifier = Modifier
+                                        .padding(start = 12.dp)
+                                        .testTag("button_settings_back"),
+                                ) {
+                                    MiuixIcon(
                                         imageVector = NextIcons.ArrowBack,
                                         contentDescription = stringResource(id = R.string.navigate_up),
+                                        tint = MiuixTheme.colorScheme.onSurface,
                                     )
                                 }
                             }
@@ -103,13 +111,16 @@ fun SettingsScreen(
                             {}
                         },
                         actions = {
-                            FilledTonalIconButton(
-                                modifier = Modifier.testTag("btn_settings_search"),
+                            MiuixIconButton(
                                 onClick = { isSearchActive = true },
+                                modifier = Modifier
+                                    .padding(end = 12.dp)
+                                    .testTag("btn_settings_search"),
                             ) {
-                                Icon(
+                                MiuixIcon(
                                     imageVector = NextIcons.Search,
                                     contentDescription = stringResource(R.string.search),
+                                    tint = MiuixTheme.colorScheme.onSurface,
                                 )
                             }
                         },
@@ -117,29 +128,34 @@ fun SettingsScreen(
                 }
             }
         },
-        containerColor = MaterialTheme.colorScheme.surfaceContainer,
+        containerColor = MiuixTheme.colorScheme.background,
     ) { innerPadding ->
         Column(
             modifier = Modifier
                 .fillMaxSize()
+                .nestedScroll(scrollBehavior.nestedScrollConnection)
                 .verticalScroll(state = rememberScrollState())
                 .padding(innerPadding.withBottomFallback())
-                .padding(horizontal = 16.dp),
+                .padding(top = SettingsContentTopPadding)
+                .padding(horizontal = 12.dp),
+            verticalArrangement = Arrangement.spacedBy(12.dp),
         ) {
             visibleSections.forEach { section ->
-                ListSectionTitle(text = stringResource(id = section.section.titleResId))
-                Column(
-                    verticalArrangement = Arrangement.spacedBy(ListItemDefaults.SegmentedGap),
-                ) {
-                    section.rows.forEachIndexed { index, resolved ->
-                        ClickablePreferenceItem(
+                Card(modifier = Modifier.fillMaxWidth()) {
+                    section.rows.forEach { resolved ->
+                        ArrowPreference(
                             modifier = Modifier.testTag("item_settings_${resolved.row.setting.name.lowercase()}"),
                             title = resolved.title,
-                            description = resolved.description,
-                            icon = resolved.row.icon,
+                            summary = resolved.description,
+                            startAction = {
+                                MiuixIcon(
+                                    imageVector = resolved.row.icon,
+                                    contentDescription = null,
+                                    tint = MiuixTheme.colorScheme.onBackground,
+                                    modifier = Modifier.padding(end = 12.dp),
+                                )
+                            },
                             onClick = { onItemClick(resolved.row.setting) },
-                            isFirstItem = index == 0,
-                            isLastItem = index == section.rows.lastIndex,
                         )
                     }
                 }
@@ -178,18 +194,15 @@ enum class Setting {
 }
 
 private enum class SettingSection(
-    val titleResId: Int,
     val rows: List<SettingRow>,
 ) {
     APP_AND_LIBRARY(
-        titleResId = R.string.settings_section_app_library,
         rows = listOf(
             SettingRow.APPEARANCE,
             SettingRow.MEDIA_LIBRARY,
         ),
     ),
     PLAYBACK(
-        titleResId = R.string.playback,
         rows = listOf(
             SettingRow.PLAYER,
             SettingRow.GESTURES,
@@ -199,7 +212,6 @@ private enum class SettingSection(
         ),
     ),
     SYSTEM_AND_SUPPORT(
-        titleResId = R.string.settings_section_system_support,
         rows = listOf(
             SettingRow.PRIVACY,
             SettingRow.GENERAL,
@@ -228,6 +240,10 @@ internal enum class SettingRow(
             R.string.app_language_description,
             R.string.home_title_long_press_to_root,
             R.string.home_title_long_press_to_root_description,
+            R.string.floating_navigation_bar,
+            R.string.floating_navigation_bar_description,
+            R.string.floating_navigation_bar_blur,
+            R.string.floating_navigation_bar_blur_description,
         ),
     ),
     MEDIA_LIBRARY(

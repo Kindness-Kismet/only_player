@@ -12,13 +12,6 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
-import androidx.compose.material3.ExperimentalMaterial3Api
-import androidx.compose.material3.ExperimentalMaterial3ExpressiveApi
-import androidx.compose.material3.FilledTonalIconButton
-import androidx.compose.material3.Icon
-import androidx.compose.material3.ListItemDefaults
-import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.Scaffold
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
@@ -38,10 +31,11 @@ import one.only.player.core.model.Font
 import one.only.player.core.ui.R
 import one.only.player.core.ui.components.ClickablePreferenceItem
 import one.only.player.core.ui.components.ListSectionTitle
-import one.only.player.core.ui.components.NextTopAppBar
 import one.only.player.core.ui.components.PreferenceSwitch
 import one.only.player.core.ui.components.PreferenceSwitchWithDivider
 import one.only.player.core.ui.components.RadioTextButton
+import one.only.player.core.ui.components.SegmentedItemGap
+import one.only.player.core.ui.components.SettingsContentTopPadding
 import one.only.player.core.ui.components.SubtitleStylePanel
 import one.only.player.core.ui.designsystem.NextIcons
 import one.only.player.core.ui.extensions.withBottomFallback
@@ -49,6 +43,11 @@ import one.only.player.core.ui.theme.OnlyPlayerTheme
 import one.only.player.settings.composables.OptionsDialog
 import one.only.player.settings.extensions.name
 import one.only.player.settings.utils.LocalesHelper
+import top.yukonga.miuix.kmp.basic.Icon as MiuixIcon
+import top.yukonga.miuix.kmp.basic.IconButton as MiuixIconButton
+import top.yukonga.miuix.kmp.basic.Scaffold
+import top.yukonga.miuix.kmp.basic.TopAppBar
+import top.yukonga.miuix.kmp.theme.MiuixTheme
 
 @Composable
 fun SubtitlePreferencesScreen(
@@ -64,7 +63,6 @@ fun SubtitlePreferencesScreen(
     )
 }
 
-@OptIn(ExperimentalMaterial3Api::class, ExperimentalMaterial3ExpressiveApi::class)
 @Composable
 private fun SubtitlePreferencesContent(
     uiState: SubtitlePreferencesUiState,
@@ -74,6 +72,9 @@ private fun SubtitlePreferencesContent(
     val languages = remember { listOf(Pair("None", "")) + LocalesHelper.getAvailableLocales() }
     val charsetResource = stringArrayResource(id = R.array.charsets_list)
     val context = LocalContext.current
+    val fontImportSucceededMessage = stringResource(R.string.external_subtitle_font_import_success)
+    val fontImportFailedMessage = stringResource(R.string.external_subtitle_font_import_failed)
+    val fontClearSucceededMessage = stringResource(R.string.external_subtitle_font_clear_success)
     val importFontLauncher = rememberLauncherForActivityResult(
         contract = OpenMultipleDocuments(),
     ) { uris ->
@@ -91,9 +92,9 @@ private fun SubtitlePreferencesContent(
 
     LaunchedEffect(uiState.resultMessage) {
         val message = when (uiState.resultMessage) {
-            SubtitlePreferencesResultMessage.ImportSucceeded -> context.getString(R.string.external_subtitle_font_import_success)
-            SubtitlePreferencesResultMessage.ImportFailed -> context.getString(R.string.external_subtitle_font_import_failed)
-            SubtitlePreferencesResultMessage.ClearSucceeded -> context.getString(R.string.external_subtitle_font_clear_success)
+            SubtitlePreferencesResultMessage.ImportSucceeded -> fontImportSucceededMessage
+            SubtitlePreferencesResultMessage.ImportFailed -> fontImportFailedMessage
+            SubtitlePreferencesResultMessage.ClearSucceeded -> fontClearSucceededMessage
             null -> null
         } ?: return@LaunchedEffect
 
@@ -103,30 +104,36 @@ private fun SubtitlePreferencesContent(
 
     Scaffold(
         topBar = {
-            NextTopAppBar(
+            TopAppBar(
                 title = stringResource(id = R.string.subtitle),
                 navigationIcon = {
-                    FilledTonalIconButton(onClick = onNavigateUp) {
-                        Icon(
+                    MiuixIconButton(
+                        onClick = onNavigateUp,
+                        modifier = Modifier
+                            .padding(start = 12.dp)
+                            .testTag("button_subtitle_back"),
+                    ) {
+                        MiuixIcon(
                             imageVector = NextIcons.ArrowBack,
                             contentDescription = stringResource(id = R.string.navigate_up),
+                            tint = MiuixTheme.colorScheme.onBackground,
                         )
                     }
                 },
             )
         },
-        containerColor = MaterialTheme.colorScheme.surfaceContainer,
+        containerColor = MiuixTheme.colorScheme.background,
     ) { innerPadding ->
         Column(
             modifier = Modifier
                 .fillMaxSize()
                 .verticalScroll(state = rememberScrollState())
                 .padding(innerPadding.withBottomFallback())
+                .padding(top = SettingsContentTopPadding)
                 .padding(horizontal = 16.dp),
         ) {
-            ListSectionTitle(text = stringResource(id = R.string.subtitle_loading))
             Column(
-                verticalArrangement = Arrangement.spacedBy(ListItemDefaults.SegmentedGap),
+                verticalArrangement = Arrangement.spacedBy(SegmentedItemGap),
             ) {
                 PreferenceSwitch(
                     modifier = Modifier.testTag("switch_settings_subtitle_auto_load"),
@@ -165,7 +172,7 @@ private fun SubtitlePreferencesContent(
 
             ListSectionTitle(text = stringResource(id = R.string.subtitle_style_source))
             Column(
-                verticalArrangement = Arrangement.spacedBy(ListItemDefaults.SegmentedGap),
+                verticalArrangement = Arrangement.spacedBy(SegmentedItemGap),
             ) {
                 PreferenceSwitchWithDivider(
                     modifier = Modifier.testTag("item_settings_subtitle_system_caption_style"),
@@ -200,7 +207,7 @@ private fun SubtitlePreferencesContent(
 
             ListSectionTitle(text = stringResource(id = R.string.subtitle_font_settings))
             Column(
-                verticalArrangement = Arrangement.spacedBy(ListItemDefaults.SegmentedGap),
+                verticalArrangement = Arrangement.spacedBy(SegmentedItemGap),
             ) {
                 ClickablePreferenceItem(
                     modifier = Modifier.testTag("item_settings_subtitle_font"),

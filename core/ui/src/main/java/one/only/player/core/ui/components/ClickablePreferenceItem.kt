@@ -1,14 +1,13 @@
 package one.only.player.core.ui.components
 
 import androidx.compose.foundation.ExperimentalFoundationApi
-import androidx.compose.material3.ExperimentalMaterial3ExpressiveApi
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.tooling.preview.Preview
 import one.only.player.core.ui.designsystem.NextIcons
 
-@OptIn(ExperimentalFoundationApi::class, ExperimentalMaterial3ExpressiveApi::class)
+@OptIn(ExperimentalFoundationApi::class)
 @Composable
 fun ClickablePreferenceItem(
     title: String,
@@ -31,6 +30,7 @@ fun ClickablePreferenceItem(
         onLongClick = onLongClick,
         isFirstItem = isFirstItem,
         isLastItem = isLastItem,
+        showArrow = true,
     )
 }
 
