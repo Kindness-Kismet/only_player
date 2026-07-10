@@ -125,6 +125,22 @@ fun PlayerContentFrame(
             val contentSurfaceWidthDp = with(density) { contentVideoWidth.toDp() }
             val contentSurfaceHeightDp = with(density) { contentVideoHeight.toDp() }
             val mirrorScaleX = if (isVideoMirrored) -1f else 1f
+            LaunchedEffect(
+                containerWidth,
+                containerHeight,
+                videoWidth,
+                videoHeight,
+                baseScaleX,
+                baseScaleY,
+            ) {
+                videoZoomAndContentScaleState.updateVideoContentLayout(
+                    containerSize = Size(containerWidth, containerHeight),
+                    baseContentSize = Size(
+                        width = videoWidth * baseScaleX,
+                        height = videoHeight * baseScaleY,
+                    ),
+                )
+            }
 
             PlayerSurface(
                 player = player,

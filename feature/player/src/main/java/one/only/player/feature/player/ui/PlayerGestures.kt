@@ -3,6 +3,7 @@ package one.only.player.feature.player.ui
 import androidx.compose.foundation.gestures.awaitEachGesture
 import androidx.compose.foundation.gestures.awaitFirstDown
 import androidx.compose.foundation.gestures.awaitLongPressOrCancellation
+import androidx.compose.foundation.gestures.detectDragGestures
 import androidx.compose.foundation.gestures.detectTapGestures
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.BoxWithConstraints
@@ -98,10 +99,12 @@ fun PlayerGestures(
                     isEnabled,
                     controlsVisibilityState.isControlsLocked,
                     pictureInPictureState.isInPictureInPictureMode,
+                    videoZoomAndContentScaleState.canPanZoomedVideo,
                 ) {
                     if (!isEnabled) return@pointerInput
                     if (controlsVisibilityState.isControlsLocked) return@pointerInput
                     if (pictureInPictureState.isInPictureInPictureMode) return@pointerInput
+                    if (videoZoomAndContentScaleState.canPanZoomedVideo) return@pointerInput
 
                     var shouldRestoreControlsAutoHideAfterSeek = false
                     fun restoreControlsAutoHideAfterSeek() {
@@ -156,11 +159,35 @@ fun PlayerGestures(
                     controlsVisibilityState.isControlsLocked,
                     pictureInPictureState.isInPictureInPictureMode,
                     tapGestureState.isLongPressGestureInAction,
+                    videoZoomAndContentScaleState.canPanZoomedVideo,
                 ) {
                     if (!isEnabled) return@pointerInput
                     if (controlsVisibilityState.isControlsLocked) return@pointerInput
                     if (pictureInPictureState.isInPictureInPictureMode) return@pointerInput
                     if (tapGestureState.isLongPressGestureInAction) return@pointerInput
+                    if (!videoZoomAndContentScaleState.canPanZoomedVideo) return@pointerInput
+
+                    detectDragGestures(
+                        onDrag = { change, dragAmount ->
+                            change.consume()
+                            videoZoomAndContentScaleState.onPanGesture(dragAmount)
+                        },
+                        onDragCancel = { videoZoomAndContentScaleState.onZoomPanGestureEnd() },
+                        onDragEnd = { videoZoomAndContentScaleState.onZoomPanGestureEnd() },
+                    )
+                }
+                .pointerInput(
+                    isEnabled,
+                    controlsVisibilityState.isControlsLocked,
+                    pictureInPictureState.isInPictureInPictureMode,
+                    tapGestureState.isLongPressGestureInAction,
+                    videoZoomAndContentScaleState.canPanZoomedVideo,
+                ) {
+                    if (!isEnabled) return@pointerInput
+                    if (controlsVisibilityState.isControlsLocked) return@pointerInput
+                    if (pictureInPictureState.isInPictureInPictureMode) return@pointerInput
+                    if (tapGestureState.isLongPressGestureInAction) return@pointerInput
+                    if (videoZoomAndContentScaleState.canPanZoomedVideo) return@pointerInput
 
                     detectCustomVerticalDragGestures(
                         onDragStart = { volumeAndBrightnessGestureState.onDragStart(it, size) },

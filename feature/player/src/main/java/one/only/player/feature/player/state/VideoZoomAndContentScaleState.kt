@@ -11,13 +11,13 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.geometry.Offset
+import androidx.compose.ui.geometry.Size
 import androidx.compose.ui.unit.Constraints
 import androidx.media3.common.C
 import androidx.media3.common.MediaItem
 import androidx.media3.common.Player
 import androidx.media3.common.listen
 import androidx.media3.common.util.UnstableApi
-import kotlin.math.abs
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.delay
@@ -55,6 +55,12 @@ fun rememberVideoZoomAndContentScaleState(
     LaunchedEffect(initialContentScale) {
         videoZoomAndContentScaleState.updateContentScaleFromPreferences(initialContentScale)
     }
+    LaunchedEffect(isZoomGestureEnabled, isPanGestureEnabled) {
+        videoZoomAndContentScaleState.updateGestureSettings(
+            isZoomGestureEnabled = isZoomGestureEnabled,
+            isPanGestureEnabled = isPanGestureEnabled,
+        )
+    }
     return videoZoomAndContentScaleState
 }
 
@@ -62,8 +68,8 @@ fun rememberVideoZoomAndContentScaleState(
 class VideoZoomAndContentScaleState(
     private val player: Player,
     initialContentScale: VideoContentScale,
-    private val isZoomGestureEnabled: Boolean = true,
-    private val isPanGestureEnabled: Boolean = true,
+    private var isZoomGestureEnabled: Boolean = true,
+    private var isPanGestureEnabled: Boolean = true,
     private val onEvent: (VideoZoomEvent) -> Unit,
     private val coroutineScope: CoroutineScope,
 ) {
@@ -88,6 +94,12 @@ class VideoZoomAndContentScaleState(
 
     var shouldShowContentScaleIndicator: Boolean by mutableStateOf(false)
         private set
+
+    val canPanZoomedVideo: Boolean
+        get() = isZoomGestureEnabled && isPanGestureEnabled && hasPanBounds()
+
+    private var containerSize: Size by mutableStateOf(Size.Zero)
+    private var baseContentSize: Size by mutableStateOf(Size.Zero)
 
     // 从 metadata extras 追踪视频尺寸，用于 resizeWithContentScale 的后备值
     var metadataVideoWidth: Int by mutableIntStateOf(0)
@@ -121,6 +133,26 @@ class VideoZoomAndContentScaleState(
         updateVideoScaleMetadataAndSendEvent()
     }
 
+    fun updateGestureSettings(
+        isZoomGestureEnabled: Boolean,
+        isPanGestureEnabled: Boolean,
+    ) {
+        this.isZoomGestureEnabled = isZoomGestureEnabled
+        this.isPanGestureEnabled = isPanGestureEnabled
+        if (!canPanZoomedVideo) {
+            offset = Offset.Zero
+        }
+    }
+
+    fun updateVideoContentLayout(
+        containerSize: Size,
+        baseContentSize: Size,
+    ) {
+        this.containerSize = containerSize
+        this.baseContentSize = baseContentSize
+        offset = offset.coerceInPanBounds()
+    }
+
     private fun shouldShowContentScaleIndicator() {
         showContentScaleJob?.cancel()
         shouldShowContentScaleIndicator = true
@@ -139,25 +171,39 @@ class VideoZoomAndContentScaleState(
         if (player.duration == C.TIME_UNSET) return
         if (!isZoomGestureEnabled) return
 
-        isZooming = true
-        zoom = (zoom * zoomChange).coerceIn(MIN_ZOOM, MAX_ZOOM)
-
-        val extraWidth = (zoom - 1) * constraints.maxWidth
-        val extraHeight = (zoom - 1) * constraints.maxHeight
-
-        val maxX = abs(extraWidth / 2)
-        val maxY = abs(extraHeight / 2)
-
-        if (isPanGestureEnabled) {
-            offset = Offset(
-                x = (offset.x + zoom * panChange.x).coerceIn(-maxX, maxX),
-                y = (offset.y + zoom * panChange.y).coerceIn(-maxY, maxY),
+        if (containerSize == Size.Zero) {
+            updateVideoContentLayout(
+                containerSize = Size(
+                    width = constraints.maxWidth.toFloat().coerceAtLeast(1f),
+                    height = constraints.maxHeight.toFloat().coerceAtLeast(1f),
+                ),
+                baseContentSize = Size(
+                    width = constraints.maxWidth.toFloat().coerceAtLeast(1f),
+                    height = constraints.maxHeight.toFloat().coerceAtLeast(1f),
+                ),
             )
         }
+
+        isZooming = true
+        zoom = (zoom * zoomChange).coerceIn(MIN_ZOOM, MAX_ZOOM)
+        offset = if (isPanGestureEnabled) {
+            (offset + panChange).coerceInPanBounds()
+        } else {
+            Offset.Zero
+        }
+    }
+
+    fun onPanGesture(panChange: Offset) {
+        if (player.duration == C.TIME_UNSET) return
+        if (!canPanZoomedVideo) return
+
+        isZooming = true
+        offset = (offset + panChange).coerceInPanBounds()
     }
 
     fun onZoomPanGestureEnd() {
         isZooming = false
+        offset = offset.coerceInPanBounds()
         updateVideoScaleMetadataAndSendEvent()
     }
 
@@ -168,6 +214,7 @@ class VideoZoomAndContentScaleState(
             if (events.contains(Player.EVENT_MEDIA_METADATA_CHANGED)) {
                 updateFromMetadata()
                 zoom = player.currentMediaItem?.mediaMetadata?.videoZoom ?: 1f
+                offset = offset.coerceInPanBounds()
             }
         }
     }
@@ -193,6 +240,23 @@ class VideoZoomAndContentScaleState(
         )
         onEvent(VideoZoomEvent.ZoomChanged(currentMediaItem, zoom))
     }
+
+    private fun hasPanBounds(): Boolean = maxPanX() > 0f || maxPanY() > 0f
+
+    private fun Offset.coerceInPanBounds(): Offset {
+        val maxX = maxPanX()
+        val maxY = maxPanY()
+        return Offset(
+            x = x.coerceIn(-maxX, maxX),
+            y = y.coerceIn(-maxY, maxY),
+        )
+    }
+
+    private fun maxPanX(): Float = ((baseContentSize.width * zoom - containerSize.width) / 2f)
+        .coerceAtLeast(0f)
+
+    private fun maxPanY(): Float = ((baseContentSize.height * zoom - containerSize.height) / 2f)
+        .coerceAtLeast(0f)
 }
 
 sealed interface VideoZoomEvent {

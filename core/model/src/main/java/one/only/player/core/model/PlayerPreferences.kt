@@ -41,7 +41,7 @@ data class PlayerPreferences(
     val isBrightnessSwipeGestureEnabled: Boolean = true,
     val shouldUseSeekControls: Boolean = true,
     val shouldUseZoomControls: Boolean = true,
-    val isPanGestureEnabled: Boolean = false,
+    val isPanGestureEnabled: Boolean = true,
     val doubleTapGesture: DoubleTapGesture = DoubleTapGesture.BOTH,
     val shouldUseLongPressControls: Boolean = false,
     val shouldUseLongPressVariableSpeed: Boolean = false,
