@@ -2,33 +2,23 @@ package one.only.player.navigation
 
 import android.os.Bundle
 import androidx.compose.animation.AnimatedVisibility
-import androidx.compose.animation.core.animateDpAsState
-import androidx.compose.animation.fadeIn
-import androidx.compose.animation.fadeOut
-import androidx.compose.animation.slideInVertically
-import androidx.compose.animation.slideOutVertically
-import androidx.compose.foundation.background
+import androidx.compose.animation.EnterTransition
+import androidx.compose.animation.ExitTransition
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.interaction.MutableInteractionSource
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
-import androidx.compose.foundation.layout.BoxWithConstraints
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.PaddingValues
-import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.RowScope
 import androidx.compose.foundation.layout.WindowInsets
 import androidx.compose.foundation.layout.asPaddingValues
-import androidx.compose.foundation.layout.fillMaxHeight
+import androidx.compose.foundation.layout.defaultMinSize
 import androidx.compose.foundation.layout.fillMaxSize
-import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.navigationBars
-import androidx.compose.foundation.layout.offset
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
-import androidx.compose.foundation.layout.width
-import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.rounded.Cloud
 import androidx.compose.material.icons.rounded.Home
@@ -40,11 +30,7 @@ import androidx.compose.runtime.getValue
 import androidx.compose.runtime.remember
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.draw.dropShadow
-import androidx.compose.ui.graphics.Color
-import androidx.compose.ui.graphics.shadow.Shadow
 import androidx.compose.ui.graphics.vector.ImageVector
-import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.semantics.Role
@@ -52,6 +38,7 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import androidx.navigation.NavBackStackEntry
 import androidx.navigation.NavDestination
 import androidx.navigation.NavDestination.Companion.hasRoute
 import androidx.navigation.NavGraph.Companion.findStartDestination
@@ -68,12 +55,12 @@ import one.only.player.feature.videopicker.navigation.MediaPickerScreenMode
 import one.only.player.feature.videopicker.navigation.folderIdArg
 import one.only.player.feature.videopicker.navigation.screenModeArg
 import one.only.player.settings.navigation.settingsNavigationRoute
+import one.only.player.ui.component.FloatingBottomBar
+import one.only.player.ui.component.FloatingBottomBarItem
 import top.yukonga.miuix.kmp.basic.Icon
 import top.yukonga.miuix.kmp.basic.NavigationBar
 import top.yukonga.miuix.kmp.basic.Text
 import top.yukonga.miuix.kmp.blur.Backdrop
-import top.yukonga.miuix.kmp.blur.blur
-import top.yukonga.miuix.kmp.blur.drawBackdrop
 import top.yukonga.miuix.kmp.blur.layerBackdrop
 import top.yukonga.miuix.kmp.blur.rememberLayerBackdrop
 import top.yukonga.miuix.kmp.shader.isRenderEffectSupported
@@ -135,8 +122,9 @@ fun RootScaffold(
         AnimatedVisibility(
             visible = shouldShowBar,
             modifier = Modifier.align(Alignment.BottomCenter),
-            enter = fadeIn() + slideInVertically { it },
-            exit = fadeOut() + slideOutVertically { it },
+            // 避免底栏本体与阴影因独立可见性过渡而不同步
+            enter = EnterTransition.None,
+            exit = ExitTransition.None,
         ) {
             RootBottomBar(
                 currentRoot = currentRoot,
@@ -184,80 +172,42 @@ private fun FloatingRootBottomBar(
     onTabSelected: (RootDestination) -> Unit,
 ) {
     val navigationBarsBottom = WindowInsets.navigationBars.asPaddingValues().calculateBottomPadding()
-    val density = LocalDensity.current
-    val shape = CircleShape
-    val containerColor = if (blurBackdrop != null) {
-        MiuixTheme.colorScheme.surfaceContainer.copy(alpha = 0.42f)
-    } else {
-        MiuixTheme.colorScheme.surface
-    }
+    // isBlurEnabled 为 false 时 backdrop 不被采样，兜底一个空 backdrop 即可
+    val fallbackBackdrop = rememberLayerBackdrop { drawContent() }
+    val backdrop = blurBackdrop ?: fallbackBackdrop
     val selectedIndex = RootDestination.entries.indexOf(currentRoot).coerceAtLeast(0)
 
-    Box(
-        modifier = Modifier
-            .padding(horizontal = 24.dp)
-            .padding(bottom = navigationBarsBottom + 12.dp)
-            .fillMaxWidth()
-            .dropShadow(
-                shape = shape,
-                shadow = Shadow(
-                    radius = 10.dp,
-                    color = Color.Black,
-                    alpha = 0.2f,
-                ),
-            )
-            .then(
-                if (blurBackdrop != null) {
-                    Modifier.drawBackdrop(
-                        backdrop = blurBackdrop,
-                        shape = { shape },
-                        effects = {
-                            with(density) {
-                                blur(20.dp.toPx(), 20.dp.toPx())
-                            }
-                        },
-                        onDrawSurface = { drawRect(containerColor) },
-                    )
-                } else {
-                    Modifier.background(
-                        color = containerColor,
-                        shape = shape,
-                    )
-                },
-            )
-            .height(FLOATING_NAV_BAR_HEIGHT)
-            .padding(4.dp),
+    FloatingBottomBar(
+        modifier = Modifier.padding(bottom = navigationBarsBottom + 12.dp),
+        selectedIndex = { selectedIndex },
+        onSelected = { index -> onTabSelected(RootDestination.entries[index]) },
+        backdrop = backdrop,
+        tabsCount = RootDestination.entries.size,
+        isBlurEnabled = blurBackdrop != null,
     ) {
-        BoxWithConstraints(modifier = Modifier.fillMaxSize()) {
-            val itemWidth = maxWidth / RootDestination.entries.size
-            val indicatorOffset by animateDpAsState(
-                targetValue = itemWidth * selectedIndex,
-                label = "rootFloatingBarIndicator",
-            )
-
-            Box(
+        RootDestination.entries.forEach { target ->
+            val label = stringResource(target.labelRes)
+            FloatingBottomBarItem(
+                onClick = { onTabSelected(target) },
                 modifier = Modifier
-                    .offset(x = indicatorOffset)
-                    .width(itemWidth)
-                    .fillMaxHeight()
-                    .background(
-                        color = MiuixTheme.colorScheme.primary.copy(alpha = 0.14f),
-                        shape = CircleShape,
-                    ),
-            )
-            Row(
-                modifier = Modifier.fillMaxSize(),
-                horizontalArrangement = Arrangement.SpaceBetween,
-                verticalAlignment = Alignment.CenterVertically,
+                    .defaultMinSize(minWidth = 76.dp)
+                    .testTag(target.tag),
             ) {
-                RootDestination.entries.forEach { target ->
-                    RootNavigationBarItem(
-                        destination = target,
-                        isSelected = currentRoot == target,
-                        itemHeight = FLOATING_NAV_BAR_HEIGHT,
-                        onClick = { onTabSelected(target) },
-                    )
-                }
+                // 图标恒用 onSurface，选中态由上层 tint 采样药丸表现
+                Icon(
+                    imageVector = target.icon,
+                    contentDescription = label,
+                    tint = MiuixTheme.colorScheme.onSurface,
+                    modifier = Modifier.size(26.dp),
+                )
+                Text(
+                    text = label,
+                    color = MiuixTheme.colorScheme.onSurface,
+                    fontSize = 12.sp,
+                    lineHeight = 16.sp,
+                    maxLines = 1,
+                    overflow = TextOverflow.Ellipsis,
+                )
             }
         }
     }
@@ -324,6 +274,12 @@ fun NavHostController.navigateToRoot(destination: RootDestination) {
         RootDestination.FAVORITES -> navigate(FavoritesRoute, builtOptions)
         RootDestination.SETTINGS -> navigate(settingsNavigationRoute, builtOptions)
     }
+}
+
+// 解析 back stack entry 对应的 root tab 索引，非 root 目的地返回 null
+internal fun NavBackStackEntry.rootTabIndex(): Int? {
+    val tab = destination.resolveRootTab(arguments) ?: return null
+    return RootDestination.entries.indexOf(tab)
 }
 
 // 仅当前 destination 为 4 个 root startDestination 时展示底栏

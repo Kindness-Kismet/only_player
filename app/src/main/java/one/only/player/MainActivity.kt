@@ -71,6 +71,7 @@ import one.only.player.navigation.cloudNavGraph
 import one.only.player.navigation.favoritesNavGraph
 import one.only.player.navigation.mediaNavGraph
 import one.only.player.navigation.navigateToRoot
+import one.only.player.navigation.rootTabIndex
 import one.only.player.navigation.settingsNavGraph
 import one.only.player.settings.navigation.navigateToAboutPreferences
 import one.only.player.settings.navigation.navigateToAppearancePreferences
@@ -349,8 +350,16 @@ class MainActivity : AppCompatActivity() {
                     navController = mainNavController,
                     startDestination = MediaRootRoute,
                     enterTransition = {
+                        // root tab 互切按索引方向决定滑入方向，进入子页恒用 Start
+                        val fromTab = initialState.rootTabIndex()
+                        val toTab = targetState.rootTabIndex()
+                        val towards = if (fromTab != null && toTab != null && toTab < fromTab) {
+                            AnimatedContentTransitionScope.SlideDirection.End
+                        } else {
+                            AnimatedContentTransitionScope.SlideDirection.Start
+                        }
                         slideIntoContainer(
-                            towards = AnimatedContentTransitionScope.SlideDirection.Start,
+                            towards = towards,
                             animationSpec = tween(
                                 durationMillis = 200,
                                 easing = LinearEasing,
@@ -358,8 +367,15 @@ class MainActivity : AppCompatActivity() {
                         )
                     },
                     exitTransition = {
+                        val fromTab = initialState.rootTabIndex()
+                        val toTab = targetState.rootTabIndex()
+                        val towards = if (fromTab != null && toTab != null && toTab < fromTab) {
+                            AnimatedContentTransitionScope.SlideDirection.End
+                        } else {
+                            AnimatedContentTransitionScope.SlideDirection.Start
+                        }
                         slideOutOfContainer(
-                            towards = AnimatedContentTransitionScope.SlideDirection.Start,
+                            towards = towards,
                             animationSpec = tween(
                                 durationMillis = 200,
                                 easing = LinearEasing,
