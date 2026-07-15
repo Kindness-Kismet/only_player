@@ -21,6 +21,7 @@ import one.only.player.core.common.extensions.canonicalPathOrSelf
 import one.only.player.core.common.extensions.prettyName
 import one.only.player.core.common.hasManageExternalStorageAccess
 import one.only.player.core.data.repository.FavoriteRepository
+import one.only.player.core.data.repository.MediaMoveProgress
 import one.only.player.core.data.repository.MediaMoveSummary
 import one.only.player.core.data.repository.MediaRepository
 import one.only.player.core.data.repository.PreferencesRepository
@@ -261,10 +262,10 @@ class MediaPickerViewModel @Inject constructor(
         }
     }
 
-    private fun updateMoveProgress(completedCount: Int) {
+    private fun updateMoveProgress(progress: MediaMoveProgress) {
         uiStateInternal.update { currentState ->
             currentState.copy(
-                moveProgress = currentState.moveProgress?.copy(completedCount = completedCount),
+                moveProgress = progress,
             )
         }
     }
@@ -277,7 +278,7 @@ class MediaPickerViewModel @Inject constructor(
             uiStateInternal.update { currentState ->
                 currentState.copy(
                     isMovingSelection = true,
-                    moveProgress = MediaPickerMoveProgress(totalCount = selection.totalCount),
+                    moveProgress = MediaMoveProgress(totalCount = selection.totalCount),
                     moveResult = null,
                 )
             }
@@ -285,7 +286,9 @@ class MediaPickerViewModel @Inject constructor(
                 uris = selection.videoUris,
                 targetFolderPath = targetFolderPath,
                 shouldCancel = { shouldCancelMoveSelection },
-                onProgress = ::updateMoveProgress,
+                onProgress = { progress ->
+                    updateMoveProgress(progress.copy(totalCount = selection.totalCount))
+                },
             )
             val folderSummary = if (videoSummary.canceledCount > 0) {
                 MediaMoveSummary(canceledCount = selection.folderPaths.distinct().size)
@@ -294,8 +297,13 @@ class MediaPickerViewModel @Inject constructor(
                     folderPaths = selection.folderPaths,
                     targetFolderPath = targetFolderPath,
                     shouldCancel = { shouldCancelMoveSelection },
-                    onProgress = { completedCount ->
-                        updateMoveProgress(selection.videoUris.distinct().size + completedCount)
+                    onProgress = { progress ->
+                        updateMoveProgress(
+                            progress.copy(
+                                completedCount = selection.videoUris.distinct().size + progress.completedCount,
+                                totalCount = selection.totalCount,
+                            ),
+                        )
                     },
                 )
             }
@@ -407,7 +415,7 @@ data class MediaPickerUiState(
     val screenMode: MediaPickerScreenMode = MediaPickerScreenMode.LIBRARY,
     val moveSelection: MediaPickerMoveSelection? = null,
     val isMovingSelection: Boolean = false,
-    val moveProgress: MediaPickerMoveProgress? = null,
+    val moveProgress: MediaMoveProgress? = null,
     val moveResult: MediaMoveSummary? = null,
     val deleteResult: MediaPickerDeleteResult? = null,
 )
@@ -447,12 +455,6 @@ sealed interface MediaPickerDeleteResult {
 }
 
 private const val TAG = "MediaPickerViewModel"
-
-@Stable
-data class MediaPickerMoveProgress(
-    val completedCount: Int = 0,
-    val totalCount: Int = 0,
-)
 
 @Stable
 data class MediaPickerMoveSelection(

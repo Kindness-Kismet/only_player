@@ -478,6 +478,9 @@
     <string name="move_cancelled">已取消，已移动 %1$d 个，%2$d 个失败</string>
     <string name="move_progress_title">正在移动</string>
     <string name="move_progress_message">已处理 %1$d/%2$d 个项目</string>
+    <string name="move_progress_current_file">当前文件：%1$s</string>
+    <string name="move_progress_percent">%1$d%%</string>
+    <string name="move_progress_size">%1$s / %2$s</string>
     <string name="cancel_remaining_move">取消剩余移动</string>
     <string name="continue_move">继续</string>
     <string name="restore">恢复</string>

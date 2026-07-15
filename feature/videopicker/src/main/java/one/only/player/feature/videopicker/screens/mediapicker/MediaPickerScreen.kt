@@ -55,6 +55,7 @@ import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import one.only.player.core.common.Logger
 import one.only.player.core.common.Utils
 import one.only.player.core.common.storagePermission
+import one.only.player.core.data.repository.MediaMoveProgress
 import one.only.player.core.model.ApplicationPreferences
 import one.only.player.core.model.Folder
 import one.only.player.core.model.MediaLayoutMode
@@ -584,6 +585,10 @@ internal fun MediaPickerScreen(
         onEvent(MediaPickerUiEvent.ClearMoveResult)
     }
 
+    LaunchedEffect(moveProgress != null) {
+        if (moveProgress != null) shouldShowMoveProgressDialog = true
+    }
+
     LaunchedEffect(deleteResultMessage) {
         val message = deleteResultMessage ?: return@LaunchedEffect
         Toast.makeText(context, message, Toast.LENGTH_SHORT).show()
@@ -670,8 +675,7 @@ internal fun MediaPickerScreen(
 
     if (shouldShowMoveProgressDialog && moveProgress != null) {
         MoveProgressDialog(
-            movedCount = moveProgress.completedCount,
-            totalCount = moveProgress.totalCount,
+            progress = moveProgress,
             onCancelRemaining = {
                 onEvent(MediaPickerUiEvent.CancelRemainingMoveSelection)
                 shouldShowMoveProgressDialog = false
@@ -816,22 +820,66 @@ private fun MoveProgressButton(
 
 @Composable
 private fun MoveProgressDialog(
-    movedCount: Int,
-    totalCount: Int,
+    progress: MediaMoveProgress,
     onCancelRemaining: () -> Unit,
     onContinue: () -> Unit,
 ) {
+    val fileProgress = if (progress.totalBytes > 0L) {
+        progress.copiedBytes.toFloat() / progress.totalBytes
+    } else {
+        null
+    }
+    val progressPercent = ((fileProgress ?: 0f) * 100).toInt().coerceIn(0, 100)
+
     NextDialog(
         onDismissRequest = onContinue,
         title = stringResource(R.string.move_progress_title),
         content = {
-            Text(
-                text = stringResource(
-                    R.string.move_progress_message,
-                    movedCount,
-                    totalCount,
-                ),
-            )
+            Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
+                Text(
+                    text = stringResource(
+                        R.string.move_progress_message,
+                        progress.completedCount,
+                        progress.totalCount,
+                    ),
+                )
+                progress.currentName?.let { currentName ->
+                    Text(
+                        text = stringResource(R.string.move_progress_current_file, currentName),
+                        maxLines = 2,
+                        overflow = TextOverflow.Ellipsis,
+                    )
+                }
+                Row(
+                    horizontalArrangement = Arrangement.spacedBy(12.dp),
+                    verticalAlignment = Alignment.CenterVertically,
+                ) {
+                    if (fileProgress != null) {
+                        CircularProgressIndicator(
+                            progress = fileProgress,
+                            modifier = Modifier.size(36.dp),
+                            strokeWidth = 3.dp,
+                        )
+                    } else {
+                        CircularProgressIndicator(
+                            modifier = Modifier.size(36.dp),
+                            strokeWidth = 3.dp,
+                        )
+                    }
+                    Column(verticalArrangement = Arrangement.spacedBy(2.dp)) {
+                        Text(text = stringResource(R.string.move_progress_percent, progressPercent))
+                        if (progress.totalBytes > 0L) {
+                            Text(
+                                text = stringResource(
+                                    R.string.move_progress_size,
+                                    Utils.formatFileSize(progress.copiedBytes),
+                                    Utils.formatFileSize(progress.totalBytes),
+                                ),
+                            )
+                        }
+                    }
+                }
+            }
         },
         confirmButton = {
             TextButton(

@@ -481,6 +481,9 @@
     <string name="move_cancelled">Canceled, moved %1$d items, %2$d failed</string>
     <string name="move_progress_title">Moving</string>
     <string name="move_progress_message">Processed %1$d/%2$d items</string>
+    <string name="move_progress_current_file">Current file: %1$s</string>
+    <string name="move_progress_percent">%1$d%%</string>
+    <string name="move_progress_size">%1$s / %2$s</string>
     <string name="cancel_remaining_move">Cancel remaining</string>
     <string name="continue_move">Continue</string>
     <string name="restore">Restore</string>

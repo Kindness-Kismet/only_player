@@ -34,14 +34,14 @@ interface MediaRepository {
         uris: List<String>,
         targetFolderPath: String,
         shouldCancel: () -> Boolean = { false },
-        onProgress: (Int) -> Unit = {},
+        onProgress: (MediaMoveProgress) -> Unit = {},
     ): MediaMoveSummary
 
     suspend fun moveFoldersToFolder(
         folderPaths: List<String>,
         targetFolderPath: String,
         shouldCancel: () -> Boolean = { false },
-        onProgress: (Int) -> Unit = {},
+        onProgress: (MediaMoveProgress) -> Unit = {},
     ): MediaMoveSummary
     suspend fun restoreVideosFromRecycleBin(uris: List<String>): List<String>
 }
@@ -57,3 +57,11 @@ data class MediaMoveSummary(
         canceledCount = canceledCount + other.canceledCount,
     )
 }
+
+data class MediaMoveProgress(
+    val completedCount: Int = 0,
+    val totalCount: Int = 0,
+    val currentName: String? = null,
+    val copiedBytes: Long = 0,
+    val totalBytes: Long = 0,
+)

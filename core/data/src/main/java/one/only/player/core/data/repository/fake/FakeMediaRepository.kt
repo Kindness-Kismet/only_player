@@ -5,6 +5,7 @@ import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.flowOf
 import one.only.player.core.data.models.RemotePlaybackInfo
 import one.only.player.core.data.models.VideoState
+import one.only.player.core.data.repository.MediaMoveProgress
 import one.only.player.core.data.repository.MediaMoveSummary
 import one.only.player.core.data.repository.MediaRepository
 import one.only.player.core.data.repository.isRemotePlaybackStateKey
@@ -106,10 +107,10 @@ class FakeMediaRepository : MediaRepository {
         uris: List<String>,
         targetFolderPath: String,
         shouldCancel: () -> Boolean,
-        onProgress: (Int) -> Unit,
+        onProgress: (MediaMoveProgress) -> Unit,
     ): MediaMoveSummary {
         val count = uris.distinct().size
-        onProgress(count)
+        onProgress(MediaMoveProgress(completedCount = count, totalCount = count))
         return MediaMoveSummary(movedCount = count)
     }
 
@@ -117,10 +118,10 @@ class FakeMediaRepository : MediaRepository {
         folderPaths: List<String>,
         targetFolderPath: String,
         shouldCancel: () -> Boolean,
-        onProgress: (Int) -> Unit,
+        onProgress: (MediaMoveProgress) -> Unit,
     ): MediaMoveSummary {
         val count = folderPaths.distinct().size
-        onProgress(count)
+        onProgress(MediaMoveProgress(completedCount = count, totalCount = count))
         return MediaMoveSummary(movedCount = count)
     }
 

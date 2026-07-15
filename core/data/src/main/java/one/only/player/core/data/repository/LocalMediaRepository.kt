@@ -263,7 +263,7 @@ class LocalMediaRepository @Inject constructor(
         uris: List<String>,
         targetFolderPath: String,
         shouldCancel: () -> Boolean,
-        onProgress: (Int) -> Unit,
+        onProgress: (MediaMoveProgress) -> Unit,
     ): MediaMoveSummary {
         val distinctUris = uris.distinct()
         if (distinctUris.isEmpty()) return MediaMoveSummary()
@@ -280,17 +280,67 @@ class LocalMediaRepository @Inject constructor(
                 )
             }
 
-            val moved = mediaService.moveMediaToFolder(uriString.toUri(), targetFolderPath)
+            val medium = mediumDao.get(uriString)
+            val currentName = medium?.name ?: uriString
+            val totalBytes = medium?.size ?: 0L
+            onProgress(
+                MediaMoveProgress(
+                    completedCount = movedCount + failedCount,
+                    totalCount = distinctUris.size,
+                    currentName = currentName,
+                    totalBytes = totalBytes,
+                ),
+            )
+            val moved = mediaService.moveMediaToFolder(
+                uri = uriString.toUri(),
+                targetFolderPath = targetFolderPath,
+                shouldCancel = shouldCancel,
+                onProgress = { copyProgress ->
+                    onProgress(
+                        MediaMoveProgress(
+                            completedCount = movedCount + failedCount,
+                            totalCount = distinctUris.size,
+                            currentName = currentName,
+                            copiedBytes = copyProgress.copiedBytes,
+                            totalBytes = copyProgress.totalBytes,
+                        ),
+                    )
+                },
+            )
             if (moved == null) {
+                if (shouldCancel()) {
+                    return MediaMoveSummary(
+                        movedCount = movedCount,
+                        failedCount = failedCount,
+                        canceledCount = distinctUris.size - movedCount - failedCount,
+                    )
+                }
                 failedCount++
-                onProgress(movedCount + failedCount)
+                onProgress(
+                    MediaMoveProgress(
+                        completedCount = movedCount + failedCount,
+                        totalCount = distinctUris.size,
+                        currentName = currentName,
+                        copiedBytes = totalBytes,
+                        totalBytes = totalBytes,
+                    ),
+                )
                 return@forEach
             }
             updateMovedMedium(uriString, moved)
+            moved.originalPath?.let { originalPath -> mediaSynchronizer.refresh(originalPath) }
             mediaSynchronizer.registerManualVideoPath(moved.path)
             mediaSynchronizer.refresh(moved.path)
             movedCount++
-            onProgress(movedCount + failedCount)
+            onProgress(
+                MediaMoveProgress(
+                    completedCount = movedCount + failedCount,
+                    totalCount = distinctUris.size,
+                    currentName = currentName,
+                    copiedBytes = totalBytes,
+                    totalBytes = totalBytes,
+                ),
+            )
         }
         return MediaMoveSummary(
             movedCount = movedCount,
@@ -302,7 +352,7 @@ class LocalMediaRepository @Inject constructor(
         folderPaths: List<String>,
         targetFolderPath: String,
         shouldCancel: () -> Boolean,
-        onProgress: (Int) -> Unit,
+        onProgress: (MediaMoveProgress) -> Unit,
     ): MediaMoveSummary {
         val distinctFolderPaths = folderPaths.distinct()
         if (distinctFolderPaths.isEmpty()) return MediaMoveSummary()
@@ -319,14 +369,34 @@ class LocalMediaRepository @Inject constructor(
                 )
             }
 
+            val folder = File(folderPath)
+            val totalBytes = folder.walkTopDown()
+                .filter(File::isFile)
+                .sumOf(File::length)
+            onProgress(
+                MediaMoveProgress(
+                    completedCount = movedCount + failedCount,
+                    totalCount = distinctFolderPaths.size,
+                    currentName = folder.name,
+                    totalBytes = totalBytes,
+                ),
+            )
             val movedMedia = mediaService.moveFolderToFolder(folderPath, targetFolderPath)
             if (movedMedia.isEmpty()) {
                 failedCount++
-                onProgress(movedCount + failedCount)
+                onProgress(
+                    MediaMoveProgress(
+                        completedCount = movedCount + failedCount,
+                        totalCount = distinctFolderPaths.size,
+                        currentName = folder.name,
+                        copiedBytes = totalBytes,
+                        totalBytes = totalBytes,
+                    ),
+                )
                 return@forEach
             }
 
-            val movedFolderPath = File(targetFolderPath, File(folderPath).name).path
+            val movedFolderPath = File(targetFolderPath, folder.name).path
             movedMedia.forEach { moved ->
                 val uriString = moved.originalPath?.let { originalPath -> mediumDao.getByPath(originalPath)?.uriString } ?: return@forEach
                 updateMovedMedium(uriString, moved)
@@ -338,7 +408,15 @@ class LocalMediaRepository @Inject constructor(
             )
             mediaSynchronizer.refresh()
             movedCount++
-            onProgress(movedCount + failedCount)
+            onProgress(
+                MediaMoveProgress(
+                    completedCount = movedCount + failedCount,
+                    totalCount = distinctFolderPaths.size,
+                    currentName = folder.name,
+                    copiedBytes = totalBytes,
+                    totalBytes = totalBytes,
+                ),
+            )
         }
         return MediaMoveSummary(
             movedCount = movedCount,

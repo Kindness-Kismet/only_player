@@ -1858,7 +1858,13 @@ fun InfoView(
     ) {
         Text(
             text = info,
-            style = textStyle,
+            style = textStyle.copy(
+                shadow = Shadow(
+                    color = Color.Black.copy(alpha = 0.85f),
+                    offset = Offset(0f, 2f),
+                    blurRadius = 4f,
+                ),
+            ),
             color = Color.White,
             textAlign = TextAlign.Center,
         )
