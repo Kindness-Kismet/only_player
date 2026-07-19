@@ -81,6 +81,7 @@ import one.only.player.feature.videopicker.composables.QuickSettingsDialog
 import one.only.player.feature.videopicker.composables.RenameDialog
 import one.only.player.feature.videopicker.composables.TextIconToggleButton
 import one.only.player.feature.videopicker.composables.VideoInfoDialog
+import one.only.player.feature.videopicker.composables.rememberPullToRefreshTexts
 import one.only.player.feature.videopicker.navigation.MediaPickerScreenMode
 import one.only.player.feature.videopicker.state.SelectedFolder
 import one.only.player.feature.videopicker.state.SelectedVideo
@@ -516,10 +517,12 @@ internal fun MediaPickerScreen(
                 ) {
                     val shouldShowRefreshIndicator = uiState.isRefreshing || uiState.mediaDataState is DataState.Loading
                     val updatedScaffoldPadding = scaffoldPadding.copy(top = 0.dp, start = 0.dp).withBottomFallback()
+                    val refreshTexts = rememberPullToRefreshTexts()
                     PullToRefresh(
                         modifier = Modifier.fillMaxSize(),
                         isRefreshing = shouldShowRefreshIndicator,
                         onRefresh = { onEvent(MediaPickerUiEvent.Refresh) },
+                        refreshTexts = refreshTexts,
                     ) {
                         when (uiState.mediaDataState) {
                             DataState.Loading -> {

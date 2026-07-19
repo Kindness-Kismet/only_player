@@ -43,6 +43,10 @@
     <string name="pause_at_end_of_queue">播完最後一個影片時暫停</string>
     <string name="pause_at_end_of_queue_description">最後一個影片播完後留在播放器，並停在最後一個影格</string>
     <string name="no_videos_found">沒有找到影片</string>
+    <string name="pull_to_refresh_hint_pull">下拉重新整理</string>
+    <string name="pull_to_refresh_hint_release">鬆開重新整理</string>
+    <string name="pull_to_refresh_hint_refreshing">正在重新整理…</string>
+    <string name="pull_to_refresh_hint_complete">重新整理完成</string>
     <string name="no">否</string>
     <string name="date">日期</string>
     <string name="videos">影片</string>

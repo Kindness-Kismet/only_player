@@ -33,8 +33,6 @@ import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.text.input.PasswordVisualTransformation
-import androidx.compose.ui.text.style.TextAlign
-import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.hilt.lifecycle.viewmodel.compose.hiltViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
@@ -47,6 +45,7 @@ import one.only.player.core.ui.components.PreferenceSwitch
 import one.only.player.core.ui.designsystem.NextIcons
 import one.only.player.core.ui.extensions.copy
 import one.only.player.core.ui.extensions.withBottomFallback
+import one.only.player.feature.videopicker.composables.MediaMessageState
 import top.yukonga.miuix.kmp.basic.ButtonDefaults
 import top.yukonga.miuix.kmp.basic.Card
 import top.yukonga.miuix.kmp.basic.DropdownItem
@@ -189,34 +188,13 @@ internal fun CloudHomeScreen(
 
 @Composable
 private fun EmptyCloudHomeContent(
-    contentPadding: androidx.compose.foundation.layout.PaddingValues,
+    contentPadding: PaddingValues,
 ) {
-    Box(
-        modifier = Modifier
-            .fillMaxSize()
-            .padding(contentPadding),
-        contentAlignment = Alignment.TopCenter,
-    ) {
-        Column(
-            modifier = Modifier.padding(top = 96.dp),
-            horizontalAlignment = Alignment.CenterHorizontally,
-            verticalArrangement = Arrangement.spacedBy(12.dp),
-        ) {
-            Icon(
-                imageVector = NextIcons.Cloud,
-                contentDescription = null,
-                modifier = Modifier.size(48.dp),
-                tint = MiuixTheme.colorScheme.onSurfaceContainer,
-            )
-            Text(
-                text = stringResource(R.string.no_servers_configured),
-                style = MiuixTheme.textStyles.body1,
-                color = MiuixTheme.colorScheme.onSurfaceContainer,
-                textAlign = TextAlign.Center,
-                modifier = Modifier.padding(horizontal = 32.dp),
-            )
-        }
-    }
+    MediaMessageState(
+        icon = NextIcons.Cloud,
+        title = stringResource(R.string.no_servers_configured),
+        contentPadding = contentPadding,
+    )
 }
 
 @Composable
@@ -260,14 +238,14 @@ private fun ServerListItem(
                     maxLines = 1,
                     style = MiuixTheme.textStyles.headline1,
                     color = MiuixTheme.colorScheme.onSurface,
-                    overflow = TextOverflow.Ellipsis,
+                    overflow = androidx.compose.ui.text.style.TextOverflow.Ellipsis,
                 )
                 Text(
                     text = "${server.protocol.name} · ${server.host}${server.port?.let { ":$it" } ?: ""}",
                     maxLines = 1,
                     style = MiuixTheme.textStyles.body2,
                     color = MiuixTheme.colorScheme.onSurfaceVariantSummary,
-                    overflow = TextOverflow.Ellipsis,
+                    overflow = androidx.compose.ui.text.style.TextOverflow.Ellipsis,
                 )
             }
             Row {

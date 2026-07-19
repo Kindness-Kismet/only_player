@@ -6,8 +6,6 @@ import android.widget.Toast
 import androidx.activity.compose.BackHandler
 import androidx.compose.animation.AnimatedContent
 import androidx.compose.foundation.layout.Arrangement
-import androidx.compose.foundation.layout.Box
-import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.WindowInsets
 import androidx.compose.foundation.layout.calculateStartPadding
@@ -25,15 +23,12 @@ import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
-import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.input.nestedscroll.nestedScroll
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalLayoutDirection
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.res.stringResource
-import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.hilt.lifecycle.viewmodel.compose.hiltViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
@@ -49,6 +44,7 @@ import one.only.player.core.ui.components.SegmentedItemGap
 import one.only.player.core.ui.designsystem.NextIcons
 import one.only.player.core.ui.extensions.copy
 import one.only.player.core.ui.extensions.withBottomFallback
+import one.only.player.feature.videopicker.composables.MediaMessageState
 import top.yukonga.miuix.kmp.basic.ButtonDefaults
 import top.yukonga.miuix.kmp.basic.Icon as MiuixIcon
 import top.yukonga.miuix.kmp.basic.IconButton as MiuixIconButton
@@ -196,23 +192,22 @@ internal fun FavoritesScreen(
         contentWindowInsets = WindowInsets.displayCutout,
         containerColor = MiuixTheme.colorScheme.background,
     ) { innerPadding ->
-        Column(
+        androidx.compose.foundation.layout.Column(
             modifier = Modifier
                 .fillMaxSize()
                 .nestedScroll(scrollBehavior.nestedScrollConnection)
                 .padding(top = innerPadding.calculateTopPadding())
-                .padding(start = innerPadding.calculateStartPadding(LocalLayoutDirection.current))
-                .padding(horizontal = 16.dp),
+                .padding(start = innerPadding.calculateStartPadding(LocalLayoutDirection.current)),
         ) {
             if (uiState.visibleItems.isEmpty()) {
                 EmptyFavoritesContent(
-                    modifier = Modifier
-                        .fillMaxSize()
-                        .padding(innerPadding.copy(top = 8.dp, start = 0.dp).withBottomFallback()),
+                    contentPadding = innerPadding.copy(top = 8.dp, start = 0.dp).withBottomFallback(),
                 )
             } else {
                 LazyColumn(
-                    modifier = Modifier.fillMaxSize(),
+                    modifier = Modifier
+                        .fillMaxSize()
+                        .padding(horizontal = 16.dp),
                     contentPadding = innerPadding.copy(top = 8.dp, start = 0.dp).withBottomFallback(),
                     verticalArrangement = Arrangement.spacedBy(SegmentedItemGap),
                 ) {
@@ -269,30 +264,12 @@ internal fun FavoritesScreen(
 }
 
 @Composable
-private fun EmptyFavoritesContent(modifier: Modifier = Modifier) {
-    Box(
-        modifier = modifier,
-        contentAlignment = Alignment.TopCenter,
-    ) {
-        Column(
-            modifier = Modifier.padding(top = 96.dp),
-            horizontalAlignment = Alignment.CenterHorizontally,
-            verticalArrangement = Arrangement.spacedBy(12.dp),
-        ) {
-            MiuixIcon(
-                imageVector = NextIcons.LibraryBooks,
-                contentDescription = null,
-                modifier = Modifier.size(48.dp),
-                tint = MiuixTheme.colorScheme.onSurfaceContainer,
-            )
-            Text(
-                text = stringResource(R.string.no_favorites),
-                style = MiuixTheme.textStyles.main,
-                color = MiuixTheme.colorScheme.onSurfaceContainer,
-                textAlign = TextAlign.Center,
-            )
-        }
-    }
+private fun EmptyFavoritesContent(contentPadding: androidx.compose.foundation.layout.PaddingValues) {
+    MediaMessageState(
+        icon = NextIcons.LibraryBooks,
+        title = stringResource(R.string.no_favorites),
+        contentPadding = contentPadding,
+    )
 }
 
 @Composable
@@ -388,7 +365,7 @@ private fun MoveFavoriteDialog(
         onDismissRequest = onDismiss,
         title = stringResource(R.string.move_favorite),
         content = {
-            Column {
+            androidx.compose.foundation.layout.Column {
                 RadioTextButton(
                     text = stringResource(R.string.favorites_root),
                     isSelected = item.parentId == null,
@@ -440,7 +417,7 @@ private fun DeleteFavoriteDialog(
     )
 }
 
-private fun FavoriteItem.icon(): ImageVector = when (targetType) {
+private fun FavoriteItem.icon(): androidx.compose.ui.graphics.vector.ImageVector = when (targetType) {
     FavoriteTargetType.FAVORITE_FOLDER -> NextIcons.LibraryBooks
     FavoriteTargetType.LOCAL_VIDEO,
     FavoriteTargetType.REMOTE_FILE,

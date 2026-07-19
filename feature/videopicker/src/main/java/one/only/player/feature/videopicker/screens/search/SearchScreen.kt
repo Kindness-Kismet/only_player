@@ -34,7 +34,6 @@ import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalLayoutDirection
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.res.stringResource
-import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.tooling.preview.PreviewLightDark
 import androidx.compose.ui.unit.dp
@@ -62,6 +61,7 @@ import one.only.player.core.ui.extensions.plus
 import one.only.player.core.ui.extensions.withBottomFallback
 import one.only.player.core.ui.theme.OnlyPlayerTheme
 import one.only.player.feature.videopicker.composables.FolderItem
+import one.only.player.feature.videopicker.composables.MediaMessageState
 import one.only.player.feature.videopicker.composables.MediaView
 import one.only.player.feature.videopicker.composables.RenameDialog
 import one.only.player.feature.videopicker.composables.SelectionActionsPopup
@@ -344,6 +344,15 @@ private fun SuggestionsContent(
     onClearHistory: () -> Unit,
     onFolderClick: (Folder) -> Unit,
 ) {
+    if (searchHistory.isEmpty() && popularFolders.isEmpty()) {
+        MediaMessageState(
+            icon = NextIcons.Search,
+            title = stringResource(R.string.search_videos_and_folders),
+            contentPadding = contentPadding,
+        )
+        return
+    }
+
     LazyColumn(
         modifier = Modifier.fillMaxSize(),
         contentPadding = PaddingValues(vertical = 8.dp) + contentPadding,
@@ -367,7 +376,6 @@ private fun SuggestionsContent(
                     )
                 }
             }
-
             items(
                 items = searchHistory,
                 key = { "history_$it" },
@@ -391,7 +399,6 @@ private fun SuggestionsContent(
                     ),
                 )
             }
-
             itemsIndexed(
                 items = popularFolders,
                 key = { _, folder -> "popular_${folder.path}" },
@@ -405,35 +412,6 @@ private fun SuggestionsContent(
                     isLastItem = index == popularFolders.lastIndex,
                     onClick = { onFolderClick(folder) },
                 )
-            }
-        }
-
-        if (searchHistory.isEmpty() && popularFolders.isEmpty()) {
-            item {
-                Box(
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .padding(32.dp),
-                    contentAlignment = Alignment.Center,
-                ) {
-                    Column(
-                        horizontalAlignment = Alignment.CenterHorizontally,
-                        verticalArrangement = Arrangement.spacedBy(8.dp),
-                    ) {
-                        Icon(
-                            imageVector = NextIcons.Search,
-                            contentDescription = null,
-                            modifier = Modifier.size(48.dp),
-                            tint = MiuixTheme.colorScheme.onSurfaceVariantSummary,
-                        )
-                        Text(
-                            text = stringResource(R.string.search_videos_and_folders),
-                            style = MiuixTheme.textStyles.main,
-                            color = MiuixTheme.colorScheme.onSurfaceVariantSummary,
-                            textAlign = TextAlign.Center,
-                        )
-                    }
-                }
             }
         }
     }
@@ -510,27 +488,11 @@ private fun SearchResultsContent(
         exit = fadeOut(),
     ) {
         if (searchResults.isEmpty) {
-            Box(
-                modifier = Modifier.fillMaxSize().padding(top = 100.dp),
-                contentAlignment = Alignment.TopCenter,
-            ) {
-                Column(
-                    horizontalAlignment = Alignment.CenterHorizontally,
-                    verticalArrangement = Arrangement.spacedBy(8.dp),
-                ) {
-                    Icon(
-                        imageVector = NextIcons.Search,
-                        contentDescription = null,
-                        modifier = Modifier.size(48.dp),
-                        tint = MiuixTheme.colorScheme.onSurfaceVariantSummary,
-                    )
-                    Text(
-                        text = stringResource(R.string.no_results_found),
-                        style = MiuixTheme.textStyles.main,
-                        color = MiuixTheme.colorScheme.onSurfaceVariantSummary,
-                    )
-                }
-            }
+            MediaMessageState(
+                icon = NextIcons.Search,
+                title = stringResource(R.string.no_results_found),
+                contentPadding = contentPadding,
+            )
         } else {
             val rootFolder = searchResults.asRootFolder()
             MediaView(

@@ -74,12 +74,14 @@ import one.only.player.core.ui.extensions.copy
 import one.only.player.core.ui.extensions.plus
 import one.only.player.core.ui.extensions.withBottomFallback
 import one.only.player.feature.videopicker.composables.InfoChip
+import one.only.player.feature.videopicker.composables.MediaMessageState
 import one.only.player.feature.videopicker.composables.QuickSettingsDialog
 import one.only.player.feature.videopicker.composables.QuickSettingsTarget
 import one.only.player.feature.videopicker.composables.SelectionActionsPopup
 import one.only.player.feature.videopicker.composables.SelectionCheckIndicator
 import one.only.player.feature.videopicker.composables.SelectionMenuAction
 import one.only.player.feature.videopicker.composables.VideoInfoDialog
+import one.only.player.feature.videopicker.composables.rememberPullToRefreshTexts
 import top.yukonga.miuix.kmp.basic.CircularProgressIndicator
 import top.yukonga.miuix.kmp.basic.Icon as MiuixIcon
 import top.yukonga.miuix.kmp.basic.IconButton as MiuixIconButton
@@ -349,10 +351,12 @@ internal fun CloudBrowseScreen(
                     .background(MiuixTheme.colorScheme.background),
             ) {
                 val contentPadding = innerPadding.copy(top = 0.dp, start = 0.dp).withBottomFallback()
+                val refreshTexts = rememberPullToRefreshTexts()
                 PullToRefresh(
                     modifier = Modifier.fillMaxSize(),
                     isRefreshing = uiState.isRefreshing,
                     onRefresh = { onEvent(CloudBrowseEvent.Retry) },
+                    refreshTexts = refreshTexts,
                 ) {
                     when {
                         uiState.isLoading && uiState.files.isEmpty() -> {
@@ -564,51 +568,23 @@ private fun CloudRemoteMediaView(
 @Composable
 private fun CloudBrowseMessageState(
     contentPadding: PaddingValues,
-    icon: androidx.compose.ui.graphics.vector.ImageVector,
+    icon: ImageVector,
     title: String,
     message: String? = null,
     actionText: String? = null,
     onActionClick: (() -> Unit)? = null,
 ) {
-    Box(
-        modifier = Modifier
-            .fillMaxSize()
-            .padding(contentPadding),
-        contentAlignment = Alignment.TopCenter,
-    ) {
-        Column(
-            modifier = Modifier.padding(top = 96.dp),
-            horizontalAlignment = Alignment.CenterHorizontally,
-            verticalArrangement = Arrangement.spacedBy(12.dp),
-        ) {
-            MiuixIcon(
-                imageVector = icon,
-                contentDescription = null,
-                modifier = Modifier.size(48.dp),
-                tint = MiuixTheme.colorScheme.onSurfaceVariantSummary,
-            )
-            Text(
-                text = title,
-                style = MiuixTheme.textStyles.main,
-                color = MiuixTheme.colorScheme.onSurfaceVariantSummary,
-                textAlign = TextAlign.Center,
-            )
-            if (!message.isNullOrBlank()) {
-                Text(
-                    text = message,
-                    style = MiuixTheme.textStyles.body2,
-                    color = MiuixTheme.colorScheme.onSurfaceVariantSummary,
-                    textAlign = TextAlign.Center,
-                )
-            }
-            if (!actionText.isNullOrBlank() && onActionClick != null) {
-                TextButton(
-                    text = actionText,
-                    onClick = onActionClick,
-                )
-            }
-        }
-    }
+    MediaMessageState(
+        icon = icon,
+        title = title,
+        contentPadding = contentPadding,
+        message = message,
+        action = if (!actionText.isNullOrBlank() && onActionClick != null) {
+            { TextButton(text = actionText, onClick = onActionClick) }
+        } else {
+            null
+        },
+    )
 }
 
 @Composable

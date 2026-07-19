@@ -16,6 +16,10 @@
     <string name="double_tap">双击手势</string>
     <string name="double_tap_description">选择双击手势操作</string>
     <string name="no_videos_found">未找到视频</string>
+    <string name="pull_to_refresh_hint_pull">下拉刷新</string>
+    <string name="pull_to_refresh_hint_release">松开刷新</string>
+    <string name="pull_to_refresh_hint_refreshing">正在刷新…</string>
+    <string name="pull_to_refresh_hint_complete">刷新完成</string>
     <string name="permission_info">Only Player 应用需要“%1$s”权限以访问和播放媒体。没有它，则无法访问和播放媒体。要使用应用的完整功能，请授予此权限。</string>
     <string name="permission_not_granted">未授予权限</string>
     <string name="permission_request">权限请求</string>

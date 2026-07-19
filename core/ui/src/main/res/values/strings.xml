@@ -20,6 +20,10 @@
     <string name="menu">Menu</string>
     <string name="navigate_up">Navigate up</string>
     <string name="no_videos_found">No videos found</string>
+    <string name="pull_to_refresh_hint_pull">Pull down to refresh</string>
+    <string name="pull_to_refresh_hint_release">Release to refresh</string>
+    <string name="pull_to_refresh_hint_refreshing">Refreshing…</string>
+    <string name="pull_to_refresh_hint_complete">Refresh complete</string>
     <string name="open_settings">Open Settings</string>
     <string name="permission_info">The Only Player app needs \"%1$s\" permission to access and play media. Without it, media access and playback won\'t work. To use the app fully, grant the permission.</string>
     <string name="permission_not_granted">Permission Not Granted</string>
