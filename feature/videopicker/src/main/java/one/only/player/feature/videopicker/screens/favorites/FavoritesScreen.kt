@@ -162,9 +162,7 @@ internal fun FavoritesScreen(
                         actions = {
                             MiuixIconButton(
                                 onClick = { isSearchActive = true },
-                                modifier = Modifier
-                                    .padding(end = 6.dp)
-                                    .testTag("btn_favorites_search"),
+                                modifier = Modifier.testTag("btn_favorites_search"),
                             ) {
                                 MiuixIcon(
                                     imageVector = NextIcons.Search,
@@ -174,9 +172,7 @@ internal fun FavoritesScreen(
                             }
                             MiuixIconButton(
                                 onClick = { shouldShowAddFolderDialog = true },
-                                modifier = Modifier
-                                    .padding(end = 12.dp)
-                                    .testTag("btn_favorites_add_folder"),
+                                modifier = Modifier.testTag("btn_favorites_add_folder"),
                             ) {
                                 MiuixIcon(
                                     imageVector = NextIcons.Add,

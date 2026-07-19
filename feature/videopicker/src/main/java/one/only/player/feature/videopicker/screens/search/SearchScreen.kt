@@ -180,7 +180,7 @@ internal fun SearchScreen(
                                         selectionManager.exitSelectionMode()
                                     }
                                 },
-                                modifier = Modifier.padding(end = 6.dp),
+                                modifier = Modifier,
                             ) {
                                 Icon(
                                     imageVector = if (selectedItemsSize != totalItemsSize) {
@@ -196,7 +196,7 @@ internal fun SearchScreen(
                                     tint = MiuixTheme.colorScheme.onBackground,
                                 )
                             }
-                            Box(modifier = Modifier.padding(end = 12.dp)) {
+                            Box {
                                 IconButton(
                                     onClick = { shouldShowSelectionMenu = true },
                                     modifier = Modifier.testTag("btn_search_selection_actions"),

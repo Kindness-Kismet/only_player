@@ -96,9 +96,7 @@ internal fun CloudHomeScreen(
                 actions = {
                     IconButton(
                         onClick = { shouldShowAddDialog = true },
-                        modifier = Modifier
-                            .padding(end = 12.dp)
-                            .testTag("btn_cloud_add_server"),
+                        modifier = Modifier.testTag("btn_cloud_add_server"),
                     ) {
                         Icon(
                             imageVector = NextIcons.Add,

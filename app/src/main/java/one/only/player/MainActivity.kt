@@ -350,10 +350,10 @@ class MainActivity : AppCompatActivity() {
                     navController = mainNavController,
                     startDestination = MediaRootRoute,
                     enterTransition = {
-                        // root tab 互切按索引方向决定滑入方向，进入子页恒用 Start
                         val fromTab = initialState.rootTabIndex()
                         val toTab = targetState.rootTabIndex()
-                        val towards = if (fromTab != null && toTab != null && toTab < fromTab) {
+                        // 顶级页面统一沿返回主页的方向切换，二级页面保持向前进入
+                        val towards = if (fromTab != null && toTab != null) {
                             AnimatedContentTransitionScope.SlideDirection.End
                         } else {
                             AnimatedContentTransitionScope.SlideDirection.Start
@@ -369,7 +369,7 @@ class MainActivity : AppCompatActivity() {
                     exitTransition = {
                         val fromTab = initialState.rootTabIndex()
                         val toTab = targetState.rootTabIndex()
-                        val towards = if (fromTab != null && toTab != null && toTab < fromTab) {
+                        val towards = if (fromTab != null && toTab != null) {
                             AnimatedContentTransitionScope.SlideDirection.End
                         } else {
                             AnimatedContentTransitionScope.SlideDirection.Start

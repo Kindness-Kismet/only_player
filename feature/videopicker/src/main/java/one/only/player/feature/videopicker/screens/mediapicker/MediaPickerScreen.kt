@@ -299,9 +299,7 @@ internal fun MediaPickerScreen(
                         IconButton(
                             onClick = { onEvent(MediaPickerUiEvent.CancelMoveSelection) },
                             enabled = !uiState.isMovingSelection,
-                            modifier = Modifier
-                                .padding(end = 12.dp)
-                                .testTag("btn_cancel_move"),
+                            modifier = Modifier.testTag("btn_cancel_move"),
                         ) {
                             Icon(
                                 imageVector = NextIcons.Close,
@@ -341,9 +339,7 @@ internal fun MediaPickerScreen(
                             IconButton(
                                 onClick = { shouldShowSelectionMenu = true },
                                 holdDownState = shouldShowSelectionMenu,
-                                modifier = Modifier
-                                    .padding(end = 12.dp)
-                                    .testTag("btn_selection_actions"),
+                                modifier = Modifier.testTag("btn_selection_actions"),
                             ) {
                                 Icon(
                                     imageVector = NextIcons.Menu,
@@ -457,9 +453,7 @@ internal fun MediaPickerScreen(
                                 IconButton(
                                     onClick = { shouldShowMainMenu = true },
                                     holdDownState = shouldShowMainMenu,
-                                    modifier = Modifier
-                                        .padding(end = 12.dp)
-                                        .testTag("btn_main_menu"),
+                                    modifier = Modifier.testTag("btn_main_menu"),
                                 ) {
                                     Icon(
                                         imageVector = NextIcons.ExpandMore,
@@ -790,6 +784,7 @@ private fun MediaPickerSmallTitleTopAppBar(
                 softWrap = false,
             )
             Row(
+                modifier = Modifier.padding(end = TopAppBarDefaults.ActionIconPadding),
                 horizontalArrangement = Arrangement.End,
                 verticalAlignment = Alignment.CenterVertically,
                 content = actions,

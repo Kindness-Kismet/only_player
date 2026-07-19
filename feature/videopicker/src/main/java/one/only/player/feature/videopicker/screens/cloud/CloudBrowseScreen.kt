@@ -271,9 +271,7 @@ internal fun CloudBrowseScreen(
                             MiuixIconButton(
                                 onClick = { shouldShowSelectionMenu = true },
                                 holdDownState = shouldShowSelectionMenu,
-                                modifier = Modifier
-                                    .padding(end = 12.dp)
-                                    .testTag("btn_cloud_selection_actions"),
+                                modifier = Modifier.testTag("btn_cloud_selection_actions"),
                             ) {
                                 MiuixIcon(
                                     imageVector = NextIcons.Menu,
@@ -322,9 +320,7 @@ internal fun CloudBrowseScreen(
                     actions = {
                         MiuixIconButton(
                             onClick = { shouldShowQuickSettingsDialog = true },
-                            modifier = Modifier
-                                .padding(end = 12.dp)
-                                .testTag("btn_cloud_quick_settings"),
+                            modifier = Modifier.testTag("btn_cloud_quick_settings"),
                         ) {
                             MiuixIcon(
                                 imageVector = NextIcons.DashBoard,

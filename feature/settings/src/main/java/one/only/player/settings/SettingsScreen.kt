@@ -113,9 +113,7 @@ fun SettingsScreen(
                         actions = {
                             MiuixIconButton(
                                 onClick = { isSearchActive = true },
-                                modifier = Modifier
-                                    .padding(end = 12.dp)
-                                    .testTag("btn_settings_search"),
+                                modifier = Modifier.testTag("btn_settings_search"),
                             ) {
                                 MiuixIcon(
                                     imageVector = NextIcons.Search,
