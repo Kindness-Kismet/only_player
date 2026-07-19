@@ -1,10 +1,10 @@
-- 统一主页、收藏、云端和搜索页的空状态视觉，没内容时的图标与文案展示更一致
-- 补全主页和云端下拉刷新的多语言提示，刷新反馈不再冒出英文
+- 统一主页、云端、收藏和设置等顶级页面的切换动画，页面切换方向保持一致
+- 按照 KernelSU 的顶部栏行为统一右上角操作图标间距，避免不同页面位置不齐
 
 <details>
 <summary>English Version</summary>
 
-- Unify empty-state visuals across Home, Favorites, Cloud, and Search pages for a more consistent no-content view
-- Localize pull-to-refresh hints on Home and Cloud pages so refresh feedback no longer falls back to English
+- Unify transitions between top-level pages including Home, Cloud, Favorites, and Settings
+- Align top-right action icon spacing across pages to match KernelSU's top bar behavior
 
 </details>
