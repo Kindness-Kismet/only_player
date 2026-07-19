@@ -1,12 +1,10 @@
-- 修复视频在内部存储与外置 SD 卡之间移动失败的问题
-- 新增文件移动进度弹窗，显示当前文件、百分比和大小，并支持取消剩余操作
-- 提升拖动跳转时间在浅色视频画面上的可读性
+- 统一主页、收藏、云端和搜索页的空状态视觉，没内容时的图标与文案展示更一致
+- 补全主页和云端下拉刷新的多语言提示，刷新反馈不再冒出英文
 
 <details>
 <summary>English Version</summary>
 
-- Fix moving videos between internal storage and external SD cards
-- Add a file-moving progress dialog that shows the current file, percentage, size, and supports canceling remaining items
-- Improve seek-time text readability on light video backgrounds
+- Unify empty-state visuals across Home, Favorites, Cloud, and Search pages for a more consistent no-content view
+- Localize pull-to-refresh hints on Home and Cloud pages so refresh feedback no longer falls back to English
 
 </details>
