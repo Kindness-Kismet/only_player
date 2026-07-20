@@ -9,9 +9,6 @@ import androidx.activity.compose.setContent
 import androidx.activity.enableEdgeToEdge
 import androidx.activity.viewModels
 import androidx.appcompat.app.AppCompatActivity
-import androidx.compose.animation.AnimatedContentTransitionScope
-import androidx.compose.animation.core.LinearEasing
-import androidx.compose.animation.core.tween
 import androidx.compose.foundation.isSystemInDarkTheme
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.fillMaxSize
@@ -71,7 +68,10 @@ import one.only.player.navigation.cloudNavGraph
 import one.only.player.navigation.favoritesNavGraph
 import one.only.player.navigation.mediaNavGraph
 import one.only.player.navigation.navigateToRoot
-import one.only.player.navigation.rootTabIndex
+import one.only.player.navigation.pageEnterTransition
+import one.only.player.navigation.pageExitTransition
+import one.only.player.navigation.pagePopEnterTransition
+import one.only.player.navigation.pagePopExitTransition
 import one.only.player.navigation.settingsNavGraph
 import one.only.player.settings.navigation.navigateToAboutPreferences
 import one.only.player.settings.navigation.navigateToAppearancePreferences
@@ -349,59 +349,10 @@ class MainActivity : AppCompatActivity() {
                 NavHost(
                     navController = mainNavController,
                     startDestination = MediaRootRoute,
-                    enterTransition = {
-                        val fromTab = initialState.rootTabIndex()
-                        val toTab = targetState.rootTabIndex()
-                        // 顶级页面统一沿返回主页的方向切换，二级页面保持向前进入
-                        val towards = if (fromTab != null && toTab != null) {
-                            AnimatedContentTransitionScope.SlideDirection.End
-                        } else {
-                            AnimatedContentTransitionScope.SlideDirection.Start
-                        }
-                        slideIntoContainer(
-                            towards = towards,
-                            animationSpec = tween(
-                                durationMillis = 200,
-                                easing = LinearEasing,
-                            ),
-                        )
-                    },
-                    exitTransition = {
-                        val fromTab = initialState.rootTabIndex()
-                        val toTab = targetState.rootTabIndex()
-                        val towards = if (fromTab != null && toTab != null) {
-                            AnimatedContentTransitionScope.SlideDirection.End
-                        } else {
-                            AnimatedContentTransitionScope.SlideDirection.Start
-                        }
-                        slideOutOfContainer(
-                            towards = towards,
-                            animationSpec = tween(
-                                durationMillis = 200,
-                                easing = LinearEasing,
-                            ),
-                            targetOffset = { fullOffset -> (fullOffset * 0.3f).toInt() },
-                        )
-                    },
-                    popEnterTransition = {
-                        slideIntoContainer(
-                            towards = AnimatedContentTransitionScope.SlideDirection.End,
-                            animationSpec = tween(
-                                durationMillis = 200,
-                                easing = LinearEasing,
-                            ),
-                            initialOffset = { fullOffset -> (fullOffset * 0.3f).toInt() },
-                        )
-                    },
-                    popExitTransition = {
-                        slideOutOfContainer(
-                            towards = AnimatedContentTransitionScope.SlideDirection.End,
-                            animationSpec = tween(
-                                durationMillis = 200,
-                                easing = LinearEasing,
-                            ),
-                        )
-                    },
+                    enterTransition = { pageEnterTransition() },
+                    exitTransition = { pageExitTransition() },
+                    popEnterTransition = { pagePopEnterTransition() },
+                    popExitTransition = { pagePopExitTransition() },
                 ) {
                     mediaNavGraph(
                         context = this@MainActivity,
