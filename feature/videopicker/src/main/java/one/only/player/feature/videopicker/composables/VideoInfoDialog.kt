@@ -17,7 +17,6 @@ import one.only.player.core.model.Video
 import one.only.player.core.ui.R
 import one.only.player.core.ui.components.NextDialog
 import top.yukonga.miuix.kmp.basic.ButtonDefaults
-import top.yukonga.miuix.kmp.basic.HorizontalDivider
 import top.yukonga.miuix.kmp.basic.Text
 import top.yukonga.miuix.kmp.basic.TextButton
 import top.yukonga.miuix.kmp.theme.MiuixTheme
@@ -31,7 +30,6 @@ fun VideoInfoDialog(
         onDismissRequest = onDismiss,
         title = video.displayName,
         content = {
-            HorizontalDivider()
             Column(
                 verticalArrangement = Arrangement.spacedBy(5.dp),
                 modifier = Modifier.verticalScroll(rememberScrollState()),

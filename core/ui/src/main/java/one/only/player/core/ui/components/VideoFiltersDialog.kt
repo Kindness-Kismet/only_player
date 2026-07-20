@@ -61,7 +61,7 @@ fun VideoFiltersDialog(
         NextDialog(
             modifier = dialogModifier.testTag("dialog_video_filters"),
             onDismissRequest = restoreAndDismiss,
-            title = { Text(text = stringResource(R.string.video_filters)) },
+            title = stringResource(R.string.video_filters),
             confirmButton = {
                 DoneButton(
                     modifier = Modifier.testTag("btn_done_video_filters"),

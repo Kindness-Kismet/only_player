@@ -17,40 +17,6 @@ import top.yukonga.miuix.kmp.window.WindowDialog
 @Composable
 fun NextDialog(
     onDismissRequest: () -> Unit,
-    title: @Composable () -> Unit,
-    content: @Composable () -> Unit,
-    modifier: Modifier = Modifier,
-    confirmButton: @Composable () -> Unit,
-    dismissButton: @Composable (() -> Unit)? = null,
-) {
-    val configuration = LocalConfiguration.current
-
-    WindowDialog(
-        show = true,
-        modifier = modifier
-            .widthIn(max = configuration.screenWidthDp.dp - NextDialogDefaults.dialogMargin * 2),
-        onDismissRequest = onDismissRequest,
-    ) {
-        Column {
-            Column {
-                title()
-            }
-            Column(
-                modifier = Modifier.fillMaxWidth(),
-            ) {
-                content()
-            }
-            NextDialogButtonRow(
-                confirmButton = confirmButton,
-                dismissButton = dismissButton,
-            )
-        }
-    }
-}
-
-@Composable
-fun NextDialog(
-    onDismissRequest: () -> Unit,
     title: String,
     content: @Composable () -> Unit,
     modifier: Modifier = Modifier,

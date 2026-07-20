@@ -54,9 +54,7 @@ import one.only.player.feature.player.state.SubtitleOptionsEvent
 import one.only.player.feature.player.state.rememberSubtitleOptionsState
 import one.only.player.feature.player.state.rememberTracksState
 import top.yukonga.miuix.kmp.basic.ButtonDefaults as MiuixButtonDefaults
-import top.yukonga.miuix.kmp.basic.Text as MiuixText
 import top.yukonga.miuix.kmp.basic.TextButton as MiuixTextButton
-import top.yukonga.miuix.kmp.theme.MiuixTheme
 
 @OptIn(UnstableApi::class)
 @Composable
@@ -177,12 +175,7 @@ fun SubtitleSelectorContent(
         NextDialog(
             modifier = Modifier.testTag("dialog_online_subtitle"),
             onDismissRequest = { isOnlineSubtitleDialogVisible = false },
-            title = {
-                MiuixText(
-                    text = stringResource(R.string.add_online_subtitle),
-                    style = MiuixTheme.textStyles.title4,
-                )
-            },
+            title = stringResource(R.string.add_online_subtitle),
             content = {
                 OutlinedTextField(
                     value = onlineSubtitleUrl,

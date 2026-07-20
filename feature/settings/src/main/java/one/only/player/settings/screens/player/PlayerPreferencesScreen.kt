@@ -52,7 +52,6 @@ import one.only.player.settings.composables.OptionsDialog
 import one.only.player.settings.extensions.isEnabled
 import one.only.player.settings.extensions.name
 import top.yukonga.miuix.kmp.basic.ButtonDefaults
-import top.yukonga.miuix.kmp.basic.HorizontalDivider
 import top.yukonga.miuix.kmp.basic.Icon as MiuixIcon
 import top.yukonga.miuix.kmp.basic.IconButton as MiuixIconButton
 import top.yukonga.miuix.kmp.basic.Scaffold
@@ -394,7 +393,6 @@ private fun ControllerAutoHideDialog(
         onDismissRequest = onDismiss,
         title = stringResource(id = R.string.controller_timeout_select),
         content = {
-            HorizontalDivider()
             LazyColumn(
                 contentPadding = PaddingValues(vertical = 8.dp),
                 modifier = Modifier.selectableGroup(),
@@ -432,7 +430,6 @@ private fun ControllerAutoHideDialog(
                     }
                 }
             }
-            HorizontalDivider()
         },
         confirmButton = {
             if (isCustomSelected) {

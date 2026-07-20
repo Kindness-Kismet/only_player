@@ -91,7 +91,6 @@ fun ListSectionTitle(
     modifier: Modifier = Modifier,
     text: String,
     contentPadding: PaddingValues = PaddingValues(
-        start = 12.dp,
         top = 4.dp,
         bottom = 4.dp,
     ),

@@ -173,7 +173,6 @@ import one.only.player.feature.player.ui.controls.PlayerCustomizableControlButto
 import top.yukonga.miuix.kmp.basic.ButtonDefaults as MiuixButtonDefaults
 import top.yukonga.miuix.kmp.basic.Text as MiuixText
 import top.yukonga.miuix.kmp.basic.TextButton as MiuixTextButton
-import top.yukonga.miuix.kmp.theme.MiuixTheme
 
 private const val TAG = "MediaPlayerScreen"
 private const val AMBIENCE_ARTWORK_SAMPLE_SIZE = 32
@@ -1767,12 +1766,7 @@ internal fun MediaPlayerScreen(
     errorState.error?.let { error ->
         NextDialog(
             onDismissRequest = { },
-            title = {
-                MiuixText(
-                    text = stringResource(coreUiR.string.error_playing_video),
-                    style = MiuixTheme.textStyles.title4,
-                )
-            },
+            title = stringResource(coreUiR.string.error_playing_video),
             content = {
                 MiuixText(text = error.message ?: stringResource(coreUiR.string.unknown_error))
             },

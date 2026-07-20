@@ -913,7 +913,7 @@ private fun RemoteFileInfoLoadingDialog(
 ) {
     NextDialog(
         onDismissRequest = onDismiss,
-        title = { Text(text = stringResource(id = R.string.info)) },
+        title = stringResource(id = R.string.info),
         content = {
             Box(
                 modifier = Modifier

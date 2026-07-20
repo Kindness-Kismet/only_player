@@ -25,6 +25,7 @@ import one.only.player.core.model.ThemeColorSpec
 import one.only.player.core.model.ThemeConfig
 import one.only.player.core.model.ThemePaletteStyle
 import one.only.player.core.ui.R
+import one.only.player.core.ui.components.ListSectionTitle
 import one.only.player.core.ui.components.SettingsContentTopPadding
 import one.only.player.core.ui.designsystem.NextIcons
 import one.only.player.core.ui.theme.supportsDynamicTheming
@@ -35,7 +36,6 @@ import top.yukonga.miuix.kmp.basic.Icon
 import top.yukonga.miuix.kmp.basic.IconButton
 import top.yukonga.miuix.kmp.basic.MiuixScrollBehavior
 import top.yukonga.miuix.kmp.basic.Scaffold
-import top.yukonga.miuix.kmp.basic.SmallTitle
 import top.yukonga.miuix.kmp.basic.TopAppBar
 import top.yukonga.miuix.kmp.preference.OverlayDropdownPreference
 import top.yukonga.miuix.kmp.preference.SwitchPreference
@@ -104,7 +104,7 @@ private fun AppearancePreferencesContent(
                 .fillMaxHeight()
                 .nestedScroll(scrollBehavior.nestedScrollConnection)
                 .padding(top = SettingsContentTopPadding)
-                .padding(horizontal = 12.dp),
+                .padding(horizontal = 16.dp),
             contentPadding = innerPadding,
         ) {
             item {
@@ -133,7 +133,7 @@ private fun AppearancePreferencesContent(
             }
 
             item {
-                SmallTitle(text = stringResource(id = R.string.theme_color))
+                ListSectionTitle(text = stringResource(id = R.string.theme_color))
                 Card(modifier = Modifier.fillMaxWidth()) {
                     if (supportsDynamicTheming()) {
                         SwitchPreference(
@@ -187,7 +187,7 @@ private fun AppearancePreferencesContent(
             }
 
             item {
-                SmallTitle(text = stringResource(id = R.string.interface_name))
+                ListSectionTitle(text = stringResource(id = R.string.interface_name))
                 Card(modifier = Modifier.fillMaxWidth()) {
                     SwitchPreference(
                         modifier = Modifier.testTag("switch_settings_appearance_title_long_press_home"),

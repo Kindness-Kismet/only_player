@@ -230,12 +230,7 @@ private fun StartupUpdateDialog(
 
     NextDialog(
         onDismissRequest = { onEvent(AboutPreferencesUiEvent.DismissStartupUpdateDialog) },
-        title = {
-            MiuixText(
-                text = stringResource(R.string.update_dialog_title),
-                style = MiuixTheme.textStyles.title4,
-            )
-        },
+        title = stringResource(R.string.update_dialog_title),
         content = { MiuixText(text = stringResource(R.string.update_dialog_message, state.latestVersion)) },
         confirmButton = {
             MiuixTextButton(

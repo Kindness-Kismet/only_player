@@ -43,7 +43,6 @@ import one.only.player.core.ui.components.NextDialog
 import one.only.player.core.ui.designsystem.NextIcons
 import one.only.player.core.ui.extensions.withBottomFallback
 import one.only.player.feature.videopicker.extensions.name
-import top.yukonga.miuix.kmp.basic.HorizontalDivider
 import top.yukonga.miuix.kmp.basic.Icon
 import top.yukonga.miuix.kmp.basic.Surface
 import top.yukonga.miuix.kmp.basic.TabRow
@@ -77,18 +76,13 @@ fun QuickSettingsDialog(
             .padding(PaddingValues(bottom = 0.dp).withBottomFallback())
             .testTag(target.dialogTestTag),
         onDismissRequest = onDismiss,
-        title = {
-            Text(
-                text = stringResource(
-                    when (target) {
-                        QuickSettingsTarget.LOCAL -> R.string.quick_settings
-                        QuickSettingsTarget.CLOUD -> R.string.cloud_quick_settings
-                    },
-                ),
-            )
-        },
+        title = stringResource(
+            when (target) {
+                QuickSettingsTarget.LOCAL -> R.string.quick_settings
+                QuickSettingsTarget.CLOUD -> R.string.cloud_quick_settings
+            },
+        ),
         content = {
-            HorizontalDivider()
             Column(
                 modifier = Modifier
                     .fillMaxWidth()
@@ -141,7 +135,6 @@ fun QuickSettingsDialog(
                         },
                     )
                 }
-                HorizontalDivider(modifier = Modifier.padding(top = 16.dp))
                 DialogSectionTitle(text = stringResource(R.string.sort))
                 SortOptions(
                     selectedSortBy = sortBy,
@@ -157,7 +150,6 @@ fun QuickSettingsDialog(
                         .fillMaxWidth()
                         .testTag("tabs_${target.dialogTestTag}_sort_order"),
                 )
-                HorizontalDivider(modifier = Modifier.padding(top = 16.dp))
                 DialogSectionTitle(text = stringResource(R.string.fields))
                 FlowRow(
                     modifier = Modifier

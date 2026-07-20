@@ -908,27 +908,22 @@ private fun DeleteConfirmationDialog(
 ) {
     NextDialog(
         onDismissRequest = onCancel,
-        title = {
-            Text(
-                text = if (deleteAction == MediaPickerDeleteAction.MoveToRecycleBin) {
-                    stringResource(R.string.move_to_recycle_bin)
-                } else {
-                    when {
-                        selectedVideos.isEmpty() -> when (selectedFolders.size) {
-                            1 -> stringResource(R.string.delete_one_folder)
-                            else -> stringResource(R.string.delete_folders, selectedFolders.size)
-                        }
+        title = if (deleteAction == MediaPickerDeleteAction.MoveToRecycleBin) {
+            stringResource(R.string.move_to_recycle_bin)
+        } else {
+            when {
+                selectedVideos.isEmpty() -> when (selectedFolders.size) {
+                    1 -> stringResource(R.string.delete_one_folder)
+                    else -> stringResource(R.string.delete_folders, selectedFolders.size)
+                }
 
-                        selectedFolders.isEmpty() -> when (selectedVideos.size) {
-                            1 -> stringResource(R.string.delete_one_video)
-                            else -> stringResource(R.string.delete_videos, selectedVideos.size)
-                        }
+                selectedFolders.isEmpty() -> when (selectedVideos.size) {
+                    1 -> stringResource(R.string.delete_one_video)
+                    else -> stringResource(R.string.delete_videos, selectedVideos.size)
+                }
 
-                        else -> stringResource(R.string.delete_items, selectedFolders.size + selectedVideos.size)
-                    }
-                },
-                modifier = Modifier.fillMaxWidth(),
-            )
+                else -> stringResource(R.string.delete_items, selectedFolders.size + selectedVideos.size)
+            }
         },
         confirmButton = {
             TextButton(

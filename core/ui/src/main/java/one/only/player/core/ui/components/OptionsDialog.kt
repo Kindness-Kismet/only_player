@@ -7,9 +7,6 @@ import androidx.compose.foundation.selection.selectableGroup
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.unit.dp
-import top.yukonga.miuix.kmp.basic.HorizontalDivider
-import top.yukonga.miuix.kmp.basic.Text
-import top.yukonga.miuix.kmp.theme.MiuixTheme
 
 @Composable
 fun OptionsDialog(
@@ -21,20 +18,13 @@ fun OptionsDialog(
     NextDialog(
         modifier = modifier,
         onDismissRequest = onDismissClick,
-        title = {
-            Text(
-                text = title,
-                style = MiuixTheme.textStyles.title4,
-            )
-        },
+        title = title,
         content = {
-            HorizontalDivider()
             LazyColumn(
                 contentPadding = PaddingValues(vertical = 8.dp),
                 modifier = Modifier.selectableGroup(),
                 content = options,
             )
-            HorizontalDivider()
         },
         dismissButton = { CancelButton(onClick = onDismissClick) },
         confirmButton = { },
