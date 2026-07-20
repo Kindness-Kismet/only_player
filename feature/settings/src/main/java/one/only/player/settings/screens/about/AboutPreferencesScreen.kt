@@ -427,7 +427,7 @@ private fun rememberAndroidVersion(): String = remember {
     "${Build.VERSION.RELEASE} (API ${Build.VERSION.SDK_INT})"
 }
 
-private const val PROJECT_REPOSITORY_URL = "https://github.com/Kindness-Kismet/One-Player"
+private const val PROJECT_REPOSITORY_URL = "https://github.com/Kindness-Kismet/only_player"
 private const val TELEGRAM_GROUP_URL = "https://t.me/MaterialDesign3"
 
 internal fun UriHandler.openUriOrShowToast(uri: String, context: Context) {
