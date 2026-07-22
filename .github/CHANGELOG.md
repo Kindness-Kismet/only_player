@@ -1,14 +1,12 @@
-- 优化底栏页面切换动画，按标签位置左右滑动，手感更顺
-- 优化进入设置等子页面时的滑动过渡，返回时也更自然
-- 支持系统预测性返回手势，边缘滑动可预览返回效果
-- 更新关于页面中的项目仓库链接
+- 支持在首页、云端、收藏和设置之间跟手滑动，拖动时可直接看到相邻页面
+- 优化底栏切换和返回行为，非首页页面返回时会先回到首页，并保留详情页原有的返回层级
+- 新增预测性返回手势开关，可在 Android 14 及以上系统的外观设置中选择是否启用
 
 <details>
 <summary>English Version</summary>
 
-- Improve bottom tab page transitions with left-right slides based on tab order
-- Improve slide transitions when opening settings and other subpages, and when going back
-- Support system predictive back gestures for a previewable edge swipe return
-- Update the project repository link on the About page
+- Support swipe gestures between Home, Cloud, Favorites, and Settings, with adjacent pages visible while dragging
+- Improve bottom tab and back behavior so non-home pages return to Home first while preserving nested page navigation
+- Add a predictive back gesture toggle in Appearance settings on Android 14 and later
 
 </details>

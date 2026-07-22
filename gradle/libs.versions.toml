@@ -20,8 +20,8 @@ androidxMedia3 = "1.10.1"
 androidxNavigation = "2.9.8"
 coil = "3.5.0"
 commonsNet = "3.13.0"
-hilt = "2.60.1"
 hiddenapibypass = "6.1"
+hilt = "2.60.1"
 junit4 = "4.13.2"
 kotlin = "2.4.10"
 kotlinxCoroutines = "1.11.0"
@@ -82,9 +82,9 @@ github-anilbeesetti-nextlib-media3ext = { module = "io.github.anilbeesetti:nextl
 github-anilbeesetti-nextlib-mediainfo = { module = "io.github.anilbeesetti:nextlib-mediainfo", version.ref = "nextlib" }
 github-peerless2012-ass-media = { module = "io.github.peerless2012:ass-media", version.ref = "libassAndroid" }
 google-android-material = { module = "com.google.android.material:material", version.ref = "androidMaterial" }
+hiddenapibypass = { module = "org.lsposed.hiddenapibypass:hiddenapibypass", version.ref = "hiddenapibypass" }
 hilt-android = { module = "com.google.dagger:hilt-android", version.ref = "hilt" }
 hilt-compiler = { module = "com.google.dagger:hilt-android-compiler", version.ref = "hilt" }
-hiddenapibypass = { module = "org.lsposed.hiddenapibypass:hiddenapibypass", version.ref = "hiddenapibypass" }
 junit4 = { module = "junit:junit", version.ref = "junit4" }
 kotlin-metadata-jvm = { module = "org.jetbrains.kotlin:kotlin-metadata-jvm", version.ref = "kotlin" }
 kotlinx-coroutines-android = { module = "org.jetbrains.kotlinx:kotlinx-coroutines-android", version.ref = "kotlinxCoroutines" }
