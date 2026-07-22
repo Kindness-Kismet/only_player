@@ -1,5 +1,7 @@
 package one.only.player.settings.screens.appearance
 
+import android.app.Activity
+import android.os.Build
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.fillMaxHeight
@@ -16,11 +18,13 @@ import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.input.nestedscroll.nestedScroll
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.unit.dp
 import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
+import one.only.player.core.common.PredictiveBackSupport
 import one.only.player.core.model.ThemeColorSpec
 import one.only.player.core.model.ThemeConfig
 import one.only.player.core.model.ThemePaletteStyle
@@ -47,10 +51,24 @@ fun AppearancePreferencesScreen(
     viewModel: AppearancePreferencesViewModel = hiltViewModel(),
 ) {
     val uiState by viewModel.uiState.collectAsStateWithLifecycle()
+    val context = LocalContext.current
+    val activity = context as? Activity
+    val onPredictiveBackToggle: (Boolean) -> Unit = { isEnabled ->
+        viewModel.onEvent(
+            AppearancePreferencesEvent.ToggleEnablePredictiveBack(
+                isEnabled = isEnabled,
+                onApplied = {
+                    PredictiveBackSupport.setEnabled(context.applicationInfo, isEnabled)
+                    activity?.recreate()
+                },
+            ),
+        )
+    }
 
     AppearancePreferencesContent(
         uiState = uiState,
         onEvent = viewModel::onEvent,
+        onPredictiveBackToggle = onPredictiveBackToggle,
         onNavigateUp = onNavigateUp,
     )
 }
@@ -59,11 +77,13 @@ fun AppearancePreferencesScreen(
 private fun AppearancePreferencesContent(
     uiState: AppearancePreferencesUiState,
     onEvent: (AppearancePreferencesEvent) -> Unit,
+    onPredictiveBackToggle: (Boolean) -> Unit = {},
     onNavigateUp: () -> Unit = {},
 ) {
     val scrollBehavior = MiuixScrollBehavior()
     val preferences = uiState.preferences
     val appLanguages = remember { LocalesHelper.appSupportedLocales }
+    val shouldShowPredictiveBack = Build.VERSION.SDK_INT >= Build.VERSION_CODES.UPSIDE_DOWN_CAKE
 
     // 语言下拉：首项为系统默认，其后为受支持语言
     val languageTags = remember(appLanguages) { listOf("") + appLanguages.map { it.second } }
@@ -220,6 +240,16 @@ private fun AppearancePreferencesContent(
                             onEvent(AppearancePreferencesEvent.ToggleBlurFloatingNavigationBar)
                         },
                     )
+                    if (shouldShowPredictiveBack) {
+                        SwitchPreference(
+                            modifier = Modifier.testTag("switch_settings_appearance_predictive_back"),
+                            title = stringResource(id = R.string.predictive_back_gesture),
+                            summary = stringResource(id = R.string.predictive_back_gesture_description),
+                            startAction = { PrefIcon(NextIcons.SwipeHorizontal) },
+                            checked = preferences.shouldEnablePredictiveBack,
+                            onCheckedChange = onPredictiveBackToggle,
+                        )
+                    }
                 }
             }
         }

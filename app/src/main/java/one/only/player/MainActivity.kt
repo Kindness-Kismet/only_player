@@ -32,6 +32,7 @@ import androidx.lifecycle.lifecycleScope
 import androidx.lifecycle.repeatOnLifecycle
 import androidx.navigation.NavHostController
 import androidx.navigation.compose.NavHost
+import androidx.navigation.compose.composable
 import androidx.navigation.compose.rememberNavController
 import dagger.hilt.android.AndroidEntryPoint
 import java.io.File
@@ -53,26 +54,29 @@ import one.only.player.core.ui.composables.rememberRuntimePermissionState
 import one.only.player.core.ui.theme.DEFAULT_SEED_COLOR
 import one.only.player.core.ui.theme.OnlyPlayerTheme
 import one.only.player.feature.player.PlayerActivity
-import one.only.player.feature.videopicker.navigation.MediaPickerRoute
 import one.only.player.feature.videopicker.navigation.navigateToRecycleBinScreen
 import one.only.player.feature.videopicker.navigation.navigateToSearch
+import one.only.player.navigation.CloudRootPage
 import one.only.player.navigation.DEBUG_ACTION_OPEN_PAGE
 import one.only.player.navigation.DEBUG_ACTION_OPEN_PLAYER
 import one.only.player.navigation.DEBUG_EXTRA_PAGE
 import one.only.player.navigation.DebugPageRoute
-import one.only.player.navigation.MediaRootRoute
+import one.only.player.navigation.FavoritesRootPage
+import one.only.player.navigation.MediaRootPage
 import one.only.player.navigation.NavigationBarColorEffect
 import one.only.player.navigation.RootDestination
+import one.only.player.navigation.RootNavigationState
+import one.only.player.navigation.RootPagerRoute
 import one.only.player.navigation.RootScaffold
-import one.only.player.navigation.cloudNavGraph
-import one.only.player.navigation.favoritesNavGraph
-import one.only.player.navigation.mediaNavGraph
-import one.only.player.navigation.navigateToRoot
+import one.only.player.navigation.SettingsRootPage
+import one.only.player.navigation.cloudDetailNavGraph
+import one.only.player.navigation.mediaDetailNavGraph
 import one.only.player.navigation.pageEnterTransition
 import one.only.player.navigation.pageExitTransition
 import one.only.player.navigation.pagePopEnterTransition
 import one.only.player.navigation.pagePopExitTransition
-import one.only.player.navigation.settingsNavGraph
+import one.only.player.navigation.rememberRootNavigationState
+import one.only.player.navigation.settingsDetailNavGraph
 import one.only.player.settings.navigation.navigateToAboutPreferences
 import one.only.player.settings.navigation.navigateToAppearancePreferences
 import one.only.player.settings.navigation.navigateToAudioPreferences
@@ -266,30 +270,79 @@ class MainActivity : AppCompatActivity() {
 
     private fun navigateToDebugPage(
         navController: NavHostController,
+        rootNavigationState: RootNavigationState,
         pageRoute: DebugPageRoute,
     ) {
-        navController.popBackStack(MediaPickerRoute(), inclusive = false)
+        navController.popBackStack(RootPagerRoute, inclusive = false)
         when (pageRoute) {
-            DebugPageRoute.HOME -> navController.navigateToRoot(RootDestination.HOME)
-            DebugPageRoute.SEARCH -> navController.navigateToSearch()
-            DebugPageRoute.RECYCLE_BIN -> navController.navigateToRecycleBinScreen()
-            DebugPageRoute.FAVORITES -> navController.navigateToRoot(RootDestination.FAVORITES)
-            DebugPageRoute.CLOUD -> navController.navigateToRoot(RootDestination.CLOUD)
-            DebugPageRoute.SETTINGS -> navController.navigateToRoot(RootDestination.SETTINGS)
-            DebugPageRoute.SETTINGS_APPEARANCE -> navController.navigateToAppearancePreferences()
-            DebugPageRoute.SETTINGS_MEDIA_LIBRARY -> navController.navigateToMediaLibraryPreferencesScreen()
-            DebugPageRoute.SETTINGS_FOLDERS -> navController.navigateToFolderPreferencesScreen()
-            DebugPageRoute.SETTINGS_THUMBNAILS -> navController.navigateToThumbnailPreferencesScreen()
-            DebugPageRoute.SETTINGS_PLAYER -> navController.navigateToPlayerPreferences()
-            DebugPageRoute.SETTINGS_GESTURES -> navController.navigateToGesturePreferences()
-            DebugPageRoute.SETTINGS_DECODER -> navController.navigateToDecoderPreferences()
-            DebugPageRoute.SETTINGS_AUDIO -> navController.navigateToAudioPreferences()
-            DebugPageRoute.SETTINGS_SUBTITLE -> navController.navigateToSubtitlePreferences()
-            DebugPageRoute.SETTINGS_PRIVACY -> navController.navigateToPrivacyPreferences()
-            DebugPageRoute.SETTINGS_GENERAL -> navController.navigateToGeneralPreferences()
-            DebugPageRoute.SETTINGS_ABOUT -> navController.navigateToAboutPreferences()
-            DebugPageRoute.SETTINGS_LIBRARIES -> navController.navigateToLibraries()
-            DebugPageRoute.SETTINGS_LOGS -> navController.navigateToLogs()
+            DebugPageRoute.HOME -> rootNavigationState.jumpTo(RootDestination.HOME)
+            DebugPageRoute.SEARCH -> {
+                rootNavigationState.jumpTo(RootDestination.HOME)
+                navController.navigateToSearch()
+            }
+            DebugPageRoute.RECYCLE_BIN -> {
+                rootNavigationState.jumpTo(RootDestination.HOME)
+                navController.navigateToRecycleBinScreen()
+            }
+            DebugPageRoute.FAVORITES -> rootNavigationState.jumpTo(RootDestination.FAVORITES)
+            DebugPageRoute.CLOUD -> rootNavigationState.jumpTo(RootDestination.CLOUD)
+            DebugPageRoute.SETTINGS -> rootNavigationState.jumpTo(RootDestination.SETTINGS)
+            DebugPageRoute.SETTINGS_APPEARANCE -> {
+                rootNavigationState.jumpTo(RootDestination.SETTINGS)
+                navController.navigateToAppearancePreferences()
+            }
+            DebugPageRoute.SETTINGS_MEDIA_LIBRARY -> {
+                rootNavigationState.jumpTo(RootDestination.SETTINGS)
+                navController.navigateToMediaLibraryPreferencesScreen()
+            }
+            DebugPageRoute.SETTINGS_FOLDERS -> {
+                rootNavigationState.jumpTo(RootDestination.SETTINGS)
+                navController.navigateToFolderPreferencesScreen()
+            }
+            DebugPageRoute.SETTINGS_THUMBNAILS -> {
+                rootNavigationState.jumpTo(RootDestination.SETTINGS)
+                navController.navigateToThumbnailPreferencesScreen()
+            }
+            DebugPageRoute.SETTINGS_PLAYER -> {
+                rootNavigationState.jumpTo(RootDestination.SETTINGS)
+                navController.navigateToPlayerPreferences()
+            }
+            DebugPageRoute.SETTINGS_GESTURES -> {
+                rootNavigationState.jumpTo(RootDestination.SETTINGS)
+                navController.navigateToGesturePreferences()
+            }
+            DebugPageRoute.SETTINGS_DECODER -> {
+                rootNavigationState.jumpTo(RootDestination.SETTINGS)
+                navController.navigateToDecoderPreferences()
+            }
+            DebugPageRoute.SETTINGS_AUDIO -> {
+                rootNavigationState.jumpTo(RootDestination.SETTINGS)
+                navController.navigateToAudioPreferences()
+            }
+            DebugPageRoute.SETTINGS_SUBTITLE -> {
+                rootNavigationState.jumpTo(RootDestination.SETTINGS)
+                navController.navigateToSubtitlePreferences()
+            }
+            DebugPageRoute.SETTINGS_PRIVACY -> {
+                rootNavigationState.jumpTo(RootDestination.SETTINGS)
+                navController.navigateToPrivacyPreferences()
+            }
+            DebugPageRoute.SETTINGS_GENERAL -> {
+                rootNavigationState.jumpTo(RootDestination.SETTINGS)
+                navController.navigateToGeneralPreferences()
+            }
+            DebugPageRoute.SETTINGS_ABOUT -> {
+                rootNavigationState.jumpTo(RootDestination.SETTINGS)
+                navController.navigateToAboutPreferences()
+            }
+            DebugPageRoute.SETTINGS_LIBRARIES -> {
+                rootNavigationState.jumpTo(RootDestination.SETTINGS)
+                navController.navigateToLibraries()
+            }
+            DebugPageRoute.SETTINGS_LOGS -> {
+                rootNavigationState.jumpTo(RootDestination.SETTINGS)
+                navController.navigateToLogs()
+            }
         }
     }
 
@@ -318,9 +371,14 @@ class MainActivity : AppCompatActivity() {
         }
 
         val mainNavController = rememberNavController()
-        LaunchedEffect(mainNavController, pendingDebugPageRoute) {
+        val rootNavigationState = rememberRootNavigationState()
+        LaunchedEffect(mainNavController, rootNavigationState, pendingDebugPageRoute) {
             val pageRoute = pendingDebugPageRoute ?: return@LaunchedEffect
-            navigateToDebugPage(mainNavController, pageRoute)
+            navigateToDebugPage(
+                navController = mainNavController,
+                rootNavigationState = rootNavigationState,
+                pageRoute = pageRoute,
+            )
             pendingDebugPageRoute = null
         }
         LaunchedEffect(pendingDebugPlayerIntent) {
@@ -341,33 +399,48 @@ class MainActivity : AppCompatActivity() {
                 },
             color = MiuixTheme.colorScheme.surface,
         ) {
-            RootScaffold(
+            NavHost(
                 navController = mainNavController,
-                shouldUseFloatingNavigationBar = shouldUseFloatingNavigationBar,
-                shouldBlurFloatingNavigationBar = shouldBlurFloatingNavigationBar,
+                startDestination = RootPagerRoute,
+                enterTransition = { pageEnterTransition() },
+                exitTransition = { pageExitTransition() },
+                popEnterTransition = { pagePopEnterTransition() },
+                popExitTransition = { pagePopExitTransition() },
             ) {
-                NavHost(
-                    navController = mainNavController,
-                    startDestination = MediaRootRoute,
-                    enterTransition = { pageEnterTransition() },
-                    exitTransition = { pageExitTransition() },
-                    popEnterTransition = { pagePopEnterTransition() },
-                    popExitTransition = { pagePopExitTransition() },
-                ) {
-                    mediaNavGraph(
-                        context = this@MainActivity,
-                        navController = mainNavController,
-                    )
-                    cloudNavGraph(
-                        context = this@MainActivity,
-                        navController = mainNavController,
-                    )
-                    favoritesNavGraph(
-                        context = this@MainActivity,
-                        navController = mainNavController,
-                    )
-                    settingsNavGraph(navController = mainNavController)
+                composable<RootPagerRoute> {
+                    RootScaffold(
+                        rootNavigationState = rootNavigationState,
+                        shouldUseFloatingNavigationBar = shouldUseFloatingNavigationBar,
+                        shouldBlurFloatingNavigationBar = shouldBlurFloatingNavigationBar,
+                    ) { destination ->
+                        when (destination) {
+                            RootDestination.HOME -> MediaRootPage(
+                                context = this@MainActivity,
+                                navController = mainNavController,
+                                onRootSelected = rootNavigationState::animateTo,
+                            )
+                            RootDestination.CLOUD -> CloudRootPage(navController = mainNavController)
+                            RootDestination.FAVORITES -> FavoritesRootPage(
+                                context = this@MainActivity,
+                                navController = mainNavController,
+                            )
+                            RootDestination.SETTINGS -> SettingsRootPage(navController = mainNavController)
+                        }
+                    }
                 }
+                mediaDetailNavGraph(
+                    context = this@MainActivity,
+                    navController = mainNavController,
+                    onRootSelected = { destination ->
+                        rootNavigationState.jumpTo(destination)
+                        mainNavController.popBackStack(RootPagerRoute, inclusive = false)
+                    },
+                )
+                cloudDetailNavGraph(
+                    context = this@MainActivity,
+                    navController = mainNavController,
+                )
+                settingsDetailNavGraph(navController = mainNavController)
             }
         }
     }

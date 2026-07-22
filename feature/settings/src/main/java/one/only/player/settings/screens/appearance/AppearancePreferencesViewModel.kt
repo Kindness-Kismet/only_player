@@ -53,6 +53,9 @@ class AppearancePreferencesViewModel @Inject constructor(
             AppearancePreferencesEvent.ToggleNavigateHomeOnTitleLongPress -> toggleNavigateHomeOnTitleLongPress()
             AppearancePreferencesEvent.ToggleUseFloatingNavigationBar -> toggleUseFloatingNavigationBar()
             AppearancePreferencesEvent.ToggleBlurFloatingNavigationBar -> toggleBlurFloatingNavigationBar()
+            is AppearancePreferencesEvent.ToggleEnablePredictiveBack -> {
+                toggleEnablePredictiveBack(event.isEnabled, event.onApplied)
+            }
         }
     }
 
@@ -144,6 +147,18 @@ class AppearancePreferencesViewModel @Inject constructor(
             }
         }
     }
+
+    private fun toggleEnablePredictiveBack(
+        isEnabled: Boolean,
+        onApplied: () -> Unit,
+    ) {
+        viewModelScope.launch {
+            preferencesRepository.updateApplicationPreferences {
+                it.copy(shouldEnablePredictiveBack = isEnabled)
+            }
+            onApplied()
+        }
+    }
 }
 
 @Stable
@@ -169,6 +184,10 @@ sealed interface AppearancePreferencesEvent {
     data object ToggleNavigateHomeOnTitleLongPress : AppearancePreferencesEvent
     data object ToggleUseFloatingNavigationBar : AppearancePreferencesEvent
     data object ToggleBlurFloatingNavigationBar : AppearancePreferencesEvent
+    data class ToggleEnablePredictiveBack(
+        val isEnabled: Boolean,
+        val onApplied: () -> Unit,
+    ) : AppearancePreferencesEvent
 }
 
 sealed interface AppearancePreferenceDialog {

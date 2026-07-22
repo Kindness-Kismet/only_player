@@ -540,6 +540,8 @@
     <string name="floating_navigation_bar_description">使用圓角懸浮底部導覽列</string>
     <string name="floating_navigation_bar_blur">懸浮列模糊</string>
     <string name="floating_navigation_bar_blur_description">為懸浮導覽列啟用背景模糊和半透明效果</string>
+    <string name="predictive_back_gesture">預測性返回手勢</string>
+    <string name="predictive_back_gesture_description">啟用預測性返回手勢支援</string>
     <string name="take_screenshot">截圖</string>
     <string name="screenshot_saved">截圖已儲存到 Pictures/Screenshots</string>
     <string name="screenshot_failed">截圖儲存失敗</string>

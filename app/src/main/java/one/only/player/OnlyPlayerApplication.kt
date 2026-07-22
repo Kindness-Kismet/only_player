@@ -8,6 +8,7 @@ import dagger.hilt.android.HiltAndroidApp
 import javax.inject.Inject
 import one.only.player.core.common.AppThemeModeManager
 import one.only.player.core.common.Logger
+import one.only.player.core.common.PredictiveBackSupport
 import one.only.player.crash.CrashActivity
 import one.only.player.crash.GlobalExceptionHandler
 
@@ -25,6 +26,10 @@ class OnlyPlayerApplication :
         AppThemeModeManager.applyPlatformToCurrent(
             context = applicationContext,
             mode = readPersistedThemeConfig(dataDir = applicationInfo.dataDir).toAppThemeMode(),
+        )
+        PredictiveBackSupport.applyFromPersistedPreferences(
+            dataDir = applicationInfo.dataDir,
+            applicationInfo = applicationInfo,
         )
         Logger.initialize(this)
         Thread.setDefaultUncaughtExceptionHandler(GlobalExceptionHandler(applicationContext, CrashActivity::class.java))

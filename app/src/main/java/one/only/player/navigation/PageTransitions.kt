@@ -14,7 +14,6 @@ import kotlin.math.sin
 import kotlin.math.sqrt
 
 private const val NAV_TRANSITION_DURATION_MS = 500
-private const val TAB_TRANSITION_DURATION_MS = 300
 
 @Immutable
 private class NavTransitionEasing(
@@ -43,82 +42,36 @@ private class NavTransitionEasing(
 
 private val NavAnimationEasing = NavTransitionEasing(response = 0.8f, damping = 0.95f)
 
-internal fun AnimatedContentTransitionScope<NavBackStackEntry>.pageEnterTransition(): EnterTransition {
-    val tabDirection = rootTabSlideDirection()
-    if (tabDirection != null) {
-        return slideIntoContainer(
-            towards = tabDirection,
-            animationSpec = tween(
-                durationMillis = TAB_TRANSITION_DURATION_MS,
-                easing = NavAnimationEasing,
-            ),
-        )
-    }
-    return slideIntoContainer(
-        towards = AnimatedContentTransitionScope.SlideDirection.Start,
-        animationSpec = tween(
-            durationMillis = NAV_TRANSITION_DURATION_MS,
-            easing = NavAnimationEasing,
-        ),
-    )
-}
+internal fun AnimatedContentTransitionScope<NavBackStackEntry>.pageEnterTransition(): EnterTransition = slideIntoContainer(
+    towards = AnimatedContentTransitionScope.SlideDirection.Start,
+    animationSpec = tween(
+        durationMillis = NAV_TRANSITION_DURATION_MS,
+        easing = NavAnimationEasing,
+    ),
+)
 
-internal fun AnimatedContentTransitionScope<NavBackStackEntry>.pageExitTransition(): ExitTransition {
-    val tabDirection = rootTabSlideDirection()
-    if (tabDirection != null) {
-        return slideOutOfContainer(
-            towards = tabDirection,
-            animationSpec = tween(
-                durationMillis = TAB_TRANSITION_DURATION_MS,
-                easing = NavAnimationEasing,
-            ),
-        )
-    }
-    return slideOutOfContainer(
-        towards = AnimatedContentTransitionScope.SlideDirection.Start,
-        animationSpec = tween(
-            durationMillis = NAV_TRANSITION_DURATION_MS,
-            easing = NavAnimationEasing,
-        ),
-        targetOffset = { fullOffset -> fullOffset / 4 },
-    )
-}
+internal fun AnimatedContentTransitionScope<NavBackStackEntry>.pageExitTransition(): ExitTransition = slideOutOfContainer(
+    towards = AnimatedContentTransitionScope.SlideDirection.Start,
+    animationSpec = tween(
+        durationMillis = NAV_TRANSITION_DURATION_MS,
+        easing = NavAnimationEasing,
+    ),
+    targetOffset = { fullOffset -> fullOffset / 4 },
+)
 
-internal fun AnimatedContentTransitionScope<NavBackStackEntry>.pagePopEnterTransition(): EnterTransition {
-    if (rootTabSlideDirection() != null) {
-        return pageEnterTransition()
-    }
-    return slideIntoContainer(
-        towards = AnimatedContentTransitionScope.SlideDirection.End,
-        animationSpec = tween(
-            durationMillis = NAV_TRANSITION_DURATION_MS,
-            easing = NavAnimationEasing,
-        ),
-        initialOffset = { fullOffset -> fullOffset / 4 },
-    )
-}
+internal fun AnimatedContentTransitionScope<NavBackStackEntry>.pagePopEnterTransition(): EnterTransition = slideIntoContainer(
+    towards = AnimatedContentTransitionScope.SlideDirection.End,
+    animationSpec = tween(
+        durationMillis = NAV_TRANSITION_DURATION_MS,
+        easing = NavAnimationEasing,
+    ),
+    initialOffset = { fullOffset -> fullOffset / 4 },
+)
 
-internal fun AnimatedContentTransitionScope<NavBackStackEntry>.pagePopExitTransition(): ExitTransition {
-    if (rootTabSlideDirection() != null) {
-        return pageExitTransition()
-    }
-    return slideOutOfContainer(
-        towards = AnimatedContentTransitionScope.SlideDirection.End,
-        animationSpec = tween(
-            durationMillis = NAV_TRANSITION_DURATION_MS,
-            easing = NavAnimationEasing,
-        ),
-    )
-}
-
-// 底栏 Tab 按索引方向横滑：右移 Start，左移 End
-private fun AnimatedContentTransitionScope<NavBackStackEntry>.rootTabSlideDirection(): AnimatedContentTransitionScope.SlideDirection? {
-    val fromTab = initialState.rootTabIndex() ?: return null
-    val toTab = targetState.rootTabIndex() ?: return null
-    if (fromTab == toTab) return null
-    return if (toTab > fromTab) {
-        AnimatedContentTransitionScope.SlideDirection.Start
-    } else {
-        AnimatedContentTransitionScope.SlideDirection.End
-    }
-}
+internal fun AnimatedContentTransitionScope<NavBackStackEntry>.pagePopExitTransition(): ExitTransition = slideOutOfContainer(
+    towards = AnimatedContentTransitionScope.SlideDirection.End,
+    animationSpec = tween(
+        durationMillis = NAV_TRANSITION_DURATION_MS,
+        easing = NavAnimationEasing,
+    ),
+)

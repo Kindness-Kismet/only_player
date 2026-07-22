@@ -4,11 +4,10 @@ import android.content.Context
 import android.content.Intent
 import android.content.pm.ActivityInfo
 import android.net.Uri
+import androidx.compose.runtime.Composable
 import androidx.core.net.toUri
 import androidx.navigation.NavGraphBuilder
 import androidx.navigation.NavHostController
-import androidx.navigation.navigation
-import kotlinx.serialization.Serializable
 import one.only.player.MainActivity
 import one.only.player.core.model.PlayerPreferences
 import one.only.player.core.model.ScreenOrientation
@@ -18,74 +17,95 @@ import one.only.player.feature.player.PlayerActivity
 import one.only.player.feature.player.PortraitPlayerActivity
 import one.only.player.feature.player.extensions.toActivityOrientation
 import one.only.player.feature.player.service.PlayerService
-import one.only.player.feature.videopicker.navigation.MediaPickerRoute
 import one.only.player.feature.videopicker.navigation.MediaPickerScreenMode
 import one.only.player.feature.videopicker.navigation.mediaPickerScreen
-import one.only.player.feature.videopicker.navigation.navigateToCloudHome
-import one.only.player.feature.videopicker.navigation.navigateToFavorites
 import one.only.player.feature.videopicker.navigation.navigateToMediaPickerScreen
 import one.only.player.feature.videopicker.navigation.navigateToRecycleBinScreen
 import one.only.player.feature.videopicker.navigation.navigateToSearch
 import one.only.player.feature.videopicker.navigation.searchScreen
-import one.only.player.settings.navigation.navigateToSettings
+import one.only.player.feature.videopicker.screens.mediapicker.MediaPickerRoute as MediaPickerScreenRoute
 
-@Serializable
-data object MediaRootRoute
-
-fun NavGraphBuilder.mediaNavGraph(
+@Composable
+fun MediaRootPage(
     context: Context,
     navController: NavHostController,
+    onRootSelected: (RootDestination) -> Unit,
 ) {
-    navigation<MediaRootRoute>(startDestination = MediaPickerRoute()) {
-        mediaPickerScreen(
-            onNavigateUp = navController::navigateUp,
-            onNavigateHome = {
-                navController.popBackStack(MediaPickerRoute(), inclusive = false)
-            },
-            onSettingsClick = navController::navigateToSettings,
-            onPlayVideo = { video, playerPreferences ->
-                context.startPlayerActivity(
-                    uri = video.uriString.toUri(),
-                    launchOrientation = video.resolveLaunchOrientation(playerPreferences),
-                )
-            },
-            onPlayUri = { uri ->
-                context.startPlayerActivity(uri = uri)
-            },
-            onFolderClick = { folderPath, screenMode ->
-                navController.navigateToMediaPickerScreen(
-                    folderId = folderPath,
-                    screenMode = screenMode,
-                )
-            },
-            onRecycleBinClick = navController::navigateToRecycleBinScreen,
-            onSearchClick = navController::navigateToSearch,
-            onCloudClick = navController::navigateToCloudHome,
-            onFavoritesClick = navController::navigateToFavorites,
-            onExitAppClick = {
-                context.stopService(Intent(context, PlayerService::class.java))
-                navController.popBackStack(MediaPickerRoute(), inclusive = false)
-                (context as? MainActivity)?.finishAffinity()
-            },
-        )
+    MediaPickerScreenRoute(
+        onNavigateUp = navController::navigateUp,
+        onNavigateHome = {},
+        onSettingsClick = { onRootSelected(RootDestination.SETTINGS) },
+        onPlayVideo = { video, playerPreferences ->
+            context.startPlayerActivity(
+                uri = video.uriString.toUri(),
+                launchOrientation = video.resolveLaunchOrientation(playerPreferences),
+            )
+        },
+        onPlayUri = context::startPlayerActivity,
+        onFolderClick = { folderPath, screenMode ->
+            navController.navigateToMediaPickerScreen(
+                folderId = folderPath,
+                screenMode = screenMode,
+            )
+        },
+        onRecycleBinClick = navController::navigateToRecycleBinScreen,
+        onSearchClick = navController::navigateToSearch,
+        onCloudClick = { onRootSelected(RootDestination.CLOUD) },
+        onFavoritesClick = { onRootSelected(RootDestination.FAVORITES) },
+        onExitAppClick = { context.exitApp() },
+    )
+}
 
-        searchScreen(
-            onNavigateUp = navController::navigateUp,
-            onPlayVideo = { video, playerPreferences, playlist ->
-                context.startPlayerActivity(
-                    uri = video.uriString.toUri(),
-                    launchOrientation = video.resolveLaunchOrientation(playerPreferences),
-                    playlist = playlist.map { it.uriString.toUri() },
-                )
-            },
-            onFolderClick = { folderPath ->
-                navController.navigateToMediaPickerScreen(
-                    folderId = folderPath,
-                    screenMode = MediaPickerScreenMode.LIBRARY,
-                )
-            },
-        )
-    }
+fun NavGraphBuilder.mediaDetailNavGraph(
+    context: Context,
+    navController: NavHostController,
+    onRootSelected: (RootDestination) -> Unit,
+) {
+    mediaPickerScreen(
+        onNavigateUp = navController::navigateUp,
+        onNavigateHome = { onRootSelected(RootDestination.HOME) },
+        onSettingsClick = { onRootSelected(RootDestination.SETTINGS) },
+        onPlayVideo = { video, playerPreferences ->
+            context.startPlayerActivity(
+                uri = video.uriString.toUri(),
+                launchOrientation = video.resolveLaunchOrientation(playerPreferences),
+            )
+        },
+        onPlayUri = context::startPlayerActivity,
+        onFolderClick = { folderPath, screenMode ->
+            navController.navigateToMediaPickerScreen(
+                folderId = folderPath,
+                screenMode = screenMode,
+            )
+        },
+        onRecycleBinClick = navController::navigateToRecycleBinScreen,
+        onSearchClick = navController::navigateToSearch,
+        onCloudClick = { onRootSelected(RootDestination.CLOUD) },
+        onFavoritesClick = { onRootSelected(RootDestination.FAVORITES) },
+        onExitAppClick = { context.exitApp() },
+    )
+
+    searchScreen(
+        onNavigateUp = navController::navigateUp,
+        onPlayVideo = { video, playerPreferences, playlist ->
+            context.startPlayerActivity(
+                uri = video.uriString.toUri(),
+                launchOrientation = video.resolveLaunchOrientation(playerPreferences),
+                playlist = playlist.map { it.uriString.toUri() },
+            )
+        },
+        onFolderClick = { folderPath ->
+            navController.navigateToMediaPickerScreen(
+                folderId = folderPath,
+                screenMode = MediaPickerScreenMode.LIBRARY,
+            )
+        },
+    )
+}
+
+private fun Context.exitApp() {
+    stopService(Intent(this, PlayerService::class.java))
+    (this as? MainActivity)?.finishAffinity()
 }
 
 private fun Context.startPlayerActivity(

@@ -32,6 +32,7 @@ dependencies {
     implementation(libs.kotlinx.coroutines.android)
 
     implementation(libs.github.albfernandez.juniversalchardet)
+    implementation(libs.hiddenapibypass)
 
     // Hilt 依赖
     implementation(libs.hilt.android)

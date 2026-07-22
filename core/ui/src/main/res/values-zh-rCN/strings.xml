@@ -546,6 +546,8 @@
     <string name="floating_navigation_bar_description">使用圆角悬浮底部导航栏</string>
     <string name="floating_navigation_bar_blur">悬浮栏模糊</string>
     <string name="floating_navigation_bar_blur_description">为悬浮导航栏启用背景模糊和半透明效果</string>
+    <string name="predictive_back_gesture">预测性返回手势</string>
+    <string name="predictive_back_gesture_description">启用对预测性返回手势的支持</string>
     <string name="take_screenshot">截图</string>
     <string name="screenshot_saved">截图已保存到 Pictures/Screenshots</string>
     <string name="screenshot_failed">截图保存失败</string>
