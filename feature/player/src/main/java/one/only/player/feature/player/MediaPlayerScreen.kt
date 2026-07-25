@@ -93,6 +93,7 @@ import androidx.lifecycle.Lifecycle
 import androidx.lifecycle.compose.LifecycleEventEffect
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.media3.common.Player
+import androidx.media3.common.listen
 import androidx.media3.common.util.UnstableApi
 import coil3.compose.AsyncImage
 import coil3.request.ImageRequest
@@ -113,6 +114,8 @@ import one.only.player.core.model.PlayerControlZone
 import one.only.player.core.model.PlayerControlsLayout
 import one.only.player.core.model.PlayerControlsStyle
 import one.only.player.core.model.PlayerIconStyle
+import one.only.player.core.model.normalized
+import one.only.player.core.model.ApplicationPreferences
 import one.only.player.core.model.PlayerPreferences
 import one.only.player.core.model.controllerAutoHideTimeoutSecondsOrNull
 import one.only.player.core.ui.R as coreUiR
@@ -123,12 +126,22 @@ import one.only.player.feature.player.buttons.NextButton
 import one.only.player.feature.player.buttons.PlayPauseButton
 import one.only.player.feature.player.buttons.PlayerButton
 import one.only.player.feature.player.buttons.PreviousButton
+import one.only.player.feature.player.extensions.contentScaleName
+import one.only.player.feature.player.extensions.decoderPriorityName
+import one.only.player.feature.player.extensions.isDecoderRemembered
 import one.only.player.feature.player.extensions.nameRes
+import one.only.player.feature.player.extensions.next
 import one.only.player.feature.player.extensions.noRippleClickable
+import one.only.player.feature.player.extensions.remoteFilePath
 import one.only.player.feature.player.extensions.seekByRequestedOffset
 import one.only.player.feature.player.extensions.seekToRequestedPosition
+import one.only.player.feature.player.extensions.withContentScaleStamp
 import one.only.player.feature.player.input.PlayerKeyboardController
+import one.only.player.feature.player.service.canSeekPrevious
+import one.only.player.feature.player.service.handlePreviousClick
 import one.only.player.feature.player.service.previewVideoFilters
+import one.only.player.feature.player.service.seekToNextPrepared
+import one.only.player.feature.player.service.setDecoderPriorityNow
 import one.only.player.feature.player.state.ControlsVisibilityState
 import one.only.player.feature.player.state.VerticalGesture
 import one.only.player.feature.player.state.rememberBrightnessState
@@ -153,7 +166,6 @@ import one.only.player.feature.player.ui.LoopModeSelectorContent
 import one.only.player.feature.player.ui.MenuOverlayView
 import one.only.player.feature.player.ui.MenuRootContent
 import one.only.player.feature.player.ui.MenuRoute
-import one.only.player.feature.player.ui.OverlayShowView
 import one.only.player.feature.player.ui.OverlayView
 import one.only.player.feature.player.ui.PlaybackMarksContent
 import one.only.player.feature.player.ui.PlaybackSpeedSelectorContent
@@ -173,6 +185,7 @@ import one.only.player.feature.player.ui.controls.PlayerCustomizableControlButto
 import top.yukonga.miuix.kmp.basic.ButtonDefaults as MiuixButtonDefaults
 import top.yukonga.miuix.kmp.basic.Text as MiuixText
 import top.yukonga.miuix.kmp.basic.TextButton as MiuixTextButton
+import top.yukonga.miuix.kmp.theme.MiuixTheme
 
 private const val TAG = "MediaPlayerScreen"
 private const val AMBIENCE_ARTWORK_SAMPLE_SIZE = 32
@@ -225,6 +238,7 @@ internal fun MediaPlayerScreen(
     player: Player?,
     viewModel: PlayerViewModel,
     playerPreferences: PlayerPreferences,
+    applicationPreferences: ApplicationPreferences = ApplicationPreferences(),
     externalSubtitleFontSource: ExternalSubtitleFontSource?,
     modifier: Modifier = Modifier,
     onSelectSubtitleClick: () -> Unit,
@@ -241,7 +255,11 @@ internal fun MediaPlayerScreen(
         isVolumeBoostEnabled = playerPreferences.isVolumeBoostEnabled,
     )
     player ?: return
+
+
     val playbackMarks by viewModel.playbackMarks.collectAsStateWithLifecycle()
+    // 打开前种子：item 尚未 setMediaItem 时也能首帧用记住缩放（logs13）
+    val pendingOpenContentScale by viewModel.pendingOpenContentScale.collectAsStateWithLifecycle()
     val metadataState = rememberMetadataState(player)
     val mediaPresentationState = rememberMediaPresentationState(player)
     val controlsVisibilityState = rememberControlsVisibilityState(
@@ -264,14 +282,55 @@ internal fun MediaPlayerScreen(
     val pictureInPictureState = rememberPictureInPictureState(
         player = player,
         shouldAutoEnter = playerPreferences.shouldAutoEnterPip,
+        shouldRestartCurrentOnPreviousClick = playerPreferences.shouldRestartCurrentOnPreviousClick,
     )
+    val initialVideoContentScale = run {
+        // pending 优先：compose 早于 setMediaItem 时 currentMediaItem 仍为空
+        pendingOpenContentScale?.let { return@run it }
+        val mediaItem = player.currentMediaItem
+        val stamped = mediaItem?.mediaMetadata?.contentScaleName
+            ?.let { runCatching { one.only.player.core.model.VideoContentScale.valueOf(it) }.getOrNull() }
+        if (stamped != null) return@run stamped
+        val uri = mediaItem?.localConfiguration?.uri
+        val candidates = listOfNotNull(
+            mediaItem?.mediaMetadata?.extras?.getString("media_metadata_remote_file_path"),
+            mediaItem?.mediaMetadata?.remoteFilePath,
+            uri?.path,
+            uri?.lastPathSegment,
+            mediaItem?.mediaMetadata?.title?.toString(),
+            mediaItem?.requestMetadata?.mediaUri?.path,
+            mediaItem?.requestMetadata?.mediaUri?.lastPathSegment,
+            mediaItem?.mediaId,
+            uri?.toString(),
+        )
+        var fileName: String? = null
+        for (candidate in candidates) {
+            val name = one.only.player.core.model.PerFilePlaybackPreference.fromPathOrName(candidate)
+            if (!name.isNullOrBlank() && name.contains('.')) {
+                fileName = name
+                break
+            }
+        }
+        if (fileName == null) {
+            for (candidate in candidates) {
+                val name = one.only.player.core.model.PerFilePlaybackPreference.fromPathOrName(candidate)
+                if (!name.isNullOrBlank()) {
+                    fileName = name
+                    break
+                }
+            }
+        }
+        applicationPreferences.perFilePreferenceForPath(fileName)?.videoContentScale
+            ?: playerPreferences.playerVideoZoom
+    }
     val videoZoomAndContentScaleState = rememberVideoZoomAndContentScaleState(
         player = player,
-        initialContentScale = playerPreferences.playerVideoZoom,
+        initialContentScale = initialVideoContentScale,
         isZoomGestureEnabled = playerPreferences.shouldUseZoomControls,
         isPanGestureEnabled = playerPreferences.isPanGestureEnabled,
         onEvent = viewModel::onVideoZoomEvent,
     )
+
     val brightnessState = rememberBrightnessState()
     val volumeAndBrightnessGestureState = rememberVolumeAndBrightnessGestureState(
         volumeState = volumeState,
@@ -281,26 +340,112 @@ internal fun MediaPlayerScreen(
         volumeGestureSensitivity = playerPreferences.volumeGestureSensitivity,
         brightnessGestureSensitivity = playerPreferences.brightnessGestureSensitivity,
     )
-    val rotationState = rememberRotationState(
-        player = player,
-        screenOrientation = playerPreferences.playerScreenOrientation,
-        shouldRememberScreenOrientation = playerPreferences.shouldRememberPlayerScreenOrientation,
-        lastScreenOrientation = playerPreferences.lastPlayerScreenOrientation,
-        onLastScreenOrientationChange = viewModel::updateLastPlayerScreenOrientation,
-    )
+    // rotationState 在 currentMediaIdForScale 就绪后创建，保证切条时 per-file 方向可 force 应用
+
     var restoredVolumeMediaItemIndex by remember { mutableIntStateOf(Int.MIN_VALUE) }
     var lastSavedVolumePercentage by remember { mutableIntStateOf(volumeState.volumePercentage) }
     var pendingRestoredVolumePercentage by remember { mutableStateOf<Int?>(null) }
     val errorState = rememberErrorState(player = player)
 
-    DisposableEffect(player) {
+    fun currentMediaUriString(): String? {
+        val mediaItem = player.currentMediaItem ?: return null
+        return mediaItem.localConfiguration?.uri?.toString()
+            ?: mediaItem.mediaId.takeIf { it.isNotBlank() }
+    }
+
+    fun currentMediaFileName(): String? {
+        val mediaItem = player.currentMediaItem
+        val uri = mediaItem?.localConfiguration?.uri
+        // content:// 的 lastPathSegment 常常没有扩展名；优先 remote path / path / title
+        val candidates = listOfNotNull(
+            mediaItem?.mediaMetadata?.extras?.getString("media_metadata_remote_file_path"),
+            mediaItem?.mediaMetadata?.remoteFilePath,
+            uri?.path,
+            uri?.lastPathSegment,
+            mediaItem?.mediaMetadata?.title?.toString(),
+            mediaItem?.requestMetadata?.mediaUri?.path,
+            mediaItem?.requestMetadata?.mediaUri?.lastPathSegment,
+            mediaItem?.mediaId,
+            uri?.toString(),
+        )
+        // 先找带扩展名的文件名，便于 per-file / 扩展名配置命中
+        for (candidate in candidates) {
+            val name = one.only.player.core.model.PerFilePlaybackPreference.fromPathOrName(candidate)
+            if (!name.isNullOrBlank() && name.contains('.')) return name
+        }
+        for (candidate in candidates) {
+            val name = one.only.player.core.model.PerFilePlaybackPreference.fromPathOrName(candidate)
+            if (!name.isNullOrBlank()) return name
+        }
+        return null
+    }
+
+    // 用户刚选的缩放：同 mediaId 内优先于 stamp/per-file/global，避免 transition/metadata 回弹（logs14 切两次）
+    var userContentScaleOverride by remember(player) {
+        mutableStateOf<Pair<String, one.only.player.core.model.VideoContentScale>?>(null)
+    }
+
+    fun resolveContentScaleTarget(
+        mediaItem: androidx.media3.common.MediaItem?,
+    ): one.only.player.core.model.VideoContentScale {
+        val mediaId = mediaItem?.mediaId
+        val override = userContentScaleOverride
+        if (override != null && mediaId != null && override.first == mediaId) {
+            return override.second
+        }
+        val fileName = currentMediaFileName()
+        val stamped = mediaItem?.mediaMetadata?.contentScaleName
+            ?.let { runCatching { one.only.player.core.model.VideoContentScale.valueOf(it) }.getOrNull() }
+        val remembered = applicationPreferences.perFilePreferenceForPath(fileName)?.videoContentScale
+        return stamped ?: remembered ?: pendingOpenContentScale ?: playerPreferences.playerVideoZoom
+    }
+
+    fun markUserContentScaleOverride(scale: one.only.player.core.model.VideoContentScale) {
+        val mediaId = player.currentMediaItem?.mediaId ?: return
+        userContentScaleOverride = mediaId to scale
+    }
+
+    // 切文件：更新播放标记；mediaId 或 stamp 变化时同步应用缩放。
+    // 同 stamp 的 replaceMediaItem（盖章/首帧）跳过，避免把菜单刚选的缩放打回（logs11）。
+    // stamp 从 null→有值（service enrich / 打开盖章）必须 apply，否则重进卡在全局（logs13）。
+    // pendingOpenContentScale：item 未就绪时也能首帧落到记住缩放。
+    // 同 mediaId 的用户 override 优先，防止 stamp 异步落地把菜单选择回弹（logs14）。
+    DisposableEffect(player, pendingOpenContentScale) {
+        fun applyScaleForMediaItem(mediaItem: androidx.media3.common.MediaItem?) {
+            videoZoomAndContentScaleState.applyContentScaleLocally(resolveContentScaleTarget(mediaItem))
+        }
         viewModel.updatePlaybackMarkMediaItem(player.currentMediaItem)
+        var lastAppliedMediaId = player.currentMediaItem?.mediaId
+        var lastAppliedStamp = player.currentMediaItem?.mediaMetadata?.contentScaleName
+        applyScaleForMediaItem(player.currentMediaItem)
         val listener = object : Player.Listener {
             override fun onMediaItemTransition(
                 mediaItem: androidx.media3.common.MediaItem?,
                 reason: Int,
             ) {
                 viewModel.updatePlaybackMarkMediaItem(mediaItem)
+                val mediaId = mediaItem?.mediaId
+                val stamp = mediaItem?.mediaMetadata?.contentScaleName
+                // 切到别的文件时清掉上一文件的用户 override
+                val override = userContentScaleOverride
+                if (override != null && mediaId != override.first) {
+                    userContentScaleOverride = null
+                }
+                if (mediaId != null && mediaId == lastAppliedMediaId && stamp == lastAppliedStamp) return
+                lastAppliedMediaId = mediaId
+                lastAppliedStamp = stamp
+                applyScaleForMediaItem(mediaItem)
+            }
+
+            override fun onMediaMetadataChanged(mediaMetadata: androidx.media3.common.MediaMetadata) {
+                val mediaItem = player.currentMediaItem
+                val mediaId = mediaItem?.mediaId
+                val stamp = mediaMetadata.contentScaleName
+                    ?: mediaItem?.mediaMetadata?.contentScaleName
+                if (mediaId != null && mediaId == lastAppliedMediaId && stamp == lastAppliedStamp) return
+                lastAppliedMediaId = mediaId
+                lastAppliedStamp = stamp
+                applyScaleForMediaItem(mediaItem)
             }
         }
         player.addListener(listener)
@@ -370,6 +515,135 @@ internal fun MediaPlayerScreen(
     val scope = rememberCoroutineScope()
     val context = LocalContext.current
     val configuration = LocalConfiguration.current
+
+
+
+    // 偏好/切条落地：media_state stamp 优先，其次 per-file prefs，最后全局默认。
+    // 真正切条已在 DisposableEffect 同步 apply；这里覆盖 DataStore 异步落地与重进首帧。
+    // mediaId 必须 reactive：plain player.currentMediaItem 读不是 Compose 状态，
+    // 从文件夹重进时 item 后就绪不会触发 recompose，导致记住缩放要等点控件（logs13）。
+    var currentMediaIdForScale by remember(player) {
+        mutableStateOf(player.currentMediaItem?.mediaId)
+    }
+    var currentContentScaleStampName by remember(player) {
+        mutableStateOf(player.currentMediaItem?.mediaMetadata?.contentScaleName)
+    }
+    LaunchedEffect(player) {
+        currentMediaIdForScale = player.currentMediaItem?.mediaId
+        currentContentScaleStampName = player.currentMediaItem?.mediaMetadata?.contentScaleName
+        player.listen { events ->
+            if (events.containsAny(
+                    Player.EVENT_MEDIA_ITEM_TRANSITION,
+                    Player.EVENT_MEDIA_METADATA_CHANGED,
+                    Player.EVENT_TIMELINE_CHANGED,
+                )
+            ) {
+                currentMediaIdForScale = player.currentMediaItem?.mediaId
+                currentContentScaleStampName = player.currentMediaItem?.mediaMetadata?.contentScaleName
+            }
+        }
+    }
+    LaunchedEffect(
+        currentMediaIdForScale,
+        currentContentScaleStampName,
+        pendingOpenContentScale,
+        applicationPreferences.perFilePlaybackPreferences,
+        playerPreferences.playerVideoZoom,
+        userContentScaleOverride,
+    ) {
+        // 同 mediaId 用户刚选的缩放优先，禁止 stamp/store 回弹（logs14）
+        val override = userContentScaleOverride
+        val mediaId = currentMediaIdForScale
+        if (override != null && mediaId != null && override.first == mediaId) {
+            videoZoomAndContentScaleState.applyContentScaleLocally(override.second)
+            return@LaunchedEffect
+        }
+        val target = resolveContentScaleTarget(player.currentMediaItem)
+        videoZoomAndContentScaleState.applyContentScaleLocally(target)
+    }
+
+    // pending 一到立刻 apply（item 还空时也能首帧正确），避免等 transition
+    LaunchedEffect(pendingOpenContentScale, userContentScaleOverride, currentMediaIdForScale) {
+        val pending = pendingOpenContentScale ?: return@LaunchedEffect
+        val override = userContentScaleOverride
+        val mediaId = currentMediaIdForScale
+        if (override != null && mediaId != null && override.first == mediaId) return@LaunchedEffect
+        videoZoomAndContentScaleState.applyContentScaleLocally(pending)
+    }
+
+    // 兜底：仅当 media_state / per-file 真有“记住”记录时盖章+应用（logs13 重进）。
+    // 用户 override 只改画面，绝不 stamp——否则菜单会把 stamp 当成“记住已开”（logs16）。
+    LaunchedEffect(currentMediaIdForScale, pendingOpenContentScale, userContentScaleOverride) {
+        val mediaUri = currentMediaUriString()
+        val mediaId = currentMediaIdForScale
+        val override = userContentScaleOverride
+        if (override != null && mediaId != null && override.first == mediaId) {
+            videoZoomAndContentScaleState.applyContentScaleLocally(override.second)
+            viewModel.clearPendingOpenContentScale()
+            return@LaunchedEffect
+        }
+        val fromStore = viewModel.contentScaleForMediaUri(
+            mediaUri = mediaUri,
+            fileName = currentMediaFileName(),
+        ) ?: pendingOpenContentScale
+        if (fromStore == null) return@LaunchedEffect
+        videoZoomAndContentScaleState.applyContentScaleLocally(fromStore)
+        if (mediaUri != null) {
+            stampContentScaleOnCurrentMediaItem(
+                player = player,
+                contentScaleName = fromStore.name,
+            )
+            currentContentScaleStampName = fromStore.name
+        }
+        // item 已盖章并应用后清 pending，避免跨文件串味
+        if (currentMediaIdForScale != null) {
+            viewModel.clearPendingOpenContentScale()
+        }
+    }
+
+    // 依赖 currentMediaIdForScale + prefs，切条/重进后图标主题色立即同步，无需再点控件
+    val currentMediaFileNameForPrefs = currentMediaFileName()
+    val isOrientationRemembered = remember(
+        currentMediaIdForScale,
+        currentMediaFileNameForPrefs,
+        applicationPreferences.perFilePlaybackPreferences,
+    ) {
+        applicationPreferences
+            .perFilePreferenceForPath(currentMediaFileNameForPrefs)
+            ?.screenOrientation != null
+    }
+
+    val perFileOrientation = remember(
+        currentMediaIdForScale,
+        currentMediaFileNameForPrefs,
+        applicationPreferences.perFilePlaybackPreferences,
+    ) {
+        applicationPreferences
+            .perFilePreferenceForPath(currentMediaFileNameForPrefs)
+            ?.screenOrientation
+    }
+    val rotationState = rememberRotationState(
+        player = player,
+        screenOrientation = playerPreferences.playerScreenOrientation,
+        shouldRememberScreenOrientation = playerPreferences.shouldRememberPlayerScreenOrientation,
+        lastScreenOrientation = playerPreferences.lastPlayerScreenOrientation,
+        perFileOrientation = perFileOrientation,
+        mediaIdentity = currentMediaIdForScale ?: currentMediaFileNameForPrefs,
+        onLastScreenOrientationChange = viewModel::updateLastPlayerScreenOrientation,
+    )
+
+    fun rotateScreen() {
+        val orient = when (configuration.orientation) {
+            Configuration.ORIENTATION_LANDSCAPE -> one.only.player.core.model.LastPlayerScreenOrientation.PORTRAIT
+            else -> one.only.player.core.model.LastPlayerScreenOrientation.LANDSCAPE
+        }
+        rotationState.rotate()
+        // 仅在「记住该文件旋转方式」开启时写入 per-file
+        if (isOrientationRemembered) {
+            viewModel.rememberOrientationForFile(currentMediaFileNameForPrefs, orient)
+        }
+    }
+
     val shouldShowPlayerTitle = configuration.orientation != Configuration.ORIENTATION_PORTRAIT
     val sleepTimerState = rememberSleepTimerState(player = player)
     val permanentlyVisibleControls = remember {
@@ -378,7 +652,8 @@ internal fun MediaPlayerScreen(
             PlayerControl.PREVIOUS,
             PlayerControl.PLAY_PAUSE,
             PlayerControl.NEXT,
-            PlayerControl.ROTATE,
+            // 自定义按钮只能移动，不能被隐藏
+            PlayerControl.CUSTOMIZE,
         )
     }
     val hiddenPlayerControls = when (isCustomizingControls) {
@@ -394,6 +669,7 @@ internal fun MediaPlayerScreen(
     }
     val topRightControls = controlsByZone.getValue(PlayerControlZone.TOP_RIGHT)
     val bottomLeftControls = controlsByZone.getValue(PlayerControlZone.BOTTOM_LEFT)
+    val aboveSeekbarRightControls = controlsByZone[PlayerControlZone.ABOVE_SEEKBAR_RIGHT].orEmpty()
     val visiblePlayerControls = remember(hiddenPlayerControls) {
         PlayerControl.entries.toSet() - hiddenPlayerControls
     }
@@ -403,6 +679,21 @@ internal fun MediaPlayerScreen(
     var isAmbienceModeEnabled by remember { mutableStateOf(false) }
     var isVideoMirrored by remember { mutableStateOf(false) }
     val activePlayerPreferences = subtitleStylePreviewPreferences ?: playerPreferences
+    val effectiveDecoderPriority = run {
+        val mediaItem = player.currentMediaItem
+        val remembered = mediaItem?.mediaMetadata
+            ?.takeIf { it.isDecoderRemembered }
+            ?.decoderPriorityName
+            ?.let { runCatching { one.only.player.core.model.DecoderPriority.valueOf(it) }.getOrNull() }
+        if (remembered != null) {
+            remembered
+        } else {
+            val fileName = currentMediaFileName()
+            applicationPreferences.perFilePreferenceForPath(fileName)?.decoderPriority
+                ?: fileName?.let { applicationPreferences.decoderPriorityForPath(it) }
+                ?: playerPreferences.decoderPriority
+        }
+    }
     val videoFiltersUnavailableMessage = stringResource(coreUiR.string.video_filters_unavailable_software_decoder)
     fun restoreVideoFiltersPreview() {
         videoFiltersInitialPreferences?.let { initialPreferences ->
@@ -430,14 +721,13 @@ internal fun MediaPlayerScreen(
         OverlayView.MUTE -> MenuRoute.Mute
         OverlayView.AMBIENCE_MODE -> MenuRoute.AmbienceMode
         OverlayView.MIRROR_VIDEO -> MenuRoute.MirrorVideo
+        OverlayView.SCREEN_ROTATION -> MenuRoute.ScreenRotation
     }
     fun openOverlayPanel(target: OverlayView) {
         controlsVisibilityState.hideControls()
-        if (isModern) {
-            menuRouteStack = listOf(overlayViewToMenuRoute(target))
-        } else {
-            overlayView = target
-        }
+        // Unify old/new controls on MenuOverlayView so decoder remember-switch always shows
+        menuRouteStack = listOf(overlayViewToMenuRoute(target))
+        overlayView = null
     }
     val showVideoFilters = {
         if (metadataState.isVideoEffectsAvailable) {
@@ -609,7 +899,7 @@ internal fun MediaPlayerScreen(
         isCustomizingControls,
     ) {
         if (!isCustomizingControls) {
-            customizingHiddenPlayerControls = playerPreferences.hiddenPlayerControls - permanentlyVisibleControls
+            customizingHiddenPlayerControls = playerPreferences.hiddenPlayerControls - permanentlyVisibleControls - setOf(PlayerControl.CUSTOMIZE)
             customizingPlayerControlsLayout = playerPreferences.playerControlsLayout
         }
     }
@@ -660,6 +950,10 @@ internal fun MediaPlayerScreen(
     fun isControlSelected(control: PlayerControl): Boolean = isCustomizingControls && control !in permanentlyVisibleControls && control !in hiddenPlayerControls
 
     fun toggleControlVisibility(control: PlayerControl) {
+        if (control == PlayerControl.CUSTOMIZE) {
+            // 自定义按钮不可隐藏，仅可拖动改位置
+            return
+        }
         val updatedControls = hiddenPlayerControls.toMutableSet().apply {
             if (!add(control)) remove(control)
         }
@@ -746,7 +1040,7 @@ internal fun MediaPlayerScreen(
 
     fun enterControlCustomization() {
         player.pause()
-        customizingHiddenPlayerControls = playerPreferences.hiddenPlayerControls - permanentlyVisibleControls
+        customizingHiddenPlayerControls = playerPreferences.hiddenPlayerControls - permanentlyVisibleControls - setOf(PlayerControl.CUSTOMIZE)
         customizingPlayerControlsLayout = playerPreferences.playerControlsLayout
         clearDraggingControl()
         isCustomizingControls = true
@@ -765,7 +1059,7 @@ internal fun MediaPlayerScreen(
 
     fun cancelControlCustomization() {
         clearDraggingControl()
-        customizingHiddenPlayerControls = playerPreferences.hiddenPlayerControls - permanentlyVisibleControls
+        customizingHiddenPlayerControls = playerPreferences.hiddenPlayerControls - permanentlyVisibleControls - setOf(PlayerControl.CUSTOMIZE)
         customizingPlayerControlsLayout = playerPreferences.playerControlsLayout
         isCustomizingControls = false
         controlsVisibilityState.showControls()
@@ -811,7 +1105,7 @@ internal fun MediaPlayerScreen(
         when (action) {
             PlayerDebugCommandBridge.ACTION_BACK -> onBackClick()
 
-            PlayerDebugCommandBridge.ACTION_ROTATE -> rotationState.rotate()
+            PlayerDebugCommandBridge.ACTION_ROTATE -> rotateScreen()
 
             PlayerDebugCommandBridge.ACTION_TOGGLE_AMBIENCE -> toggleAmbienceMode()
 
@@ -845,7 +1139,40 @@ internal fun MediaPlayerScreen(
             }
 
             PlayerDebugCommandBridge.ACTION_CYCLE_SCALE -> {
-                videoZoomAndContentScaleState.switchToNextVideoContentScale()
+                val next = videoZoomAndContentScaleState.videoContentScale.next()
+                markUserContentScaleOverride(next)
+                videoZoomAndContentScaleState.onVideoContentScaleChanged(
+                    newContentScale = next,
+                    shouldPersistGlobal = false,
+                )
+                // 记住该文件时同步 stamp + store，避免回弹到旧 stamp
+                val mediaUri = currentMediaUriString()
+                val fileName = currentMediaFileName()
+                val isRemembered = applicationPreferences
+                    .perFilePreferenceForPath(fileName)
+                    ?.videoContentScale != null
+                if (isRemembered) {
+                    viewModel.rememberVideoContentScaleForMediaUri(
+                        mediaUri = mediaUri,
+                        contentScale = next,
+                        fileName = fileName,
+                    )
+                    stampContentScaleOnCurrentMediaItem(
+                        player = player,
+                        contentScaleName = next.name,
+                    )
+                    currentContentScaleStampName = next.name
+                } else {
+                    // 未记住：只改全局；清掉误 stamp，避免菜单开关误开（logs16）
+                    viewModel.updateVideoContentScale(next)
+                    if (player.currentMediaItem?.mediaMetadata?.contentScaleName != null) {
+                        stampContentScaleOnCurrentMediaItem(
+                            player = player,
+                            contentScaleName = null,
+                        )
+                        currentContentScaleStampName = null
+                    }
+                }
                 controlsVisibilityState.showControls()
             }
 
@@ -942,7 +1269,7 @@ internal fun MediaPlayerScreen(
 
     CompositionLocalProvider(
         LocalControlsVisibilityState provides controlsVisibilityState,
-        LocalPlayerIconStyle provides playerPreferences.playerIconStyle,
+        LocalPlayerIconStyle provides playerPreferences.playerIconStyle.normalized(),
     ) {
         Box {
             Box(
@@ -996,7 +1323,7 @@ internal fun MediaPlayerScreen(
                         shouldApplyEmbeddedStyles = activePlayerPreferences.shouldApplyEmbeddedStyles,
                         externalSubtitleFontSource = externalSubtitleFontSource,
                     ),
-                    decoderPriority = playerPreferences.decoderPriority,
+                    decoderPriority = effectiveDecoderPriority,
                     shouldUseTextureView = isVideoMirrored,
                     isVideoMirrored = isVideoMirrored,
                 )
@@ -1041,13 +1368,18 @@ internal fun MediaPlayerScreen(
                 }
 
                 if (controlsVisibilityState.isControlsVisible && controlsVisibilityState.isControlsLocked) {
-                    Column(
+                    // 解锁按钮与播放/上一/下一同水平，最右 22dp
+                    Box(
                         modifier = Modifier
                             .fillMaxSize()
-                            .safeDrawingPadding()
-                            .padding(top = 24.dp),
+                            .safeDrawingPadding(),
                     ) {
-                        PlayerButton(onClick = { controlsVisibilityState.unlockControls() }) {
+                        PlayerButton(
+                            modifier = Modifier
+                                .align(Alignment.CenterEnd)
+                                .padding(end = 22.dp),
+                            onClick = { controlsVisibilityState.unlockControls() },
+                        ) {
                             Icon(
                                 painter = painterResource(coreUiR.drawable.ic_lock),
                                 contentDescription = stringResource(coreUiR.string.controls_unlock),
@@ -1119,6 +1451,11 @@ internal fun MediaPlayerScreen(
                                                 toggleControlVisibility(PlayerControl.PLAYLIST)
                                             } else {
                                                 openOverlayPanel(OverlayView.PLAYLIST)
+                                            }
+                                        },
+                                        onCustomizeControlsClick = {
+                                            if (!isCustomizingControls) {
+                                                enterControlCustomization()
                                             }
                                         },
                                         onBackClick = {
@@ -1201,8 +1538,18 @@ internal fun MediaPlayerScreen(
                                             }
                                         },
                                         onRotateClick = {
-                                            rotationState.rotate()
+                                            if (isCustomizingControls) {
+                                                toggleControlVisibility(PlayerControl.ROTATE)
+                                            } else {
+                                                rotateScreen()
+                                            }
                                         },
+                                        onRotateLongClick = {
+                                            if (!isCustomizingControls) {
+                                                openOverlayPanel(OverlayView.SCREEN_ROTATION)
+                                            }
+                                        },
+                                        isOrientationRemembered = isOrientationRemembered,
                                         onScreenshotClick = {
                                             if (isCustomizingControls) {
                                                 toggleControlVisibility(PlayerControl.SCREENSHOT)
@@ -1253,7 +1600,16 @@ internal fun MediaPlayerScreen(
                                     isPlayPauseSelected = isControlSelected(PlayerControl.PLAY_PAUSE),
                                     isNextVisible = isControlVisible(PlayerControl.NEXT),
                                     isNextSelected = isControlSelected(PlayerControl.NEXT),
-                                    onPreviousClick = { },
+                                    canSeekPrevious = player.canSeekPrevious(
+                                        playerPreferences.shouldRestartCurrentOnPreviousClick,
+                                    ),
+                                    onPreviousClick = {
+                                        val shouldRestart =
+                                            playerPreferences.shouldRestartCurrentOnPreviousClick
+                                        (player as? androidx.media3.session.MediaController)
+                                            ?.handlePreviousClick(shouldRestart)
+                                            ?: player.handlePreviousClick(shouldRestart)
+                                    },
                                     onPlayPauseClick = { },
                                     onNextClick = { },
                                 )
@@ -1272,14 +1628,26 @@ internal fun MediaPlayerScreen(
                                         mediaPresentationState = mediaPresentationState,
                                         pendingSeekPosition = seekGestureState.pendingSeekPosition,
                                         isPlaying = mediaPresentationState.isPlaying,
-                                        hasPrevious = player.hasPreviousMediaItem(),
+                                        hasPrevious = player.canSeekPrevious(
+                                            playerPreferences.shouldRestartCurrentOnPreviousClick,
+                                        ),
                                         hasNext = player.hasNextMediaItem(),
                                         onPlayPauseClick = {
                                             if (player.isPlaying) player.pause() else player.play()
                                         },
-                                        onPreviousClick = { player.seekToPrevious() },
-                                        onNextClick = { player.seekToNext() },
-                                        onRotateClick = { rotationState.rotate() },
+                                        onPreviousClick = {
+                                            val shouldRestart =
+                                                playerPreferences.shouldRestartCurrentOnPreviousClick
+                                            (player as? androidx.media3.session.MediaController)
+                                                ?.handlePreviousClick(shouldRestart)
+                                                ?: player.handlePreviousClick(shouldRestart)
+                                        },
+                                        onNextClick = { (player as? androidx.media3.session.MediaController)?.seekToNextPrepared() ?: player.seekToNext() },
+                                        onRotateClick = { rotateScreen() },
+                                        onRotateLongClick = {
+                                            openOverlayPanel(OverlayView.SCREEN_ROTATION)
+                                        },
+                                        isOrientationRemembered = isOrientationRemembered,
                                         onPlaylistClick = { openOverlayPanel(OverlayView.PLAYLIST) },
                                         onPlaybackSpeedClick = { openOverlayPanel(OverlayView.PLAYBACK_SPEED) },
                                         onSeek = seekGestureState::onSeek,
@@ -1290,6 +1658,7 @@ internal fun MediaPlayerScreen(
                                         player = player,
                                         mediaPresentationState = mediaPresentationState,
                                         bottomLeftControls = bottomLeftControls,
+                                        aboveSeekbarRightControls = aboveSeekbarRightControls,
                                         controlButtonsPosition = playerPreferences.controlButtonsPosition,
                                         videoContentScale = videoZoomAndContentScaleState.videoContentScale,
                                         isPipSupported = pictureInPictureState.isPipSupported,
@@ -1298,6 +1667,7 @@ internal fun MediaPlayerScreen(
                                         zoneBounds = playerControlZoneBounds,
                                         isCustomizingControls = isCustomizingControls,
                                         shouldHideLabels = playerPreferences.shouldHidePlayerControlLabels,
+                                        shouldKeepHiddenControlSlots = playerPreferences.shouldKeepHiddenControlSlots,
                                         draggingControl = draggingPlayerControlUiState?.control,
                                         onControlDropDragged = ::dropDraggedControl,
                                         onControlDragStarted = ::startDraggingControl,
@@ -1335,8 +1705,18 @@ internal fun MediaPlayerScreen(
                                             }
                                         },
                                         onRotateClick = {
-                                            rotationState.rotate()
+                                            if (isCustomizingControls) {
+                                                toggleControlVisibility(PlayerControl.ROTATE)
+                                            } else {
+                                                rotateScreen()
+                                            }
                                         },
+                                        onRotateLongClick = {
+                                            if (!isCustomizingControls) {
+                                                openOverlayPanel(OverlayView.SCREEN_ROTATION)
+                                            }
+                                        },
+                                        isOrientationRemembered = isOrientationRemembered,
                                         onPlayInBackgroundClick = {
                                             if (isCustomizingControls) {
                                                 toggleControlVisibility(PlayerControl.BACKGROUND_PLAY)
@@ -1353,9 +1733,7 @@ internal fun MediaPlayerScreen(
                                             }
                                         },
                                         onCustomizeControlsClick = {
-                                            if (isCustomizingControls) {
-                                                exitControlCustomization()
-                                            } else {
+                                            if (!isCustomizingControls) {
                                                 enterControlCustomization()
                                             }
                                         },
@@ -1488,6 +1866,8 @@ internal fun MediaPlayerScreen(
                                 onVideoFiltersClick = { },
                                 onPictureInPictureClick = { },
                                 onRotateClick = { },
+                                onRotateLongClick = { },
+                                isOrientationRemembered = isOrientationRemembered,
                                 isTakingScreenshot = isTakingScreenshot,
                                 onScreenshotClick = { },
                                 onPlayInBackgroundClick = { },
@@ -1507,29 +1887,78 @@ internal fun MediaPlayerScreen(
                         .padding(systemBarsPadding.copy(top = 0.dp, bottom = 0.dp))
                         .padding(24.dp),
                 ) {
-                    AnimatedVisibility(
-                        modifier = Modifier.align(Alignment.CenterStart),
-                        visible = volumeAndBrightnessGestureState.activeGesture == VerticalGesture.VOLUME,
-                        enter = fadeIn(),
-                        exit = fadeOut(),
-                    ) {
-                        VerticalProgressView(
-                            value = volumeState.volumePercentage,
-                            maxValue = volumeState.maxVolumePercentage,
-                            icon = painterResource(coreUiR.drawable.ic_volume),
-                        )
+                    val isVbGestureActive = volumeAndBrightnessGestureState.activeGesture != null
+                    LaunchedEffect(isVbGestureActive) {
+                        if (isVbGestureActive) {
+                            controlsVisibilityState.hideControls()
+                        }
                     }
-
-                    AnimatedVisibility(
-                        modifier = Modifier.align(Alignment.CenterEnd),
-                        visible = volumeAndBrightnessGestureState.activeGesture == VerticalGesture.BRIGHTNESS,
-                        enter = fadeIn(),
-                        exit = fadeOut(),
-                    ) {
-                        VerticalProgressView(
-                            value = brightnessState.brightnessPercentage,
-                            icon = painterResource(coreUiR.drawable.ic_brightness),
-                        )
+                    val useCenterTextIndicator =
+                        playerPreferences.volumeBrightnessIndicatorStyle ==
+                            one.only.player.core.model.VolumeBrightnessIndicatorStyle.CENTER_TEXT
+                    if (useCenterTextIndicator) {
+                        if (isVbGestureActive) {
+                            val isVolume =
+                                volumeAndBrightnessGestureState.activeGesture == VerticalGesture.VOLUME
+                            // 用手势锁定值，避免系统音量广播导致百分比最后闪一下
+                            val value = if (isVolume) {
+                                volumeAndBrightnessGestureState.indicatorVolumePercentage()
+                            } else {
+                                volumeAndBrightnessGestureState.indicatorBrightnessPercentage()
+                            }
+                            val iconRes = if (isVolume) {
+                                coreUiR.drawable.ic_volume
+                            } else {
+                                coreUiR.drawable.ic_brightness
+                            }
+                            Box(
+                                modifier = Modifier
+                                    .align(Alignment.Center)
+                                    .fillMaxWidth(),
+                                contentAlignment = Alignment.Center,
+                            ) {
+                                Row(
+                                    modifier = Modifier
+                                        .background(
+                                            color = Color.Black.copy(alpha = 0.45f),
+                                            shape = MaterialTheme.shapes.medium,
+                                        )
+                                        .padding(horizontal = 18.dp, vertical = 12.dp),
+                                    verticalAlignment = Alignment.CenterVertically,
+                                    horizontalArrangement = Arrangement.spacedBy(10.dp),
+                                ) {
+                                    androidx.compose.material3.Icon(
+                                        painter = painterResource(iconRes),
+                                        contentDescription = null,
+                                        tint = Color.White,
+                                        modifier = Modifier.size(24.dp),
+                                    )
+                                    androidx.compose.material3.Text(
+                                        text = "$value%",
+                                        color = Color.White,
+                                        style = MaterialTheme.typography.headlineSmall,
+                                    )
+                                }
+                            }
+                        }
+                    } else {
+                        if (volumeAndBrightnessGestureState.activeGesture == VerticalGesture.VOLUME) {
+                            Box(modifier = Modifier.align(Alignment.CenterStart)) {
+                                VerticalProgressView(
+                                    value = volumeAndBrightnessGestureState.indicatorVolumePercentage(),
+                                    maxValue = volumeState.maxVolumePercentage,
+                                    icon = painterResource(coreUiR.drawable.ic_volume),
+                                )
+                            }
+                        }
+                        if (volumeAndBrightnessGestureState.activeGesture == VerticalGesture.BRIGHTNESS) {
+                            Box(modifier = Modifier.align(Alignment.CenterEnd)) {
+                                VerticalProgressView(
+                                    value = volumeAndBrightnessGestureState.indicatorBrightnessPercentage(),
+                                    icon = painterResource(coreUiR.drawable.ic_brightness),
+                                )
+                            }
+                        }
                     }
 
                     AnimatedVisibility(
@@ -1561,7 +1990,8 @@ internal fun MediaPlayerScreen(
                 }
             }
 
-            if (isModern) {
+            // Unify old/new control popups on MenuOverlayView
+            run {
                 val currentRoute = menuRouteStack.lastOrNull()
                 val canGoBack = menuRouteStack.size > 1
                 if (currentRoute != null) {
@@ -1661,15 +2091,108 @@ internal fun MediaPlayerScreen(
 
                         MenuRoute.PlaybackSpeed -> PlaybackSpeedSelectorContent(player = player)
 
-                        MenuRoute.VideoContentScale -> VideoContentScaleSelectorContent(
-                            videoContentScale = videoZoomAndContentScaleState.videoContentScale,
-                            isCustomZoomActive = !videoZoomAndContentScaleState.zoom.isDefaultVideoZoom(),
-                            onVideoContentScaleChanged = {
-                                videoZoomAndContentScaleState.onVideoContentScaleChanged(it)
-                            },
-                            onShowVideoFilters = null,
-                            onDismiss = ::dismissOverlay,
-                        )
+                        MenuRoute.VideoContentScale -> {
+                            val mediaUri = currentMediaUriString()
+                            val fileName = currentMediaFileName()
+                            val rememberedScale = applicationPreferences
+                                .perFilePreferenceForPath(fileName)
+                                ?.videoContentScale
+                            // 仅 per-file 算“记住”；禁止把临时 stamp 当开关（logs16）
+                            val isRemembered = rememberedScale != null
+                            val initialScale = when {
+                                rememberedScale != null -> rememberedScale
+                                else -> {
+                                    // 未记住：当前画面优先（含用户 override），否则全局
+                                    val override = userContentScaleOverride
+                                    val mediaId = player.currentMediaItem?.mediaId
+                                    if (override != null && mediaId != null && override.first == mediaId) {
+                                        override.second
+                                    } else {
+                                        videoZoomAndContentScaleState.videoContentScale
+                                    }
+                                }
+                            }
+                            var selectedScale by remember(
+                                player.currentMediaItem?.mediaId,
+                            ) {
+                                mutableStateOf(initialScale)
+                            }
+                            var isRememberScaleForThisFile by remember(
+                                player.currentMediaItem?.mediaId,
+                                applicationPreferences.perFilePlaybackPreferences,
+                            ) {
+                                mutableStateOf(isRemembered)
+                            }
+                            // prefs 异步落地后同步开关，避免关记住后仍显示开
+                            LaunchedEffect(isRemembered, player.currentMediaItem?.mediaId) {
+                                isRememberScaleForThisFile = isRemembered
+                            }
+                            VideoContentScaleSelectorContent(
+                                videoContentScale = selectedScale,
+                                isCustomZoomActive = !videoZoomAndContentScaleState.zoom.isDefaultVideoZoom() &&
+                                    !isRememberScaleForThisFile,
+                                onVideoContentScaleChanged = { scale ->
+                                    selectedScale = scale
+                                    // 用户选择优先于 stamp/store 回弹（logs14 切两次）
+                                    markUserContentScaleOverride(scale)
+                                    // 仅改当前画面；是否写全局/文件由「记住」开关决定
+                                    videoZoomAndContentScaleState.onVideoContentScaleChanged(
+                                        newContentScale = scale,
+                                        shouldPersistGlobal = false,
+                                    )
+                                    if (isRememberScaleForThisFile) {
+                                        // media_state 权威 + per-file 镜像；stamp 同步当前 MediaItem。
+                                        viewModel.rememberVideoContentScaleForMediaUri(
+                                            mediaUri = mediaUri,
+                                            contentScale = scale,
+                                            fileName = fileName,
+                                        )
+                                        stampContentScaleOnCurrentMediaItem(
+                                            player = player,
+                                            contentScaleName = scale.name,
+                                        )
+                                        currentContentScaleStampName = scale.name
+                                    } else {
+                                        // 未记住：只改全局默认，绝不 stamp / 写 per-file
+                                        viewModel.updateVideoContentScale(scale)
+                                    }
+                                },
+                                isRememberForThisFileEnabled = isRememberScaleForThisFile,
+                                onRememberForThisFileChanged = { enabled ->
+                                    isRememberScaleForThisFile = enabled
+                                    if (enabled) {
+                                        markUserContentScaleOverride(selectedScale)
+                                        viewModel.rememberVideoContentScaleForMediaUri(
+                                            mediaUri = mediaUri,
+                                            contentScale = selectedScale,
+                                            fileName = fileName,
+                                        )
+                                        stampContentScaleOnCurrentMediaItem(
+                                            player = player,
+                                            contentScaleName = selectedScale.name,
+                                        )
+                                        currentContentScaleStampName = selectedScale.name
+                                    } else {
+                                        // 关闭记住：立即回退全局（pin override，挡住异步 clear 完成前的 store 回写）
+                                        val fallback = playerPreferences.playerVideoZoom
+                                        markUserContentScaleOverride(fallback)
+                                        selectedScale = fallback
+                                        videoZoomAndContentScaleState.applyContentScaleLocally(fallback)
+                                        stampContentScaleOnCurrentMediaItem(
+                                            player = player,
+                                            contentScaleName = null,
+                                        )
+                                        currentContentScaleStampName = null
+                                        viewModel.clearVideoContentScaleForMediaUri(
+                                            mediaUri = mediaUri,
+                                            fileName = fileName,
+                                        )
+                                    }
+                                },
+                                onShowVideoFilters = null,
+                                onDismiss = ::dismissOverlay,
+                            )
+                        }
 
                         MenuRoute.VideoFilters -> VideoFiltersPanel(
                             modifier = Modifier.fillMaxSize(),
@@ -1691,14 +2214,82 @@ internal fun MediaPlayerScreen(
                             onDismiss = ::dismissOverlay,
                         )
 
-                        MenuRoute.Decoder -> DecoderPrioritySelectorContent(
-                            currentDecoderPriority = playerPreferences.decoderPriority,
-                            onDecoderPriorityClick = {
-                                viewModel.updateDecoderPriority(it)
-                                dismissOverlay()
-                            },
-                            onDismiss = ::dismissOverlay,
-                        )
+                        MenuRoute.Decoder -> {
+                            val fileName = currentMediaFileName()
+                            val mediaExtension = fileName
+                                ?.substringAfterLast('.', missingDelimiterValue = "")
+                                ?.takeIf { it.isNotBlank() && it.length <= 10 && it.all { ch -> ch.isLetterOrDigit() } }
+                                ?.lowercase()
+                            // 显示优先级：该文件记住(盖章/per-file) > 扩展名设置 > 全局
+                            val remembered = player.currentMediaItem?.mediaMetadata
+                                ?.takeIf { it.isDecoderRemembered }
+                                ?.decoderPriorityName
+                                ?.let { runCatching { one.only.player.core.model.DecoderPriority.valueOf(it) }.getOrNull() }
+                            val perFilePriority = fileName?.let {
+                                applicationPreferences.perFilePreferenceForPath(it)?.decoderPriority
+                            }
+                            val extensionPriority = mediaExtension?.let { ext ->
+                                applicationPreferences.normalizedExtensionDecoderPreferences()
+                                    .firstOrNull { it.extension == ext }
+                                    ?.decoderPriority
+                            }
+                            // 实时跟随 prefs / stamp，避免仅 remember 初始值导致面板与实际不同步
+                            val resolvedPriority = remembered
+                                ?: perFilePriority
+                                ?: extensionPriority
+                                ?: playerPreferences.decoderPriority
+                            val resolvedRemembered = remembered != null || perFilePriority != null
+                            var selectedPriority by remember(player.currentMediaItem?.mediaId) {
+                                mutableStateOf(resolvedPriority)
+                            }
+                            var isRememberForThisFile by remember(player.currentMediaItem?.mediaId) {
+                                mutableStateOf(resolvedRemembered)
+                            }
+                            // prefs 或 stamp 变化时校正面板（例如扩展名设置页改了默认）
+                            LaunchedEffect(
+                                resolvedPriority,
+                                resolvedRemembered,
+                                player.currentMediaItem?.mediaId,
+                            ) {
+                                selectedPriority = resolvedPriority
+                                isRememberForThisFile = resolvedRemembered
+                            }
+                            DecoderPrioritySelectorContent(
+                                currentDecoderPriority = selectedPriority,
+                                onDecoderPriorityClick = { priority ->
+                                    selectedPriority = priority
+                                    // 写入扩展名设置（双向同步）+ 可选该文件 + 立刻重建
+                                    val controller = player as? androidx.media3.session.MediaController
+                                    controller?.setDecoderPriorityNow(
+                                        priorityName = priority.name,
+                                        rememberForThisFile = isRememberForThisFile,
+                                    )
+                                },
+                                isRememberForThisFileEnabled = isRememberForThisFile,
+                                onRememberForThisFileChanged = { enabled ->
+                                    isRememberForThisFile = enabled
+                                    val controller = player as? androidx.media3.session.MediaController
+                                    if (enabled) {
+                                        // 开启记住：按当前选项写入该文件
+                                        controller?.setDecoderPriorityNow(
+                                            priorityName = selectedPriority.name,
+                                            rememberForThisFile = true,
+                                        )
+                                    } else {
+                                        // 关闭记住：只清 per-file，回退扩展名/全局，不把当前值写进扩展名/全局
+                                        controller?.setDecoderPriorityNow(
+                                            priorityName = selectedPriority.name,
+                                            rememberForThisFile = false,
+                                            shouldUpdateExtensionDefault = false,
+                                        )
+                                        val fallback = extensionPriority
+                                            ?: playerPreferences.decoderPriority
+                                        selectedPriority = fallback
+                                    }
+                                },
+                                onDismiss = ::dismissOverlay,
+                            )
+                        }
 
                         MenuRoute.PlaybackMarks -> PlaybackMarksContent(
                             modifier = Modifier.testTag("panel_playback_marks"),
@@ -1717,48 +2308,39 @@ internal fun MediaPlayerScreen(
                             player = player,
                             onDismiss = ::dismissOverlay,
                         )
+
+                        MenuRoute.ScreenRotation -> {
+                            val fileName = currentMediaFileName()
+                            var isRememberOrientationForThisFile by remember(
+                                player.currentMediaItem?.mediaId,
+                                isOrientationRemembered,
+                            ) {
+                                mutableStateOf(isOrientationRemembered)
+                            }
+                            ToggleOptionSelectorContent(
+                                panelTestTag = "panel_screen_rotation_remember",
+                                isEnabled = isRememberOrientationForThisFile,
+                                offTestTag = "btn_remember_orientation_off",
+                                onTestTag = "btn_remember_orientation_on",
+                                onEnabledChanged = { enabled ->
+                                    isRememberOrientationForThisFile = enabled
+                                    val currentOrient = when (configuration.orientation) {
+                                        Configuration.ORIENTATION_LANDSCAPE ->
+                                            one.only.player.core.model.LastPlayerScreenOrientation.LANDSCAPE
+                                        else ->
+                                            one.only.player.core.model.LastPlayerScreenOrientation.PORTRAIT
+                                    }
+                                    viewModel.setRememberOrientationForFile(
+                                        fileName = fileName,
+                                        orientation = currentOrient,
+                                        isEnabled = enabled,
+                                    )
+                                },
+                                onDismiss = ::dismissOverlay,
+                            )
+                        }
                     }
                 }
-            } else {
-                OverlayShowView(
-                    player = player,
-                    overlayView = overlayView,
-                    videoContentScale = videoZoomAndContentScaleState.videoContentScale,
-                    isCustomVideoZoomActive = !videoZoomAndContentScaleState.zoom.isDefaultVideoZoom(),
-                    playerPreferences = activePlayerPreferences,
-                    sleepTimerState = sleepTimerState,
-                    isControlLockEnabled = controlsVisibilityState.isControlsLocked,
-                    isMuted = volumeState.isMuted,
-                    isAmbienceModeEnabled = isAmbienceModeEnabled,
-                    isVideoMirrored = isVideoMirrored,
-                    onDismiss = ::dismissOverlay,
-                    onSelectSubtitleClick = onSelectSubtitleClick,
-                    onAddOnlineSubtitleClick = onAddOnlineSubtitleClick,
-                    onSubtitleOptionEvent = viewModel::onSubtitleOptionEvent,
-                    onSubtitleStyleChanged = ::updateSubtitleStyle,
-                    onVideoContentScaleChanged = { videoZoomAndContentScaleState.onVideoContentScaleChanged(it) },
-                    onPreviewVideoFilters = { previewPreferences ->
-                        (player as? androidx.media3.session.MediaController)?.previewVideoFilters(previewPreferences)
-                    },
-                    onConfirmVideoFilters = viewModel::updateVideoFilters,
-                    onCloseVideoFilters = ::closeVideoFiltersOverlay,
-                    onShowVideoFilters = {
-                        overlayView = null
-                        showVideoFilters()
-                    },
-                    onDecoderPriorityChanged = {
-                        viewModel.updateDecoderPriority(it)
-                        dismissOverlay()
-                    },
-                    playbackMarks = playbackMarks,
-                    onAddPlaybackMarkClick = ::addPlaybackMark,
-                    onPlaybackMarkClick = ::seekToPlaybackMark,
-                    onDeletePlaybackMarkClick = { mark -> viewModel.deletePlaybackMark(mark.id) },
-                    onControlLockChanged = ::setControlsLocked,
-                    onMuteChanged = ::setMuted,
-                    onAmbienceModeChanged = { isEnabled -> setAmbienceModeEnabled(isEnabled) },
-                    onVideoMirroredChanged = ::setVideoMirrored,
-                )
             }
         }
     }
@@ -1766,7 +2348,12 @@ internal fun MediaPlayerScreen(
     errorState.error?.let { error ->
         NextDialog(
             onDismissRequest = { },
-            title = stringResource(coreUiR.string.error_playing_video),
+            title = {
+                MiuixText(
+                    text = stringResource(coreUiR.string.error_playing_video),
+                    style = MiuixTheme.textStyles.title4,
+                )
+            },
             content = {
                 MiuixText(text = error.message ?: stringResource(coreUiR.string.unknown_error))
             },
@@ -1778,7 +2365,7 @@ internal fun MediaPlayerScreen(
                         colors = MiuixButtonDefaults.textButtonColorsPrimary(),
                         onClick = {
                             errorState.dismiss()
-                            player.seekToNext()
+                            (player as? androidx.media3.session.MediaController)?.seekToNextPrepared() ?: player.seekToNext()
                             player.play()
                         },
                     )
@@ -1808,6 +2395,23 @@ internal fun MediaPlayerScreen(
     }
 }
 
+/**
+ * 同步当前 MediaItem 的 content_scale 盖章；null 表示清除。
+ * 仅在 stamp 实际变化时 replace，避免与 surface refresh 叠加 thrash。
+ */
+private fun stampContentScaleOnCurrentMediaItem(
+    player: Player,
+    contentScaleName: String?,
+) {
+    val index = player.currentMediaItemIndex
+    if (index !in 0 until player.mediaItemCount) return
+    val current = player.getMediaItemAt(index)
+    val existing = current.mediaMetadata.contentScaleName
+    val normalized = contentScaleName?.takeIf { it.isNotBlank() }
+    if (existing == normalized) return
+    player.replaceMediaItem(index, current.withContentScaleStamp(normalized))
+}
+
 private fun PlayerPreferences.hasSameSubtitleStyle(other: PlayerPreferences): Boolean = shouldUseBoldSubtitleText == other.shouldUseBoldSubtitleText &&
     subtitleTextSize == other.subtitleTextSize &&
     shouldShowSubtitleBackground == other.shouldShowSubtitleBackground &&
@@ -1831,12 +2435,13 @@ private fun titleForMenuRoute(route: MenuRoute?): String = when (route) {
     MenuRoute.PlaybackSpeed -> stringResource(coreUiR.string.select_playback_speed)
     MenuRoute.VideoContentScale -> stringResource(coreUiR.string.video_zoom)
     MenuRoute.VideoFilters -> stringResource(coreUiR.string.video_filters)
-    MenuRoute.Playlist -> stringResource(coreUiR.string.now_playing)
+    MenuRoute.Playlist -> stringResource(coreUiR.string.playlist)
     MenuRoute.SleepTimer -> stringResource(coreUiR.string.sleep_timer)
     MenuRoute.Decoder -> stringResource(coreUiR.string.decoder_priority)
     MenuRoute.PlaybackMarks -> stringResource(coreUiR.string.playback_marks)
     MenuRoute.LoopMode -> stringResource(coreUiR.string.loop_mode)
     MenuRoute.ShuffleMode -> stringResource(coreUiR.string.shuffle)
+    MenuRoute.ScreenRotation -> stringResource(coreUiR.string.remember_orientation_for_this_file)
 }
 
 @Composable
@@ -2544,13 +3149,19 @@ fun ControlsMiddleView(
     isPlayPauseSelected: Boolean = false,
     isNextVisible: Boolean = true,
     isNextSelected: Boolean = false,
+    canSeekPrevious: Boolean = true,
     onPreviousClick: () -> Unit = {},
     onPlayPauseClick: () -> Unit = {},
     onNextClick: () -> Unit = {},
 ) {
+    val isLandscape = LocalConfiguration.current.orientation == Configuration.ORIENTATION_LANDSCAPE
+    // 横屏上一/下一更靠两边；竖屏仅 22dp
+    val horizontalPadding = if (isLandscape) 160.dp else 22.dp
     Row(
-        modifier = modifier.fillMaxWidth(),
-        horizontalArrangement = Arrangement.spacedBy(40.dp, alignment = Alignment.CenterHorizontally),
+        modifier = modifier
+            .fillMaxWidth()
+            .padding(horizontal = horizontalPadding),
+        horizontalArrangement = Arrangement.SpaceBetween,
         verticalAlignment = Alignment.CenterVertically,
     ) {
         if (isPreviousVisible) {
@@ -2559,9 +3170,15 @@ fun ControlsMiddleView(
                     player = player,
                     onClick = onPreviousClick,
                     isInteractive = false,
+                    isEnabledOverride = canSeekPrevious,
                 )
             } else {
-                PreviousButton(player = player)
+                // 旧版：与新版同一可用态（首曲 + 关闭重播 → 灰显不可点）
+                PreviousButton(
+                    player = player,
+                    onClick = onPreviousClick,
+                    isEnabledOverride = canSeekPrevious,
+                )
             }
         }
         if (isPlayPauseVisible) {

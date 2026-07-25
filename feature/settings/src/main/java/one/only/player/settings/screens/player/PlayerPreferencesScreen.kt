@@ -29,6 +29,8 @@ import one.only.player.core.common.extensions.isPipFeatureSupported
 import one.only.player.core.common.extensions.round
 import one.only.player.core.model.ControlButtonsPosition
 import one.only.player.core.model.ControllerAutoHidePreset
+import one.only.player.core.model.VolumeBrightnessIndicatorStyle
+import one.only.player.core.model.MediaSessionVisibility
 import one.only.player.core.model.PlayerControlsStyle
 import one.only.player.core.model.PlayerIconStyle
 import one.only.player.core.model.PlayerPreferences
@@ -52,12 +54,13 @@ import one.only.player.settings.composables.OptionsDialog
 import one.only.player.settings.extensions.isEnabled
 import one.only.player.settings.extensions.name
 import top.yukonga.miuix.kmp.basic.ButtonDefaults
+import top.yukonga.miuix.kmp.basic.HorizontalDivider
 import top.yukonga.miuix.kmp.basic.Icon as MiuixIcon
 import top.yukonga.miuix.kmp.basic.IconButton as MiuixIconButton
 import top.yukonga.miuix.kmp.basic.Scaffold
 import top.yukonga.miuix.kmp.basic.TextButton
 import top.yukonga.miuix.kmp.basic.TextField
-import top.yukonga.miuix.kmp.basic.TopAppBar
+import top.yukonga.miuix.kmp.basic.SmallTopAppBar
 import top.yukonga.miuix.kmp.theme.MiuixTheme
 
 @Composable
@@ -84,7 +87,7 @@ private fun PlayerPreferencesContent(
 
     Scaffold(
         topBar = {
-            TopAppBar(
+            SmallTopAppBar(
                 title = stringResource(id = R.string.player_name),
                 navigationIcon = {
                     MiuixIconButton(
@@ -165,9 +168,61 @@ private fun PlayerPreferencesContent(
                         description = uiState.preferences.playerIconStyle.name(),
                         icon = NextIcons.Style,
                         onClick = { onEvent(PlayerPreferencesUiEvent.ShowDialog(PlayerPreferenceDialog.PlayerIconStyleDialog)) },
+                        isLastItem = false,
+                    )
+                    PreferenceSwitch(
+                        modifier = Modifier.testTag("switch_settings_player_keep_hidden_control_slots"),
+                        title = stringResource(id = R.string.keep_hidden_control_slots),
+                        description = stringResource(id = R.string.keep_hidden_control_slots_description),
+                        icon = NextIcons.DashBoard,
+                        isChecked = uiState.preferences.shouldKeepHiddenControlSlots,
+                        onClick = { onEvent(PlayerPreferencesUiEvent.ToggleKeepHiddenControlSlots) },
                         isLastItem = true,
                     )
                 }
+            }
+
+            // 系统媒体控件放在亮度/音量指示上方
+            ListSectionTitle(text = stringResource(id = R.string.media_session_visibility))
+            Column(
+                verticalArrangement = Arrangement.spacedBy(SegmentedItemGap),
+            ) {
+                ClickablePreferenceItem(
+                    modifier = Modifier.testTag("item_settings_player_media_session_visibility"),
+                    title = stringResource(id = R.string.media_session_visibility),
+                    description = when (uiState.preferences.mediaSessionVisibility) {
+                        MediaSessionVisibility.HIDE -> stringResource(R.string.media_session_visibility_hide)
+                        MediaSessionVisibility.SHOW,
+                        MediaSessionVisibility.AUDIO_ONLY,
+                        -> stringResource(R.string.media_session_visibility_show)
+                    },
+                    icon = NextIcons.Player,
+                    onClick = {
+                        onEvent(PlayerPreferencesUiEvent.ShowDialog(PlayerPreferenceDialog.MediaSessionVisibilityDialog))
+                    },
+                    isFirstItem = true,
+                    isLastItem = true,
+                )
+            }
+
+            ListSectionTitle(text = stringResource(id = R.string.volume_brightness_indicator))
+            Column(
+                verticalArrangement = Arrangement.spacedBy(SegmentedItemGap),
+            ) {
+                ClickablePreferenceItem(
+                    modifier = Modifier.testTag("item_settings_player_volume_brightness_indicator"),
+                    title = stringResource(id = R.string.volume_brightness_indicator),
+                    description = when (uiState.preferences.volumeBrightnessIndicatorStyle) {
+                        VolumeBrightnessIndicatorStyle.BAR -> stringResource(R.string.volume_brightness_indicator_bar)
+                        VolumeBrightnessIndicatorStyle.CENTER_TEXT -> stringResource(R.string.volume_brightness_indicator_center_text)
+                    },
+                    icon = NextIcons.Brightness,
+                    onClick = {
+                        onEvent(PlayerPreferencesUiEvent.ShowDialog(PlayerPreferenceDialog.VolumeBrightnessIndicatorDialog))
+                    },
+                    isFirstItem = true,
+                    isLastItem = true,
+                )
             }
 
             ListSectionTitle(text = stringResource(id = R.string.playback_behavior))
@@ -209,6 +264,16 @@ private fun PlayerPreferencesContent(
                     icon = NextIcons.Player,
                     isChecked = uiState.preferences.shouldAutoPlay,
                     onClick = { onEvent(PlayerPreferencesUiEvent.ToggleAutoplay) },
+                )
+                PreferenceSwitch(
+                    modifier = Modifier.testTag("switch_settings_player_restart_on_previous"),
+                    title = stringResource(id = R.string.restart_current_on_previous),
+                    description = stringResource(
+                        id = R.string.restart_current_on_previous_description,
+                    ),
+                    icon = NextIcons.Player,
+                    isChecked = uiState.preferences.shouldRestartCurrentOnPreviousClick,
+                    onClick = { onEvent(PlayerPreferencesUiEvent.ToggleRestartCurrentOnPreviousClick) },
                 )
                 PreferenceSwitch(
                     modifier = Modifier.testTag("switch_settings_player_pause_at_end_of_queue"),
@@ -337,11 +402,21 @@ private fun PlayerPreferencesContent(
                         text = stringResource(id = R.string.player_icon_style),
                         onDismissClick = { onEvent(PlayerPreferencesUiEvent.ShowDialog(null)) },
                     ) {
-                        items(PlayerIconStyle.entries.toTypedArray()) {
+                        // 旧控件图标风格：去掉「经典」，仅保留质感/半透/全透
+                        val iconStyles = arrayOf(
+                            PlayerIconStyle.TONAL,
+                            PlayerIconStyle.TRANSLUCENT,
+                            PlayerIconStyle.TRANSPARENT,
+                        )
+                        val selectedIconStyle = when (uiState.preferences.playerIconStyle) {
+                            PlayerIconStyle.CLASSIC -> PlayerIconStyle.TONAL
+                            else -> uiState.preferences.playerIconStyle
+                        }
+                        items(iconStyles) {
                             RadioTextButton(
                                 modifier = Modifier.testTag("option_settings_player_icon_style_${it.name.lowercase()}"),
                                 text = it.name(),
-                                isSelected = it == uiState.preferences.playerIconStyle,
+                                isSelected = it == selectedIconStyle,
                                 onClick = {
                                     onEvent(PlayerPreferencesUiEvent.UpdatePlayerIconStyle(it))
                                     onEvent(PlayerPreferencesUiEvent.ShowDialog(null))
@@ -369,6 +444,61 @@ private fun PlayerPreferencesContent(
                         }
                     }
                 }
+                PlayerPreferenceDialog.VolumeBrightnessIndicatorDialog -> {
+                    OptionsDialog(
+                        text = stringResource(id = R.string.volume_brightness_indicator),
+                        onDismissClick = { onEvent(PlayerPreferencesUiEvent.ShowDialog(null)) },
+                    ) {
+                        items(VolumeBrightnessIndicatorStyle.entries.toTypedArray()) {
+                            RadioTextButton(
+                                modifier = Modifier.testTag("option_settings_vb_indicator_" + it.name.lowercase()),
+                                text = when (it) {
+                                    VolumeBrightnessIndicatorStyle.BAR -> stringResource(R.string.volume_brightness_indicator_bar)
+                                    VolumeBrightnessIndicatorStyle.CENTER_TEXT -> stringResource(R.string.volume_brightness_indicator_center_text)
+                                },
+                                isSelected = it == uiState.preferences.volumeBrightnessIndicatorStyle,
+                                onClick = {
+                                    onEvent(PlayerPreferencesUiEvent.UpdateVolumeBrightnessIndicatorStyle(it))
+                                    onEvent(PlayerPreferencesUiEvent.ShowDialog(null))
+                                },
+                            )
+                        }
+                    }
+                }
+
+                PlayerPreferenceDialog.MediaSessionVisibilityDialog -> {
+                    OptionsDialog(
+                        text = stringResource(id = R.string.media_session_visibility),
+                        onDismissClick = { onEvent(PlayerPreferencesUiEvent.ShowDialog(null)) },
+                    ) {
+                        items(
+                            listOf(
+                                MediaSessionVisibility.SHOW,
+                                MediaSessionVisibility.HIDE,
+                            ),
+                        ) {
+                            RadioTextButton(
+                                modifier = Modifier.testTag("option_settings_media_session_" + it.name.lowercase()),
+                                text = when (it) {
+                                    MediaSessionVisibility.SHOW -> stringResource(R.string.media_session_visibility_show)
+                                    MediaSessionVisibility.HIDE -> stringResource(R.string.media_session_visibility_hide)
+                                    MediaSessionVisibility.AUDIO_ONLY -> stringResource(R.string.media_session_visibility_show)
+                                },
+                                isSelected = when (uiState.preferences.mediaSessionVisibility) {
+                                    MediaSessionVisibility.HIDE -> it == MediaSessionVisibility.HIDE
+                                    MediaSessionVisibility.SHOW,
+                                    MediaSessionVisibility.AUDIO_ONLY,
+                                    -> it == MediaSessionVisibility.SHOW
+                                },
+                                onClick = {
+                                    onEvent(PlayerPreferencesUiEvent.UpdateMediaSessionVisibility(it))
+                                    onEvent(PlayerPreferencesUiEvent.ShowDialog(null))
+                                },
+                            )
+                        }
+                    }
+                }
+
             }
         }
     }
@@ -393,6 +523,7 @@ private fun ControllerAutoHideDialog(
         onDismissRequest = onDismiss,
         title = stringResource(id = R.string.controller_timeout_select),
         content = {
+            HorizontalDivider()
             LazyColumn(
                 contentPadding = PaddingValues(vertical = 8.dp),
                 modifier = Modifier.selectableGroup(),
@@ -430,6 +561,7 @@ private fun ControllerAutoHideDialog(
                     }
                 }
             }
+            HorizontalDivider()
         },
         confirmButton = {
             if (isCustomSelected) {

@@ -190,7 +190,11 @@ fun PlayerGestures(
                     if (videoZoomAndContentScaleState.canPanZoomedVideo) return@pointerInput
 
                     detectCustomVerticalDragGestures(
-                        onDragStart = { volumeAndBrightnessGestureState.onDragStart(it, size) },
+                        onDragStart = {
+                            // 音量/亮度滑动时隐藏控制器，避免遮挡百分比指示
+                            controlsVisibilityState.hideControls()
+                            volumeAndBrightnessGestureState.onDragStart(it, size)
+                        },
                         onVerticalDrag = volumeAndBrightnessGestureState::onDrag,
                         onDragCancel = volumeAndBrightnessGestureState::onDragEnd,
                         onDragEnd = volumeAndBrightnessGestureState::onDragEnd,

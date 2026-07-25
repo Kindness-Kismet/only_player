@@ -67,7 +67,7 @@ fun BoxScope.PlaylistView(
     OverlayView(
         modifier = modifier,
         shouldShow = shouldShow,
-        title = stringResource(R.string.now_playing),
+        title = stringResource(R.string.playlist),
     ) {
         PlaylistContent(
             isVisible = shouldShow,

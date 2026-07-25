@@ -191,6 +191,15 @@ class MediaPickerViewModel @Inject constructor(
             if (isDeletionSuccessful) {
                 mediaSynchronizer.removeDeleted(uris)
                 refreshDeletedPathsAsync(videos.map(SelectedVideo::path))
+                val names = videos.mapNotNull { video ->
+                    video.path.substringAfterLast('/').substringAfterLast('\\').ifBlank { null }
+                        ?: video.uriString.substringAfterLast('/').ifBlank { null }
+                }
+                if (names.isNotEmpty()) {
+                    preferencesRepository.updateApplicationPreferences { prefs ->
+                        prefs.withoutPerFilePreferences(names)
+                    }
+                }
             }
             uiStateInternal.update { currentState ->
                 currentState.copy(

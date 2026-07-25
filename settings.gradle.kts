@@ -15,6 +15,18 @@ pluginManagement {
 dependencyResolutionManagement {
     repositoriesMode.set(RepositoriesMode.FAIL_ON_PROJECT_REPOS)
     repositories {
+        // Local patched miuix-ui (softer TopAppBar title crossfade)
+        exclusiveContent {
+            forRepository {
+                maven {
+                    name = "miuixLocal"
+                    url = uri(rootDir.resolve("third_party/miuix-local-maven"))
+                }
+            }
+            filter {
+                includeModule("top.yukonga.miuix.kmp", "miuix-ui-android")
+            }
+        }
         google()
         mavenCentral()
         maven { url = uri("https://jitpack.io") }

@@ -45,7 +45,7 @@ import top.yukonga.miuix.kmp.basic.IconButton as MiuixIconButton
 import top.yukonga.miuix.kmp.basic.Scaffold
 import top.yukonga.miuix.kmp.basic.Slider
 import top.yukonga.miuix.kmp.basic.Text
-import top.yukonga.miuix.kmp.basic.TopAppBar
+import top.yukonga.miuix.kmp.basic.SmallTopAppBar
 import top.yukonga.miuix.kmp.theme.MiuixTheme
 
 @Composable
@@ -70,7 +70,7 @@ private fun GesturePreferencesContent(
 ) {
     Scaffold(
         topBar = {
-            TopAppBar(
+            SmallTopAppBar(
                 title = stringResource(id = R.string.gestures),
                 navigationIcon = {
                     MiuixIconButton(
@@ -102,13 +102,21 @@ private fun GesturePreferencesContent(
                 verticalArrangement = Arrangement.spacedBy(SegmentedItemGap),
             ) {
                 PreferenceSwitch(
+                    modifier = Modifier.testTag("switch_settings_gesture_predictive_back"),
+                    title = stringResource(id = R.string.predictive_back),
+                    description = stringResource(id = R.string.predictive_back_description),
+                    icon = NextIcons.SwipeHorizontal,
+                    isChecked = uiState.applicationPreferences.shouldEnablePredictiveBack,
+                    onClick = { onEvent(GesturePreferencesUiEvent.ToggleEnablePredictiveBack) },
+                    isFirstItem = true,
+                )
+                PreferenceSwitch(
                     modifier = Modifier.testTag("switch_settings_gesture_seek"),
                     title = stringResource(id = R.string.seek_gesture),
                     description = stringResource(id = R.string.seek_gesture_description),
                     icon = NextIcons.SwipeHorizontal,
                     isChecked = uiState.preferences.shouldUseSeekControls,
                     onClick = { onEvent(GesturePreferencesUiEvent.ToggleUseSeekControls) },
-                    isFirstItem = true,
                 )
                 PreferenceSlider(
                     modifier = Modifier.testTag("item_settings_gesture_seek_sensitivity"),

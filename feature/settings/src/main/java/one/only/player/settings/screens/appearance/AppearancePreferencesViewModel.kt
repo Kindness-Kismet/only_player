@@ -53,9 +53,8 @@ class AppearancePreferencesViewModel @Inject constructor(
             AppearancePreferencesEvent.ToggleNavigateHomeOnTitleLongPress -> toggleNavigateHomeOnTitleLongPress()
             AppearancePreferencesEvent.ToggleUseFloatingNavigationBar -> toggleUseFloatingNavigationBar()
             AppearancePreferencesEvent.ToggleBlurFloatingNavigationBar -> toggleBlurFloatingNavigationBar()
-            is AppearancePreferencesEvent.ToggleEnablePredictiveBack -> {
-                toggleEnablePredictiveBack(event.isEnabled, event.onApplied)
-            }
+            AppearancePreferencesEvent.ToggleHideCloudTab -> toggleHideCloudTab()
+            AppearancePreferencesEvent.ToggleHideFavoritesTab -> toggleHideFavoritesTab()
         }
     }
 
@@ -119,44 +118,53 @@ class AppearancePreferencesViewModel @Inject constructor(
     }
 
     private fun toggleNavigateHomeOnTitleLongPress() {
+        // 乐观更新，避免等 DataStore 写回才刷新 UI 造成开关卡顿
+        val next = !uiStateInternal.value.preferences.shouldNavigateHomeOnTitleLongPress
+        uiStateInternal.update { it.copy(preferences = it.preferences.copy(shouldNavigateHomeOnTitleLongPress = next)) }
         viewModelScope.launch {
             preferencesRepository.updateApplicationPreferences {
-                it.copy(
-                    shouldNavigateHomeOnTitleLongPress = !it.shouldNavigateHomeOnTitleLongPress,
-                )
+                it.copy(shouldNavigateHomeOnTitleLongPress = next)
             }
         }
     }
 
     private fun toggleUseFloatingNavigationBar() {
+        val next = !uiStateInternal.value.preferences.shouldUseFloatingNavigationBar
+        uiStateInternal.update { it.copy(preferences = it.preferences.copy(shouldUseFloatingNavigationBar = next)) }
         viewModelScope.launch {
             preferencesRepository.updateApplicationPreferences {
-                it.copy(
-                    shouldUseFloatingNavigationBar = !it.shouldUseFloatingNavigationBar,
-                )
+                it.copy(shouldUseFloatingNavigationBar = next)
             }
         }
     }
 
     private fun toggleBlurFloatingNavigationBar() {
+        val next = !uiStateInternal.value.preferences.shouldBlurFloatingNavigationBar
+        uiStateInternal.update { it.copy(preferences = it.preferences.copy(shouldBlurFloatingNavigationBar = next)) }
         viewModelScope.launch {
             preferencesRepository.updateApplicationPreferences {
-                it.copy(
-                    shouldBlurFloatingNavigationBar = !it.shouldBlurFloatingNavigationBar,
-                )
+                it.copy(shouldBlurFloatingNavigationBar = next)
             }
         }
     }
 
-    private fun toggleEnablePredictiveBack(
-        isEnabled: Boolean,
-        onApplied: () -> Unit,
-    ) {
+    private fun toggleHideCloudTab() {
+        val next = !uiStateInternal.value.preferences.shouldHideCloudTab
+        uiStateInternal.update { it.copy(preferences = it.preferences.copy(shouldHideCloudTab = next)) }
         viewModelScope.launch {
             preferencesRepository.updateApplicationPreferences {
-                it.copy(shouldEnablePredictiveBack = isEnabled)
+                it.copy(shouldHideCloudTab = next)
             }
-            onApplied()
+        }
+    }
+
+    private fun toggleHideFavoritesTab() {
+        val next = !uiStateInternal.value.preferences.shouldHideFavoritesTab
+        uiStateInternal.update { it.copy(preferences = it.preferences.copy(shouldHideFavoritesTab = next)) }
+        viewModelScope.launch {
+            preferencesRepository.updateApplicationPreferences {
+                it.copy(shouldHideFavoritesTab = next)
+            }
         }
     }
 }
@@ -184,10 +192,8 @@ sealed interface AppearancePreferencesEvent {
     data object ToggleNavigateHomeOnTitleLongPress : AppearancePreferencesEvent
     data object ToggleUseFloatingNavigationBar : AppearancePreferencesEvent
     data object ToggleBlurFloatingNavigationBar : AppearancePreferencesEvent
-    data class ToggleEnablePredictiveBack(
-        val isEnabled: Boolean,
-        val onApplied: () -> Unit,
-    ) : AppearancePreferencesEvent
+    data object ToggleHideCloudTab : AppearancePreferencesEvent
+    data object ToggleHideFavoritesTab : AppearancePreferencesEvent
 }
 
 sealed interface AppearancePreferenceDialog {

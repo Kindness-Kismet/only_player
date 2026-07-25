@@ -36,11 +36,13 @@ import androidx.media3.common.Player
 import androidx.media3.common.listen
 import one.only.player.core.common.extensions.isPipFeatureSupported
 import one.only.player.core.ui.R as coreUiR
+import one.only.player.feature.player.service.handlePreviousClick
 
 @Composable
 fun rememberPictureInPictureState(
     player: Player,
     shouldAutoEnter: Boolean = true,
+    shouldRestartCurrentOnPreviousClick: Boolean = true,
 ): PictureInPictureState {
     val activity = LocalActivity.current
     val pictureInPictureState = remember {
@@ -48,7 +50,11 @@ fun rememberPictureInPictureState(
             player = player,
             activity = activity as ComponentActivity,
             shouldAutoEnter = shouldAutoEnter,
+            shouldRestartCurrentOnPreviousClickProvider = { shouldRestartCurrentOnPreviousClick },
         )
+    }
+    pictureInPictureState.shouldRestartCurrentOnPreviousClickProvider = {
+        shouldRestartCurrentOnPreviousClick
     }
     DisposableEffect(activity) { pictureInPictureState.handleListeners(this) }
     LaunchedEffect(player) { pictureInPictureState.observe() }
@@ -60,6 +66,7 @@ class PictureInPictureState(
     private val player: Player,
     private val activity: ComponentActivity,
     private val shouldAutoEnter: Boolean = true,
+    var shouldRestartCurrentOnPreviousClickProvider: () -> Boolean = { true },
 ) {
     companion object {
         private const val PIP_INTENT_ACTION = "pip_action"
@@ -142,7 +149,9 @@ class PictureInPictureState(
                     PIP_ACTION_PLAY -> player.play()
                     PIP_ACTION_PAUSE -> player.pause()
                     PIP_ACTION_NEXT -> player.seekToNext()
-                    PIP_ACTION_PREVIOUS -> player.seekToPrevious()
+                    PIP_ACTION_PREVIOUS -> player.handlePreviousClick(
+                        shouldRestartCurrentOnPreviousClick = shouldRestartCurrentOnPreviousClickProvider(),
+                    )
                 }
             }
         }

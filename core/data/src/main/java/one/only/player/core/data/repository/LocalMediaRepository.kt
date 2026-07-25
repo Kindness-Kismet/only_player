@@ -151,6 +151,28 @@ class LocalMediaRepository @Inject constructor(
         )
     }
 
+    override suspend fun updateMediumDecoderPriority(uri: String, decoderPriority: String?) {
+        val canonicalMediaUri = resolveCanonicalMediaUri(uri)
+        val stateEntity = mediumStateDao.get(canonicalMediaUri) ?: MediumStateEntity(uriString = canonicalMediaUri)
+        mediumStateDao.upsert(
+            mediumState = stateEntity.copy(
+                decoderPriority = decoderPriority?.takeIf { it.isNotBlank() },
+                lastPlayedTime = System.currentTimeMillis(),
+            ),
+        )
+    }
+
+    override suspend fun updateMediumContentScale(uri: String, contentScale: String?) {
+        val canonicalMediaUri = resolveCanonicalMediaUri(uri)
+        val stateEntity = mediumStateDao.get(canonicalMediaUri) ?: MediumStateEntity(uriString = canonicalMediaUri)
+        mediumStateDao.upsert(
+            mediumState = stateEntity.copy(
+                contentScale = contentScale?.takeIf { it.isNotBlank() },
+                lastPlayedTime = System.currentTimeMillis(),
+            ),
+        )
+    }
+
     override suspend fun addExternalSubtitleToMedium(uri: String, subtitleUri: Uri) {
         val canonicalMediaUri = resolveCanonicalMediaUri(uri)
         val stateEntity = mediumStateDao.get(canonicalMediaUri) ?: MediumStateEntity(uriString = canonicalMediaUri)

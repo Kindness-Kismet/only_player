@@ -86,7 +86,7 @@ fun QuickSettingsDialog(
             Column(
                 modifier = Modifier
                     .fillMaxWidth()
-                    .heightIn(max = configuration.screenHeightDp.dp * 0.58f)
+                    .heightIn(max = configuration.screenHeightDp.dp * 0.72f)
                     .verticalScroll(rememberScrollState()),
             ) {
                 if (target == QuickSettingsTarget.LOCAL) {
@@ -544,7 +544,8 @@ private fun DialogSectionTitle(text: String) {
     Text(
         text = text,
         style = MiuixTheme.textStyles.title4,
-        modifier = Modifier.padding(top = 16.dp, bottom = 8.dp),
+        // 对齐设置页 OverlayDropdownPreference 的紧凑标题间距
+        modifier = Modifier.padding(top = 12.dp, bottom = 8.dp),
     )
 }
 

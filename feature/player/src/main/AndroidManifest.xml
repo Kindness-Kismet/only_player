@@ -760,12 +760,15 @@
             android:windowSoftInputMode="adjustResize"
             tools:targetApi="o" />
 
+        <!-- exported=false：外 App 仍不可 bind。
+             必须保留 MediaSessionService intent-filter，否则 SessionToken 构造失败、无法播放。
+             系统媒体卡片靠 PlayerService 代码侧 suppress（onGetSession/onConnect/hider），不靠删过滤器。 -->
         <service
             android:name=".service.PlayerService"
-            android:exported="true"
+            android:exported="false"
             android:foregroundServiceType="mediaPlayback">
             <intent-filter>
-                <action android:name="androidx.media3.session.MediaSessionService"/>
+                <action android:name="androidx.media3.session.MediaSessionService" />
             </intent-filter>
         </service>
     </application>

@@ -10,9 +10,47 @@ import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalConfiguration
+import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import top.yukonga.miuix.kmp.window.WindowDialog
+import top.yukonga.miuix.kmp.basic.Text as MiuixText
+import top.yukonga.miuix.kmp.theme.MiuixTheme
+
+@Composable
+fun NextDialog(
+    onDismissRequest: () -> Unit,
+    title: @Composable () -> Unit,
+    content: @Composable () -> Unit,
+    modifier: Modifier = Modifier,
+    confirmButton: @Composable () -> Unit,
+    dismissButton: @Composable (() -> Unit)? = null,
+) {
+    val configuration = LocalConfiguration.current
+
+    WindowDialog(
+        show = true,
+        modifier = modifier
+            .widthIn(max = configuration.screenWidthDp.dp - NextDialogDefaults.dialogMargin * 2),
+        onDismissRequest = onDismissRequest,
+    ) {
+        Column {
+            Column {
+                title()
+            }
+            Column(
+                modifier = Modifier.fillMaxWidth(),
+            ) {
+                content()
+            }
+            NextDialogButtonRow(
+                confirmButton = confirmButton,
+                dismissButton = dismissButton,
+            )
+        }
+    }
+}
 
 @Composable
 fun NextDialog(
@@ -29,10 +67,23 @@ fun NextDialog(
         show = true,
         modifier = modifier
             .widthIn(max = configuration.screenWidthDp.dp - NextDialogDefaults.dialogMargin * 2),
-        title = title,
         onDismissRequest = onDismissRequest,
     ) {
         Column {
+            // 字符串标题：略小于 title2，加粗居中，并与内容留距
+            Column(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(bottom = 10.dp),
+                horizontalAlignment = Alignment.CenterHorizontally,
+            ) {
+                MiuixText(
+                    text = title,
+                    style = MiuixTheme.textStyles.title3.copy(fontWeight = FontWeight.Bold),
+                    textAlign = TextAlign.Center,
+                    modifier = Modifier.fillMaxWidth(),
+                )
+            }
             Column(
                 modifier = Modifier.fillMaxWidth(),
             ) {

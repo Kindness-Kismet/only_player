@@ -64,6 +64,8 @@
     <string name="on">開啟</string>
     <string name="subtitle_text_bold_desc">使用粗體文字於字幕</string>
     <string name="none">無</string>
+    <string name="restart_current_on_previous">上一鍵重播目前</string>
+    <string name="restart_current_on_previous_description">點第一下重播目前影片，已在開頭附近再點則跳到上一影片</string>
     <string name="autoplay_settings">自動播放</string>
     <string name="resume_description">選擇是否從你停止時的進度再續播放影片</string>
     <string name="grant_permission">授予權限</string>
@@ -190,7 +192,7 @@
     <string name="video_filters">影片濾鏡</string>
     <string name="enable_video_filters">啟用影片濾鏡</string>
     <string name="enable_video_filters_description">關閉後跳過 GPU 影片濾鏡以節省電量</string>
-    <string name="video_filters_unavailable_software_decoder">軟體解碼不支援影片濾鏡</string>
+    <string name="video_filters_unavailable_software_decoder">不支援影片濾鏡</string>
     <string name="fast_seek">快速跳轉</string>
     <string name="select_playback_speed">選擇播放速度</string>
     <string name="seek_gesture">跳轉手勢</string>
@@ -198,7 +200,7 @@
     <string name="permission_info">Only Player 應用程式需要 \"%1$s\" 權限以存取或播放媒體。沒有它，媒體存取與播放功能將無法工作。要完整地使用此應用程式，請授予權限。</string>
     <string name="settings">設定</string>
     <string name="z_a">Z-A</string>
-    <string name="decoder_desc">解碼器、影片濾鏡選項</string>
+    <string name="decoder_desc">影片濾鏡選項</string>
     <string name="video_orientation">影片方向</string>
     <string name="ambience_mode">氛圍模式</string>
     <string name="remember_player_screen_orientation">記住旋轉方向</string>
@@ -422,6 +424,7 @@
     <string name="clear_history">清除記錄</string>
     <string name="no_results_found">找不到結果</string>
     <string name="now_playing">現正播放</string>
+    <string name="playlist">播放清單</string>
     <string name="no_videos_in_queue">佇列中沒有影片</string>
     <string name="reorder">重新排序</string>
     <string name="remove">移除</string>
@@ -540,9 +543,11 @@
     <string name="floating_navigation_bar_description">使用圓角懸浮底部導覽列</string>
     <string name="floating_navigation_bar_blur">懸浮列模糊</string>
     <string name="floating_navigation_bar_blur_description">為懸浮導覽列啟用背景模糊和半透明效果</string>
-    <string name="predictive_back_gesture">預測性返回手勢</string>
-    <string name="predictive_back_gesture_description">啟用預測性返回手勢支援</string>
-    <string name="take_screenshot">截圖</string>
+        <string name="hide_cloud_tab">隱藏雲端標籤</string>
+    <string name="hide_cloud_tab_description">從底部導航欄隱藏雲端標籤頁</string>
+    <string name="hide_favorites_tab">隱藏收藏標籤</string>
+    <string name="hide_favorites_tab_description">從底部導航欄隱藏收藏標籤頁</string>
+<string name="take_screenshot">截圖</string>
     <string name="screenshot_saved">截圖已儲存到 Pictures/Screenshots</string>
     <string name="screenshot_failed">截圖儲存失敗</string>
     <string name="customize_player_controls">自訂控制項</string>
@@ -550,4 +555,46 @@
     <string name="add_playback_mark">新增標記</string>
     <string name="no_playback_marks">暫無標記</string>
     <string name="delete_mark">刪除標記</string>
+    <string name="predictive_back">預測性返回手勢</string>
+    <string name="predictive_back_description">巢狀頁面使用 Android 預測性返回手勢</string>
+
+    <string name="file_extensions">檔案副檔名</string>
+    <string name="file_extensions_description">自訂識別的副檔名及其預設解碼方式</string>
+    <string name="file_extensions_add">新增副檔名</string>
+    <string name="file_extensions_add_hint">例如 mkv</string>
+    <string name="file_extensions_delete">刪除副檔名</string>
+    <string name="file_extensions_built_in">內建</string>
+    <string name="file_extensions_custom">自訂</string>
+    <string name="file_extensions_decoder">預設解碼方式</string>
+    <string name="file_extensions_already_exists">此副檔名已存在</string>
+    <string name="file_extensions_invalid">請輸入有效副檔名</string>
+
+    <string name="file_extensions_all_files_access_hint">自訂副檔名需要開啟「所有檔案存取」權限。未開啟時只能識別系統媒體庫已收錄的檔案。</string>
+    <string name="file_extensions_long_press_hint">長按副檔名可多選並批次設定解碼方式</string>
+    <string name="file_extensions_batch_set_decoder">為選取項目設定解碼方式</string>
+    <string name="file_extensions_batch_selected">已選 %1$d 項</string>
+    <string name="file_extensions_selected">已選取</string>
+    <string name="file_extensions_restore_defaults">恢復預設</string>
+    <string name="keep_hidden_control_slots">隱藏控件保留空位</string>
+    <string name="keep_hidden_control_slots_description">舊版控件自訂時，關掉的控件仍占位，其餘控件位置保持固定</string>
+
+
+    <string name="media_session_visibility">系統媒體控件</string>
+    <string name="media_session_visibility_description">是否出現在系統內建媒體播放器/通知裡</string>
+    <string name="media_session_visibility_show">顯示</string>
+    <string name="media_session_visibility_hide">不顯示</string>
+    <string name="media_session_visibility_audio_only">僅播放 MP3 時顯示</string>
+<string name="player_icon_style_transparent">全透</string>
+    <string name="volume_brightness_indicator">亮度/音量指示</string>
+    <string name="volume_brightness_indicator_bar">側邊條</string>
+    <string name="volume_brightness_indicator_center_text">置中百分比文字</string>
+    <string name="controls_customize">自訂</string>
+    <string name="notification_channel_player_name">播放服務</string>
+    <string name="notification_channel_player_description">背景播放服務</string>
+    <string name="playing_in_background">正在播放</string>
+    <string name="remember_decoder_per_extension">記住解碼方式</string>
+    <string name="remember_decoder_per_extension_description">播放器內切換解碼時，依副檔名分別記住</string>
+    <string name="remember_video_scale_for_this_file">記住該檔案縮放方式</string>
+    <string name="remember_decoder_for_this_file">記住該檔案解碼方式</string>
+    <string name="remember_orientation_for_this_file">是否記住該檔案旋轉方式</string>
 </resources>

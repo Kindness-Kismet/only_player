@@ -8,7 +8,6 @@ import android.media.MediaMetadataRetriever
 import android.net.Uri
 import android.os.SystemClock
 import android.provider.MediaStore
-import android.webkit.MimeTypeMap
 import androidx.core.net.toUri
 import coil3.ImageLoader
 import dagger.hilt.android.qualifiers.ApplicationContext
@@ -78,6 +77,34 @@ class LocalMediaSynchronizer @Inject constructor(
     private var targetedRefreshSuppressUntilMillis: Long = 0L
     private var deferredAutomaticSyncJob: Job? = null
     private val syncMutex = Mutex()
+    @Volatile
+    private var cachedKnownVideoExtensions: Set<String> = KNOWN_VIDEO_EXTENSIONS
+
+    init {
+        applicationScope.launch(dispatcher) {
+            var previousExtensions: Set<String>? = null
+            appPreferencesDataSource.preferences.collect { preferences ->
+                // 用户 allow-list 权威：空集合表示不识别任何扩展名（不再回退默认列表）
+                val extensions = preferences.knownVideoExtensions()
+                val previous = previousExtensions
+                cachedKnownVideoExtensions = extensions
+                previousExtensions = extensions
+                // 扩展名集合变化时自动全量刷新，删除的后缀从媒体库消失
+                if (previous != null && previous != extensions) {
+                    Logger.info(
+                        TAG,
+                        "Extension set changed prev=${previous.size} next=${extensions.size}, triggering refresh",
+                    )
+                    launch {
+                        runCatching { refresh() }
+                            .onFailure { throwable ->
+                                Logger.error(TAG, "Failed to refresh after extension change", throwable)
+                            }
+                    }
+                }
+            }
+        }
+    }
 
     override suspend fun refresh(path: String?): Boolean = withContext(dispatcher) {
         if (path != null) {
@@ -460,10 +487,11 @@ class LocalMediaSynchronizer @Inject constructor(
             emptyList()
         }
 
+        // mediaStore 已在 getMediaVideo 过滤；manual / nomedia 走 isVisibleVideoFile
         val combinedVisibleMedia = mediaStoreVideos + manuallyDiscoveredVideos
         Logger.info(
             TAG,
-            "mergeVisibleMedia result mediaStore=${mediaStoreVideos.size} manual=${manuallyDiscoveredVideos.size} combined=${combinedVisibleMedia.size} noMedia=$shouldIgnoreNoMediaFiles manageAccess=$hasAllFilesAccess",
+            "mergeVisibleMedia result mediaStore=${mediaStoreVideos.size} manual=${manuallyDiscoveredVideos.size} combined=${combinedVisibleMedia.size} allowedExt=${cachedKnownVideoExtensions.size} noMedia=$shouldIgnoreNoMediaFiles manageAccess=$hasAllFilesAccess",
         )
         if (!shouldIgnoreNoMediaFiles || !hasAllFilesAccess) {
             return@withContext combinedVisibleMedia
@@ -731,7 +759,11 @@ class LocalMediaSynchronizer @Inject constructor(
                 )
             }
         }
-        return mediaVideos.filter { File(it.data).exists() }
+        // MediaStore 结果也必须过扩展名 allow-list，否则删除内置扩展名仍会进入媒体库
+        return mediaVideos.filter { mediaVideo ->
+            val file = File(mediaVideo.data)
+            file.exists() && file.isAllowedByExtensionList()
+        }
     }
 
     private fun File.collectNoMediaVideos(hasNoMediaAncestor: Boolean = false): List<MediaVideo> {
@@ -782,15 +814,20 @@ class LocalMediaSynchronizer @Inject constructor(
     private fun File.isVisibleVideoFile(): Boolean {
         if (!isFile) return false
         if (name.startsWith(".trashed-")) return false
+        return isAllowedByExtensionList()
+    }
 
+    /**
+     * 扩展名 allow-list 权威判定。
+     * - 回收站特殊后缀始终可见
+     * - 空 allow-list = 不识别任何普通视频后缀（用户清空列表时生效）
+     * - 不再用 video MIME 类型兜底，避免删除内置扩展名后仍被扫描/播放
+     */
+    private fun File.isAllowedByExtensionList(): Boolean {
         if (extension.equals(RECYCLE_BIN_EXTENSION, ignoreCase = true)) return true
-
         val extensionName = extension.lowercase()
         if (extensionName.isBlank()) return false
-        if (extensionName in KNOWN_VIDEO_EXTENSIONS) return true
-
-        val mimeType = MimeTypeMap.getSingleton().getMimeTypeFromExtension(extensionName)
-        return mimeType?.startsWith("video/") == true
+        return extensionName in cachedKnownVideoExtensions
     }
 
     // 不使用 MediaMetadataRetriever，避免大文件解析阻塞

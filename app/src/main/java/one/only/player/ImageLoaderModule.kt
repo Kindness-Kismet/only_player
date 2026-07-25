@@ -4,6 +4,7 @@ import android.content.Context
 import coil3.ImageLoader
 import coil3.disk.DiskCache
 import coil3.disk.directory
+import coil3.memory.MemoryCache
 import coil3.request.CachePolicy
 import coil3.request.crossfade
 import dagger.Module
@@ -40,14 +41,22 @@ object ImageLoaderModule {
                 ),
             )
         }
+        .memoryCachePolicy(CachePolicy.ENABLED)
+        .memoryCache {
+            MemoryCache.Builder()
+                // 播放器页需要留给 ExoPlayer / Compose，缩略图内存缓存压到约 12%
+                .maxSizePercent(context, percent = 0.12)
+                .build()
+        }
         .diskCachePolicy(CachePolicy.ENABLED)
-        .diskCache(
+        .diskCache {
             DiskCache.Builder()
                 .fileSystem(FileSystem.SYSTEM)
                 .directory(context.filesDir.resolve("thumbnails"))
-                .maxSizePercent(1.0)
-                .build(),
-        )
+                // 原 100% 磁盘缓存会间接抬高峰值内存；压到 15%
+                .maxSizePercent(0.15)
+                .build()
+        }
         .crossfade(true)
         .build()
 }

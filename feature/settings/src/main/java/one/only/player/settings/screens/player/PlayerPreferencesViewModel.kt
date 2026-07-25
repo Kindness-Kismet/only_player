@@ -13,9 +13,12 @@ import one.only.player.core.common.extensions.round
 import one.only.player.core.data.repository.PreferencesRepository
 import one.only.player.core.model.ControlButtonsPosition
 import one.only.player.core.model.ControllerAutoHidePreset
+import one.only.player.core.model.MediaSessionVisibility
 import one.only.player.core.model.PlayerControl
 import one.only.player.core.model.PlayerControlsStyle
 import one.only.player.core.model.PlayerIconStyle
+import one.only.player.core.model.normalized
+import one.only.player.core.model.VolumeBrightnessIndicatorStyle
 import one.only.player.core.model.PlayerPreferences
 import one.only.player.core.model.Resume
 import one.only.player.core.model.ScreenOrientation
@@ -50,6 +53,7 @@ class PlayerPreferencesViewModel @Inject constructor(
             PlayerPreferencesUiEvent.ToggleAutoBackgroundPlay -> toggleAutoBackgroundPlay()
             PlayerPreferencesUiEvent.ToggleRememberBrightnessLevel -> toggleRememberBrightnessLevel()
             PlayerPreferencesUiEvent.ToggleRememberPlayerScreenOrientation -> toggleRememberPlayerScreenOrientation()
+            PlayerPreferencesUiEvent.ToggleRestartCurrentOnPreviousClick -> toggleRestartCurrentOnPreviousClick()
             is PlayerPreferencesUiEvent.UpdatePreferredPlayerOrientation -> updatePreferredPlayerOrientation(event.value)
             is PlayerPreferencesUiEvent.UpdatePreferredControlButtonsPosition -> updatePreferredControlButtonsPosition(event.value)
             is PlayerPreferencesUiEvent.UpdateDefaultPlaybackSpeed -> updateDefaultPlaybackSpeed(event.value)
@@ -59,6 +63,9 @@ class PlayerPreferencesViewModel @Inject constructor(
             is PlayerPreferencesUiEvent.UpdateControlsStyle -> updateControlsStyle(event.value)
             PlayerPreferencesUiEvent.ToggleDimVideoWhenControlsVisible -> toggleDimVideoWhenControlsVisible()
             PlayerPreferencesUiEvent.TogglePlayerControlLabels -> togglePlayerControlLabels()
+            PlayerPreferencesUiEvent.ToggleKeepHiddenControlSlots -> toggleKeepHiddenControlSlots()
+            is PlayerPreferencesUiEvent.UpdateMediaSessionVisibility -> updateMediaSessionVisibility(event.value)
+            is PlayerPreferencesUiEvent.UpdateVolumeBrightnessIndicatorStyle -> updateVolumeBrightnessIndicatorStyle(event.value)
             is PlayerPreferencesUiEvent.UpdateHiddenPlayerControls -> updateHiddenPlayerControls(event.value)
         }
     }
@@ -86,6 +93,14 @@ class PlayerPreferencesViewModel @Inject constructor(
         viewModelScope.launch {
             preferencesRepository.updatePlayerPreferences {
                 it.copy(shouldAutoPlay = !it.shouldAutoPlay)
+            }
+        }
+    }
+
+    private fun toggleRestartCurrentOnPreviousClick() {
+        viewModelScope.launch {
+            preferencesRepository.updatePlayerPreferences {
+                it.copy(shouldRestartCurrentOnPreviousClick = !it.shouldRestartCurrentOnPreviousClick)
             }
         }
     }
@@ -139,11 +154,17 @@ class PlayerPreferencesViewModel @Inject constructor(
                 val shouldRememberPlayerScreenOrientation = !it.shouldRememberPlayerScreenOrientation
                 it.copy(
                     shouldRememberPlayerScreenOrientation = shouldRememberPlayerScreenOrientation,
-                    lastPlayerScreenOrientation = null,
+                    // 关闭时清空；开启时保留已有记录
+                    lastPlayerScreenOrientation = if (shouldRememberPlayerScreenOrientation) {
+                        it.lastPlayerScreenOrientation
+                    } else {
+                        null
+                    },
                 )
             }
         }
     }
+
 
     private fun updatePreferredControlButtonsPosition(value: ControlButtonsPosition) {
         viewModelScope.launch {
@@ -183,7 +204,7 @@ class PlayerPreferencesViewModel @Inject constructor(
     private fun updatePlayerIconStyle(value: PlayerIconStyle) {
         viewModelScope.launch {
             preferencesRepository.updatePlayerPreferences {
-                it.copy(playerIconStyle = value)
+                it.copy(playerIconStyle = value.normalized())
             }
         }
     }
@@ -212,6 +233,30 @@ class PlayerPreferencesViewModel @Inject constructor(
         }
     }
 
+    private fun toggleKeepHiddenControlSlots() {
+        viewModelScope.launch {
+            preferencesRepository.updatePlayerPreferences {
+                it.copy(shouldKeepHiddenControlSlots = !it.shouldKeepHiddenControlSlots)
+            }
+        }
+    }
+
+    private fun updateMediaSessionVisibility(value: MediaSessionVisibility) {
+        viewModelScope.launch {
+            preferencesRepository.updatePlayerPreferences {
+                it.copy(mediaSessionVisibility = value)
+            }
+        }
+    }
+
+    private fun updateVolumeBrightnessIndicatorStyle(value: VolumeBrightnessIndicatorStyle) {
+        viewModelScope.launch {
+            preferencesRepository.updatePlayerPreferences {
+                it.copy(volumeBrightnessIndicatorStyle = value)
+            }
+        }
+    }
+
     private fun updateHiddenPlayerControls(value: Set<PlayerControl>) {
         viewModelScope.launch {
             preferencesRepository.updatePlayerPreferences {
@@ -233,6 +278,8 @@ sealed interface PlayerPreferenceDialog {
     data object ControlButtonsDialog : PlayerPreferenceDialog
     data object PlayerIconStyleDialog : PlayerPreferenceDialog
     data object ControlsStyleDialog : PlayerPreferenceDialog
+    data object VolumeBrightnessIndicatorDialog : PlayerPreferenceDialog
+    data object MediaSessionVisibilityDialog : PlayerPreferenceDialog
 }
 
 sealed interface PlayerPreferencesUiEvent {
@@ -244,7 +291,9 @@ sealed interface PlayerPreferencesUiEvent {
     data object ToggleAutoBackgroundPlay : PlayerPreferencesUiEvent
     data object ToggleRememberBrightnessLevel : PlayerPreferencesUiEvent
     data object ToggleRememberPlayerScreenOrientation : PlayerPreferencesUiEvent
+    data object ToggleRestartCurrentOnPreviousClick : PlayerPreferencesUiEvent
     data object TogglePlayerControlLabels : PlayerPreferencesUiEvent
+    data object ToggleKeepHiddenControlSlots : PlayerPreferencesUiEvent
     data class UpdatePreferredPlayerOrientation(val value: ScreenOrientation) : PlayerPreferencesUiEvent
     data class UpdatePreferredControlButtonsPosition(val value: ControlButtonsPosition) : PlayerPreferencesUiEvent
     data class UpdateDefaultPlaybackSpeed(val value: Float) : PlayerPreferencesUiEvent
@@ -252,6 +301,8 @@ sealed interface PlayerPreferencesUiEvent {
     data class UpdateControlAutoHideTimeout(val value: Int) : PlayerPreferencesUiEvent
     data class UpdatePlayerIconStyle(val value: PlayerIconStyle) : PlayerPreferencesUiEvent
     data class UpdateControlsStyle(val value: PlayerControlsStyle) : PlayerPreferencesUiEvent
+    data class UpdateMediaSessionVisibility(val value: MediaSessionVisibility) : PlayerPreferencesUiEvent
+    data class UpdateVolumeBrightnessIndicatorStyle(val value: VolumeBrightnessIndicatorStyle) : PlayerPreferencesUiEvent
     data class UpdateHiddenPlayerControls(val value: Set<PlayerControl>) : PlayerPreferencesUiEvent
     data object ToggleDimVideoWhenControlsVisible : PlayerPreferencesUiEvent
 }

@@ -39,7 +39,7 @@ import one.only.player.settings.extensions.name
 import top.yukonga.miuix.kmp.basic.Icon as MiuixIcon
 import top.yukonga.miuix.kmp.basic.IconButton as MiuixIconButton
 import top.yukonga.miuix.kmp.basic.Scaffold
-import top.yukonga.miuix.kmp.basic.TopAppBar
+import top.yukonga.miuix.kmp.basic.SmallTopAppBar
 import top.yukonga.miuix.kmp.theme.MiuixTheme
 
 @Composable
@@ -62,11 +62,12 @@ private fun DecoderPreferencesContent(
     onEvent: (DecoderPreferencesUiEvent) -> Unit,
     onNavigateUp: () -> Unit,
 ) {
+
     val preferences = uiState.preferences
 
     Scaffold(
         topBar = {
-            TopAppBar(
+            SmallTopAppBar(
                 title = stringResource(id = R.string.video_processing),
                 navigationIcon = {
                     MiuixIconButton(
@@ -94,48 +95,12 @@ private fun DecoderPreferencesContent(
                 .padding(top = SettingsContentTopPadding)
                 .padding(horizontal = 16.dp),
         ) {
-            Column(
-                verticalArrangement = Arrangement.spacedBy(SegmentedItemGap),
-            ) {
-                ClickablePreferenceItem(
-                    modifier = Modifier.testTag("item_settings_decoder_priority"),
-                    title = stringResource(R.string.decoder_priority),
-                    description = preferences.decoderPriority.name(),
-                    icon = NextIcons.Priority,
-                    onClick = { onEvent(DecoderPreferencesUiEvent.ShowDialog(DecoderPreferenceDialog.DecoderPriorityDialog)) },
-                    isFirstItem = true,
-                    isLastItem = true,
-                )
-            }
-
+            // 全局解码器入口已移除，改由媒体库「文件扩展名」按后缀单独设置
             ListSectionTitle(text = stringResource(id = R.string.video_filters))
             VideoFiltersSettings(
                 preferences = preferences,
                 onEvent = onEvent,
             )
-        }
-
-        uiState.showDialog?.let { showDialog ->
-            when (showDialog) {
-                DecoderPreferenceDialog.DecoderPriorityDialog -> {
-                    OptionsDialog(
-                        text = stringResource(id = R.string.decoder_priority),
-                        onDismissClick = { onEvent(DecoderPreferencesUiEvent.ShowDialog(null)) },
-                    ) {
-                        items(DecoderPriority.entries.toTypedArray()) {
-                            RadioTextButton(
-                                modifier = Modifier.testTag("option_settings_decoder_priority_${it.name.lowercase()}"),
-                                text = it.name(),
-                                isSelected = it == preferences.decoderPriority,
-                                onClick = {
-                                    onEvent(DecoderPreferencesUiEvent.UpdateDecoderPriority(it))
-                                    onEvent(DecoderPreferencesUiEvent.ShowDialog(null))
-                                },
-                            )
-                        }
-                    }
-                }
-            }
         }
     }
 }

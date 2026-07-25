@@ -595,10 +595,14 @@ private fun SearchDeleteConfirmationDialog(
     val totalSize = selectedVideoList.sumOf(SelectedVideo::size)
     NextDialog(
         onDismissRequest = onCancel,
-        title = if (isRecycleBinEnabled) {
-            stringResource(R.string.move_to_recycle_bin)
-        } else {
-            stringResource(R.string.delete_videos, selectedVideoList.size)
+        title = {
+            Text(
+                text = if (isRecycleBinEnabled) {
+                    stringResource(R.string.move_to_recycle_bin)
+                } else {
+                    stringResource(R.string.delete_videos, selectedVideoList.size)
+                },
+            )
         },
         content = {
             val warningText = stringResource(

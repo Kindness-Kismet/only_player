@@ -50,10 +50,12 @@ def shell_quote_pwsh(value: str) -> str:
 def build_command(executable: str | Path, args: list[str]) -> list[str]:
     executable_text = str(executable)
     if os.name == "nt" and executable_text.lower().endswith((".bat", ".cmd")):
+        # Prefer WindowsPowerShell when pwsh is unavailable.
+        shell = shutil.which("pwsh") or shutil.which("powershell") or "powershell"
         command_line = "& " + shell_quote_pwsh(executable_text)
         for arg in args:
             command_line += " " + shell_quote_pwsh(arg)
-        return ["pwsh", "-NoProfile", "-Command", command_line]
+        return [shell, "-NoProfile", "-Command", command_line]
     return [executable_text, *args]
 
 

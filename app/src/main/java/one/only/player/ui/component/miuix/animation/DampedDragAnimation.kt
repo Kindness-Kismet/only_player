@@ -20,7 +20,7 @@ import one.only.player.ui.component.miuix.modifier.inspectDragGestures
 class DampedDragAnimation(
     private val animationScope: CoroutineScope,
     val initialValue: Float,
-    val valueRange: ClosedRange<Float>,
+    valueRange: ClosedRange<Float>,
     val visibilityThreshold: Float,
     val initialScale: Float,
     val pressedScale: Float,
@@ -29,6 +29,21 @@ class DampedDragAnimation(
     val onDragStopped: DampedDragAnimation.() -> Unit,
     val onDrag: DampedDragAnimation.(size: IntSize, dragAmount: Offset) -> Unit,
 ) {
+    var valueRange: ClosedRange<Float> = valueRange
+        private set
+
+    fun updateValueRange(range: ClosedRange<Float>) {
+        valueRange = range
+        val clamped = value.coerceIn(range)
+        if (clamped != value) {
+            animationScope.launch {
+                mutatorMutex.mutate {
+                    valueAnimation.snapTo(clamped)
+                    velocityAnimation.snapTo(0f)
+                }
+            }
+        }
+    }
 
     private val valueAnimationSpec =
         spring(1f, 1000f, visibilityThreshold)
@@ -118,6 +133,16 @@ class DampedDragAnimation(
         val targetValue = value.coerceIn(valueRange)
         animationScope.launch {
             launch { valueAnimation.animateTo(targetValue, valueAnimationSpec) { updateVelocity() } }
+        }
+    }
+
+    fun snapToValue(value: Float) {
+        val targetValue = value.coerceIn(valueRange)
+        animationScope.launch {
+            mutatorMutex.mutate {
+                valueAnimation.snapTo(targetValue)
+                velocityAnimation.snapTo(0f)
+            }
         }
     }
 

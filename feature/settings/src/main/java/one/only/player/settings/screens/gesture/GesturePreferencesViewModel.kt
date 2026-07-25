@@ -11,6 +11,7 @@ import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
 import one.only.player.core.common.extensions.round
 import one.only.player.core.data.repository.PreferencesRepository
+import one.only.player.core.model.ApplicationPreferences
 import one.only.player.core.model.DoubleTapGesture
 import one.only.player.core.model.PlayerPreferences
 
@@ -22,6 +23,7 @@ class GesturePreferencesViewModel @Inject constructor(
     private val uiStateInternal = MutableStateFlow(
         GesturePreferencesUiState(
             preferences = preferencesRepository.playerPreferences.value,
+            applicationPreferences = preferencesRepository.applicationPreferences.value,
         ),
     )
     val uiState = uiStateInternal.asStateFlow()
@@ -30,6 +32,11 @@ class GesturePreferencesViewModel @Inject constructor(
         viewModelScope.launch {
             preferencesRepository.playerPreferences.collect { preferences ->
                 uiStateInternal.update { it.copy(preferences = preferences) }
+            }
+        }
+        viewModelScope.launch {
+            preferencesRepository.applicationPreferences.collect { preferences ->
+                uiStateInternal.update { it.copy(applicationPreferences = preferences) }
             }
         }
     }
@@ -51,6 +58,7 @@ class GesturePreferencesViewModel @Inject constructor(
             is GesturePreferencesUiEvent.UpdateSeekSensitivity -> updateSeekSensitivity(event.value)
             is GesturePreferencesUiEvent.UpdateVolumeGestureSensitivity -> updateVolumeGestureSensitivity(event.value)
             is GesturePreferencesUiEvent.UpdateBrightnessGestureSensitivity -> updateBrightnessGestureSensitivity(event.value)
+            GesturePreferencesUiEvent.ToggleEnablePredictiveBack -> toggleEnablePredictiveBack()
         }
     }
 
@@ -182,12 +190,21 @@ class GesturePreferencesViewModel @Inject constructor(
             }
         }
     }
+
+    private fun toggleEnablePredictiveBack() {
+        viewModelScope.launch {
+            preferencesRepository.updateApplicationPreferences {
+                it.copy(shouldEnablePredictiveBack = !it.shouldEnablePredictiveBack)
+            }
+        }
+    }
 }
 
 @Stable
 data class GesturePreferencesUiState(
     val showDialog: GesturePreferenceDialog? = null,
     val preferences: PlayerPreferences = PlayerPreferences(),
+    val applicationPreferences: ApplicationPreferences = ApplicationPreferences(),
 )
 
 sealed interface GesturePreferenceDialog {
@@ -211,4 +228,5 @@ sealed interface GesturePreferencesUiEvent {
     data class UpdateSeekSensitivity(val value: Float) : GesturePreferencesUiEvent
     data class UpdateVolumeGestureSensitivity(val value: Float) : GesturePreferencesUiEvent
     data class UpdateBrightnessGestureSensitivity(val value: Float) : GesturePreferencesUiEvent
+    data object ToggleEnablePredictiveBack : GesturePreferencesUiEvent
 }

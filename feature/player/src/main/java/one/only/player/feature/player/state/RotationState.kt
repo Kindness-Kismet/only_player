@@ -33,6 +33,8 @@ fun rememberRotationState(
     screenOrientation: ScreenOrientation,
     shouldRememberScreenOrientation: Boolean,
     lastScreenOrientation: LastPlayerScreenOrientation?,
+    perFileOrientation: LastPlayerScreenOrientation? = null,
+    mediaIdentity: String? = null,
     onLastScreenOrientationChange: (LastPlayerScreenOrientation) -> Unit,
 ): RotationState {
     val activity = LocalActivity.current as ComponentActivity
@@ -44,6 +46,15 @@ fun rememberRotationState(
             lastScreenOrientation = lastScreenOrientation,
             onLastScreenOrientationChange = onLastScreenOrientationChange,
         )
+    }
+    // 切条/重进时 per-file 方向必须强制重算；不能依赖 requestedOrientation==UNSPECIFIED 的 early-return
+    LaunchedEffect(rotationState, perFileOrientation, mediaIdentity, lastScreenOrientation) {
+        rotationState.updatePreferredOrientation(
+            perFileOrientation = perFileOrientation,
+            lastScreenOrientation = lastScreenOrientation,
+            mediaIdentity = mediaIdentity,
+        )
+        rotationState.applyPreferredOrientation(player, force = true)
     }
     DisposableEffect(activity, rotationState) {
         rotationState.handleListeners(this)
@@ -57,11 +68,27 @@ class RotationState(
     private val activity: ComponentActivity,
     private val screenOrientation: ScreenOrientation,
     private val shouldRememberScreenOrientation: Boolean,
-    private val lastScreenOrientation: LastPlayerScreenOrientation?,
+    private var lastScreenOrientation: LastPlayerScreenOrientation?,
     private val onLastScreenOrientationChange: (LastPlayerScreenOrientation) -> Unit,
 ) {
     var currentRequestedOrientation: Int by mutableIntStateOf(activity.requestedOrientation)
         private set
+
+    private var perFileOrientation: LastPlayerScreenOrientation? = null
+    private var appliedMediaIdentity: String? = null
+
+    fun updatePreferredOrientation(
+        perFileOrientation: LastPlayerScreenOrientation?,
+        lastScreenOrientation: LastPlayerScreenOrientation?,
+        mediaIdentity: String?,
+    ) {
+        this.perFileOrientation = perFileOrientation
+        this.lastScreenOrientation = lastScreenOrientation
+        // mediaIdentity 变化时允许重新 force apply（即使 activity 方向已非 UNSPECIFIED）
+        if (mediaIdentity != appliedMediaIdentity) {
+            appliedMediaIdentity = mediaIdentity
+        }
+    }
 
     fun rotate() {
         val newOrientation = when (activity.resources.configuration.orientation) {
@@ -69,6 +96,8 @@ class RotationState(
             else -> LastPlayerScreenOrientation.LANDSCAPE
         }
         activity.requestedOrientation = newOrientation.toActivityOrientation()
+        currentRequestedOrientation = activity.requestedOrientation
+        // 手动旋转后始终写回记住方向（开关开启时）
         if (shouldRememberScreenOrientation) {
             onLastScreenOrientationChange(newOrientation)
         }
@@ -88,48 +117,75 @@ class RotationState(
 
     suspend fun observe(player: Player) {
         Log.d(TAG, "observe: player=${player.javaClass.simpleName}@${System.identityHashCode(player)}")
-        setOrientation(player)
+        applyPreferredOrientation(player, force = true)
         maybeApplyVideoOrientation(player)
 
-        // 视频尺寸通过 metadata extras 从 Service 端传递
+        // 视频尺寸通过 metadata extras 从 Service 端传递；切条强制按当前文件方向重算
         player.listen { events ->
-            if (events.containsAny(
-                    Player.EVENT_MEDIA_METADATA_CHANGED,
-                    Player.EVENT_MEDIA_ITEM_TRANSITION,
-                )
-            ) {
+            if (events.contains(Player.EVENT_MEDIA_ITEM_TRANSITION)) {
                 val metadata = player.mediaMetadata
-                Log.d(TAG, "listen: w=${metadata.videoWidth}, h=${metadata.videoHeight}, rot=${metadata.videoRotation}")
+                Log.d(TAG, "transition: w=${metadata.videoWidth}, h=${metadata.videoHeight}, rot=${metadata.videoRotation}")
+                applyPreferredOrientation(player, force = true)
+                maybeApplyVideoOrientation(player)
+                return@listen
+            }
+            if (events.contains(Player.EVENT_MEDIA_METADATA_CHANGED)) {
+                val metadata = player.mediaMetadata
+                Log.d(TAG, "metadata: w=${metadata.videoWidth}, h=${metadata.videoHeight}, rot=${metadata.videoRotation}")
                 maybeApplyVideoOrientation(player)
             }
         }
     }
 
+    /**
+     * 按 文件级 → 全局记住 → 设置模式 应用方向。
+     * force=true 时忽略 activity 已有方向（切条/重进必须能从 B 的全局切回 A 的记住方向）。
+     */
+    fun applyPreferredOrientation(player: Player, force: Boolean = false) {
+        Log.d(
+            TAG,
+            "applyPreferredOrientation: force=$force current=${activity.requestedOrientation} " +
+                "perFile=$perFileOrientation last=$lastScreenOrientation",
+        )
+        if (!force && activity.requestedOrientation != ActivityInfo.SCREEN_ORIENTATION_UNSPECIFIED) return
+
+        val preferred = perFileOrientation
+            ?: lastScreenOrientation?.takeIf { shouldRememberScreenOrientation }
+        preferred?.toActivityOrientation()?.let { target ->
+            if (activity.requestedOrientation != target) {
+                activity.requestedOrientation = target
+            }
+            currentRequestedOrientation = activity.requestedOrientation
+            return
+        }
+
+        val modeTarget = when (screenOrientation) {
+            ScreenOrientation.AUTOMATIC -> ActivityInfo.SCREEN_ORIENTATION_SENSOR
+            ScreenOrientation.LANDSCAPE -> ActivityInfo.SCREEN_ORIENTATION_LANDSCAPE
+            ScreenOrientation.LANDSCAPE_REVERSE -> ActivityInfo.SCREEN_ORIENTATION_REVERSE_LANDSCAPE
+            ScreenOrientation.LANDSCAPE_AUTO -> ActivityInfo.SCREEN_ORIENTATION_SENSOR_LANDSCAPE
+            ScreenOrientation.PORTRAIT -> ActivityInfo.SCREEN_ORIENTATION_SENSOR_PORTRAIT
+            ScreenOrientation.VIDEO_ORIENTATION -> getVideoBasedOrientation(player)
+        }
+        if (modeTarget == ActivityInfo.SCREEN_ORIENTATION_UNSPECIFIED) return
+        if (activity.requestedOrientation != modeTarget) {
+            activity.requestedOrientation = modeTarget
+        }
+        currentRequestedOrientation = activity.requestedOrientation
+    }
+
     private fun maybeApplyVideoOrientation(player: Player) {
         if (screenOrientation != ScreenOrientation.VIDEO_ORIENTATION) return
+        // 已有文件级/全局记住方向时，不要被视频宽高覆盖
+        if (perFileOrientation != null) return
+        if (shouldRememberScreenOrientation && lastScreenOrientation != null) return
         if (activity.requestedOrientation != ActivityInfo.SCREEN_ORIENTATION_UNSPECIFIED) return
         val orientation = getVideoBasedOrientation(player)
         if (orientation != ActivityInfo.SCREEN_ORIENTATION_UNSPECIFIED) {
-            Log.d(TAG, "applyOrientation: $orientation")
+            Log.d(TAG, "applyVideoOrientation: $orientation")
             activity.requestedOrientation = orientation
+            currentRequestedOrientation = orientation
         }
-    }
-
-    private fun setOrientation(player: Player) {
-        Log.d(TAG, "setOrientation: requestedOrientation=${activity.requestedOrientation}")
-        if (activity.requestedOrientation != ActivityInfo.SCREEN_ORIENTATION_UNSPECIFIED) return
-
-        activity.requestedOrientation = lastScreenOrientation
-            ?.takeIf { shouldRememberScreenOrientation && screenOrientation != ScreenOrientation.VIDEO_ORIENTATION }
-            ?.toActivityOrientation()
-            ?: when (screenOrientation) {
-                ScreenOrientation.AUTOMATIC -> ActivityInfo.SCREEN_ORIENTATION_SENSOR
-                ScreenOrientation.LANDSCAPE -> ActivityInfo.SCREEN_ORIENTATION_LANDSCAPE
-                ScreenOrientation.LANDSCAPE_REVERSE -> ActivityInfo.SCREEN_ORIENTATION_REVERSE_LANDSCAPE
-                ScreenOrientation.LANDSCAPE_AUTO -> ActivityInfo.SCREEN_ORIENTATION_SENSOR_LANDSCAPE
-                ScreenOrientation.PORTRAIT -> ActivityInfo.SCREEN_ORIENTATION_SENSOR_PORTRAIT
-                ScreenOrientation.VIDEO_ORIENTATION -> getVideoBasedOrientation(player)
-            }
     }
 
     private fun getVideoBasedOrientation(player: Player): Int {

@@ -22,23 +22,34 @@ internal fun PreviousButton(
     isSelected: Boolean = false,
     label: String? = null,
     isInteractive: Boolean = true,
+    /**
+     * 覆盖 Media3 默认「上一」可用态。
+     * 关闭「重播当前」时首个文件应灰显（不可点），与新版控件一致。
+     * null 时退回 Media3 [rememberPreviousButtonState]。
+     */
+    isEnabledOverride: Boolean? = null,
     onClick: (() -> Unit)? = null,
 ) {
     val state = rememberPreviousButtonState(player)
     val controlsVisibilityState = LocalControlsVisibilityState.current
+    val isEnabled = isEnabledOverride ?: state.isEnabled
 
     PlayerButton(
         modifier = modifier,
         buttonSize = 48.dp,
-        isEnabled = state.isEnabled,
+        isEnabled = isEnabled,
         isSelected = isSelected,
         label = label,
-        isInteractive = isInteractive,
+        isInteractive = isInteractive && isEnabled,
         onClick = {
+            if (!isEnabled) return@PlayerButton
             if (onClick != null) {
                 onClick()
             } else {
                 state.onClick()
+            }
+            // 自定义 onClick（偏好「上一」）与默认路径都需要保持控件可见
+            if (isInteractive) {
                 controlsVisibilityState?.showControls()
             }
         },

@@ -12,4 +12,7 @@ data class VideoState(
     val videoScale: Float,
     val subtitleDelayMilliseconds: Long,
     val subtitleSpeed: Float,
+    // 与 position 一样按媒体 URI 持久化的解码配置（DecoderPriority.name）
+    val decoderPriority: String? = null,
+    val contentScale: String? = null,
 )

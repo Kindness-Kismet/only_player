@@ -1,6 +1,12 @@
 package one.only.player.settings
 
+import androidx.activity.compose.BackHandler
 import androidx.compose.animation.AnimatedContent
+import androidx.compose.animation.fadeIn
+import androidx.compose.animation.fadeOut
+import androidx.compose.animation.slideInVertically
+import androidx.compose.animation.slideOutVertically
+import androidx.compose.animation.togetherWith
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.fillMaxSize
@@ -43,6 +49,12 @@ fun SettingsScreen(
     var searchQuery by rememberSaveable { mutableStateOf("") }
     val scrollBehavior = MiuixScrollBehavior()
 
+    // 搜索态下系统返回/手势返回应先退出搜索，而不是直接离开设置页
+    BackHandler(enabled = isSearchActive) {
+        isSearchActive = false
+        searchQuery = ""
+    }
+
     // resolve 标题、描述和子设置项文本，全部用于搜索匹配
     val resolvedRows = SettingRow.entries.map { row ->
         val subTexts = row.subSettingResIds.map { stringResource(it) }
@@ -74,6 +86,15 @@ fun SettingsScreen(
         topBar = {
             AnimatedContent(
                 targetState = isSearchActive,
+                transitionSpec = {
+                    if (targetState) {
+                        (fadeIn() + slideInVertically { -it / 4 }) togetherWith
+                            (fadeOut() + slideOutVertically { -it / 6 })
+                    } else {
+                        (fadeIn() + slideInVertically { -it / 6 }) togetherWith
+                            (fadeOut() + slideOutVertically { -it / 4 })
+                    }
+                },
                 label = "settings_top_bar",
             ) { isSearching ->
                 if (isSearching) {
@@ -256,6 +277,8 @@ internal enum class SettingRow(
             R.string.thumbnail_generation,
             R.string.mark_last_played_media,
             R.string.recycle_bin,
+            R.string.file_extensions,
+            R.string.file_extensions_description,
         ),
     ),
     PLAYER(

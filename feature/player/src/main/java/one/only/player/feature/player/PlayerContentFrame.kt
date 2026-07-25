@@ -27,7 +27,6 @@ import androidx.media3.common.util.UnstableApi
 import androidx.media3.ui.compose.PlayerSurface
 import androidx.media3.ui.compose.SURFACE_TYPE_SURFACE_VIEW
 import androidx.media3.ui.compose.SURFACE_TYPE_TEXTURE_VIEW
-import androidx.media3.ui.compose.state.rememberPresentationState
 import kotlin.math.max
 import kotlin.math.min
 import kotlinx.coroutines.delay
@@ -40,6 +39,7 @@ import one.only.player.feature.player.state.SeekGestureState
 import one.only.player.feature.player.state.TapGestureState
 import one.only.player.feature.player.state.VideoZoomAndContentScaleState
 import one.only.player.feature.player.state.VolumeAndBrightnessGestureState
+import one.only.player.feature.player.state.rememberSurfacePresentationState
 import one.only.player.feature.player.state.rememberTracksState
 import one.only.player.feature.player.ui.PlayerGestures
 import one.only.player.feature.player.ui.ShutterView
@@ -63,18 +63,21 @@ fun PlayerContentFrame(
     shouldUseTextureView: Boolean = false,
     isVideoMirrored: Boolean = false,
 ) {
-    // decoder 切换重建 SurfaceView，重新绑定视频输出
+    // decoder 切换重建 SurfaceView，重新绑定视频输出（否则 SurfaceView + graphicsLayer 会黑屏）
+    // contentScale 纯走 graphicsLayer，绝不因缩放切换重建 Surface（logs11 黑屏根因）
     var surfaceRefreshKey by remember { mutableIntStateOf(0) }
     var previousDecoderPriority by remember { mutableStateOf(decoderPriority) }
     LaunchedEffect(decoderPriority) {
         if (previousDecoderPriority == decoderPriority) return@LaunchedEffect
         previousDecoderPriority = decoderPriority
+        // 解码切换后尽快重建 surface；缩短二次 refresh，减少“几秒后才正常”
         surfaceRefreshKey++
-        delay(120)
+        delay(40)
         surfaceRefreshKey++
     }
 
-    val presentationState = rememberPresentationState(player)
+    // 不用 Media3 rememberPresentationState：MediaController+RemotableTimeline 会在 getIndexOfPeriod 崩
+    val presentationState = rememberSurfacePresentationState(player)
     val density = LocalDensity.current
     val textTracksState = rememberTracksState(player = player, trackType = C.TRACK_TYPE_TEXT)
     val isAssSubtitleSelected = textTracksState.tracks.any { track ->

@@ -65,6 +65,8 @@ import one.only.player.core.ui.designsystem.NextIcons
 import one.only.player.core.ui.extensions.copy
 import one.only.player.feature.player.AnimatedPlayerControlPlacement
 import one.only.player.feature.player.LocalControlsVisibilityState
+import one.only.player.feature.player.LocalPlayerIconStyle
+import one.only.player.core.model.PlayerIconStyle
 import one.only.player.feature.player.buttons.PlayerButton
 import one.only.player.feature.player.extensions.formatted
 import one.only.player.feature.player.extensions.noRippleClickable
@@ -81,6 +83,7 @@ fun ControlsBottomView(
     player: Player,
     mediaPresentationState: MediaPresentationState,
     bottomLeftControls: List<PlayerControl>,
+    aboveSeekbarRightControls: List<PlayerControl> = emptyList(),
     controlButtonsPosition: ControlButtonsPosition,
     videoContentScale: VideoContentScale,
     isPipSupported: Boolean,
@@ -103,6 +106,8 @@ fun ControlsBottomView(
     onPlaybackMarksClick: () -> Unit,
     onPictureInPictureClick: () -> Unit,
     onRotateClick: () -> Unit,
+    onRotateLongClick: () -> Unit = {},
+    isOrientationRemembered: Boolean = false,
     onPlayInBackgroundClick: () -> Unit,
     isTakingScreenshot: Boolean,
     onScreenshotClick: () -> Unit,
@@ -113,6 +118,7 @@ fun ControlsBottomView(
     sleepTimerState: SleepTimerState? = null,
     isCustomizingControls: Boolean,
     shouldHideLabels: Boolean,
+    shouldKeepHiddenControlSlots: Boolean = false,
     draggingControl: PlayerControl? = null,
     onControlDropDragged: (PlayerControl, Offset) -> Unit = { _, _ -> },
     onControlDragStarted: (PlayerControl) -> Unit = {},
@@ -132,9 +138,10 @@ fun ControlsBottomView(
     Column(
         modifier = modifier
             .padding(systemBarsPadding.copy(top = 0.dp))
-            .padding(horizontal = 8.dp)
+            .padding(start = 12.dp, end = 8.dp)
             .padding(top = 16.dp, bottom = 24.dp),
-        verticalArrangement = Arrangement.spacedBy(4.dp),
+        // 时间与进度条间距约 12dp
+        verticalArrangement = Arrangement.spacedBy(12.dp),
     ) {
         Row(
             modifier = Modifier.padding(horizontal = 8.dp),
@@ -169,18 +176,79 @@ fun ControlsBottomView(
             }
 
             Spacer(modifier = Modifier.weight(1f))
-            PlayerButton(
-                buttonSize = 30.dp,
-                onClick = onRotateClick,
-                shouldShowSelectionBadge = false,
-                shouldDimWhenUnselected = false,
-                shouldShowCustomizeFrame = false,
+            // 进度条上方最右侧只保留 1 个控件，不能添多
+            val limitedAboveSeekbarControls = aboveSeekbarRightControls
+                .filter { control -> isCustomizingControls || control in visiblePlayerControls }
+                .take(1)
+            Row(
+                modifier = Modifier
+                    .padding(end = 8.dp)
+                    .heightIn(min = 40.dp)
+                    .playerControlZoneTarget(
+                        zone = PlayerControlZone.ABOVE_SEEKBAR_RIGHT,
+                        zoneBounds = zoneBounds,
+                    ),
+                verticalAlignment = Alignment.CenterVertically,
+                horizontalArrangement = Arrangement.spacedBy(8.dp, Alignment.End),
             ) {
-                Icon(
-                    painter = painterResource(R.drawable.ic_screen_rotation),
-                    contentDescription = "btn_rotate",
-                    modifier = Modifier.size(12.dp),
-                )
+                // 无控件时在编辑模式显示可投放空位
+                if (isCustomizingControls && limitedAboveSeekbarControls.isEmpty()) {
+                    Spacer(modifier = Modifier.size(40.dp))
+                }
+                limitedAboveSeekbarControls.forEach { control ->
+                    key(control) {
+                        AnimatedPlayerControlPlacement(
+                            control = control,
+                            itemBounds = itemBounds,
+                            isTracking = isCustomizingControls,
+                        ) {
+                            PlayerCustomizableControlButton(
+                                modifier = Modifier.playerControlDragSource(
+                                    control = control,
+                                    enabled = isCustomizingControls,
+                                    onDropDragged = onControlDropDragged,
+                                    onDragStarted = onControlDragStarted,
+                                    onDragMoved = onControlDragMoved,
+                                    onDragCancelled = onControlDragCancelled,
+                                ),
+                                control = control,
+                                isBeingDragged = draggingControl == control,
+                                player = player,
+                                videoContentScale = videoContentScale,
+                                isPipSupported = isPipSupported,
+                                isCustomizingControls = isCustomizingControls,
+                                shouldHideLabel = shouldHideLabels,
+                                visiblePlayerControls = visiblePlayerControls,
+                                isMuted = isMuted,
+                                onPlaylistClick = onPlaylistClick,
+                                onPlaybackSpeedClick = onPlaybackSpeedClick,
+                                onAudioClick = onAudioClick,
+                                onSubtitleClick = onSubtitleClick,
+                                onLockControlsClick = onLockControlsClick,
+                                onMuteClick = onMuteClick,
+                                onPlaybackMarksClick = onPlaybackMarksClick,
+                                onVideoContentScaleClick = onVideoContentScaleClick,
+                                onVideoContentScaleLongClick = onVideoContentScaleLongClick,
+                                onDecoderClick = onDecoderClick,
+                                onAmbienceModeClick = onAmbienceModeClick,
+                                isAmbienceModeEnabled = isAmbienceModeEnabled,
+                                onVideoFiltersClick = onVideoFiltersClick,
+                                onPictureInPictureClick = onPictureInPictureClick,
+                                onRotateClick = onRotateClick,
+                                onRotateLongClick = onRotateLongClick,
+                                isOrientationRemembered = isOrientationRemembered,
+                                onCustomizeControlsClick = onCustomizeControlsClick,
+                                isTakingScreenshot = isTakingScreenshot,
+                                onScreenshotClick = onScreenshotClick,
+                                onPlayInBackgroundClick = onPlayInBackgroundClick,
+                                onLoopClick = onLoopClick,
+                                onShuffleClick = onShuffleClick,
+                                onSleepTimerClick = onSleepTimerClick,
+                                sleepTimerState = sleepTimerState,
+                            )
+                        }
+                    }
+                }
             }
         }
         PlayerSeekbar(
@@ -198,9 +266,16 @@ fun ControlsBottomView(
             },
             onSeekFinished = { onSeekEnd() },
         )
+        // 只统计真实绘制的按钮（不含隐藏占位），避免误开横滑
+        val renderedBottomControls = bottomLeftControls.filter { control ->
+            isCustomizingControls || control in visiblePlayerControls
+        }
+        val shouldAllowHorizontalScroll = renderedBottomControls.size > 5
+        val bottomControlsScrollState = rememberScrollState()
         Row(
             modifier = Modifier
                 .fillMaxWidth()
+                .padding(start = 4.dp)
                 .then(
                     when (isCustomizingControls) {
                         true ->
@@ -213,7 +288,10 @@ fun ControlsBottomView(
                         false -> Modifier
                     },
                 )
-                .horizontalScroll(rememberScrollState()),
+                .horizontalScroll(
+                    state = bottomControlsScrollState,
+                    enabled = shouldAllowHorizontalScroll,
+                ),
             verticalAlignment = when (isCustomizingControls) {
                 true -> Alignment.Top
                 false -> Alignment.CenterVertically
@@ -224,70 +302,65 @@ fun ControlsBottomView(
             },
         ) {
             bottomLeftControls.forEach { control ->
-                if (!isCustomizingControls && control !in visiblePlayerControls) return@forEach
+                val isHidden = control !in visiblePlayerControls
+                if (!isCustomizingControls && isHidden && !shouldKeepHiddenControlSlots) return@forEach
                 key(control) {
-                    AnimatedPlayerControlPlacement(
-                        control = control,
-                        itemBounds = itemBounds,
-                        isTracking = isCustomizingControls,
-                    ) {
-                        PlayerCustomizableControlButton(
-                            modifier = Modifier.playerControlDragSource(
-                                control = control,
-                                enabled = isCustomizingControls,
-                                onDropDragged = onControlDropDragged,
-                                onDragStarted = onControlDragStarted,
-                                onDragMoved = onControlDragMoved,
-                                onDragCancelled = onControlDragCancelled,
-                            ),
+                    if (!isCustomizingControls && isHidden && shouldKeepHiddenControlSlots) {
+                        // 只留白占位，不画框、不可点
+                        Spacer(modifier = Modifier.size(40.dp))
+                    } else {
+                        AnimatedPlayerControlPlacement(
                             control = control,
-                            isBeingDragged = draggingControl == control,
-                            player = player,
-                            videoContentScale = videoContentScale,
-                            isPipSupported = isPipSupported,
-                            isCustomizingControls = isCustomizingControls,
-                            shouldHideLabel = shouldHideLabels,
-                            visiblePlayerControls = visiblePlayerControls,
-                            isMuted = isMuted,
-                            onPlaylistClick = onPlaylistClick,
-                            onPlaybackSpeedClick = onPlaybackSpeedClick,
-                            onAudioClick = onAudioClick,
-                            onSubtitleClick = onSubtitleClick,
-                            onLockControlsClick = onLockControlsClick,
-                            onMuteClick = onMuteClick,
-                            onPlaybackMarksClick = onPlaybackMarksClick,
-                            onVideoContentScaleClick = onVideoContentScaleClick,
-                            onVideoContentScaleLongClick = onVideoContentScaleLongClick,
-                            onDecoderClick = onDecoderClick,
-                            onAmbienceModeClick = onAmbienceModeClick,
-                            isAmbienceModeEnabled = isAmbienceModeEnabled,
-                            onVideoFiltersClick = onVideoFiltersClick,
-                            onPictureInPictureClick = onPictureInPictureClick,
-                            onRotateClick = onRotateClick,
-                            isTakingScreenshot = isTakingScreenshot,
-                            onScreenshotClick = onScreenshotClick,
-                            onPlayInBackgroundClick = onPlayInBackgroundClick,
-                            onLoopClick = onLoopClick,
-                            onShuffleClick = onShuffleClick,
-                            onSleepTimerClick = onSleepTimerClick,
-                            sleepTimerState = sleepTimerState,
-                        )
+                            itemBounds = itemBounds,
+                            isTracking = isCustomizingControls,
+                        ) {
+                            PlayerCustomizableControlButton(
+                                modifier = Modifier.playerControlDragSource(
+                                    control = control,
+                                    enabled = isCustomizingControls,
+                                    onDropDragged = onControlDropDragged,
+                                    onDragStarted = onControlDragStarted,
+                                    onDragMoved = onControlDragMoved,
+                                    onDragCancelled = onControlDragCancelled,
+                                ),
+                                control = control,
+                                isBeingDragged = draggingControl == control,
+                                isOutlineOnly = false,
+                                player = player,
+                                videoContentScale = videoContentScale,
+                                isPipSupported = isPipSupported,
+                                isCustomizingControls = isCustomizingControls,
+                                shouldHideLabel = shouldHideLabels,
+                                visiblePlayerControls = visiblePlayerControls,
+                                isMuted = isMuted,
+                                onPlaylistClick = onPlaylistClick,
+                                onPlaybackSpeedClick = onPlaybackSpeedClick,
+                                onAudioClick = onAudioClick,
+                                onSubtitleClick = onSubtitleClick,
+                                onLockControlsClick = onLockControlsClick,
+                                onMuteClick = onMuteClick,
+                                onPlaybackMarksClick = onPlaybackMarksClick,
+                                onVideoContentScaleClick = onVideoContentScaleClick,
+                                onVideoContentScaleLongClick = onVideoContentScaleLongClick,
+                                onDecoderClick = onDecoderClick,
+                                onAmbienceModeClick = onAmbienceModeClick,
+                                isAmbienceModeEnabled = isAmbienceModeEnabled,
+                                onVideoFiltersClick = onVideoFiltersClick,
+                                onPictureInPictureClick = onPictureInPictureClick,
+                                onRotateClick = onRotateClick,
+                                onRotateLongClick = onRotateLongClick,
+                                isOrientationRemembered = isOrientationRemembered,
+                                onCustomizeControlsClick = onCustomizeControlsClick,
+                                isTakingScreenshot = isTakingScreenshot,
+                                onScreenshotClick = onScreenshotClick,
+                                onPlayInBackgroundClick = onPlayInBackgroundClick,
+                                onLoopClick = onLoopClick,
+                                onShuffleClick = onShuffleClick,
+                                onSleepTimerClick = onSleepTimerClick,
+                                sleepTimerState = sleepTimerState,
+                            )
+                        }
                     }
-                }
-            }
-            if (!isCustomizingControls) {
-                PlayerButton(
-                    onClick = onCustomizeControlsClick,
-                    isSelected = false,
-                    label = stringResource(R.string.customize_player_controls).takeUnless { shouldHideLabels },
-                    shouldShowSelectionBadge = false,
-                    shouldDimWhenUnselected = false,
-                    shouldShowCustomizeFrame = false,
-                ) {
-                    Icon(
-                        imageVector = NextIcons.Edit,
-                        contentDescription = "btn_customize_controls",
-                    )
                 }
             }
         }
@@ -323,7 +396,12 @@ private fun MaterialYouSlider(
     onValueChange: (Float) -> Unit,
     onValueChangeFinished: () -> Unit,
 ) {
-    val primaryColor = MaterialTheme.colorScheme.primary
+    // 全透图标风格：进度条与控件一致用白色，不使用主题着色
+    val accentColor = when (LocalPlayerIconStyle.current) {
+        PlayerIconStyle.TRANSPARENT -> Color.White
+        else -> MaterialTheme.colorScheme.primary
+    }
+    val primaryColor = accentColor
     val interactionSource = remember { MutableInteractionSource() }
     val trackHeight = 8.dp
     val thumbWidth = 4.dp

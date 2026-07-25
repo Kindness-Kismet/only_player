@@ -25,6 +25,9 @@ interface MediaRepository {
     suspend fun updateMediumAudioTrack(uri: String, audioTrackIndex: Int)
     suspend fun updateMediumSubtitleTrack(uri: String, subtitleTrackIndex: Int)
     suspend fun updateMediumZoom(uri: String, zoom: Float)
+    /** 与 updateMediumPosition 相同：按媒体 URI 记住解码；null 表示清除文件级解码 */
+    suspend fun updateMediumDecoderPriority(uri: String, decoderPriority: String?)
+    suspend fun updateMediumContentScale(uri: String, contentScale: String?)
     suspend fun addExternalSubtitleToMedium(uri: String, subtitleUri: Uri)
     suspend fun updateExternalSubs(uri: String, externalSubs: List<Uri>)
     suspend fun updateSubtitleDelay(uri: String, delay: Long)

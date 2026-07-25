@@ -27,6 +27,7 @@ import one.only.player.core.data.repository.buildRemotePlaybackStateKey
 import one.only.player.core.domain.GetSortedPlaylistUseCase
 import one.only.player.core.model.ApplicationPreferences
 import one.only.player.core.model.DecoderPriority
+import one.only.player.core.model.PerFilePlaybackPreference
 import one.only.player.core.model.LastPlayerScreenOrientation
 import one.only.player.core.model.LoopMode
 import one.only.player.core.model.PlaybackMark
@@ -69,6 +70,13 @@ class PlayerViewModel @Inject constructor(
     }
 
     var shouldPlayWhenReady: Boolean = true
+
+    /**
+     * 打开播放前同步下发的目标缩放。MediaPlayerScreen 首帧可能早于 setMediaItem，
+     * 不能只靠 currentMediaItem stamp；用这个 StateFlow 在 compose 前就种子化（logs13）。
+     */
+    private val pendingOpenContentScaleInternal = MutableStateFlow<VideoContentScale?>(null)
+    val pendingOpenContentScale = pendingOpenContentScaleInternal.asStateFlow()
 
     private val internalUiState = MutableStateFlow(
         PlayerUiState(
@@ -152,6 +160,7 @@ class PlayerViewModel @Inject constructor(
         viewModelScope.launch {
             preferencesRepository.updatePlayerPreferences { preferences ->
                 if (!preferences.shouldRememberPlayerScreenOrientation) return@updatePlayerPreferences preferences
+                // 写入 player_preferences.json（files/datastore）
                 preferences.copy(lastPlayerScreenOrientation = value)
             }
         }
@@ -170,6 +179,238 @@ class PlayerViewModel @Inject constructor(
             }
         }
     }
+
+    /**
+     * 播放器内切换解码：仅更新全局默认（扩展名配置仍走扩展名设置页）。
+     * 若需要“记住该文件”，调用 [rememberDecoderForFile]。
+     */
+    fun updateDecoderPriorityForCurrentPlayback(decoderPriority: DecoderPriority) {
+        updateDecoderPriority(decoderPriority)
+    }
+
+    fun rememberDecoderForMediaUri(mediaUri: String?, decoderPriority: DecoderPriority) {
+        if (mediaUri.isNullOrBlank()) return
+        viewModelScope.launch {
+            mediaRepository.updateMediumDecoderPriority(mediaUri, decoderPriority.name)
+        }
+    }
+
+    fun clearDecoderForMediaUri(mediaUri: String?) {
+        if (mediaUri.isNullOrBlank()) return
+        viewModelScope.launch {
+            mediaRepository.updateMediumDecoderPriority(mediaUri, null)
+        }
+    }
+
+    fun setRememberDecoderForMediaUri(
+        mediaUri: String?,
+        decoderPriority: DecoderPriority,
+        isEnabled: Boolean,
+    ) {
+        if (isEnabled) {
+            rememberDecoderForMediaUri(mediaUri, decoderPriority)
+        } else {
+            clearDecoderForMediaUri(mediaUri)
+        }
+    }
+
+    fun rememberDecoderForFile(fileName: String?, decoderPriority: DecoderPriority) {
+        rememberDecoderForMediaUri(fileName, decoderPriority)
+    }
+
+    fun clearDecoderForFile(fileName: String?) {
+        clearDecoderForMediaUri(fileName)
+    }
+
+    fun setRememberDecoderForFile(
+        fileName: String?,
+        decoderPriority: DecoderPriority,
+        isEnabled: Boolean,
+    ) {
+        setRememberDecoderForMediaUri(fileName, decoderPriority, isEnabled)
+    }
+
+
+    /**
+     * media_state 权威 + per-file 镜像。per-file 让重进首帧用文件名即可命中，
+     * 不必等 PlayerService 异步盖章（logs13：进文件要等点控件才切到记住缩放）。
+     */
+    fun rememberVideoContentScaleForMediaUri(
+        mediaUri: String?,
+        contentScale: VideoContentScale,
+        fileName: String? = null,
+    ) {
+        if (mediaUri.isNullOrBlank() && fileName.isNullOrBlank()) return
+        viewModelScope.launch {
+            if (!mediaUri.isNullOrBlank()) {
+                mediaRepository.updateMediumContentScale(mediaUri, contentScale.name)
+            }
+            val key = PerFilePlaybackPreference.fromPathOrName(fileName)
+                ?: PerFilePlaybackPreference.fromPathOrName(mediaUri)
+            if (key != null) {
+                preferencesRepository.updateApplicationPreferences { current ->
+                    current.withPerFileVideoContentScale(key, contentScale)
+                }
+            }
+        }
+    }
+
+    fun clearVideoContentScaleForMediaUri(
+        mediaUri: String?,
+        fileName: String? = null,
+    ) {
+        if (mediaUri.isNullOrBlank() && fileName.isNullOrBlank()) return
+        viewModelScope.launch {
+            if (!mediaUri.isNullOrBlank()) {
+                mediaRepository.updateMediumContentScale(mediaUri, null)
+            }
+            val key = PerFilePlaybackPreference.fromPathOrName(fileName)
+                ?: PerFilePlaybackPreference.fromPathOrName(mediaUri)
+            if (key != null) {
+                preferencesRepository.updateApplicationPreferences { current ->
+                    current.withPerFileVideoContentScale(key, null)
+                }
+            }
+        }
+    }
+
+    fun setRememberVideoContentScaleForMediaUri(
+        mediaUri: String?,
+        contentScale: VideoContentScale,
+        isEnabled: Boolean,
+        fileName: String? = null,
+    ) {
+        if (isEnabled) {
+            rememberVideoContentScaleForMediaUri(mediaUri, contentScale, fileName)
+        } else {
+            clearVideoContentScaleForMediaUri(mediaUri, fileName)
+        }
+    }
+
+    fun rememberVideoContentScaleForFile(fileName: String?, contentScale: VideoContentScale) {
+        rememberVideoContentScaleForMediaUri(mediaUri = null, contentScale = contentScale, fileName = fileName)
+    }
+
+    fun clearVideoContentScaleForFile(fileName: String?) {
+        clearVideoContentScaleForMediaUri(mediaUri = null, fileName = fileName)
+    }
+
+    fun setRememberVideoContentScaleForFile(
+        fileName: String?,
+        contentScale: VideoContentScale,
+        isEnabled: Boolean,
+    ) {
+        setRememberVideoContentScaleForMediaUri(
+            mediaUri = null,
+            contentScale = contentScale,
+            isEnabled = isEnabled,
+            fileName = fileName,
+        )
+    }
+
+    /**
+     * 打开播放前读取记住的缩放名，供 buildMediaItem 提前盖章。
+     * media_state 与 per-file prefs 双源：历史只写 prefs 或 content:// 查库失败时仍能命中（logs13）。
+     */
+    suspend fun contentScaleNameForMediaUri(
+        mediaUri: String?,
+        fileName: String? = null,
+    ): String? {
+        if (!mediaUri.isNullOrBlank()) {
+            mediaRepository.getVideoState(mediaUri)
+                ?.contentScale
+                ?.takeIf { it.isNotBlank() }
+                ?.let { return it }
+        }
+        val app = preferencesRepository.applicationPreferences.value
+        fun scaleFromPerFile(keySource: String?): String? {
+            val key = PerFilePlaybackPreference.fromPathOrName(keySource) ?: return null
+            return app.perFilePreferenceForPath(key)?.videoContentScale?.name
+        }
+        scaleFromPerFile(fileName)?.let { return it }
+        scaleFromPerFile(mediaUri)?.let { return it }
+        if (!mediaUri.isNullOrBlank()) {
+            val video = mediaRepository.getVideoByUri(mediaUri)
+            scaleFromPerFile(video?.nameWithExtension)?.let { return it }
+            scaleFromPerFile(video?.path)?.let { return it }
+        }
+        return null
+    }
+
+    suspend fun contentScaleForMediaUri(
+        mediaUri: String?,
+        fileName: String? = null,
+    ): VideoContentScale? {
+        val name = contentScaleNameForMediaUri(mediaUri, fileName) ?: return null
+        return runCatching { VideoContentScale.valueOf(name) }.getOrNull()
+    }
+
+    /** 同步从文件名/路径读 per-file 缩放，供 playVideo 在挂起查库前就种子化 UI。 */
+    fun contentScaleFromPerFileSync(fileNameOrPath: String?): VideoContentScale? {
+        val key = PerFilePlaybackPreference.fromPathOrName(fileNameOrPath) ?: return null
+        return preferencesRepository.applicationPreferences.value
+            .perFilePreferenceForPath(key)
+            ?.videoContentScale
+    }
+
+    fun seedPendingOpenContentScale(contentScale: VideoContentScale?) {
+        pendingOpenContentScaleInternal.value = contentScale
+    }
+
+    fun clearPendingOpenContentScale() {
+        pendingOpenContentScaleInternal.value = null
+    }
+
+    fun rememberOrientationForFile(fileName: String?, orientation: LastPlayerScreenOrientation) {
+        val key = PerFilePlaybackPreference.fromPathOrName(fileName) ?: return
+        viewModelScope.launch {
+            preferencesRepository.updateApplicationPreferences { current ->
+                current.withPerFileOrientation(key, orientation)
+            }
+        }
+    }
+
+    fun clearOrientationForFile(fileName: String?) {
+        val key = PerFilePlaybackPreference.fromPathOrName(fileName) ?: return
+        viewModelScope.launch {
+            preferencesRepository.updateApplicationPreferences { current ->
+                current.withPerFileOrientation(key, null)
+            }
+        }
+    }
+
+    fun setRememberOrientationForFile(
+        fileName: String?,
+        orientation: LastPlayerScreenOrientation,
+        isEnabled: Boolean,
+    ) {
+        if (isEnabled) {
+            rememberOrientationForFile(fileName, orientation)
+        } else {
+            clearOrientationForFile(fileName)
+        }
+    }
+
+    fun removePerFilePreferences(fileNames: Collection<String>) {
+        if (fileNames.isEmpty()) return
+        viewModelScope.launch {
+            preferencesRepository.updateApplicationPreferences { current ->
+                current.withoutPerFilePreferences(fileNames)
+            }
+        }
+    }
+
+    fun decoderPriorityForPath(pathOrName: String?): DecoderPriority {
+        val app = preferencesRepository.applicationPreferences.value
+        val fallback = preferencesRepository.playerPreferences.value.decoderPriority
+        // 文件级优先，其次扩展名，再全局
+        app.perFilePreferenceForPath(pathOrName)?.decoderPriority?.let { return it }
+        if (pathOrName.isNullOrBlank()) return fallback
+        return app.decoderPriorityForPath(pathOrName) ?: fallback
+    }
+
+    fun orientationForFile(pathOrName: String?): LastPlayerScreenOrientation? =
+        preferencesRepository.applicationPreferences.value.perFilePreferenceForPath(pathOrName)?.screenOrientation
 
     fun updateVideoBrightness(value: Float) {
         val normalizedValue = value.normalizeVideoFilter(PlayerPreferences.MIN_VIDEO_BRIGHTNESS, PlayerPreferences.MAX_VIDEO_BRIGHTNESS)

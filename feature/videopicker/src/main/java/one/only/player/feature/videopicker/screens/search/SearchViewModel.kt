@@ -222,6 +222,14 @@ class SearchViewModel @Inject constructor(
             if (isDeletionSuccessful) {
                 mediaSynchronizer.removeDeleted(uris)
                 mediaSynchronizer.refresh()
+                val names = uris.mapNotNull { uriString ->
+                    uriString.substringAfterLast('/').substringAfterLast('\\').ifBlank { null }
+                }
+                if (names.isNotEmpty()) {
+                    preferencesRepository.updateApplicationPreferences { prefs ->
+                        prefs.withoutPerFilePreferences(names)
+                    }
+                }
             }
             uiStateInternal.update {
                 it.copy(

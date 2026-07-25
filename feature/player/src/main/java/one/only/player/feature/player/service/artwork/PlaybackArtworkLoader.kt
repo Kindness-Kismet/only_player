@@ -37,13 +37,14 @@ internal class PlaybackArtworkLoader(
         scope.launch(Dispatchers.Default) {
             mediaItems.forEach { mediaItem ->
                 launch {
-                    val artworkData = loadArtworkForUri(mediaItem.mediaId.toUri()) ?: return@launch
+                    val artworkData = loadArtworkForMediaItem(mediaItem) ?: return@launch
 
                     withContext(Dispatchers.Main) {
                         val (player, index, currentMediaItem) = findMediaItem(mediaItem.mediaId) ?: return@withContext
                         val updatedMediaItem = currentMediaItem.buildUpon()
                             .setMediaMetadata(
                                 currentMediaItem.mediaMetadata.buildUpon()
+                                    // 系统媒体控件优先使用 artworkData 显示封面
                                     .setArtworkUri(null)
                                     .setArtworkData(artworkData, MediaMetadata.PICTURE_TYPE_FRONT_COVER)
                                     .build(),
@@ -54,6 +55,19 @@ internal class PlaybackArtworkLoader(
                 }
             }
         }
+    }
+
+    private suspend fun loadArtworkForMediaItem(mediaItem: MediaItem): ByteArray? {
+        val candidates = buildList {
+            add(mediaItem.mediaId.toUri())
+            mediaItem.localConfiguration?.uri?.let(::add)
+            mediaItem.requestMetadata.mediaUri?.let(::add)
+            mediaItem.mediaMetadata.artworkUri?.let(::add)
+        }.distinct()
+        for (uri in candidates) {
+            loadArtworkForUri(uri)?.let { return it }
+        }
+        return null
     }
 
     private suspend fun loadArtworkForUri(uri: Uri): ByteArray? = try {

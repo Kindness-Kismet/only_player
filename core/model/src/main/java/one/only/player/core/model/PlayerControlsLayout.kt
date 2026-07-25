@@ -16,6 +16,7 @@ import kotlinx.serialization.encoding.encodeStructure
 enum class PlayerControlZone {
     TOP_RIGHT,
     BOTTOM_LEFT,
+    ABOVE_SEEKBAR_RIGHT,
 }
 
 @Serializable
@@ -43,6 +44,26 @@ class PlayerControlsLayout(
     ): PlayerControlsLayout {
         if (control !in customizableControls) return this
 
+        // 进度条上方右侧区域只允许 1 个控件
+        if (toZone == PlayerControlZone.ABOVE_SEEKBAR_RIGHT) {
+            val withoutMoved = entries.filterNot { it.control == control }
+            val othersInZone = withoutMoved.filter { it.zone == PlayerControlZone.ABOVE_SEEKBAR_RIGHT }
+            val remaining = withoutMoved.filterNot { it.zone == PlayerControlZone.ABOVE_SEEKBAR_RIGHT }.toMutableList()
+            // 原该区控件退回底部左侧末尾
+            othersInZone.forEach { old ->
+                remaining += PlayerControlLayoutEntry(
+                    control = old.control,
+                    zone = PlayerControlZone.BOTTOM_LEFT,
+                )
+            }
+            remaining += PlayerControlLayoutEntry(
+                control = control,
+                zone = PlayerControlZone.ABOVE_SEEKBAR_RIGHT,
+            )
+            // 右上角固定最多 4 个
+            return enforceZoneLimits(PlayerControlsLayout(remaining))
+        }
+
         val remainingEntries = entries.filterNot { it.control == control }.toMutableList()
         val targetIndexes = remainingEntries.withIndex()
             .filter { it.value.zone == toZone }
@@ -62,7 +83,36 @@ class PlayerControlsLayout(
                 zone = toZone,
             ),
         )
-        return PlayerControlsLayout(remainingEntries)
+        return enforceZoneLimits(PlayerControlsLayout(remainingEntries))
+    }
+
+    private fun enforceZoneLimits(layout: PlayerControlsLayout): PlayerControlsLayout {
+        val topRight = layout.controlsIn(PlayerControlZone.TOP_RIGHT)
+        val above = layout.controlsIn(PlayerControlZone.ABOVE_SEEKBAR_RIGHT)
+        val bottom = layout.controlsIn(PlayerControlZone.BOTTOM_LEFT).toMutableList()
+
+        val limitedTop = topRight.take(MAX_TOP_RIGHT_CONTROLS)
+        topRight.drop(MAX_TOP_RIGHT_CONTROLS).forEach { overflow ->
+            if (overflow !in bottom) bottom += overflow
+        }
+
+        val limitedAbove = above.take(MAX_ABOVE_SEEKBAR_CONTROLS)
+        above.drop(MAX_ABOVE_SEEKBAR_CONTROLS).forEach { overflow ->
+            if (overflow !in bottom && overflow !in limitedTop) bottom += overflow
+        }
+
+        val rebuilt = buildList {
+            limitedTop.forEach {
+                add(PlayerControlLayoutEntry(it, PlayerControlZone.TOP_RIGHT))
+            }
+            limitedAbove.forEach {
+                add(PlayerControlLayoutEntry(it, PlayerControlZone.ABOVE_SEEKBAR_RIGHT))
+            }
+            bottom.forEach {
+                add(PlayerControlLayoutEntry(it, PlayerControlZone.BOTTOM_LEFT))
+            }
+        }
+        return PlayerControlsLayout(rebuilt)
     }
 
     override fun equals(other: Any?): Boolean {
@@ -97,16 +147,22 @@ class PlayerControlsLayout(
             PlayerControl.LOOP,
             PlayerControl.SHUFFLE,
             PlayerControl.SLEEP_TIMER,
+            PlayerControl.ROTATE,
+            PlayerControl.CUSTOMIZE,
         )
 
         val customizableControls: Set<PlayerControl> =
             (topRightControls + bottomLeftControls).toSet()
 
-        internal const val CURRENT_VERSION = 3
+        internal const val CURRENT_VERSION = 7
+        const val MAX_TOP_RIGHT_CONTROLS = 4
+        const val MAX_ABOVE_SEEKBAR_CONTROLS = 1
 
         private val introducedControlVersions: Map<PlayerControl, Int> = mapOf(
             PlayerControl.MUTE to 2,
             PlayerControl.MARK to 3,
+            PlayerControl.ROTATE to 4,
+            PlayerControl.CUSTOMIZE to 5,
         )
 
         fun defaultEntries(): List<PlayerControlLayoutEntry> = buildList {
@@ -160,7 +216,26 @@ class PlayerControlsLayout(
                 normalizedEntries.add(insertAt, defaultEntry)
                 seenControls.add(defaultEntry.control)
             }
-            return normalizedEntries
+
+            // 区域数量限制：右上 4、进度条上方右 1
+            val topRight = normalizedEntries.filter { it.zone == PlayerControlZone.TOP_RIGHT }
+            val above = normalizedEntries.filter { it.zone == PlayerControlZone.ABOVE_SEEKBAR_RIGHT }
+            val bottom = normalizedEntries.filter { it.zone == PlayerControlZone.BOTTOM_LEFT }.toMutableList()
+            topRight.drop(MAX_TOP_RIGHT_CONTROLS).forEach { overflow ->
+                if (overflow.control !in bottom.map { it.control }) {
+                    bottom += PlayerControlLayoutEntry(overflow.control, PlayerControlZone.BOTTOM_LEFT)
+                }
+            }
+            above.drop(MAX_ABOVE_SEEKBAR_CONTROLS).forEach { overflow ->
+                if (overflow.control !in bottom.map { it.control }) {
+                    bottom += PlayerControlLayoutEntry(overflow.control, PlayerControlZone.BOTTOM_LEFT)
+                }
+            }
+            return buildList {
+                addAll(topRight.take(MAX_TOP_RIGHT_CONTROLS))
+                addAll(above.take(MAX_ABOVE_SEEKBAR_CONTROLS))
+                addAll(bottom)
+            }
         }
     }
 }

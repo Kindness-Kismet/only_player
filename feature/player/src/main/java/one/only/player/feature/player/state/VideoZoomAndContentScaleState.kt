@@ -111,26 +111,44 @@ class VideoZoomAndContentScaleState(
 
     private var showContentScaleJob: Job? = null
 
-    fun onVideoContentScaleChanged(newContentScale: VideoContentScale) {
+    /**
+     * 用户手势/菜单改缩放。
+     * contentScale 仅走 UI graphicsLayer，不 replaceMediaItem，避免与 stamp/remember 双写 thrash 黑屏。
+     * @param shouldPersistGlobal true 时写全局默认；false 仅改当前画面（per-file 记住场景）
+     */
+    fun onVideoContentScaleChanged(
+        newContentScale: VideoContentScale,
+        shouldPersistGlobal: Boolean = true,
+    ) {
         val previousContentScale = videoContentScale
+        val previousZoom = zoom
         videoContentScale = newContentScale
         zoom = 1f
         offset = Offset.Zero
         Logger.info(
             TAG,
-            "Video content scale changed from=$previousContentScale to=$newContentScale metadataVideo=${metadataVideoWidth}x$metadataVideoHeight rotation=$metadataVideoRotation",
+            "Video content scale changed from=$previousContentScale to=$newContentScale persistGlobal=$shouldPersistGlobal metadataVideo=${metadataVideoWidth}x$metadataVideoHeight rotation=$metadataVideoRotation",
         )
-        onEvent(VideoZoomEvent.ContentScaleChanged(videoContentScale))
-        updateVideoScaleMetadataAndSendEvent()
+        if (shouldPersistGlobal) {
+            onEvent(VideoZoomEvent.ContentScaleChanged(videoContentScale))
+        }
+        // 仅在手势缩放被重置时写 videoZoom metadata；纯 contentScale 切换不碰 MediaItem
+        if (!previousZoom.isDefaultVideoZoom()) {
+            updateVideoScaleMetadataAndSendEvent(zoom = 1f)
+        }
         shouldShowContentScaleIndicator()
     }
 
-    fun updateContentScaleFromPreferences(newContentScale: VideoContentScale) {
+    /** 仅应用画面缩放，绝不写全局 playerVideoZoom，也不 replaceMediaItem */
+    fun applyContentScaleLocally(newContentScale: VideoContentScale) {
         if (videoContentScale == newContentScale) return
         videoContentScale = newContentScale
         zoom = 1f
         offset = Offset.Zero
-        updateVideoScaleMetadataAndSendEvent()
+    }
+
+    fun updateContentScaleFromPreferences(newContentScale: VideoContentScale) {
+        applyContentScaleLocally(newContentScale)
     }
 
     fun updateGestureSettings(
@@ -234,8 +252,17 @@ class VideoZoomAndContentScaleState(
 
     private fun updateVideoScaleMetadataAndSendEvent(zoom: Float = this.zoom) {
         val currentMediaItem = player.currentMediaItem ?: return
+        val index = player.currentMediaItemIndex
+        if (index !in 0 until player.mediaItemCount) return
+        val existingZoom = currentMediaItem.mediaMetadata.videoZoom
+        // 避免 zoom 未变时的无意义 replace（会触发 surface/metadata thrash）
+        if (existingZoom != null && kotlin.math.abs(existingZoom - zoom) < 0.0001f) {
+            onEvent(VideoZoomEvent.ZoomChanged(currentMediaItem, zoom))
+            return
+        }
+        // copy 默认保留 contentScaleName stamp，避免记住缩放被 videoZoom 写入抹掉
         player.replaceMediaItem(
-            player.currentMediaItemIndex,
+            index,
             currentMediaItem.copy(videoZoom = zoom),
         )
         onEvent(VideoZoomEvent.ZoomChanged(currentMediaItem, zoom))
@@ -257,6 +284,8 @@ class VideoZoomAndContentScaleState(
 
     private fun maxPanY(): Float = ((baseContentSize.height * zoom - containerSize.height) / 2f)
         .coerceAtLeast(0f)
+
+    private fun Float.isDefaultVideoZoom(): Boolean = kotlin.math.abs(this - 1f) < 0.0001f
 }
 
 sealed interface VideoZoomEvent {

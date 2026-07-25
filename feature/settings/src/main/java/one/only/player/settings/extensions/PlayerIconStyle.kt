@@ -8,9 +8,11 @@ import one.only.player.core.ui.R
 @Composable
 fun PlayerIconStyle.name(): String {
     val stringRes = when (this) {
-        PlayerIconStyle.TONAL -> R.string.player_icon_style_tonal
-        PlayerIconStyle.CLASSIC -> R.string.player_icon_style_classic
+        PlayerIconStyle.TONAL,
+        PlayerIconStyle.CLASSIC,
+        -> R.string.player_icon_style_tonal
         PlayerIconStyle.TRANSLUCENT -> R.string.player_icon_style_translucent
+        PlayerIconStyle.TRANSPARENT -> R.string.player_icon_style_transparent
     }
     return stringResource(stringRes)
 }

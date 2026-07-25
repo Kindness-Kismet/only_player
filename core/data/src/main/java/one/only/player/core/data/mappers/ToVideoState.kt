@@ -14,4 +14,6 @@ fun MediumStateEntity.toVideoState(): VideoState = VideoState(
     videoScale = videoScale,
     subtitleDelayMilliseconds = subtitleDelayMilliseconds,
     subtitleSpeed = subtitleSpeed,
+    decoderPriority = decoderPriority?.takeIf { it.isNotBlank() },
+    contentScale = contentScale?.takeIf { it.isNotBlank() },
 )

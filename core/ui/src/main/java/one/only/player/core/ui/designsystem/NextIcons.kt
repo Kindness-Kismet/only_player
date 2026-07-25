@@ -23,6 +23,7 @@ import androidx.compose.material.icons.rounded.CheckCircle
 import androidx.compose.material.icons.rounded.Close
 import androidx.compose.material.icons.rounded.ClosedCaption
 import androidx.compose.material.icons.rounded.Cloud
+import androidx.compose.material.icons.rounded.Star
 import androidx.compose.material.icons.rounded.ContentCopy
 import androidx.compose.material.icons.rounded.Contrast
 import androidx.compose.material.icons.rounded.DarkMode
@@ -170,6 +171,7 @@ object NextIcons {
     val VolumeUp = Icons.AutoMirrored.Rounded.VolumeUp
     val ButtonsPosition = Icons.Rounded.AppSettingsAlt
     val Cloud = Icons.Rounded.Cloud
+    val Star = Icons.Rounded.Star
     val Close = Icons.Rounded.Close
     val History = Icons.Rounded.History
     val Pan = Icons.Rounded.PanToolAlt

@@ -20,7 +20,6 @@ androidxMedia3 = "1.10.1"
 androidxNavigation = "2.9.8"
 coil = "3.5.0"
 commonsNet = "3.13.0"
-hiddenapibypass = "6.1"
 hilt = "2.60.1"
 junit4 = "4.13.2"
 kotlin = "2.4.10"
@@ -45,7 +44,6 @@ androidx-activity-compose = { module = "androidx.activity:activity-compose", ver
 androidx-activity-ktx = { module = "androidx.activity:activity-ktx", version.ref = "androidxActivity" }
 androidx-appcompat = { module = "androidx.appcompat:appcompat", version.ref = "androidxAppCompat" }
 androidx-compose-bom = { module = "androidx.compose:compose-bom", version.ref = "androidxComposeBom" }
-androidx-compose-foundation = { module = "androidx.compose.foundation:foundation" }
 androidx-compose-icons = { module = "androidx.compose.material:material-icons-core" }
 androidx-compose-material-iconsExtended = { module = "androidx.compose.material:material-icons-extended" }
 androidx-compose-material3 = { module = "androidx.compose.material3:material3", version.ref = "androidxMaterial3" }
@@ -82,7 +80,6 @@ github-anilbeesetti-nextlib-media3ext = { module = "io.github.anilbeesetti:nextl
 github-anilbeesetti-nextlib-mediainfo = { module = "io.github.anilbeesetti:nextlib-mediainfo", version.ref = "nextlib" }
 github-peerless2012-ass-media = { module = "io.github.peerless2012:ass-media", version.ref = "libassAndroid" }
 google-android-material = { module = "com.google.android.material:material", version.ref = "androidMaterial" }
-hiddenapibypass = { module = "org.lsposed.hiddenapibypass:hiddenapibypass", version.ref = "hiddenapibypass" }
 hilt-android = { module = "com.google.dagger:hilt-android", version.ref = "hilt" }
 hilt-compiler = { module = "com.google.dagger:hilt-android-compiler", version.ref = "hilt" }
 junit4 = { module = "junit:junit", version.ref = "junit4" }
