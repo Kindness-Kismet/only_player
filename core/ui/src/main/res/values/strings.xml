@@ -41,6 +41,8 @@
     <string name="cloud_quick_settings">Cloud Quick Settings</string>
     <string name="autoplay_settings">Autoplay</string>
     <string name="autoplay_settings_description">Automatically play the next video in the current folder</string>
+    <string name="restart_current_on_previous">Restart on Previous</string>
+    <string name="restart_current_on_previous_description">First Previous restarts the current video; second near the start jumps to the previous video</string>
     <string name="pip_settings">Picture in Picture Mode</string>
     <string name="pip_settings_description">Automatically switch to miniature player when tapping Home Button</string>
     <string name="remember_brightness_level">Remember brightness level</string>
@@ -59,11 +61,13 @@
     <string name="title">Title</string>
     <string name="unknown_error">An unknown error has occurred</string>
     <string name="playback">Playback</string>
+    <string name="playback_behavior">Playback behavior</string>
     <string name="video_processing">Video processing</string>
     <string name="video_filters">Video filters</string>
     <string name="enable_video_filters">Enable video filters</string>
     <string name="enable_video_filters_description">Turn this off to skip GPU video filtering and save battery</string>
-    <string name="video_filters_unavailable_software_decoder">The software decoder does not support video filters</string>
+    <string name="video_filters_unavailable_software_decoder">Video filters unavailable</string>
+    <string name="interface_name">Interface</string>
     <string name="a_z">A-Z</string>
     <string name="z_a">Z-A</string>
     <string name="shortest">Shortest</string>
@@ -77,9 +81,9 @@
     <string name="video_zoom">Video zoom</string>
     <string name="mirror_video">Mirror video</string>
     <string name="dynamic_theme">Dynamic color theme</string>
-    <string name="dynamic_theme_description">Use system wallpaper colors when enabled and original Miuix colors when disabled</string>
+    <string name="dynamic_theme_description">Apply colors from system wallpaper to the application theme</string>
     <string name="theme_color">Theme color</string>
-    <string name="theme_color_description">Use system wallpaper colors or a custom theme color</string>
+    <string name="theme_color_description">Custom seed color for generating the palette</string>
     <string name="theme_palette_style">Palette style</string>
     <string name="theme_palette_style_description">How colors are derived from the seed color</string>
     <string name="theme_color_spec">Color specification</string>
@@ -112,10 +116,15 @@
     <string name="select_playback_speed">Select playback speed</string>
     <string name="audio">Audio</string>
     <string name="audio_track_settings">Audio track</string>
+    <string name="audio_focus_and_devices">Audio focus &amp; devices</string>
+    <string name="volume_memory">Volume memory</string>
+    <string name="volume_processing">Volume processing</string>
     <string name="preferred_audio_lang">Preferred audio language</string>
     <string name="preferred_audio_lang_description">Language of the audio track you want to use by default</string>
     <string name="subtitle">Subtitle</string>
     <string name="subtitle_loading">Subtitle loading</string>
+    <string name="subtitle_style_source">Style source</string>
+    <string name="subtitle_font_settings">Font</string>
     <string name="subtitle_appearance">Subtitle appearance</string>
     <string name="subtitle_auto_load">Auto-load subtitles</string>
     <string name="subtitle_auto_load_desc">Automatically select subtitle track when playing video</string>
@@ -132,6 +141,7 @@
     <string name="enable">Enable</string>
     <string name="yes">Yes</string>
     <string name="no">No</string>
+    <string name="scan">Scan</string>
     <string name="media_library">Media library</string>
     <string name="force_rescan_storage">Force rescan storage</string>
     <string name="media_library_description">Scan and manage media library</string>
@@ -199,7 +209,7 @@
     <string name="subtitle_shadow_strength">Subtitle shadow strength</string>
     <string name="reset_subtitle_shadow_strength">Reset subtitle shadow strength</string>
     <string name="decoder">Decoder</string>
-    <string name="decoder_desc">Decoder priority and video filter options</string>
+    <string name="decoder_desc">Video filter options</string>
     <string name="decoder_priority">Decoder</string>
     <string name="auto_hw_decoder">Auto detect (prefer hardware decoding)</string>
     <string name="auto_hw_plus_decoder">Auto detect (prefer hardware decoding+)</string>
@@ -319,6 +329,7 @@
     <string name="control_buttons_alignment">Control buttons alignment</string>
     <string name="player_control_labels">Hide control labels</string>
     <string name="player_control_labels_description">Hide text under player control buttons</string>
+    <string name="player_controls">Player controls</string>
     <string name="stop_player_session">Stop player session</string>
     <string name="background_play">Background play</string>
     <string name="background_play_description">Play in background when tapped on home or screen is locked.</string>
@@ -329,6 +340,7 @@
     <string name="libraries">Libraries</string>
     <string name="project_repository">Project repository</string>
     <string name="telegram_group">Telegram group</string>
+    <string name="diagnostics">Diagnostics</string>
     <string name="app_logs">App logs</string>
     <string name="app_logs_description">View, share, save, and clear logs stored in the app private directory</string>
     <string name="share_logs">Share</string>
@@ -346,7 +358,6 @@
     <string name="android_version">Android version</string>
     <string name="error_opening_link">No app found to handle this link</string>
     <string name="all_files_access_title">Allow all files access</string>
-    <string name="all_files_access_required_desc">Only Player needs all files access to scan and manage videos in any folder. Grant access in system settings to continue.</string>
     <string name="media_library_all_files_access_desc">Ignore .nomedia files and recycle bin require all files access. Grant permission to enable both features.</string>
     <string name="not_now">Not now</string>
     <string name="media_layout">Media Layout</string>
@@ -374,6 +385,10 @@
     <string name="delete_failed">Failed to delete files</string>
     <string name="gestures">Gestures</string>
     <string name="swipe_gestures">Swipe gestures</string>
+    <string name="tap_gestures">Tap gestures</string>
+    <string name="long_press_gestures">Long press gestures</string>
+    <string name="zoom_and_pan_gestures">Zoom and pan</string>
+    <string name="other_gestures">Other gestures</string>
     <string name="volume_gesture">Volume gesture</string>
     <string name="volume_gesture_description">Adjust volume by swiping vertically</string>
     <string name="brightness_gesture">Brightness gesture</string>
@@ -435,6 +450,7 @@
     <string name="clear_history">Clear history</string>
     <string name="no_results_found">No results found</string>
     <string name="now_playing">Now playing</string>
+    <string name="playlist">Playlist</string>
     <string name="no_videos_in_queue">No videos in queue</string>
     <string name="reorder">Reorder</string>
     <string name="remove">Remove</string>
@@ -469,15 +485,7 @@
     <string name="move_success">Moved %1$d items</string>
     <string name="move_failed">Move failed</string>
     <string name="move_partial_success">Moved %1$d items, %2$d failed</string>
-    <string name="move_incomplete">Fully moved %1$d items, %2$d folders partially moved, %3$d failed</string>
     <string name="move_cancelled">Canceled, moved %1$d items, %2$d failed</string>
-    <string name="storage_locations">Storage locations</string>
-    <string name="storage_available_total">Available %1$s of %2$s</string>
-    <string name="storage_available">Available %1$s</string>
-    <string name="storage_available_percent">%1$s available · %2$d%%</string>
-    <string name="storage_total">%1$s total</string>
-    <string name="move_required_space">Move needs %1$s, %2$s available</string>
-    <string name="move_insufficient_space">Not enough space: %1$s needed, %2$s available</string>
     <string name="move_progress_title">Moving</string>
     <string name="move_progress_message">Processed %1$d/%2$d items</string>
     <string name="move_progress_current_file">Current file: %1$s</string>
@@ -489,6 +497,7 @@
     <string name="delete_permanently">Delete permanently</string>
     <string name="settings_backup_file_name">onlyplayer-settings.json</string>
     <string name="exclude">Exclude</string>
+    <string name="update_check">Update</string>
     <string name="check_for_updates">Check for updates</string>
     <string name="check_updates_on_startup">Check on startup</string>
     <string name="check_updates_on_startup_desc">Automatically check for updates when opening this page</string>
@@ -543,9 +552,11 @@
     <string name="floating_navigation_bar_description">Use a rounded floating bottom navigation bar</string>
     <string name="floating_navigation_bar_blur">Floating bar blur</string>
     <string name="floating_navigation_bar_blur_description">Apply blur and translucency to the floating navigation bar</string>
-    <string name="predictive_back_gesture">Predictive back gesture</string>
-    <string name="predictive_back_gesture_description">Enable predictive back gesture support</string>
-    <string name="take_screenshot">Take screenshot</string>
+        <string name="hide_cloud_tab">Hide Cloud tab</string>
+    <string name="hide_cloud_tab_description">Hide the Cloud tab from the bottom navigation bar</string>
+    <string name="hide_favorites_tab">Hide Favorites tab</string>
+    <string name="hide_favorites_tab_description">Hide the Favorites tab from the bottom navigation bar</string>
+<string name="take_screenshot">Take screenshot</string>
     <string name="screenshot_saved">Screenshot saved to Pictures/Screenshots</string>
     <string name="screenshot_failed">Failed to save screenshot</string>
     <string name="customize_player_controls">Customize controls</string>
@@ -553,4 +564,46 @@
     <string name="add_playback_mark">Add mark</string>
     <string name="no_playback_marks">No marks yet</string>
     <string name="delete_mark">Delete mark</string>
+    <string name="predictive_back">Predictive back gesture</string>
+    <string name="predictive_back_description">Use Android predictive back for nested screens</string>
+
+    <string name="file_extensions">File extensions</string>
+    <string name="file_extensions_description">Customize recognized extensions and their default decoder</string>
+    <string name="file_extensions_add">Add extension</string>
+    <string name="file_extensions_add_hint">e.g. mkv</string>
+    <string name="file_extensions_delete">Remove extension</string>
+    <string name="file_extensions_built_in">Built-in</string>
+    <string name="file_extensions_custom">Custom</string>
+    <string name="file_extensions_decoder">Default decoder</string>
+    <string name="file_extensions_already_exists">This extension already exists</string>
+    <string name="file_extensions_invalid">Enter a valid extension</string>
+
+    <string name="file_extensions_all_files_access_hint">Custom extensions require All files access. Without it, only MediaStore-indexed files can be found.</string>
+    <string name="file_extensions_long_press_hint">Long press an extension to multi-select and set decoder in batch</string>
+    <string name="file_extensions_batch_set_decoder">Set decoder for selected</string>
+    <string name="file_extensions_batch_selected">%1$d selected</string>
+    <string name="file_extensions_selected">Selected</string>
+    <string name="file_extensions_restore_defaults">Restore defaults</string>
+    <string name="keep_hidden_control_slots">Keep slots for hidden controls</string>
+    <string name="keep_hidden_control_slots_description">When customizing legacy controls, hidden buttons still occupy their place so remaining buttons stay fixed</string>
+
+
+    <string name="media_session_visibility">System media controls</string>
+    <string name="media_session_visibility_description">Whether playback appears in the system media player / notification</string>
+    <string name="media_session_visibility_show">Show</string>
+    <string name="media_session_visibility_hide">Hide</string>
+    <string name="media_session_visibility_audio_only">Show only when playing MP3</string>
+<string name="player_icon_style_transparent">Fully transparent</string>
+    <string name="volume_brightness_indicator">Brightness/volume indicator</string>
+    <string name="volume_brightness_indicator_bar">Side bar</string>
+    <string name="volume_brightness_indicator_center_text">Center percentage text</string>
+    <string name="controls_customize">Customize</string>
+    <string name="notification_channel_player_name">Playback</string>
+    <string name="notification_channel_player_description">Background playback service</string>
+    <string name="playing_in_background">Playing</string>
+    <string name="remember_decoder_per_extension">Remember decoder per extension</string>
+    <string name="remember_decoder_per_extension_description">When changing decoder in player, remember it by file extension</string>
+    <string name="remember_video_scale_for_this_file">Remember video zoom for this file</string>
+    <string name="remember_decoder_for_this_file">Remember decoder for this file</string>
+    <string name="remember_orientation_for_this_file">Remember orientation for this file</string>
 </resources>

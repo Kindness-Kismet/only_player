@@ -26,17 +26,17 @@ import one.only.player.core.common.hasManageExternalStorageAccess
 import one.only.player.core.model.ThumbnailGenerationStrategy
 import one.only.player.core.ui.R
 import one.only.player.core.ui.components.ClickablePreferenceItem
+import one.only.player.core.ui.components.ListSectionTitle
 import one.only.player.core.ui.components.PreferenceSwitch
 import one.only.player.core.ui.components.SegmentedItemGap
 import one.only.player.core.ui.components.SettingsContentTopPadding
-import one.only.player.core.ui.components.SettingsGroupGap
 import one.only.player.core.ui.designsystem.NextIcons
 import one.only.player.core.ui.extensions.withBottomFallback
 import one.only.player.core.ui.theme.OnlyPlayerTheme
 import top.yukonga.miuix.kmp.basic.Icon as MiuixIcon
 import top.yukonga.miuix.kmp.basic.IconButton as MiuixIconButton
 import top.yukonga.miuix.kmp.basic.Scaffold
-import top.yukonga.miuix.kmp.basic.TopAppBar
+import top.yukonga.miuix.kmp.basic.SmallTopAppBar
 import top.yukonga.miuix.kmp.theme.MiuixTheme
 
 @Composable
@@ -44,6 +44,7 @@ fun MediaLibraryPreferencesScreen(
     onNavigateUp: () -> Unit,
     onFolderSettingClick: () -> Unit = {},
     onThumbnailSettingClick: () -> Unit = {},
+    onFileExtensionSettingClick: () -> Unit = {},
     viewModel: MediaLibraryPreferencesViewModel = hiltViewModel(),
 ) {
     val context = LocalContext.current
@@ -68,6 +69,7 @@ fun MediaLibraryPreferencesScreen(
         onNavigateUp = onNavigateUp,
         onFolderSettingClick = onFolderSettingClick,
         onThumbnailSettingClick = onThumbnailSettingClick,
+        onFileExtensionSettingClick = onFileExtensionSettingClick,
         onOpenAllFilesAccessSettings = {
             context.startActivity(createManageExternalStorageAccessIntent(context))
         },
@@ -89,6 +91,7 @@ private fun MediaLibraryPreferencesContent(
     onNavigateUp: () -> Unit,
     onFolderSettingClick: () -> Unit,
     onThumbnailSettingClick: () -> Unit,
+    onFileExtensionSettingClick: () -> Unit,
     onOpenAllFilesAccessSettings: () -> Unit,
     onToggleIgnoreNoMediaFiles: (Boolean) -> Unit,
     onEvent: (MediaLibraryPreferencesUiEvent) -> Unit,
@@ -97,7 +100,7 @@ private fun MediaLibraryPreferencesContent(
 
     Scaffold(
         topBar = {
-            TopAppBar(
+            SmallTopAppBar(
                 title = stringResource(id = R.string.media_library),
                 navigationIcon = {
                     MiuixIconButton(
@@ -115,6 +118,7 @@ private fun MediaLibraryPreferencesContent(
                 },
             )
         },
+        containerColor = MiuixTheme.colorScheme.background,
     ) { innerPadding ->
         Column(
             modifier = Modifier
@@ -123,7 +127,6 @@ private fun MediaLibraryPreferencesContent(
                 .padding(innerPadding.withBottomFallback())
                 .padding(top = SettingsContentTopPadding)
                 .padding(horizontal = 16.dp),
-            verticalArrangement = Arrangement.spacedBy(SettingsGroupGap),
         ) {
             Column(
                 verticalArrangement = Arrangement.spacedBy(SegmentedItemGap),
@@ -172,6 +175,7 @@ private fun MediaLibraryPreferencesContent(
                 )
             }
 
+            ListSectionTitle(text = stringResource(id = R.string.scan))
             Column(
                 verticalArrangement = Arrangement.spacedBy(SegmentedItemGap),
             ) {
@@ -195,10 +199,20 @@ private fun MediaLibraryPreferencesContent(
                     icon = NextIcons.FolderOff,
                     onClick = onFolderSettingClick,
                     isFirstItem = false,
+                    isLastItem = false,
+                )
+                ClickablePreferenceItem(
+                    modifier = Modifier.testTag("item_settings_media_file_extensions"),
+                    title = stringResource(id = R.string.file_extensions),
+                    description = stringResource(id = R.string.file_extensions_description),
+                    icon = NextIcons.Decoder,
+                    onClick = onFileExtensionSettingClick,
+                    isFirstItem = false,
                     isLastItem = true,
                 )
             }
 
+            ListSectionTitle(text = stringResource(id = R.string.thumbnail))
             Column(
                 verticalArrangement = Arrangement.spacedBy(SegmentedItemGap),
             ) {
@@ -230,6 +244,7 @@ private fun MediaLibraryPreferencesScreenPreview() {
             onNavigateUp = {},
             onFolderSettingClick = {},
             onThumbnailSettingClick = {},
+            onFileExtensionSettingClick = {},
             onOpenAllFilesAccessSettings = {},
             onToggleIgnoreNoMediaFiles = {},
             onEvent = {},

@@ -20,7 +20,6 @@ import top.yukonga.miuix.kmp.basic.Surface
 import top.yukonga.miuix.kmp.theme.MiuixTheme
 
 val SegmentedItemGap = 0.dp
-val SettingsGroupGap = 12.dp
 val SettingsContentTopPadding = 12.dp
 
 @OptIn(ExperimentalFoundationApi::class)
@@ -92,6 +91,7 @@ fun ListSectionTitle(
     modifier: Modifier = Modifier,
     text: String,
     contentPadding: PaddingValues = PaddingValues(
+        start = 12.dp,
         top = 4.dp,
         bottom = 4.dp,
     ),

@@ -32,7 +32,7 @@ import one.only.player.core.database.entities.VideoStreamInfoEntity
         FavoriteItemEntity::class,
         PlaybackMarkEntity::class,
     ],
-    version = 10,
+    version = 12,
     exportSchema = true,
 )
 abstract class MediaDatabase : RoomDatabase() {
@@ -289,6 +289,19 @@ abstract class MediaDatabase : RoomDatabase() {
             override fun migrate(db: SupportSQLiteDatabase) {
                 db.execSQL("CREATE INDEX IF NOT EXISTS `index_media_parent_path` ON `media` (`parent_path`)")
                 db.execSQL("CREATE INDEX IF NOT EXISTS `index_directories_parent_path` ON `directories` (`parent_path`)")
+            }
+        }
+
+        val MIGRATION_10_11 = object : Migration(10, 11) {
+            override fun migrate(db: SupportSQLiteDatabase) {
+                db.execSQL("ALTER TABLE media_state ADD COLUMN decoder_priority TEXT DEFAULT NULL")
+            }
+        }
+
+        val MIGRATION_11_12 = object : Migration(11, 12) {
+            override fun migrate(db: SupportSQLiteDatabase) {
+                // 缩放模式与续播 position 同表同 URI（BEST_FIT/CROP/...）
+                db.execSQL("ALTER TABLE media_state ADD COLUMN content_scale TEXT DEFAULT NULL")
             }
         }
     }

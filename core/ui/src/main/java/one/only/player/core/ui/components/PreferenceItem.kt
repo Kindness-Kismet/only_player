@@ -1,9 +1,13 @@
 package one.only.player.core.ui.components
 
+import androidx.compose.foundation.ExperimentalFoundationApi
+import androidx.compose.foundation.combinedClickable
+import androidx.compose.foundation.interaction.MutableInteractionSource
 import androidx.compose.foundation.layout.RowScope
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.remember
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.vector.ImageVector
@@ -13,12 +17,12 @@ import one.only.player.core.ui.designsystem.NextIcons
 import top.yukonga.miuix.kmp.basic.BasicComponent
 import top.yukonga.miuix.kmp.basic.Icon as MiuixIcon
 import top.yukonga.miuix.kmp.basic.Surface
-import top.yukonga.miuix.kmp.preference.ArrowPreference
 import top.yukonga.miuix.kmp.preference.CheckboxLocation
 import top.yukonga.miuix.kmp.preference.CheckboxPreference
 import top.yukonga.miuix.kmp.preference.RadioButtonPreference
 import top.yukonga.miuix.kmp.theme.MiuixTheme
 
+@OptIn(ExperimentalFoundationApi::class)
 @Composable
 fun PreferenceItem(
     modifier: Modifier = Modifier,
@@ -33,30 +37,42 @@ fun PreferenceItem(
     showArrow: Boolean = false,
     trailingContent: @Composable RowScope.() -> Unit = {},
 ) {
+    // 始终用 combinedClickable 处理点击/长按，避免 ArrowPreference 吞掉 long-click
+    val clickModifier = if (isEnabled) {
+        Modifier.combinedClickable(
+            interactionSource = remember { MutableInteractionSource() },
+            indication = null,
+            onClick = onClick,
+            onLongClick = onLongClick,
+        )
+    } else {
+        Modifier
+    }
+
     Surface(
         shape = preferenceSegmentShape(isFirstItem, isLastItem),
         color = MiuixTheme.colorScheme.surfaceContainer,
-        modifier = modifier,
+        modifier = modifier.then(clickModifier),
     ) {
-        if (showArrow) {
-            ArrowPreference(
-                title = title,
-                summary = description,
-                startAction = icon?.let { { PreferenceIcon(it, isEnabled) } },
-                endActions = trailingContent,
-                onClick = onClick,
-                enabled = isEnabled,
-            )
-        } else {
-            BasicComponent(
-                title = title,
-                summary = description,
-                startAction = icon?.let { { PreferenceIcon(it, isEnabled) } },
-                endActions = trailingContent,
-                onClick = if (isEnabled) onClick else null,
-                enabled = isEnabled,
-            )
-        }
+        // 不走 BasicComponent 的 onClick，避免长按失效
+        BasicComponent(
+            title = title,
+            summary = description,
+            startAction = icon?.let { { PreferenceIcon(it, isEnabled) } },
+            endActions = {
+                trailingContent()
+                if (showArrow) {
+                    MiuixIcon(
+                        imageVector = NextIcons.ExpandMore,
+                        contentDescription = null,
+                        tint = MiuixTheme.colorScheme.onSurfaceVariantSummary,
+                        modifier = Modifier.padding(start = 4.dp),
+                    )
+                }
+            },
+            onClick = null,
+            enabled = isEnabled,
+        )
     }
 }
 
@@ -122,7 +138,6 @@ fun SingleSelectablePreference(
     description: String? = null,
     isSelected: Boolean = false,
     onClick: () -> Unit = {},
-    onLongClick: (() -> Unit)? = null,
     isFirstItem: Boolean = false,
     isLastItem: Boolean = false,
 ) {
@@ -140,24 +155,17 @@ fun SingleSelectablePreference(
     }
 }
 
-@Preview(showBackground = true)
+private fun Color.applyAlpha(isEnabled: Boolean): Color =
+    if (isEnabled) this else copy(alpha = 0.38f)
+
+@Preview
 @Composable
-fun PreferenceItemPreview() {
+private fun PreferenceItemPreview() {
     PreferenceItem(
         title = "Title",
-        description = "Description of the preference item goes here.",
+        description = "Description",
         icon = NextIcons.DoubleTap,
         isEnabled = true,
+        showArrow = true,
     )
 }
-
-@Preview(showBackground = true)
-@Composable
-fun SelectablePreferencePreview() {
-    SelectablePreference(
-        title = "Title",
-        description = "Description of the preference item goes here.",
-    )
-}
-
-internal fun Color.applyAlpha(isEnabled: Boolean): Color = if (isEnabled) this else this.copy(alpha = 0.6f)

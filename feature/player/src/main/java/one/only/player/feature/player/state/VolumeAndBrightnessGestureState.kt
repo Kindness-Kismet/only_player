@@ -11,6 +11,7 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.input.pointer.PointerInputChange
 import androidx.compose.ui.unit.IntSize
+import kotlin.time.Duration.Companion.milliseconds
 import kotlin.time.Duration.Companion.seconds
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Job
@@ -60,6 +61,13 @@ class VolumeAndBrightnessGestureState(
     var brightnessChangePercentage: Int by mutableIntStateOf(0)
         private set
 
+    /** 手势过程中锁定显示值，避免系统音量广播回写导致百分比最后闪一下 */
+    var displayedVolumePercentage: Int by mutableIntStateOf(0)
+        private set
+
+    var displayedBrightnessPercentage: Int by mutableIntStateOf(0)
+        private set
+
     private var startingY = 0f
     private var startVolumePercentage = 0
     private var startBrightnessPercentage = 0
@@ -73,8 +81,13 @@ class VolumeAndBrightnessGestureState(
             else -> VerticalGesture.VOLUME.takeIf { isVolumeGestureEnabled }
         }
         startingY = offset.y
+        // 锁定起始百分比，避免系统音量广播回写导致指示器最后闪一下
         startVolumePercentage = volumeState.volumePercentage
         startBrightnessPercentage = brightnessState.brightnessPercentage
+        displayedVolumePercentage = startVolumePercentage
+        displayedBrightnessPercentage = startBrightnessPercentage
+        volumeChangePercentage = 0
+        brightnessChangePercentage = 0
     }
 
     fun onDrag(change: PointerInputChange, dragAmount: Float) {
@@ -85,23 +98,22 @@ class VolumeAndBrightnessGestureState(
             VerticalGesture.VOLUME -> {
                 val maxVolumePercentage = volumeState.maxVolumePercentage
                 val volumeChange = (startingY - change.position.y) * (volumeGestureSensitivity / 10)
-                val newVolume = startVolumePercentage + volumeChange.toInt()
-                volumeChangePercentage = (newVolume - startVolumePercentage).coerceIn(
-                    minimumValue = 0 - startVolumePercentage,
-                    maximumValue = maxVolumePercentage - startVolumePercentage,
-                )
+                val newVolume = (startVolumePercentage + volumeChange.toInt())
+                    .coerceIn(0, maxVolumePercentage)
+                volumeChangePercentage = newVolume - startVolumePercentage
                 brightnessChangePercentage = 0
+                // 手势过程中用本地显示值，避免 setStreamVolume 广播触发百分比跳变闪烁
+                displayedVolumePercentage = newVolume
                 volumeState.updateVolumePercentage(newVolume)
             }
 
             VerticalGesture.BRIGHTNESS -> {
                 val brightnessChange = (startingY - change.position.y) * (brightnessGestureSensitivity / 10)
-                val newBrightness = startBrightnessPercentage + brightnessChange.toInt()
-                brightnessChangePercentage = (newBrightness - startBrightnessPercentage).coerceIn(
-                    minimumValue = 0 - startBrightnessPercentage,
-                    maximumValue = MAX_BRIGHTNESS_PERCENTAGE - startBrightnessPercentage,
-                )
+                val newBrightness = (startBrightnessPercentage + brightnessChange.toInt())
+                    .coerceIn(0, MAX_BRIGHTNESS_PERCENTAGE)
+                brightnessChangePercentage = newBrightness - startBrightnessPercentage
                 volumeChangePercentage = 0
+                displayedBrightnessPercentage = newBrightness
                 brightnessState.updateBrightnessPercentage(newBrightness)
             }
         }
@@ -114,12 +126,26 @@ class VolumeAndBrightnessGestureState(
 
         job?.cancel()
         job = coroutineScope.launch {
-            delay(1.seconds)
+            // 百分比指示：略缩短停留，结束时直接消失，减少最后一帧闪动
+            delay(500.milliseconds)
             activeGesture = null
             volumeChangePercentage = 0
             brightnessChangePercentage = 0
+            displayedVolumePercentage = volumeState.volumePercentage
+            displayedBrightnessPercentage = brightnessState.brightnessPercentage
         }
     }
+
+    /** 手势进行中的稳定百分比（避免读 volumeState 时被系统广播回写闪一下） */
+    fun indicatorVolumePercentage(): Int =
+        if (activeGesture == VerticalGesture.VOLUME) displayedVolumePercentage else volumeState.volumePercentage
+
+    fun indicatorBrightnessPercentage(): Int =
+        if (activeGesture == VerticalGesture.BRIGHTNESS) {
+            displayedBrightnessPercentage
+        } else {
+            brightnessState.brightnessPercentage
+        }
 
     companion object {
         private const val MAX_BRIGHTNESS_PERCENTAGE = 100

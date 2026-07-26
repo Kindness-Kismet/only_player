@@ -151,6 +151,28 @@ class LocalMediaRepository @Inject constructor(
         )
     }
 
+    override suspend fun updateMediumDecoderPriority(uri: String, decoderPriority: String?) {
+        val canonicalMediaUri = resolveCanonicalMediaUri(uri)
+        val stateEntity = mediumStateDao.get(canonicalMediaUri) ?: MediumStateEntity(uriString = canonicalMediaUri)
+        mediumStateDao.upsert(
+            mediumState = stateEntity.copy(
+                decoderPriority = decoderPriority?.takeIf { it.isNotBlank() },
+                lastPlayedTime = System.currentTimeMillis(),
+            ),
+        )
+    }
+
+    override suspend fun updateMediumContentScale(uri: String, contentScale: String?) {
+        val canonicalMediaUri = resolveCanonicalMediaUri(uri)
+        val stateEntity = mediumStateDao.get(canonicalMediaUri) ?: MediumStateEntity(uriString = canonicalMediaUri)
+        mediumStateDao.upsert(
+            mediumState = stateEntity.copy(
+                contentScale = contentScale?.takeIf { it.isNotBlank() },
+                lastPlayedTime = System.currentTimeMillis(),
+            ),
+        )
+    }
+
     override suspend fun addExternalSubtitleToMedium(uri: String, subtitleUri: Uri) {
         val canonicalMediaUri = resolveCanonicalMediaUri(uri)
         val stateEntity = mediumStateDao.get(canonicalMediaUri) ?: MediumStateEntity(uriString = canonicalMediaUri)
@@ -359,16 +381,13 @@ class LocalMediaRepository @Inject constructor(
         if (targetFolderPath.isBlank()) return MediaMoveSummary(failedCount = distinctFolderPaths.size)
 
         var movedCount = 0
-        var partiallyMovedCount = 0
         var failedCount = 0
-        var processedCount = 0
         distinctFolderPaths.forEach { folderPath ->
             if (shouldCancel()) {
                 return MediaMoveSummary(
                     movedCount = movedCount,
-                    partiallyMovedCount = partiallyMovedCount,
                     failedCount = failedCount,
-                    canceledCount = distinctFolderPaths.size - processedCount,
+                    canceledCount = distinctFolderPaths.size - movedCount - failedCount,
                 )
             }
 
@@ -378,48 +397,51 @@ class LocalMediaRepository @Inject constructor(
                 .sumOf(File::length)
             onProgress(
                 MediaMoveProgress(
-                    completedCount = processedCount,
+                    completedCount = movedCount + failedCount,
                     totalCount = distinctFolderPaths.size,
                     currentName = folder.name,
                     totalBytes = totalBytes,
                 ),
             )
-            val result = mediaService.moveFolderToFolder(folderPath, targetFolderPath)
+            val movedMedia = mediaService.moveFolderToFolder(folderPath, targetFolderPath)
+            if (movedMedia.isEmpty()) {
+                failedCount++
+                onProgress(
+                    MediaMoveProgress(
+                        completedCount = movedCount + failedCount,
+                        totalCount = distinctFolderPaths.size,
+                        currentName = folder.name,
+                        copiedBytes = totalBytes,
+                        totalBytes = totalBytes,
+                    ),
+                )
+                return@forEach
+            }
 
             val movedFolderPath = File(targetFolderPath, folder.name).path
-            result.movedMedia.forEach { moved ->
+            movedMedia.forEach { moved ->
                 val uriString = moved.originalPath?.let { originalPath -> mediumDao.getByPath(originalPath)?.uriString } ?: return@forEach
                 updateMovedMedium(uriString, moved)
                 mediaSynchronizer.registerManualVideoPath(moved.path)
             }
-            when {
-                result.isComplete -> {
-                    favoriteRepository.updateLocalFolderPath(
-                        oldPath = folderPath,
-                        newPath = movedFolderPath,
-                    )
-                    movedCount++
-                }
-                result.movedMedia.isNotEmpty() -> partiallyMovedCount++
-                else -> failedCount++
-            }
-            if (result.isComplete || result.movedMedia.isNotEmpty()) {
-                mediaSynchronizer.refresh()
-            }
-            processedCount++
+            favoriteRepository.updateLocalFolderPath(
+                oldPath = folderPath,
+                newPath = movedFolderPath,
+            )
+            mediaSynchronizer.refresh()
+            movedCount++
             onProgress(
                 MediaMoveProgress(
-                    completedCount = processedCount,
+                    completedCount = movedCount + failedCount,
                     totalCount = distinctFolderPaths.size,
                     currentName = folder.name,
-                    copiedBytes = totalBytes.takeIf { result.isComplete } ?: 0L,
+                    copiedBytes = totalBytes,
                     totalBytes = totalBytes,
                 ),
             )
         }
         return MediaMoveSummary(
             movedCount = movedCount,
-            partiallyMovedCount = partiallyMovedCount,
             failedCount = failedCount,
         )
     }

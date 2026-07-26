@@ -41,4 +41,9 @@ data class MediumStateEntity(
     val originalParentPath: String? = null,
     @ColumnInfo(name = "original_file_name")
     val originalFileName: String? = null,
+    // 与 playback_position 一样按 URI 记住；为空表示走全局/扩展名
+    @ColumnInfo(name = "decoder_priority")
+    val decoderPriority: String? = null,
+    @ColumnInfo(name = "content_scale")
+    val contentScale: String? = null,
 )

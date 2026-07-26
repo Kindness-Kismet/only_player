@@ -40,7 +40,7 @@ import top.yukonga.miuix.kmp.basic.IconButton as MiuixIconButton
 import top.yukonga.miuix.kmp.basic.Scaffold
 import top.yukonga.miuix.kmp.basic.Surface
 import top.yukonga.miuix.kmp.basic.Text as MiuixText
-import top.yukonga.miuix.kmp.basic.TopAppBar
+import top.yukonga.miuix.kmp.basic.SmallTopAppBar
 import top.yukonga.miuix.kmp.theme.MiuixTheme
 
 @Composable
@@ -53,7 +53,7 @@ fun LibrariesScreen(
 
     Scaffold(
         topBar = {
-            TopAppBar(
+            SmallTopAppBar(
                 title = stringResource(id = R.string.libraries),
                 navigationIcon = {
                     MiuixIconButton(
@@ -71,6 +71,7 @@ fun LibrariesScreen(
                 },
             )
         },
+        containerColor = MiuixTheme.colorScheme.background,
     ) { innerPadding ->
         if (libs == null) {
             Box(

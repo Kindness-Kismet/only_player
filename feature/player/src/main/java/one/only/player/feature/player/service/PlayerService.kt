@@ -53,6 +53,7 @@ import androidx.media3.session.CommandButton.ICON_UNDEFINED
 import androidx.media3.session.MediaSession
 import androidx.media3.session.MediaSessionService
 import androidx.media3.session.SessionCommand
+import androidx.media3.session.SessionCommands
 import androidx.media3.session.SessionError
 import androidx.media3.session.SessionResult
 import coil3.ImageLoader
@@ -98,9 +99,13 @@ import one.only.player.core.media.container.isMpegTsStream
 import one.only.player.core.media.container.patchMpegTsProgramMapPid
 import one.only.player.core.media.container.toMpegTsPidHex
 import one.only.player.core.model.DecoderPriority
+import one.only.player.core.model.VideoContentScale
+import one.only.player.core.model.PerFilePlaybackPreference
 import one.only.player.core.model.LoopMode
+import one.only.player.core.model.MediaSessionVisibility
 import one.only.player.core.model.PlayerPreferences
 import one.only.player.core.model.Resume
+import androidx.media3.session.DefaultMediaNotificationProvider
 import one.only.player.core.ui.R as coreUiR
 import one.only.player.feature.player.PlayerActivity
 import one.only.player.feature.player.datasource.FtpDataSource
@@ -118,6 +123,10 @@ import one.only.player.feature.player.extensions.localParentPath
 import one.only.player.feature.player.extensions.positionMs
 import one.only.player.feature.player.extensions.remoteDirectoryPath
 import one.only.player.feature.player.extensions.remoteFilePath
+import one.only.player.feature.player.extensions.decoderPriorityName
+import one.only.player.feature.player.extensions.isDecoderRemembered
+import one.only.player.feature.player.extensions.withDecoderStamp
+import one.only.player.feature.player.extensions.contentScaleName
 import one.only.player.feature.player.extensions.remoteProtocol
 import one.only.player.feature.player.extensions.remoteServerId
 import one.only.player.feature.player.extensions.requestHeaders
@@ -141,6 +150,9 @@ import one.only.player.feature.player.service.effects.VideoEffectsCoordinator
 import one.only.player.feature.player.service.effects.isHdrVideoFormat
 import one.only.player.feature.player.service.effects.shouldApplyVideoEffects
 import one.only.player.feature.player.service.effects.toVideoFilterPreferences
+import one.only.player.feature.player.service.media.NoSystemMediaNotificationProvider
+import one.only.player.feature.player.service.media.PlaybackForegroundNotifier
+import one.only.player.feature.player.service.media.SystemMediaSessionHider
 import one.only.player.feature.player.service.playback.FolderPlaybackAnchorUpdater
 import one.only.player.feature.player.service.playback.PlaybackStartupAnalyticsListener
 import one.only.player.feature.player.service.playback.PlaybackStateCoordinator
@@ -161,10 +173,13 @@ class PlayerService : MediaSessionService() {
     companion object {
         private const val TAG = "PlayerService"
         private const val LOCAL_MIN_BUFFER_MS = 250
-        private const val LOCAL_MAX_BUFFER_MS = 30_000
+        // 过大的预缓冲会在 4K/高码率片源上把堆顶到 256MB OOM 上限
+        private const val LOCAL_MAX_BUFFER_MS = 8_000
         private const val LOCAL_BUFFER_FOR_PLAYBACK_MS = 150
-        private const val LOCAL_BUFFER_FOR_PLAYBACK_AFTER_REBUFFER_MS = 150
+        private const val LOCAL_BUFFER_FOR_PLAYBACK_AFTER_REBUFFER_MS = 250
         private const val DEFAULT_AMBIENCE_TARGET_ASPECT_RATIO = 16f / 9f
+        /** 手动切换后等待 DataStore collector 落地，避免二次 recreate 回弹 */
+        private const val MANUAL_DECODER_APPLY_SETTLE_MS = 750L
         private val FAST_SEEK_PARAMETERS = SeekParameters.CLOSEST_SYNC
         private val EXACT_SEEK_PARAMETERS = SeekParameters.DEFAULT
         private val REMOTE_SOURCE_URI_SCHEMES = setOf("smb", "ftp")
@@ -227,7 +242,7 @@ class PlayerService : MediaSessionService() {
     private val videoEffectsCoordinator = VideoEffectsCoordinator(
         scope = serviceScope,
         currentPreferencesProvider = ::playerPreferences,
-        currentPlayerProvider = { mediaSession?.player as? ExoPlayer },
+        currentPlayerProvider = { (mediaSession?.player as? ExoPlayer) },
     )
     private var isAmbienceModeEnabled = false
     private var ambienceTargetAspectRatio = DEFAULT_AMBIENCE_TARGET_ASPECT_RATIO
@@ -247,7 +262,24 @@ class PlayerService : MediaSessionService() {
     private var pendingRememberedSubtitleSelection: PendingSubtitleSelection? = null
     private var assHandler: AssHandler? = null
     private var activeDecoderPriority: DecoderPriority = DecoderPriority.AUTOMATIC
+    @Volatile private var isDecoderSwitchInFlight: Boolean = false
+    /** 手动应用期间禁止偏好 collector 再触发二次 recreate（DataStore 写入异步 settle） */
+    @Volatile private var isManualDecoderApply: Boolean = false
+    /** 手动 apply 世代号；collector 若看到世代已推进则跳过，覆盖 finally 过早清 flag 的竞态 */
+    @Volatile private var manualDecoderApplyGeneration: Long = 0L
+
     private var hasPausedAtEndOfQueue = false
+    /** HIDE 时周期性把 platform/legacy MediaSession 压回 inactive 的协程 */
+    private val systemMediaSessionHider by lazy {
+        SystemMediaSessionHider(
+            context = this,
+            scope = serviceScope,
+            mediaSessionProvider = { mediaSession },
+        )
+    }
+    private val playbackForegroundNotifier by lazy {
+        PlaybackForegroundNotifier(this)
+    }
     private lateinit var fastStartMediaSourceFactory: DefaultMediaSourceFactory
     private lateinit var preciseSeekMediaSourceFactory: DefaultMediaSourceFactory
     private var sessionLoadErrorHandlingPolicy: LoadErrorHandlingPolicy? = null
@@ -258,7 +290,7 @@ class PlayerService : MediaSessionService() {
         PreciseSeekCoordinator(
             context = applicationContext,
             scope = serviceScope,
-            currentPlayerProvider = { mediaSession?.player as? ExoPlayer },
+            currentPlayerProvider = { (mediaSession?.player as? ExoPlayer) },
             createMediaSource = ::createMediaSource,
             resolvePlaybackStateUri = playbackStateCoordinator::resolvePlaybackStateUri,
             updatePlaybackPosition = { uri, position ->
@@ -275,7 +307,7 @@ class PlayerService : MediaSessionService() {
     private val startupAnalyticsListener by lazy {
         PlaybackStartupAnalyticsListener(
             tag = TAG,
-            currentPlayerProvider = { mediaSession?.player as? ExoPlayer },
+            currentPlayerProvider = { (mediaSession?.player as? ExoPlayer) },
             videoEffectsCoordinator = videoEffectsCoordinator,
         )
     }
@@ -324,13 +356,15 @@ class PlayerService : MediaSessionService() {
 
         override fun onMediaItemTransition(mediaItem: MediaItem?, reason: Int) {
             super.onMediaItemTransition(mediaItem, reason)
+            // 媒体切换后 LegacyStub 会异步回写 platform session；按偏好再同步一次
+            resyncMediaSessionPublication(startInForegroundRequired = false)
             hasPausedAtEndOfQueue = false
             mediaSession?.player?.updatePauseAtEndOfMediaItems()
             if (reason == Player.MEDIA_ITEM_TRANSITION_REASON_REPEAT) {
                 handleRepeatedPlayback(mediaSession?.player ?: return)
                 return
             }
-            (mediaSession?.player as? ExoPlayer)?.let { player ->
+            ((mediaSession?.player as? ExoPlayer))?.let { player ->
                 videoEffectsCoordinator.resetForMediaItem(player)
                 applySeekParameters(player)
             }
@@ -374,7 +408,7 @@ class PlayerService : MediaSessionService() {
                         }
 
                         withContext(Dispatchers.Main) {
-                            val player = mediaSession?.player as? ExoPlayer ?: return@withContext
+                            val player = (mediaSession?.player as? ExoPlayer) ?: return@withContext
                             val currentItem = player.currentMediaItem ?: return@withContext
                             if (currentItem.mediaId != mediaItem.mediaId) return@withContext
                             val currentIndex = player.currentMediaItemIndex
@@ -592,6 +626,8 @@ class PlayerService : MediaSessionService() {
 
         override fun onPlaybackStateChanged(playbackState: Int) {
             super.onPlaybackStateChanged(playbackState)
+            // LegacyStub 在 state 变化后异步回写；始终压回系统媒体通道
+            resyncMediaSessionPublication(startInForegroundRequired = false)
             if (playbackState == Player.STATE_IDLE) {
                 val player = mediaSession?.player ?: return
                 player.trackSelectionParameters = TrackSelectionParameters.DEFAULT
@@ -621,6 +657,24 @@ class PlayerService : MediaSessionService() {
                     )
                 }
                 folderPlaybackAnchorUpdater.update(currentMediaItem)
+            }
+        }
+
+        override fun onEvents(player: Player, events: Player.Events) {
+            super.onEvents(player, events)
+            // LegacyStub 在这些事件后异步 setPlaybackState(PLAYING)；
+            // 空分支会漏压系统媒体通道，这里一律 resync。
+            if (events.containsAny(
+                    Player.EVENT_PLAYBACK_STATE_CHANGED,
+                    Player.EVENT_POSITION_DISCONTINUITY,
+                    Player.EVENT_IS_PLAYING_CHANGED,
+                    Player.EVENT_MEDIA_ITEM_TRANSITION,
+                    Player.EVENT_MEDIA_METADATA_CHANGED,
+                    Player.EVENT_TIMELINE_CHANGED,
+                    Player.EVENT_PLAY_WHEN_READY_CHANGED,
+                )
+            ) {
+                resyncMediaSessionPublication(startInForegroundRequired = false)
             }
         }
 
@@ -709,6 +763,8 @@ class PlayerService : MediaSessionService() {
 
         override fun onIsPlayingChanged(isPlaying: Boolean) {
             super.onIsPlayingChanged(isPlaying)
+            // LegacyStub 在 isPlaying 变化后异步回写；始终压回系统媒体通道
+            resyncMediaSessionPublication(startInForegroundRequired = false)
             mediaSession?.run {
                 serviceScope.launch {
                     val currentMediaItem = player.currentMediaItem ?: return@launch
@@ -764,7 +820,7 @@ class PlayerService : MediaSessionService() {
     private fun retryWithSoftwareDecoder(error: PlaybackException): Boolean {
         if (!isHardwareVideoDecoderError(error)) return false
         val session = mediaSession ?: return false
-        val failedPlayer = session.player as? ExoPlayer ?: return false
+        val failedPlayer = (session.player as? ExoPlayer) ?: return false
         val mediaId = failedPlayer.currentMediaItem?.mediaId ?: return false
         if (!softwareDecoderRetried.add(mediaId)) return false
         val mediaItems = (0 until failedPlayer.mediaItemCount).map { failedPlayer.getMediaItemAt(it) }
@@ -834,70 +890,259 @@ class PlayerService : MediaSessionService() {
         seekTo(mediaItemIndex, positionMs)
     }
 
-    private fun switchPlayerDecoderPriority(decoderPriority: DecoderPriority) {
-        if (decoderPriority == activeDecoderPriority) return
-        val session = mediaSession ?: return
-        val currentPlayer = session.player as? ExoPlayer ?: return
-        val mediaItems = (0 until currentPlayer.mediaItemCount).map { currentPlayer.getMediaItemAt(it) }
-        if (mediaItems.isEmpty()) {
-            Logger.info(TAG, "Switch decoder to ${decoderPriority.logName()} without active media items")
-            val nextPlayer = createPlayer(
-                decoderPriority = decoderPriority,
-                assHandler = assHandler ?: return,
-            )
-            audioEffectsCoordinator.releaseLoudnessEnhancer()
-            currentPlayer.removeListener(playbackStateListener)
-            currentPlayer.removeAnalyticsListener(startupAnalyticsListener)
-            session.player = nextPlayer
-            currentPlayer.release()
-            applyAmbienceModeToPlayer(nextPlayer)
-            return
+
+    private fun resolveDecoderPriorityForPath(pathOrUri: String?): DecoderPriority {
+        // 默认：自动检测硬件优先；优先按扩展名配置
+        val fallback = DecoderPriority.AUTOMATIC
+        if (pathOrUri.isNullOrBlank()) return fallback
+        val appPreferences = preferencesRepository.applicationPreferences.value
+        // mediaId 多为 content/file uri；扩展名解析要兼容 path 与 uri 字符串
+        val candidate = pathOrUri
+            .substringAfterLast('/')
+            .substringBefore('?')
+        val byName = appPreferences.decoderPriorityForPath(candidate)
+        if (byName != null) return byName
+        return appPreferences.decoderPriorityForPath(pathOrUri) ?: fallback
+    }
+
+    private fun resolveDecoderPriorityForCurrentQueue(
+        mediaItems: List<MediaItem>,
+        fallback: DecoderPriority = DecoderPriority.AUTOMATIC,
+    ): DecoderPriority {
+        val current = mediaItems.firstOrNull() ?: return fallback
+        return resolveDecoderPriorityForMediaItem(current).takeIf { true } ?: fallback
+    }
+
+    private suspend fun updateExtensionDecoderFromManualSelection(
+        mediaItem: MediaItem,
+        decoderPriority: DecoderPriority,
+    ) {
+        val uri = mediaItem.localConfiguration?.uri
+        val resolvedPath = uri?.let { candidateUri ->
+            when (candidateUri.scheme) {
+                ContentResolver.SCHEME_FILE -> candidateUri.path
+                ContentResolver.SCHEME_CONTENT -> getPath(candidateUri)
+                else -> candidateUri.path
+            }
+        }
+        val candidates = listOfNotNull(
+            resolvedPath,
+            mediaItem.mediaMetadata.remoteFilePath,
+            uri?.lastPathSegment,
+            mediaItem.mediaId,
+            mediaItem.mediaMetadata.title?.toString(),
+        )
+        var extension: String? = null
+        for (candidate in candidates) {
+            val clean = candidate
+                .substringAfterLast('/')
+                .substringBefore('?')
+                .substringBefore('#')
+            val ext = clean.substringAfterLast('.', missingDelimiterValue = "")
+            if (ext.isNotBlank() && ext.length <= 10 && ext.all { it.isLetterOrDigit() }) {
+                extension = ext.lowercase()
+                break
+            }
+        }
+        if (extension.isNullOrBlank()) return
+        val currentList = preferencesRepository.applicationPreferences.value.normalizedExtensionDecoderPreferences()
+        val existing = currentList.firstOrNull { it.extension == extension }
+        if (existing?.decoderPriority == decoderPriority) return
+        preferencesRepository.updateApplicationPreferences { current ->
+                val list = current.normalizedExtensionDecoderPreferences()
+                val found = list.firstOrNull { it.extension == extension }
+                if (found?.decoderPriority == decoderPriority) {
+                    current
+                } else if (found == null) {
+                    current.withExtensionDecoderPreferences(
+                        list + one.only.player.core.model.ExtensionDecoderPreference(
+                            extension = extension,
+                            decoderPriority = decoderPriority,
+                            isBuiltIn = false,
+                        ),
+                    )
+                } else {
+                    current.withExtensionDecoderPreferences(
+                        list.map { item ->
+                            if (item.extension == extension) {
+                                item.copy(decoderPriority = decoderPriority)
+                            } else {
+                                item
+                            }
+                        },
+                    )
+                }
+            }
+    }
+
+    private fun stampDecoderOnCurrentMediaItem(
+        player: ExoPlayer,
+        decoderPriority: DecoderPriority?,
+        isRemembered: Boolean,
+    ) {
+        val index = player.currentMediaItemIndex
+        if (index !in 0 until player.mediaItemCount) return
+        val current = player.getMediaItemAt(index)
+        val stamped = current.withDecoderStamp(
+            decoderPriority = decoderPriority,
+            isRemembered = isRemembered,
+            isVideoEffectsAvailable = shouldApplyVideoEffects(
+                decoderPriority ?: activeDecoderPriority,
+            ),
+        )
+        player.replaceMediaItem(index, stamped)
+    }
+
+    private fun resolveFileNameForMediaItem(mediaItem: MediaItem): String? {
+        val uri = mediaItem.localConfiguration?.uri
+        val candidates = listOfNotNull(
+            mediaItem.mediaMetadata.remoteFilePath,
+            uri?.let { candidateUri ->
+                when (candidateUri.scheme) {
+                    ContentResolver.SCHEME_FILE -> candidateUri.path
+                    ContentResolver.SCHEME_CONTENT -> getPath(candidateUri)
+                    else -> candidateUri.path
+                }
+            },
+            uri?.path,
+            uri?.lastPathSegment,
+            mediaItem.mediaMetadata.title?.toString(),
+            mediaItem.mediaId,
+        )
+        for (candidate in candidates) {
+            val name = PerFilePlaybackPreference.fromPathOrName(candidate)
+            if (!name.isNullOrBlank() && '.' in name) return name
+        }
+        for (candidate in candidates) {
+            val name = PerFilePlaybackPreference.fromPathOrName(candidate)
+            if (!name.isNullOrBlank()) return name
+        }
+        return null
+    }
+
+    private fun applyExtensionDecoderForMediaItem(mediaItem: MediaItem?) {
+        // 仅用于偏好变更时对齐当前解码，不在切条路径调用
+        if (isManualDecoderApply) return
+        if (mediaItem == null) return
+        val target = resolveDecoderPriorityForMediaItem(mediaItem)
+        if (target != activeDecoderPriority) {
+            switchPlayerDecoderPriority(target)
+        }
+    }
+
+    private fun resolveDecoderPriorityForMediaItem(mediaItem: MediaItem): DecoderPriority {
+        // 优先级：该文件记住(media_state/盖章/per-file) > 扩展名设置 > 全局
+        mediaItem.mediaMetadata.decoderPriorityName
+            ?.takeIf { mediaItem.mediaMetadata.isDecoderRemembered }
+            ?.let { name -> runCatching { DecoderPriority.valueOf(name) }.getOrNull() }
+            ?.let { return it }
+
+        val appPreferences = preferencesRepository.applicationPreferences.value
+        val fileNameCandidates = listOfNotNull(
+            resolveFileNameForMediaItem(mediaItem),
+            mediaItem.mediaMetadata.title?.toString(),
+            mediaItem.localConfiguration?.uri?.lastPathSegment,
+            mediaItem.mediaMetadata.remoteFilePath,
+            mediaItem.mediaId,
+        )
+        for (candidate in fileNameCandidates) {
+            appPreferences.perFilePreferenceForPath(candidate)?.decoderPriority?.let { return it }
         }
 
-        val currentIndex = currentPlayer.currentMediaItemIndex.coerceIn(0, mediaItems.lastIndex)
-        val playbackPosition = currentPlayer.currentPosition.coerceAtLeast(0L)
+        val uri = mediaItem.localConfiguration?.uri
+        val pathCandidates = listOfNotNull(
+            uri?.let { candidateUri ->
+                when (candidateUri.scheme) {
+                    ContentResolver.SCHEME_FILE -> candidateUri.path
+                    ContentResolver.SCHEME_CONTENT -> getPath(candidateUri)
+                    else -> candidateUri.path
+                }
+            },
+            mediaItem.mediaMetadata.remoteFilePath,
+            uri?.lastPathSegment,
+            uri?.path,
+            mediaItem.mediaId,
+            mediaItem.mediaMetadata.title?.toString(),
+        )
+        for (candidate in pathCandidates) {
+            val clean = candidate
+                .substringAfterLast('/')
+                .substringBefore('?')
+                .substringBefore('#')
+            val ext = clean.substringAfterLast('.', missingDelimiterValue = "")
+            if (ext.isNotBlank() && ext.length <= 10 && ext.all { it.isLetterOrDigit() }) {
+                appPreferences.decoderPriorityForPath(clean)?.let { return it }
+            }
+        }
+        return playerPreferences.decoderPriority
+    }
+
+
+    /**
+     * 仅在全局/扩展名解码偏好变更时重建。中途切条不再换解码器（避免黑屏）。
+     * 同步整表 setMediaItems，不做 single-item 半残 playlist。
+     */
+    private fun switchPlayerDecoderPriority(decoderPriority: DecoderPriority) {
+        if (decoderPriority == activeDecoderPriority) return
+        if (isDecoderSwitchInFlight) {
+            Logger.info(TAG, "Skip nested decoder recreate to ${decoderPriority.logName()}")
+            return
+        }
+        val session = mediaSession ?: return
+        val currentPlayer = session.player as? ExoPlayer ?: return
+        val ass = assHandler
+        if (ass == null) {
+            Logger.error(TAG, "Cannot switch decoder: AssHandler unavailable")
+            return
+        }
+        isDecoderSwitchInFlight = true
+        try {
         val shouldPlayWhenReady = currentPlayer.playWhenReady
-        val playbackParameters = currentPlayer.playbackParameters
+        val mediaItems = (0 until currentPlayer.mediaItemCount).map { currentPlayer.getMediaItemAt(it) }
+        val currentIndex = currentPlayer.currentMediaItemIndex.coerceAtLeast(0)
+        val playbackPosition = currentPlayer.currentPosition.coerceAtLeast(0L)
         val trackSelectionParameters = currentPlayer.trackSelectionParameters
         val shuffleModeEnabled = currentPlayer.shuffleModeEnabled
         val repeatMode = currentPlayer.repeatMode
         val isSkipSilenceEnabled = currentPlayer.isSkipSilenceEnabledForPlayer
         val subtitleDelayMilliseconds = currentPlayer.playerSpecificSubtitleDelayMilliseconds
         val subtitleSpeed = currentPlayer.playerSpecificSubtitleSpeed
-        val currentDecoderPriority = activeDecoderPriority
-        val nextPlayer = createPlayer(
-            decoderPriority = decoderPriority,
-            assHandler = assHandler ?: return,
-        )
+        val playbackParameters = currentPlayer.playbackParameters
         Logger.info(
             TAG,
-            "Switch decoder from ${currentDecoderPriority.logName()} to ${decoderPriority.logName()} at index=$currentIndex position=$playbackPosition",
+            "Recreate player for preference decoder=${decoderPriority.logName()} index=$currentIndex",
         )
-
-        nextPlayer.setMediaItems(mediaItems, currentIndex, playbackPosition)
-        nextPlayer.restoreRuntimeState(
-            trackSelectionParameters = trackSelectionParameters,
-            shuffleModeEnabled = shuffleModeEnabled,
-            repeatMode = repeatMode,
-            isSkipSilenceEnabled = isSkipSilenceEnabled,
-            subtitleDelayMilliseconds = subtitleDelayMilliseconds,
-            subtitleSpeed = subtitleSpeed,
-            playbackParameters = playbackParameters,
-            mediaItemIndex = currentIndex,
-            positionMs = playbackPosition,
+        val nextPlayer = createPlayer(
+            decoderPriority = decoderPriority,
+            assHandler = ass,
         )
+        if (mediaItems.isNotEmpty()) {
+            val idx = currentIndex.coerceIn(0, mediaItems.lastIndex)
+            nextPlayer.setMediaItems(mediaItems, idx, playbackPosition)
+            nextPlayer.trackSelectionParameters = trackSelectionParameters
+            nextPlayer.shuffleModeEnabled = shuffleModeEnabled
+            nextPlayer.repeatMode = repeatMode
+            nextPlayer.playbackParameters = playbackParameters
+            nextPlayer.isSkipSilenceEnabledForPlayer = isSkipSilenceEnabled
+            nextPlayer.playerSpecificSubtitleDelayMilliseconds = subtitleDelayMilliseconds
+            nextPlayer.playerSpecificSubtitleSpeed = subtitleSpeed
+        }
         nextPlayer.playWhenReady = shouldPlayWhenReady
-
+        nextPlayer.prepare()
         audioEffectsCoordinator.releaseLoudnessEnhancer()
         currentPlayer.removeListener(playbackStateListener)
         currentPlayer.removeAnalyticsListener(startupAnalyticsListener)
+        // 先挂上新 player 再释放旧实例，避免 clearMediaItems 造成明显黑屏闪断
         session.player = nextPlayer
-        nextPlayer.prepare()
-        currentPlayer.clearMediaItems()
-        currentPlayer.stop()
-        currentPlayer.release()
         videoEffectsCoordinator.updateAvailability(nextPlayer)
         applyAmbienceModeToPlayer(nextPlayer)
+        runCatching {
+            currentPlayer.stop()
+            currentPlayer.release()
+        }
+        } finally {
+            isDecoderSwitchInFlight = false
+        }
     }
 
     private fun applyAmbienceModeToPlayer(player: ExoPlayer?) {
@@ -921,7 +1166,7 @@ class PlayerService : MediaSessionService() {
     // 解析失败后只对已识别的结构异常做定向容错重试
     private fun retryWithFixedSource(error: PlaybackException) {
         if (!hasParserExceptionCause(error)) return
-        val player = mediaSession?.player as? ExoPlayer ?: return
+        val player = (mediaSession?.player as? ExoPlayer) ?: return
         val currentItem = player.currentMediaItem ?: return
         if (!mediaParserRetried.add(currentItem.mediaId)) return
 
@@ -940,7 +1185,7 @@ class PlayerService : MediaSessionService() {
             }
 
             withContext(Dispatchers.Main) {
-                val currentPlayer = mediaSession?.player as? ExoPlayer ?: return@withContext
+                val currentPlayer = (mediaSession?.player as? ExoPlayer) ?: return@withContext
                 if (currentPlayer.currentMediaItem?.mediaId != mediaId) return@withContext
 
                 val index = (0 until currentPlayer.mediaItemCount).firstOrNull {
@@ -1326,11 +1571,20 @@ class PlayerService : MediaSessionService() {
         return "scheme=${uri.scheme.orEmpty()} extension=$extension hash=$hash"
     }
 
+    private fun isSystemMediaHidden(): Boolean =
+        playerPreferences.mediaSessionVisibility == MediaSessionVisibility.HIDE
+
     private val mediaSessionCallback = object : MediaSession.Callback {
         override fun onConnect(
             session: MediaSession,
             controller: MediaSession.ControllerInfo,
         ): MediaSession.ConnectionResult {
+            // HIDE：本机 MediaController 全量 commands；系统 UI / BT / Auto 拒绝连接。
+            // SHOW：允许系统媒体控制器连接（控制中心 / 通知栏）。
+            val isLocalAppController = controller.packageName == packageName
+            if (!isLocalAppController && isSystemMediaHidden()) {
+                return MediaSession.ConnectionResult.reject()
+            }
             val connectionResult = super.onConnect(session, controller)
             return MediaSession.ConnectionResult.accept(
                 connectionResult.availableSessionCommands
@@ -1412,6 +1666,136 @@ class PlayerService : MediaSessionService() {
                     return@future SessionResult(SessionResult.RESULT_SUCCESS)
                 }
 
+                CustomCommands.SET_DECODER_PRIORITY -> {
+                    val name = args.getString(CustomCommands.DECODER_PRIORITY_NAME_KEY).orEmpty()
+                    val priority = runCatching { DecoderPriority.valueOf(name) }.getOrNull()
+                        ?: return@future SessionResult(SessionError.ERROR_BAD_VALUE)
+                    val rememberForFile = args.getBoolean(CustomCommands.REMEMBER_FOR_FILE_KEY, false)
+                    // 关闭「记住」默认 false：只清 per-file，回退扩展名/全局，不把当前值推成扩展名默认
+                    val shouldUpdateExtensionDefault = args.getBoolean(
+                        CustomCommands.UPDATE_EXTENSION_DEFAULT_KEY,
+                        true,
+                    )
+                    val player = mediaSession?.player as? ExoPlayer
+                    val mediaItem = player?.currentMediaItem
+                    // 世代号 + flag：挡住 DataStore 写入后 collector 的二次 recreate（HW→AUTO_HW 回弹）
+                    val applyGeneration = ++manualDecoderApplyGeneration
+                    isManualDecoderApply = true
+                    try {
+                        if (player != null && mediaItem != null) {
+                            val playbackStateUri = playbackStateCoordinator.resolvePlaybackStateUri(mediaItem)
+                            val fileName = resolveFileNameForMediaItem(mediaItem)
+
+                            if (rememberForFile) {
+                                // 该文件单独记住：media_state + per-file 偏好双写，不改扩展名全局表
+                                mediaRepository.updateMediumDecoderPriority(
+                                    uri = playbackStateUri,
+                                    decoderPriority = priority.name,
+                                )
+                                if (fileName != null) {
+                                    preferencesRepository.updateApplicationPreferences { current ->
+                                        current.withPerFileDecoder(
+                                            fileName = fileName,
+                                            decoderPriority = priority,
+                                        )
+                                    }
+                                }
+                                stampDecoderOnCurrentMediaItem(
+                                    player = player,
+                                    decoderPriority = priority,
+                                    isRemembered = true,
+                                )
+                            } else {
+                                // 清掉该文件单独记住
+                                mediaRepository.updateMediumDecoderPriority(
+                                    uri = playbackStateUri,
+                                    decoderPriority = null,
+                                )
+                                if (fileName != null) {
+                                    preferencesRepository.updateApplicationPreferences { current ->
+                                        current.withPerFileDecoder(
+                                            fileName = fileName,
+                                            decoderPriority = null,
+                                        )
+                                    }
+                                }
+                                // 仅在用户主动选解码时写扩展名；关闭记住开关不写
+                                if (shouldUpdateExtensionDefault) {
+                                    updateExtensionDecoderFromManualSelection(mediaItem, priority)
+                                }
+                                // 必须先清 stamp，再 resolve；否则 isDecoderRemembered 仍为 true 会回落到旧 per-file
+                                stampDecoderOnCurrentMediaItem(
+                                    player = player,
+                                    decoderPriority = null,
+                                    isRemembered = false,
+                                )
+                                val clearedItem = player.currentMediaItem ?: mediaItem.withDecoderStamp(
+                                    decoderPriority = null,
+                                    isRemembered = false,
+                                )
+                                // 回退目标：扩展名 > 全局（关闭记时时绝不用旧 per-file priority）
+                                val fallbackPriority = if (shouldUpdateExtensionDefault) {
+                                    priority
+                                } else {
+                                    resolveDecoderPriorityForMediaItem(clearedItem)
+                                }
+                                stampDecoderOnCurrentMediaItem(
+                                    player = player,
+                                    decoderPriority = fallbackPriority,
+                                    isRemembered = false,
+                                )
+                                if (fallbackPriority != activeDecoderPriority) {
+                                    switchPlayerDecoderPriority(fallbackPriority)
+                                } else {
+                                    activeDecoderPriority = fallbackPriority
+                                }
+                                return@future SessionResult(SessionResult.RESULT_SUCCESS).also {
+                                    serviceScope.launch {
+                                        delay(MANUAL_DECODER_APPLY_SETTLE_MS)
+                                        if (manualDecoderApplyGeneration == applyGeneration) {
+                                            isManualDecoderApply = false
+                                        }
+                                    }
+                                }
+                            }
+                        }
+                        // 先落到目标解码；即使已是 active 也保证 active 与 stamp 一致
+                        if (priority != activeDecoderPriority) {
+                            switchPlayerDecoderPriority(priority)
+                        } else {
+                            activeDecoderPriority = priority
+                        }
+                    } finally {
+                        // 延迟清 flag，等 DataStore emit 落地，避免 collector 立刻按旧 resolve 回弹
+                        serviceScope.launch {
+                            delay(MANUAL_DECODER_APPLY_SETTLE_MS)
+                            if (manualDecoderApplyGeneration == applyGeneration) {
+                                isManualDecoderApply = false
+                            }
+                        }
+                    }
+                    return@future SessionResult(SessionResult.RESULT_SUCCESS)
+                }
+
+                CustomCommands.SEEK_TO_MEDIA_ITEM -> {
+                    val index = args.getInt(CustomCommands.MEDIA_ITEM_INDEX_KEY, -1)
+                    val positionMs = args.getLong(
+                        CustomCommands.MEDIA_ITEM_POSITION_MS_KEY,
+                        C.TIME_UNSET,
+                    )
+                    val player = mediaSession?.player as? ExoPlayer
+                        ?: return@future SessionResult(SessionError.ERROR_BAD_VALUE)
+                    if (index !in 0 until player.mediaItemCount) {
+                        return@future SessionResult(SessionError.ERROR_BAD_VALUE)
+                    }
+                    if (positionMs == C.TIME_UNSET) {
+                        player.seekToDefaultPosition(index)
+                    } else {
+                        player.seekTo(index, positionMs)
+                    }
+                    return@future SessionResult(SessionResult.RESULT_SUCCESS)
+                }
+
                 CustomCommands.PRECISE_SEEK_TO -> {
                     val targetPositionMs = args.getLong(CustomCommands.SEEK_POSITION_MS_KEY, C.TIME_UNSET)
                     if (targetPositionMs == C.TIME_UNSET) {
@@ -1490,7 +1874,7 @@ class PlayerService : MediaSessionService() {
                 }
 
                 CustomCommands.PREVIEW_VIDEO_FILTERS -> {
-                    videoEffectsCoordinator.preview(mediaSession?.player as? ExoPlayer, args.toPlayerPreferences())
+                    videoEffectsCoordinator.preview((mediaSession?.player as? ExoPlayer), args.toPlayerPreferences())
                     return@future SessionResult(SessionResult.RESULT_SUCCESS)
                 }
 
@@ -1500,7 +1884,7 @@ class PlayerService : MediaSessionService() {
                     ambienceTargetAspectRatio = targetAspectRatio
                         .takeIf { it.isFinite() && it > 0f }
                         ?: DEFAULT_AMBIENCE_TARGET_ASPECT_RATIO
-                    applyAmbienceModeToPlayer(mediaSession?.player as? ExoPlayer)
+                    applyAmbienceModeToPlayer((mediaSession?.player as? ExoPlayer))
                     return@future SessionResult(SessionResult.RESULT_SUCCESS)
                 }
 
@@ -1575,7 +1959,69 @@ class PlayerService : MediaSessionService() {
         }
     }
 
-    override fun onGetSession(controllerInfo: MediaSession.ControllerInfo): MediaSession? = mediaSession
+    override fun onGetSession(controllerInfo: MediaSession.ControllerInfo): MediaSession? {
+        // HIDE：外 App 拿不到 session；SHOW：系统媒体可连。
+        if (controllerInfo.packageName != packageName && isSystemMediaHidden()) return null
+        return mediaSession
+    }
+
+    /**
+     * System media (Oplus QS / notification MediaStyle) follows [PlayerPreferences.mediaSessionVisibility].
+     *
+     * HIDE:
+     * 1) never call super / MediaNotificationManager (no token inject)
+     * 2) non-MediaStyle FGS via [PlaybackForegroundNotifier] when required
+     * 3) [SystemMediaSessionHider] releases platform session
+     * 4) [NoSystemMediaNotificationProvider]
+     *
+     * SHOW: default Media3 notification path (super.onUpdateNotification).
+     */
+    override fun onUpdateNotification(session: MediaSession, startInForegroundRequired: Boolean) {
+        if (isSystemMediaHidden()) {
+            resyncMediaSessionPublication(
+                session = session,
+                startInForegroundRequired = startInForegroundRequired,
+            )
+        } else {
+            super.onUpdateNotification(session, startInForegroundRequired)
+        }
+    }
+
+    /** HIDE path only: detach system media + optional non-MediaStyle FGS. */
+    private fun resyncMediaSessionPublication(
+        startInForegroundRequired: Boolean = true,
+        session: MediaSession? = mediaSession,
+    ) {
+        if (!isSystemMediaHidden()) {
+            systemMediaSessionHider.setSuppressionEnabled(false)
+            return
+        }
+        systemMediaSessionHider.setSuppressionEnabled(true)
+        systemMediaSessionHider.resync(session)
+        playbackForegroundNotifier.publish(startInForegroundRequired)
+    }
+
+    private fun applyMediaSessionVisibilityPreference(visibility: MediaSessionVisibility) {
+        val hide = visibility == MediaSessionVisibility.HIDE
+        systemMediaSessionHider.setSuppressionEnabled(hide)
+        if (hide) {
+            setMediaNotificationProvider(NoSystemMediaNotificationProvider(this))
+            setShowNotificationForIdlePlayer(
+                MediaSessionService.SHOW_NOTIFICATION_FOR_IDLE_PLAYER_NEVER,
+            )
+            resyncMediaSessionPublication(startInForegroundRequired = false)
+        } else {
+            setMediaNotificationProvider(DefaultMediaNotificationProvider.Builder(this).build())
+            setShowNotificationForIdlePlayer(
+                MediaSessionService.SHOW_NOTIFICATION_FOR_IDLE_PLAYER_AFTER_STOP_OR_ERROR,
+            )
+            mediaSession?.let { session ->
+                // Re-publish system media card after switching SHOW
+                onUpdateNotification(session, startInForegroundRequired = false)
+            }
+        }
+        Logger.info(TAG, "mediaSessionVisibility=$visibility hide=$hide")
+    }
 
     private fun createLoadControl(): DefaultLoadControl = DefaultLoadControl.Builder()
         .setBufferDurationsMsForLocalPlayback(
@@ -1650,14 +2096,40 @@ class PlayerService : MediaSessionService() {
     override fun onCreate() {
         super.onCreate()
         serviceScope.launch {
+            // 扩展名 / 文件级解码配置变更时，按当前媒体重新应用
+            preferencesRepository.applicationPreferences
+                .distinctUntilChanged { old, new ->
+                    old.normalizedExtensionDecoderPreferences() == new.normalizedExtensionDecoderPreferences() &&
+                        old.normalizedPerFilePlaybackPreferences() == new.normalizedPerFilePlaybackPreferences()
+                }
+                .collect {
+                    if (isManualDecoderApply) return@collect
+                    val current = mediaSession?.player?.currentMediaItem
+                    applyExtensionDecoderForMediaItem(current)
+                }
+        }
+        serviceScope.launch {
+            // 全局默认解码变更：按 文件记住 > 扩展名 > 全局 重新解析，禁止硬覆盖扩展名
             preferencesRepository.playerPreferences
                 .distinctUntilChanged { old, new -> old.decoderPriority == new.decoderPriority }
-                .collect { preferences -> switchPlayerDecoderPriority(preferences.decoderPriority) }
+                .collect {
+                    if (isManualDecoderApply) return@collect
+                    val current = mediaSession?.player?.currentMediaItem
+                    applyExtensionDecoderForMediaItem(current)
+                }
         }
         serviceScope.launch {
             preferencesRepository.playerPreferences
                 .distinctUntilChanged { old, new -> old.toVideoFilterPreferences() == new.toVideoFilterPreferences() }
                 .collect(videoEffectsCoordinator::apply)
+        }
+        serviceScope.launch {
+            // 系统媒体控件开关：设置页 mediaSessionVisibility
+            preferencesRepository.playerPreferences
+                .distinctUntilChanged { old, new -> old.mediaSessionVisibility == new.mediaSessionVisibility }
+                .collect { preferences ->
+                    applyMediaSessionVisibilityPreference(preferences.mediaSessionVisibility)
+                }
         }
         serviceScope.launch {
             preferencesRepository.playerPreferences
@@ -1729,11 +2201,17 @@ class PlayerService : MediaSessionService() {
         }
 
         val player = createPlayer(
-            decoderPriority = playerPreferences.decoderPriority,
+            decoderPriority = resolveDecoderPriorityForCurrentQueue(
+                mediaItems = emptyList(),
+                fallback = playerPreferences.decoderPriority,
+            ),
             assHandler = assHandler,
         )
 
         try {
+            // MediaSession 仅服务本 App MediaController（SessionToken 构造需要）。
+            // Oplus QS 读 MediaSessionManager.getActiveSessions（仅 active platform session）。
+            // Media3 LegacyStub.start() 会 setActive(true)；Hider 替换 applicationHandler + IdleHandler 压回。
             mediaSession = MediaSession.Builder(this, player).apply {
                 setSessionActivity(
                     PendingIntent.getActivity(
@@ -1744,6 +2222,8 @@ class PlayerService : MediaSessionService() {
                     ),
                 )
                 setCallback(mediaSessionCallback)
+                setPeriodicPositionUpdateEnabled(false)
+                setMediaButtonPreferences(emptyList())
                 setCustomLayout(
                     listOf(
                         CommandButton.Builder(ICON_UNDEFINED)
@@ -1755,6 +2235,8 @@ class PlayerService : MediaSessionService() {
                     ),
                 )
             }.build()
+            // 按设置决定系统媒体通道；默认 SHOW 走 Media3 通知，HIDE 走 hider
+            applyMediaSessionVisibilityPreference(playerPreferences.mediaSessionVisibility)
         } catch (e: Exception) {
             Logger.error(TAG, "Failed to create media session", e)
         }
@@ -1769,6 +2251,8 @@ class PlayerService : MediaSessionService() {
 
     override fun onDestroy() {
         super.onDestroy()
+        systemMediaSessionHider.stop()
+        playbackForegroundNotifier.cancel()
         audioEffectsCoordinator.releaseLoudnessEnhancer()
         preciseSeekCoordinator.release()
         assHandler?.let(AssHandlerRegistry::unregister)
@@ -1910,6 +2394,27 @@ class PlayerService : MediaSessionService() {
                 val isLocalUri = uri.scheme == ContentResolver.SCHEME_FILE || uri.scheme == ContentResolver.SCHEME_CONTENT
                 val isApproximateSeekEnabled = isLocalUri && mediaPath?.endsWith(".mkv", ignoreCase = true) == true
 
+
+                // media_state 优先；历史只写 per-file 时用文件名补齐（logs13 重进首帧）。
+                val stampedContentScale = videoState?.contentScale
+                    ?.takeIf { it.isNotBlank() }
+                    ?: run {
+                        val app = preferencesRepository.applicationPreferences.value
+                        fun scaleFrom(keySource: String?): String? {
+                            val key = PerFilePlaybackPreference.fromPathOrName(keySource) ?: return null
+                            return app.perFilePreferenceForPath(key)?.videoContentScale?.name
+                        }
+                        scaleFrom(title?.toString())
+                            ?: scaleFrom(video?.nameWithExtension)
+                            ?: scaleFrom(mediaPath)
+                            ?: scaleFrom(uri.toString())
+                    }
+
+                val stateDecoder = videoState?.decoderPriority
+                    ?.let { name -> runCatching { DecoderPriority.valueOf(name) }.getOrNull() }
+                val isDecoderRememberedForItem = stateDecoder != null
+                val stampedDecoderName = stateDecoder?.name
+
                 mediaItem.buildUpon().apply {
                     setSubtitleConfigurations(mergedSubConfigurations)
                     setMediaMetadata(
@@ -1934,6 +2439,10 @@ class PlayerService : MediaSessionService() {
                                 remoteProtocol = mediaItem.mediaMetadata.remoteProtocol,
                                 localParentPath = mediaItem.mediaMetadata.localParentPath,
                                 remoteDirectoryPath = mediaItem.mediaMetadata.remoteDirectoryPath,
+                                decoderPriority = stampedDecoderName,
+                                isDecoderRemembered = isDecoderRememberedForItem,
+                                contentScale = stampedContentScale
+                                    ?: mediaItem.mediaMetadata.contentScaleName,
                             )
                         }.build(),
                     )

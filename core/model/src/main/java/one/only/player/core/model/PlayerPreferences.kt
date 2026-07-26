@@ -30,7 +30,7 @@ data class PlayerPreferences(
     val videoSharpening: Float = DEFAULT_VIDEO_SHARPENING,
     val shouldAutoPlay: Boolean = true,
     val shouldPauseAtEndOfQueue: Boolean = false,
-    val shouldAutoEnterPip: Boolean = true,
+    val shouldAutoEnterPip: Boolean = false,
     val shouldAutoPlayInBackground: Boolean = false,
     val loopMode: LoopMode = LoopMode.OFF,
 
@@ -43,7 +43,7 @@ data class PlayerPreferences(
     val shouldUseZoomControls: Boolean = true,
     val isPanGestureEnabled: Boolean = true,
     val doubleTapGesture: DoubleTapGesture = DoubleTapGesture.BOTH,
-    val shouldUseLongPressControls: Boolean = false,
+    val shouldUseLongPressControls: Boolean = true,
     val shouldUseLongPressVariableSpeed: Boolean = false,
     val isDebugLongPressOverlayVisible: Boolean = false,
     val longPressControlsSpeed: Float = DEFAULT_LONG_PRESS_CONTROLS_SPEED,
@@ -60,9 +60,21 @@ data class PlayerPreferences(
     val controlButtonsPosition: ControlButtonsPosition = ControlButtonsPosition.LEFT,
     val playerControlsLayout: PlayerControlsLayout = PlayerControlsLayout(),
     val hiddenPlayerControls: Set<PlayerControl> = emptySet(),
+    // 旧版控件：隐藏后仍占位，避免其它按钮挤位
+    val shouldKeepHiddenControlSlots: Boolean = false,
     val shouldHidePlayerButtonsBackground: Boolean = false,
     val shouldHidePlayerControlLabels: Boolean = false,
     val playerIconStyle: PlayerIconStyle = PlayerIconStyle.TONAL,
+    // 是否出现在系统媒体控件/通知（默认 HIDE：1.0.193 起 Oplus 控制中心不显示）
+    val mediaSessionVisibility: MediaSessionVisibility = MediaSessionVisibility.HIDE,
+    /**
+     * 「上一」双击语义：
+     * - true：进度 >3s 时点上一重播当前，已在开头附近再点则跳上一视频
+     * - false：始终跳上一视频（队列开头仅 seek 0）
+     */
+    val shouldRestartCurrentOnPreviousClick: Boolean = false,
+    // 亮度/音量手势指示：条状或居中文字百分比
+    val volumeBrightnessIndicatorStyle: VolumeBrightnessIndicatorStyle = VolumeBrightnessIndicatorStyle.CENTER_TEXT,
 
     // 音频偏好
     val preferredAudioLanguage: String = "",
@@ -100,7 +112,7 @@ data class PlayerPreferences(
         const val DEFAULT_SEEK_SENSITIVITY = 0.50f
         const val DEFAULT_VOLUME_GESTURE_SENSITIVITY = 0.50f
         const val DEFAULT_BRIGHTNESS_GESTURE_SENSITIVITY = 0.50f
-        const val DEFAULT_LONG_PRESS_CONTROLS_SPEED = 2.0f
+        const val DEFAULT_LONG_PRESS_CONTROLS_SPEED = 3.0f
         const val DEFAULT_VIDEO_BRIGHTNESS = 0f
         const val MIN_VIDEO_BRIGHTNESS = -1f
         const val MAX_VIDEO_BRIGHTNESS = 1f
@@ -232,9 +244,24 @@ enum class PlayerControl {
     SHUFFLE,
     SLEEP_TIMER,
     ROTATE,
+    CUSTOMIZE,
 }
 
 @Serializable
+enum class VolumeBrightnessIndicatorStyle {
+    BAR,
+    CENTER_TEXT,
+}
+
+@Serializable
+enum class MediaSessionVisibility {
+    SHOW,
+    HIDE,
+    /** 已废弃：仅 MP3 逻辑已删除。旧配置读取时按 SHOW 处理，避免崩溃。 */
+    @Deprecated("Removed: only-MP3 media session mode")
+    AUDIO_ONLY,
+}
+
 enum class ControllerAutoHidePreset {
     DISABLED,
     FIFTEEN_SECONDS,

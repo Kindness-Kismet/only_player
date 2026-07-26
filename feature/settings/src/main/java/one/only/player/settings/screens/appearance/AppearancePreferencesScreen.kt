@@ -1,9 +1,6 @@
 package one.only.player.settings.screens.appearance
 
-import android.app.Activity
-import android.os.Build
 import androidx.compose.foundation.background
-import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.fillMaxHeight
 import androidx.compose.foundation.layout.fillMaxWidth
@@ -19,19 +16,16 @@ import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.input.nestedscroll.nestedScroll
-import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.unit.dp
 import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
-import one.only.player.core.common.PredictiveBackSupport
 import one.only.player.core.model.ThemeColorSpec
 import one.only.player.core.model.ThemeConfig
 import one.only.player.core.model.ThemePaletteStyle
 import one.only.player.core.ui.R
 import one.only.player.core.ui.components.SettingsContentTopPadding
-import one.only.player.core.ui.components.SettingsGroupGap
 import one.only.player.core.ui.designsystem.NextIcons
 import one.only.player.core.ui.theme.supportsDynamicTheming
 import one.only.player.settings.extensions.name
@@ -41,7 +35,8 @@ import top.yukonga.miuix.kmp.basic.Icon
 import top.yukonga.miuix.kmp.basic.IconButton
 import top.yukonga.miuix.kmp.basic.MiuixScrollBehavior
 import top.yukonga.miuix.kmp.basic.Scaffold
-import top.yukonga.miuix.kmp.basic.TopAppBar
+import top.yukonga.miuix.kmp.basic.SmallTitle
+import top.yukonga.miuix.kmp.basic.SmallTopAppBar
 import top.yukonga.miuix.kmp.preference.OverlayDropdownPreference
 import top.yukonga.miuix.kmp.preference.SwitchPreference
 import top.yukonga.miuix.kmp.theme.MiuixTheme
@@ -52,26 +47,10 @@ fun AppearancePreferencesScreen(
     viewModel: AppearancePreferencesViewModel = hiltViewModel(),
 ) {
     val uiState by viewModel.uiState.collectAsStateWithLifecycle()
-    val context = LocalContext.current
-    val activity = context as? Activity
-    val onPredictiveBackToggle: (Boolean) -> Unit = onPredictiveBackToggle@{ isEnabled ->
-        if (!PredictiveBackSupport.setEnabled(context.applicationInfo, isEnabled)) {
-            return@onPredictiveBackToggle
-        }
-        viewModel.onEvent(
-            AppearancePreferencesEvent.ToggleEnablePredictiveBack(
-                isEnabled = isEnabled,
-                onApplied = {
-                    activity?.recreate()
-                },
-            ),
-        )
-    }
 
     AppearancePreferencesContent(
         uiState = uiState,
         onEvent = viewModel::onEvent,
-        onPredictiveBackToggle = onPredictiveBackToggle,
         onNavigateUp = onNavigateUp,
     )
 }
@@ -80,15 +59,11 @@ fun AppearancePreferencesScreen(
 private fun AppearancePreferencesContent(
     uiState: AppearancePreferencesUiState,
     onEvent: (AppearancePreferencesEvent) -> Unit,
-    onPredictiveBackToggle: (Boolean) -> Unit = {},
     onNavigateUp: () -> Unit = {},
 ) {
     val scrollBehavior = MiuixScrollBehavior()
     val preferences = uiState.preferences
     val appLanguages = remember { LocalesHelper.appSupportedLocales }
-    val shouldShowPredictiveBack = Build.VERSION.SDK_INT >= Build.VERSION_CODES.UPSIDE_DOWN_CAKE
-    // 悬浮栏模糊依赖 RuntimeShader（API 33+）
-    val shouldShowFloatingNavigationBarBlur = Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU
 
     // 语言下拉：首项为系统默认，其后为受支持语言
     val languageTags = remember(appLanguages) { listOf("") + appLanguages.map { it.second } }
@@ -104,7 +79,7 @@ private fun AppearancePreferencesContent(
 
     Scaffold(
         topBar = {
-            TopAppBar(
+            SmallTopAppBar(
                 title = stringResource(id = R.string.appearance_name),
                 scrollBehavior = scrollBehavior,
                 navigationIcon = {
@@ -129,9 +104,8 @@ private fun AppearancePreferencesContent(
                 .fillMaxHeight()
                 .nestedScroll(scrollBehavior.nestedScrollConnection)
                 .padding(top = SettingsContentTopPadding)
-                .padding(horizontal = 16.dp),
+                .padding(horizontal = 12.dp),
             contentPadding = innerPadding,
-            verticalArrangement = Arrangement.spacedBy(SettingsGroupGap),
         ) {
             item {
                 Card(modifier = Modifier.fillMaxWidth()) {
@@ -159,6 +133,7 @@ private fun AppearancePreferencesContent(
             }
 
             item {
+                SmallTitle(text = stringResource(id = R.string.theme_color))
                 Card(modifier = Modifier.fillMaxWidth()) {
                     if (supportsDynamicTheming()) {
                         SwitchPreference(
@@ -170,65 +145,49 @@ private fun AppearancePreferencesContent(
                             onCheckedChange = { onEvent(AppearancePreferencesEvent.ToggleUseDynamicColors) },
                         )
                     }
-                    if (preferences.shouldUseDynamicColors) {
-                        val seedIndex = if (preferences.shouldUseSystemDynamicColor) {
-                            0
-                        } else {
-                            SeedColorPalette
-                                .indexOfFirst { it.value == preferences.themeSeedColor }
-                                .coerceAtLeast(0) + 1
-                        }
+                    if (!preferences.shouldUseDynamicColors) {
+                        val seedIndex = SeedColorPalette
+                            .indexOfFirst { it.value == preferences.themeSeedColor }
+                            .coerceAtLeast(0)
                         OverlayDropdownPreference(
                             modifier = Modifier.testTag("item_settings_appearance_theme_color"),
                             title = stringResource(id = R.string.theme_color),
                             summary = stringResource(id = R.string.theme_color_description),
-                            startAction = {
-                                if (preferences.shouldUseSystemDynamicColor) {
-                                    PrefIcon(NextIcons.Appearance)
-                                } else {
-                                    PrefColorDot(Color(preferences.themeSeedColor))
-                                }
-                            },
-                            items = listOf(stringResource(id = R.string.system_default)) +
-                                SeedColorPalette.map { stringResource(id = it.labelRes) },
+                            startAction = { PrefColorDot(Color(preferences.themeSeedColor)) },
+                            items = SeedColorPalette.map { stringResource(id = it.labelRes) },
                             selectedIndex = seedIndex,
                             onSelectedIndexChange = { index ->
-                                if (index == 0) {
-                                    onEvent(AppearancePreferencesEvent.UseSystemDynamicColor)
-                                } else {
-                                    onEvent(AppearancePreferencesEvent.UpdateThemeSeedColor(SeedColorPalette[index - 1].value))
-                                }
+                                onEvent(AppearancePreferencesEvent.UpdateThemeSeedColor(SeedColorPalette[index].value))
                             },
                         )
                     }
-                    if (preferences.shouldUseDynamicColors && !preferences.shouldUseSystemDynamicColor) {
-                        OverlayDropdownPreference(
-                            modifier = Modifier.testTag("dropdown_settings_appearance_palette_style"),
-                            title = stringResource(id = R.string.theme_palette_style),
-                            summary = stringResource(id = R.string.theme_palette_style_description),
-                            startAction = { PrefIcon(NextIcons.Style) },
-                            items = paletteStyles.map { it.name() },
-                            selectedIndex = paletteStyles.indexOf(preferences.themePaletteStyle).coerceAtLeast(0),
-                            onSelectedIndexChange = { index ->
-                                onEvent(AppearancePreferencesEvent.UpdatePaletteStyle(paletteStyles[index]))
-                            },
-                        )
-                        OverlayDropdownPreference(
-                            modifier = Modifier.testTag("dropdown_settings_appearance_color_spec"),
-                            title = stringResource(id = R.string.theme_color_spec),
-                            summary = stringResource(id = R.string.theme_color_spec_description),
-                            startAction = { PrefIcon(NextIcons.Contrast) },
-                            items = colorSpecs.map { it.name() },
-                            selectedIndex = colorSpecs.indexOf(preferences.themeColorSpec).coerceAtLeast(0),
-                            onSelectedIndexChange = { index ->
-                                onEvent(AppearancePreferencesEvent.UpdateColorSpec(colorSpecs[index]))
-                            },
-                        )
-                    }
+                    OverlayDropdownPreference(
+                        modifier = Modifier.testTag("dropdown_settings_appearance_palette_style"),
+                        title = stringResource(id = R.string.theme_palette_style),
+                        summary = stringResource(id = R.string.theme_palette_style_description),
+                        startAction = { PrefIcon(NextIcons.Style) },
+                        items = paletteStyles.map { it.name() },
+                        selectedIndex = paletteStyles.indexOf(preferences.themePaletteStyle).coerceAtLeast(0),
+                        onSelectedIndexChange = { index ->
+                            onEvent(AppearancePreferencesEvent.UpdatePaletteStyle(paletteStyles[index]))
+                        },
+                    )
+                    OverlayDropdownPreference(
+                        modifier = Modifier.testTag("dropdown_settings_appearance_color_spec"),
+                        title = stringResource(id = R.string.theme_color_spec),
+                        summary = stringResource(id = R.string.theme_color_spec_description),
+                        startAction = { PrefIcon(NextIcons.Contrast) },
+                        items = colorSpecs.map { it.name() },
+                        selectedIndex = colorSpecs.indexOf(preferences.themeColorSpec).coerceAtLeast(0),
+                        onSelectedIndexChange = { index ->
+                            onEvent(AppearancePreferencesEvent.UpdateColorSpec(colorSpecs[index]))
+                        },
+                    )
                 }
             }
 
             item {
+                SmallTitle(text = stringResource(id = R.string.interface_name))
                 Card(modifier = Modifier.fillMaxWidth()) {
                     SwitchPreference(
                         modifier = Modifier.testTag("switch_settings_appearance_title_long_press_home"),
@@ -250,29 +209,37 @@ private fun AppearancePreferencesContent(
                             onEvent(AppearancePreferencesEvent.ToggleUseFloatingNavigationBar)
                         },
                     )
-                    if (shouldShowFloatingNavigationBarBlur) {
-                        SwitchPreference(
-                            modifier = Modifier.testTag("switch_settings_appearance_floating_navigation_bar_blur"),
-                            title = stringResource(id = R.string.floating_navigation_bar_blur),
-                            summary = stringResource(id = R.string.floating_navigation_bar_blur_description),
-                            startAction = { PrefIcon(NextIcons.BlurOn) },
-                            checked = preferences.shouldBlurFloatingNavigationBar,
-                            enabled = preferences.shouldUseFloatingNavigationBar,
-                            onCheckedChange = {
-                                onEvent(AppearancePreferencesEvent.ToggleBlurFloatingNavigationBar)
-                            },
-                        )
-                    }
-                    if (shouldShowPredictiveBack) {
-                        SwitchPreference(
-                            modifier = Modifier.testTag("switch_settings_appearance_predictive_back"),
-                            title = stringResource(id = R.string.predictive_back_gesture),
-                            summary = stringResource(id = R.string.predictive_back_gesture_description),
-                            startAction = { PrefIcon(NextIcons.SwipeHorizontal) },
-                            checked = preferences.shouldEnablePredictiveBack,
-                            onCheckedChange = onPredictiveBackToggle,
-                        )
-                    }
+                    SwitchPreference(
+                        modifier = Modifier.testTag("switch_settings_appearance_floating_navigation_bar_blur"),
+                        title = stringResource(id = R.string.floating_navigation_bar_blur),
+                        summary = stringResource(id = R.string.floating_navigation_bar_blur_description),
+                        startAction = { PrefIcon(NextIcons.BlurOn) },
+                        checked = preferences.shouldBlurFloatingNavigationBar,
+                        enabled = preferences.shouldUseFloatingNavigationBar,
+                        onCheckedChange = {
+                            onEvent(AppearancePreferencesEvent.ToggleBlurFloatingNavigationBar)
+                        },
+                    )
+                    SwitchPreference(
+                        modifier = Modifier.testTag("switch_settings_appearance_hide_cloud_tab"),
+                        title = stringResource(id = R.string.hide_cloud_tab),
+                        summary = stringResource(id = R.string.hide_cloud_tab_description),
+                        startAction = { PrefIcon(NextIcons.Cloud) },
+                        checked = preferences.shouldHideCloudTab,
+                        onCheckedChange = {
+                            onEvent(AppearancePreferencesEvent.ToggleHideCloudTab)
+                        },
+                    )
+                    SwitchPreference(
+                        modifier = Modifier.testTag("switch_settings_appearance_hide_favorites_tab"),
+                        title = stringResource(id = R.string.hide_favorites_tab),
+                        summary = stringResource(id = R.string.hide_favorites_tab_description),
+                        startAction = { PrefIcon(NextIcons.Star) },
+                        checked = preferences.shouldHideFavoritesTab,
+                        onCheckedChange = {
+                            onEvent(AppearancePreferencesEvent.ToggleHideFavoritesTab)
+                        },
+                    )
                 }
             }
         }
@@ -300,7 +267,7 @@ private fun PrefColorDot(color: Color) {
     )
 }
 
-// 预设主题色，关闭系统壁纸取色时供选择
+// 预设主题色，未开启动态取色时供选择
 private data class SeedColor(val labelRes: Int, val value: Long)
 
 private val SeedColorPalette = listOf(

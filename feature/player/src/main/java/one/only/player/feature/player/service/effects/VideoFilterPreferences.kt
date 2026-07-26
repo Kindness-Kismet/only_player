@@ -40,21 +40,26 @@ data class VideoFilterPreferences(
         )
     }
 
-    fun shouldCreateEffect(): Boolean = shouldApply &&
-        (
-            isBrightnessEnabled &&
-                brightness != PlayerPreferences.DEFAULT_VIDEO_BRIGHTNESS ||
-                isContrastEnabled &&
-                contrast != PlayerPreferences.DEFAULT_VIDEO_CONTRAST ||
-                isSaturationEnabled &&
-                saturation != PlayerPreferences.DEFAULT_VIDEO_SATURATION ||
-                isHueEnabled &&
-                hue != PlayerPreferences.DEFAULT_VIDEO_HUE ||
-                isGammaEnabled &&
-                gamma != PlayerPreferences.DEFAULT_VIDEO_GAMMA ||
-                isSharpeningEnabled &&
-                sharpening != PlayerPreferences.DEFAULT_VIDEO_SHARPENING
-            )
+    fun shouldCreateEffect(): Boolean {
+        if (!shouldApply) return false
+        // 显式括号，避免 && / || 优先级误判导致该建 effect 却判定为 false
+        val brightnessActive =
+            isBrightnessEnabled && brightness != PlayerPreferences.DEFAULT_VIDEO_BRIGHTNESS
+        val contrastActive =
+            isContrastEnabled && contrast != PlayerPreferences.DEFAULT_VIDEO_CONTRAST
+        val saturationActive =
+            isSaturationEnabled && saturation != PlayerPreferences.DEFAULT_VIDEO_SATURATION
+        val hueActive = isHueEnabled && hue != PlayerPreferences.DEFAULT_VIDEO_HUE
+        val gammaActive = isGammaEnabled && gamma != PlayerPreferences.DEFAULT_VIDEO_GAMMA
+        val sharpeningActive =
+            isSharpeningEnabled && sharpening != PlayerPreferences.DEFAULT_VIDEO_SHARPENING
+        return brightnessActive ||
+            contrastActive ||
+            saturationActive ||
+            hueActive ||
+            gammaActive ||
+            sharpeningActive
+    }
 
     companion object {
         fun default(): VideoFilterPreferences = VideoFilterPreferences(

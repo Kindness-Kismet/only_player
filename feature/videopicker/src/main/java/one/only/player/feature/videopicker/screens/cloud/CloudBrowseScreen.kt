@@ -197,17 +197,14 @@ internal fun CloudBrowseScreen(
             .toSet()
     }
 
-    LaunchedEffect(
-        uiState.currentPath,
-        uiState.restoreTargetFilePath,
-        uiState.files,
-    ) {
-        if (!uiState.preferences.shouldRestoreLastPlayedMediaInFolders) return@LaunchedEffect
-        if (restoredDirectoryPath == uiState.currentPath) return@LaunchedEffect
-        val restoreTargetFilePath = uiState.restoreTargetFilePath ?: return@LaunchedEffect
-        val targetIndex = resolveCloudRestoreScrollIndex(uiState.files, restoreTargetFilePath) ?: return@LaunchedEffect
-        lazyGridState.scrollToItem(targetIndex)
+    // 与本地文件夹一致：进入目录始终从顶部第一项显示
+    LaunchedEffect(uiState.currentPath) {
         restoredDirectoryPath = uiState.currentPath
+        if (lazyGridState.firstVisibleItemIndex != 0 ||
+            lazyGridState.firstVisibleItemScrollOffset != 0
+        ) {
+            lazyGridState.scrollToItem(0)
+        }
     }
 
     // 出错时直接允许返回上级页面，不再反复重试 PROPFIND
@@ -332,6 +329,7 @@ internal fun CloudBrowseScreen(
                 )
             }
         },
+        containerColor = MiuixTheme.colorScheme.background,
     ) { innerPadding ->
         Column(
             modifier = Modifier
@@ -342,7 +340,8 @@ internal fun CloudBrowseScreen(
         ) {
             Box(
                 modifier = Modifier
-                    .fillMaxSize(),
+                    .fillMaxSize()
+                    .background(MiuixTheme.colorScheme.background),
             ) {
                 val contentPadding = innerPadding.copy(top = 0.dp, start = 0.dp).withBottomFallback()
                 val refreshTexts = rememberPullToRefreshTexts()
@@ -911,7 +910,7 @@ private fun RemoteFileInfoLoadingDialog(
 ) {
     NextDialog(
         onDismissRequest = onDismiss,
-        title = stringResource(id = R.string.info),
+        title = { Text(text = stringResource(id = R.string.info)) },
         content = {
             Box(
                 modifier = Modifier

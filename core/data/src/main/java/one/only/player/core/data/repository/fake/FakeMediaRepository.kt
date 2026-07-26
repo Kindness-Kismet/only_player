@@ -77,6 +77,9 @@ class FakeMediaRepository : MediaRepository {
     override suspend fun updateMediumSubtitleTrack(uri: String, subtitleTrackIndex: Int) {
     }
 
+    override suspend fun updateMediumDecoderPriority(uri: String, decoderPriority: String?) = Unit
+    override suspend fun updateMediumContentScale(uri: String, contentScale: String?) = Unit
+
     override suspend fun updateMediumZoom(uri: String, zoom: Float) {
     }
 

@@ -62,6 +62,7 @@ import kotlin.math.sqrt
 import kotlinx.coroutines.flow.collectLatest
 import kotlinx.coroutines.flow.drop
 import kotlinx.coroutines.launch
+import one.only.player.core.ui.extensions.LocalRootMenuScrimVisible
 import one.only.player.ui.component.liquid.InnerShadow
 import one.only.player.ui.component.liquid.innerShadow
 import one.only.player.ui.component.liquid.lens
@@ -189,6 +190,8 @@ fun FloatingBottomBar(
     val accentColor = MiuixTheme.colorScheme.primary
     val surfaceContainer = MiuixTheme.colorScheme.surfaceContainer
     val containerColor = if (isBlurEnabled) surfaceContainer.copy(0.4f) else surfaceContainer
+    // 主页 ▾ 菜单：只压暗胶囊本体，与窗口背景遮罩同色，不盖整条底栏区域
+    val isMenuScrimVisible = LocalRootMenuScrimVisible.current
 
     val tabsBackdrop = rememberLayerBackdrop()
     val density = LocalDensity.current
@@ -211,7 +214,7 @@ fun FloatingBottomBar(
         }
     }
 
-    var currentIndex by remember(selectedIndex) { mutableIntStateOf(selectedIndex()) }
+    var currentIndex by remember { mutableIntStateOf(selectedIndex()) }
 
     class DampedDragAnimationHolder {
         var instance: DampedDragAnimation? = null
@@ -219,11 +222,11 @@ fun FloatingBottomBar(
 
     val holder = remember { DampedDragAnimationHolder() }
 
-    val dampedDragAnimation = remember(animationScope, tabsCount, density, isLtr) {
+    val dampedDragAnimation = remember(animationScope, density, isLtr) {
         DampedDragAnimation(
             animationScope = animationScope,
             initialValue = selectedIndex().toFloat(),
-            valueRange = 0f..(tabsCount - 1).toFloat(),
+            valueRange = 0f..(tabsCount - 1).coerceAtLeast(0).toFloat(),
             visibilityThreshold = 0.001f,
             initialScale = 1f,
             pressedScale = 78f / 56f,
@@ -264,8 +267,26 @@ fun FloatingBottomBar(
         ).also { holder.instance = it }
     }
 
+    LaunchedEffect(tabsCount) {
+        val max = (tabsCount - 1).coerceAtLeast(0).toFloat()
+        dampedDragAnimation.updateValueRange(0f..max)
+        val clamped = selectedIndex().coerceIn(0, tabsCount - 1)
+        currentIndex = clamped
+        // tabs 数量变化时直接对齐，不播中间态
+        dampedDragAnimation.snapToValue(clamped.toFloat())
+        offsetAnimation.snapTo(0f)
+    }
+
+    // 只跟 selectedIndex，不跟 tabsCount，避免「关闭隐藏」时 selectedIndex 与 tabsCount 同帧变化触发二次动画
     LaunchedEffect(selectedIndex()) {
-        dampedDragAnimation.animateToValue(selectedIndex().toFloat())
+        val target = selectedIndex().coerceIn(0, (tabsCount - 1).coerceAtLeast(0)).toFloat()
+        currentIndex = target.toInt()
+        // 任何非相邻跳变都 snap，避免指示器扫过中间 tab 亮一下
+        if (kotlin.math.abs(target - dampedDragAnimation.value) > 0.51f) {
+            dampedDragAnimation.snapToValue(target)
+        } else {
+            dampedDragAnimation.animateToValue(target)
+        }
     }
     LaunchedEffect(dampedDragAnimation) {
         snapshotFlow { currentIndex }.drop(1).collectLatest { index ->
@@ -352,6 +373,17 @@ fun FloatingBottomBar(
             verticalAlignment = Alignment.CenterVertically,
             content = content,
         )
+
+        // 菜单遮罩：仅覆盖胶囊外形，与背景窗口 dim 同色，不整条底栏变暗、不挤布局
+        if (isMenuScrimVisible) {
+            Box(
+                modifier = Modifier
+                    .matchParentSize()
+                    .graphicsLayer { translationX = panelOffset }
+                    .clip(pillShape)
+                    .background(Color.Black.copy(alpha = 0.36f)),
+            )
+        }
 
         if (isBlurEnabled) {
             CompositionLocalProvider(

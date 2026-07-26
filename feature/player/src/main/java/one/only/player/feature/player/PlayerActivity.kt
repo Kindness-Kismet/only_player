@@ -81,6 +81,7 @@ import one.only.player.core.model.ScreenOrientation
 import one.only.player.core.model.ThemeConfig
 import one.only.player.core.ui.theme.OnlyPlayerTheme
 import one.only.player.feature.player.extensions.OpenDocumentWithInitialUri
+import one.only.player.feature.player.extensions.contentScaleName
 import one.only.player.feature.player.extensions.copy
 import one.only.player.feature.player.extensions.isAtEndOfCurrentMediaItem
 import one.only.player.feature.player.extensions.isCurrentMediaItemLast
@@ -265,6 +266,11 @@ open class PlayerActivity : AppCompatActivity() {
         )
         applyNavigationBarStyle(color = Color.BLACK, shouldUseDarkIcons = false)
 
+        // 必须先于 setContent：MediaPlayerScreen 首帧可能在 setMediaItem 前布局，
+        // 先按 Intent title/uri 同步种子化缩放（logs13）。
+        playerApi = PlayerApi(this)
+        seedPendingOpenContentScaleFromIntent(intent)
+
         setContent {
             val uiState by viewModel.uiState.collectAsStateWithLifecycle()
             var player by remember { mutableStateOf<MediaController?>(null) }
@@ -299,10 +305,6 @@ open class PlayerActivity : AppCompatActivity() {
                     ThemeConfig.ON -> true
                 },
                 shouldUseDynamicColor = uiState.applicationPreferences.shouldUseDynamicColors,
-                shouldUseSystemDynamicColor = uiState.applicationPreferences.shouldUseSystemDynamicColor,
-                seedColor = uiState.applicationPreferences.themeSeedColor,
-                paletteStyle = uiState.applicationPreferences.themePaletteStyle,
-                colorSpec = uiState.applicationPreferences.themeColorSpec,
             ) {
                 MediaPlayerScreen(
                     modifier = Modifier.semantics {
@@ -311,6 +313,7 @@ open class PlayerActivity : AppCompatActivity() {
                     player = player,
                     viewModel = viewModel,
                     playerPreferences = uiState.playerPreferences ?: return@OnlyPlayerTheme,
+                    applicationPreferences = uiState.applicationPreferences,
                     externalSubtitleFontSource = uiState.externalSubtitleFontSource,
                     onSelectSubtitleClick = {
                         lifecycleScope.launch {
@@ -367,8 +370,6 @@ open class PlayerActivity : AppCompatActivity() {
                 )
             }
         }
-
-        playerApi = PlayerApi(this)
     }
 
     override fun onStart() {
@@ -502,9 +503,52 @@ open class PlayerActivity : AppCompatActivity() {
         }
 
         isIntentNew = false
+        seedPendingOpenContentScaleFromIntent(intent)
 
         lifecycleScope.launch {
             playVideo(uri)
+        }
+    }
+
+    /**
+     * 同步从 Intent title / uri 种子化 per-file 缩放。
+     * compose 可能早于 setMediaItem；不能等 buildMediaItem 挂起查库（logs13）。
+     * 未命中时写 null，避免上一文件的 pending 串到本文件。
+     * 同步后始终再异步双源查 media_state / video 表：
+     * content:// 无文件名、或历史只写库未写 per-file 时，async 仍能在首帧前把 pending 补上。
+     */
+    private fun seedPendingOpenContentScaleFromIntent(sourceIntent: Intent) {
+        val uri = sourceIntent.data
+        val title = runCatching { playerApi.title }.getOrNull()
+        val seeded = viewModel.contentScaleFromPerFileSync(title)
+            ?: viewModel.contentScaleFromPerFileSync(uri?.lastPathSegment)
+            ?: viewModel.contentScaleFromPerFileSync(uri?.path)
+            ?: viewModel.contentScaleFromPerFileSync(uri?.toString())
+        viewModel.seedPendingOpenContentScale(seeded)
+        Logger.info(
+            TAG,
+            "seedPendingOpenContentScale sync=${seeded?.name} title=${title?.toPrivateLogSummary()} uri=${uri?.toPrivateLogSummary()}",
+        )
+        val mediaUri = uri?.toString()
+        if (mediaUri.isNullOrBlank() && title.isNullOrBlank()) return
+        lifecycleScope.launch(Dispatchers.Default) {
+            // content:// 同步常 miss：用 video 表 nameWithExtension / path 再命中 per-file + media_state
+            val video = mediaUri?.let { runCatching { viewModel.getVideoByUri(it) }.getOrNull() }
+            val resolvedName = title
+                ?: video?.nameWithExtension
+                ?: video?.path
+            val fromStore = viewModel.contentScaleForMediaUri(
+                mediaUri = mediaUri,
+                fileName = resolvedName,
+            ) ?: return@launch
+            // 已有 pending 且一致时不重复写；不一致则以双源权威覆盖
+            val current = viewModel.pendingOpenContentScale.value
+            if (current == fromStore) return@launch
+            viewModel.seedPendingOpenContentScale(fromStore)
+            Logger.info(
+                TAG,
+                "seedPendingOpenContentScale async=${fromStore.name} resolvedName=${resolvedName?.toPrivateLogSummary()}",
+            )
         }
     }
 
@@ -534,6 +578,10 @@ open class PlayerActivity : AppCompatActivity() {
             isCurrentItem = true,
             localParentPath = null,
         )
+        // buildMediaItem 已双源查库盖章；把权威缩放再种子化一次，覆盖仅 per-file 同步未命中的路径
+        currentMediaItem.mediaMetadata.contentScaleName
+            ?.let { runCatching { one.only.player.core.model.VideoContentScale.valueOf(it) }.getOrNull() }
+            ?.let(viewModel::seedPendingOpenContentScale)
 
         withContext(Dispatchers.Main) {
             mediaController?.run {
@@ -645,16 +693,38 @@ open class PlayerActivity : AppCompatActivity() {
         val remoteServerId = requestHeaders["_remote_server_id"]?.toLongOrNull()
         val remoteProtocol = requestHeaders["_remote_protocol"]
         val hasRemoteMetadata = remoteServerId != null && remoteProtocol != null
-        if (isCurrentItem || hasRemoteMetadata) {
-            val filePath = if (isCurrentItem) {
-                requestHeaders["_remote_file_path"]
-            } else {
-                remoteFilePath
-            }
+        val filePath = if (isCurrentItem) {
+            requestHeaders["_remote_file_path"]
+        } else {
+            remoteFilePath
+        }
+        // 首条进播放器前就盖 content_scale，避免 UI 首帧用全局 BEST_FIT，
+        // 再等 service 元数据 enrich / 点控件才切到记住缩放（logs13）。
+        // content:// 无文件名时用 media 表 nameWithExtension / path 命中 per-file。
+        val resolvedVideo = if (isCurrentItem) viewModel.getVideoByUri(uriString) else null
+        val stampedContentScale = if (isCurrentItem) {
+            val resolvedFileName = filePath
+                ?: playerApi.title
+                ?: resolvedVideo?.nameWithExtension
+                ?: resolvedVideo?.path
+            viewModel.contentScaleNameForMediaUri(
+                mediaUri = uriString,
+                fileName = resolvedFileName,
+            )
+        } else {
+            null
+        }
+        if (isCurrentItem || hasRemoteMetadata || stampedContentScale != null) {
             val itemRequestHeaders = filePath?.let { requestHeaders + ("_remote_file_path" to it) } ?: requestHeaders
             setMediaMetadata(
                 MediaMetadata.Builder().apply {
-                    if (isCurrentItem) setTitle(playerApi.title)
+                    if (isCurrentItem) {
+                        // 优先 Intent title（库内开播已带 nameWithExtension），否则 media 表文件名
+                        setTitle(
+                            playerApi.title
+                                ?: resolvedVideo?.nameWithExtension,
+                        )
+                    }
                     val remoteDirectoryPath = filePath
                         ?.substringBeforeLast('/', missingDelimiterValue = "")
                         ?.ifBlank { "/" }
@@ -666,6 +736,7 @@ open class PlayerActivity : AppCompatActivity() {
                         remoteProtocol = remoteProtocol,
                         localParentPath = localParentPath,
                         remoteDirectoryPath = remoteDirectoryPath,
+                        contentScale = stampedContentScale,
                     )
                 }.build(),
             )
@@ -774,7 +845,6 @@ open class PlayerActivity : AppCompatActivity() {
 
         override fun onPlaybackStateChanged(playbackState: Int) {
             super.onPlaybackStateChanged(playbackState)
-            updateKeepScreenOnFlag()
             when (playbackState) {
                 Player.STATE_ENDED -> {
                     val controller = mediaController
@@ -782,12 +852,15 @@ open class PlayerActivity : AppCompatActivity() {
                         hasPausedAtEndOfQueue = true
                         isPlaybackFinished = true
                         controller.pause()
+                        updateKeepScreenOnFlag()
                         return
                     }
                     if (controller?.playWhenReady == false && hasPausedAtEndOfQueue) {
+                        updateKeepScreenOnFlag()
                         return
                     }
                     isPlaybackFinished = mediaController?.playbackState == Player.STATE_ENDED
+                    updateKeepScreenOnFlag()
                     finishAndStopPlayerSession()
                 }
 
@@ -811,7 +884,6 @@ open class PlayerActivity : AppCompatActivity() {
 
         override fun onPlayWhenReadyChanged(shouldPlayWhenReady: Boolean, reason: Int) {
             super.onPlayWhenReadyChanged(shouldPlayWhenReady, reason)
-            updateKeepScreenOnFlag()
 
             if (reason != Player.PLAY_WHEN_READY_CHANGE_REASON_END_OF_MEDIA_ITEM) {
                 val controller = mediaController ?: return
@@ -832,6 +904,7 @@ open class PlayerActivity : AppCompatActivity() {
             if (controller.shouldPauseAtEndOfQueue()) {
                 hasPausedAtEndOfQueue = true
                 isPlaybackFinished = true
+                updateKeepScreenOnFlag()
                 return
             }
             hasPausedAtEndOfQueue = false
@@ -863,20 +936,16 @@ open class PlayerActivity : AppCompatActivity() {
             applyLaunchOrientation(intent)
             setIntent(intent)
             isIntentNew = true
+            // 同 Activity 重进：在 setMediaItem 前就种子化，避免首帧 BEST_FIT（logs13）
+            seedPendingOpenContentScaleFromIntent(intent)
             if (mediaController != null) {
                 startPlayback()
             }
         }
     }
 
-    // 播放意图存续期间保持常亮;暂停、播完或空闲时允许熄屏
     private fun updateKeepScreenOnFlag() {
-        val controller = mediaController
-        val shouldKeepScreenOn = controller != null &&
-            controller.playWhenReady &&
-            controller.playbackState != Player.STATE_IDLE &&
-            controller.playbackState != Player.STATE_ENDED
-        if (shouldKeepScreenOn) {
+        if (mediaController?.currentMediaItem != null && !isPlaybackFinished) {
             window.addFlags(WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON)
         } else {
             window.clearFlags(WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON)
@@ -999,13 +1068,15 @@ open class PlayerActivity : AppCompatActivity() {
 
     private fun applyConfiguredOrientation() {
         val prefs = playerPreferences ?: return
-        if (prefs.playerScreenOrientation == ScreenOrientation.VIDEO_ORIENTATION) return
-
-        val orientation = prefs.lastPlayerScreenOrientation
+        val remembered = prefs.lastPlayerScreenOrientation
             ?.takeIf { prefs.shouldRememberPlayerScreenOrientation }
             ?.toActivityOrientation()
-            ?: prefs.playerScreenOrientation.toActivityOrientation()
-        applyRequestedOrientation(orientation)
+        if (remembered != null) {
+            applyRequestedOrientation(remembered)
+            return
+        }
+        if (prefs.playerScreenOrientation == ScreenOrientation.VIDEO_ORIENTATION) return
+        applyRequestedOrientation(prefs.playerScreenOrientation.toActivityOrientation())
     }
 
     private fun Intent.launchOrientationExtra(): Int? = getIntExtra(

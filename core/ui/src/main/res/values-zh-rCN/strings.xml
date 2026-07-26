@@ -51,20 +51,22 @@
     <string name="sort">排序</string>
     <string name="unknown_error">发生未知错误</string>
     <string name="playback">播放</string>
+    <string name="playback_behavior">播放行为</string>
     <string name="video_processing">画面处理</string>
     <string name="video_filters">视频滤镜</string>
     <string name="enable_video_filters">启用视频滤镜</string>
     <string name="enable_video_filters_description">关闭后跳过 GPU 视频滤镜以节省电量</string>
-    <string name="video_filters_unavailable_software_decoder">软解码不支持视频滤镜</string>
+    <string name="video_filters_unavailable_software_decoder">不支持视频滤镜</string>
+    <string name="interface_name">界面</string>
     <string name="shortest">最短</string>
     <string name="longest">最长</string>
     <string name="smallest">最小</string>
     <string name="largest">最大</string>
     <string name="video_zoom">视频缩放</string>
     <string name="mirror_video">镜像视频</string>
-    <string name="dynamic_theme_description">开启后使用系统壁纸配色，关闭后使用 Miuix 原版配色</string>
+    <string name="dynamic_theme_description">将系统壁纸的颜色应用到应用主题中</string>
     <string name="theme_color">主题颜色</string>
-    <string name="theme_color_description">使用系统壁纸颜色或自定义主题色</string>
+    <string name="theme_color_description">自定义应用的主色调</string>
     <string name="theme_palette_style">调色板样式</string>
     <string name="theme_palette_style_description">决定如何从种子色推导整套配色</string>
     <string name="palette_style_tonal_spot">默认</string>
@@ -105,10 +107,15 @@
     <string name="player_controls_previous">上一个</string>
     <string name="audio">音频</string>
     <string name="audio_track_settings">音轨</string>
+    <string name="audio_focus_and_devices">音频焦点与外设</string>
+    <string name="volume_memory">音量记忆</string>
+    <string name="volume_processing">音量处理</string>
     <string name="preferred_audio_lang">首选音频语言</string>
     <string name="preferred_audio_lang_description">您想要默认使用的音轨语言</string>
     <string name="subtitle">字幕</string>
     <string name="subtitle_loading">字幕加载</string>
+    <string name="subtitle_style_source">样式来源</string>
+    <string name="subtitle_font_settings">字体</string>
     <string name="subtitle_appearance">字幕外观</string>
     <string name="subtitle_auto_load">自动加载字幕</string>
     <string name="subtitle_auto_load_desc">播放视频时自动选择字幕轨道</string>
@@ -124,6 +131,7 @@
     <string name="yes">是</string>
     <string name="no">否</string>
     <string name="play_pause_ff_rewind">播放/暂停和快进/快退</string>
+    <string name="scan">扫描</string>
     <string name="media_library">媒体库</string>
     <string name="force_rescan_storage">强制重新扫描存储空间</string>
     <string name="media_library_description">扫描和管理媒体库</string>
@@ -195,7 +203,7 @@
     <string name="hw_plus_decoder">硬件解码+</string>
     <string name="sw_decoder">软解解码</string>
     <string name="decoder">解码器</string>
-    <string name="decoder_desc">解码器、视频滤镜选项</string>
+    <string name="decoder_desc">视频滤镜选项</string>
     <string name="embedded_styles_desc">应用字幕文件（如 ASS 等）中存在的嵌入样式</string>
     <string name="embedded_styles">嵌入样式</string>
     <string name="controller_timeout">控制器超时</string>
@@ -217,6 +225,8 @@
     <string name="delete">删除</string>
     <string name="autoplay_settings">自动播放</string>
     <string name="autoplay_settings_description">自动播放当前文件夹中的下一个视频</string>
+    <string name="restart_current_on_previous">上一键重播当前</string>
+    <string name="restart_current_on_previous_description">点第一下重播当前视频，已在开头附近再点则跳到上一视频</string>
     <string name="best_fit">最合适</string>
     <string name="stretch">拉伸</string>
     <string name="crop">裁剪</string>
@@ -311,6 +321,7 @@
     <string name="control_buttons_alignment">控制按钮对齐</string>
     <string name="player_control_labels">隐藏控制文字</string>
     <string name="player_control_labels_description">隐藏播放器控制按钮下方的文字</string>
+    <string name="player_controls">播放器控件</string>
     <string name="background_play_description">点按主屏幕按钮或屏幕锁定时在后台播放</string>
     <string name="stop_player_session">停止播放器会话</string>
     <string name="background_play">后台播放</string>
@@ -322,6 +333,7 @@
     <string name="libraries">程序库</string>
     <string name="project_repository">项目仓库</string>
     <string name="telegram_group">Telegram 群组</string>
+    <string name="diagnostics">诊断</string>
     <string name="app_logs">应用日志</string>
     <string name="app_logs_description">查看、分享、保存并清空存储在应用私有目录中的日志</string>
     <string name="share_logs">分享</string>
@@ -339,7 +351,6 @@
     <string name="android_version">安卓版本</string>
     <string name="error_opening_link">未找到可打开此链接的应用</string>
     <string name="all_files_access_title">允许所有文件访问</string>
-    <string name="all_files_access_required_desc">Only Player 需要“所有文件访问权限”，才能扫描并管理任意文件夹中的视频。请前往系统设置授予权限后继续。</string>
     <string name="media_library_all_files_access_desc">忽略 .nomedia 和回收站功能需要所有文件访问权限，授权后才能启用这两项功能。</string>
     <string name="not_now">暂不</string>
     <string name="list">列表</string>
@@ -367,6 +378,10 @@
     <string name="delete_failed">文件删除失败</string>
     <string name="gestures">手势</string>
     <string name="swipe_gestures">滑动手势</string>
+    <string name="tap_gestures">点击手势</string>
+    <string name="long_press_gestures">长按手势</string>
+    <string name="zoom_and_pan_gestures">缩放和平移</string>
+    <string name="other_gestures">其它手势</string>
     <string name="volume_gesture">音量手势</string>
     <string name="volume_gesture_description">通过纵向滑动调整音量</string>
     <string name="brightness_gesture">亮度手势</string>
@@ -419,6 +434,7 @@
     <string name="reorder">重新排序</string>
     <string name="no_videos_in_queue">队列中无视频</string>
     <string name="now_playing">正在播放</string>
+    <string name="playlist">播放列表</string>
     <string name="thumbnail_setting_change_confirmation">更改此设置会清除缩略图缓存。打开媒体列表时会重新生成缩略图。继续吗？</string>
     <string name="frame_position_value">视频时长的 %1$.0f%% 处的帧</string>
     <string name="frame_position">帧位置</string>
@@ -466,15 +482,7 @@
     <string name="move_success">已移动 %1$d 个项目</string>
     <string name="move_failed">移动失败</string>
     <string name="move_partial_success">已移动 %1$d 个，%2$d 个失败</string>
-    <string name="move_incomplete">已完整移动 %1$d 个，%2$d 个文件夹仅部分移动，%3$d 个失败</string>
     <string name="move_cancelled">已取消，已移动 %1$d 个，%2$d 个失败</string>
-    <string name="storage_locations">存储位置</string>
-    <string name="storage_available_total">可用 %1$s，共 %2$s</string>
-    <string name="storage_available">可用 %1$s</string>
-    <string name="storage_available_percent">可用 %1$s · %2$d%%</string>
-    <string name="storage_total">共 %1$s</string>
-    <string name="move_required_space">移动需要 %1$s，可用 %2$s</string>
-    <string name="move_insufficient_space">空间不足：需要 %1$s，可用 %2$s</string>
     <string name="move_progress_title">正在移动</string>
     <string name="move_progress_message">已处理 %1$d/%2$d 个项目</string>
     <string name="move_progress_current_file">当前文件：%1$s</string>
@@ -486,6 +494,7 @@
     <string name="delete_permanently">永久删除</string>
     <string name="settings_backup_file_name">onlyplayer-settings.json</string>
     <string name="exclude">排除</string>
+    <string name="update_check">更新</string>
     <string name="check_for_updates">检查更新</string>
     <string name="check_updates_on_startup">打开时自动检查</string>
     <string name="check_updates_on_startup_desc">打开此页面时自动检查更新</string>
@@ -540,9 +549,11 @@
     <string name="floating_navigation_bar_description">使用圆角悬浮底部导航栏</string>
     <string name="floating_navigation_bar_blur">悬浮栏模糊</string>
     <string name="floating_navigation_bar_blur_description">为悬浮导航栏启用背景模糊和半透明效果</string>
-    <string name="predictive_back_gesture">预测性返回手势</string>
-    <string name="predictive_back_gesture_description">启用对预测性返回手势的支持</string>
-    <string name="take_screenshot">截图</string>
+        <string name="hide_cloud_tab">隐藏云端标签</string>
+    <string name="hide_cloud_tab_description">从底部导航栏隐藏云端标签页</string>
+    <string name="hide_favorites_tab">隐藏收藏标签</string>
+    <string name="hide_favorites_tab_description">从底部导航栏隐藏收藏标签页</string>
+<string name="take_screenshot">截图</string>
     <string name="screenshot_saved">截图已保存到 Pictures/Screenshots</string>
     <string name="screenshot_failed">截图保存失败</string>
     <string name="customize_player_controls">自定义控件</string>
@@ -550,4 +561,46 @@
     <string name="add_playback_mark">添加标记</string>
     <string name="no_playback_marks">暂无标记</string>
     <string name="delete_mark">删除标记</string>
+    <string name="predictive_back">预测性返回手势</string>
+    <string name="predictive_back_description">嵌套页面使用安卓预测性返回手势</string>
+
+    <string name="file_extensions">文件扩展名</string>
+    <string name="file_extensions_description">自定义识别的扩展名及其默认解码方式</string>
+    <string name="file_extensions_add">添加扩展名</string>
+    <string name="file_extensions_add_hint">例如 mkv</string>
+    <string name="file_extensions_delete">删除扩展名</string>
+    <string name="file_extensions_built_in">内置</string>
+    <string name="file_extensions_custom">自定义</string>
+    <string name="file_extensions_decoder">默认解码方式</string>
+    <string name="file_extensions_already_exists">该扩展名已存在</string>
+    <string name="file_extensions_invalid">请输入有效扩展名</string>
+
+    <string name="file_extensions_all_files_access_hint">自定义扩展名需要开启「所有文件访问」权限。未开启时只能识别系统媒体库已收录的文件。</string>
+    <string name="file_extensions_long_press_hint">长按扩展名可多选并批量设置解码方式</string>
+    <string name="file_extensions_batch_set_decoder">为选中项设置解码方式</string>
+    <string name="file_extensions_batch_selected">已选 %1$d 项</string>
+    <string name="file_extensions_selected">已选中</string>
+    <string name="file_extensions_restore_defaults">恢复默认</string>
+    <string name="keep_hidden_control_slots">隐藏控件保留空位</string>
+    <string name="keep_hidden_control_slots_description">旧版控件自定义时，关掉的控件仍占位，其它控件位置保持固定</string>
+
+
+    <string name="media_session_visibility">系统媒体控件</string>
+    <string name="media_session_visibility_description">是否出现在系统自带媒体播放器/通知里</string>
+    <string name="media_session_visibility_show">显示</string>
+    <string name="media_session_visibility_hide">不显示</string>
+    <string name="media_session_visibility_audio_only">仅播放 MP3 时显示</string>
+<string name="player_icon_style_transparent">全透</string>
+    <string name="volume_brightness_indicator">亮度/音量指示</string>
+    <string name="volume_brightness_indicator_bar">侧边条</string>
+    <string name="volume_brightness_indicator_center_text">居中百分比文字</string>
+    <string name="controls_customize">自定义</string>
+    <string name="notification_channel_player_name">播放服务</string>
+    <string name="notification_channel_player_description">后台播放服务</string>
+    <string name="playing_in_background">正在播放</string>
+    <string name="remember_decoder_per_extension">记住解码方式</string>
+    <string name="remember_decoder_per_extension_description">播放器内切换解码时，按文件扩展名分别记住</string>
+    <string name="remember_video_scale_for_this_file">记住该文件缩放方式</string>
+    <string name="remember_decoder_for_this_file">记住该文件解码方式</string>
+    <string name="remember_orientation_for_this_file">是否记住该文件旋转方式</string>
 </resources>

@@ -9,7 +9,6 @@ import android.content.Context
 import android.content.Intent
 import android.net.Uri
 import android.os.Environment
-import android.os.StatFs
 import android.os.SystemClock
 import android.os.storage.StorageManager
 import android.provider.MediaStore
@@ -90,84 +89,6 @@ class LocalMediaService @Inject constructor(
         )
     }
 
-    override suspend fun getMoveTargetDirectory(
-        path: String?,
-    ): MediaMoveTargetDirectoryContent? = withContext(Dispatchers.IO) {
-        val storageLocations = getStorageLocations()
-        if (path == null) {
-            return@withContext MediaMoveTargetDirectoryContent(
-                currentDirectory = null,
-                directories = storageLocations
-                    .sortedByDescending(StorageLocation::isPrimary)
-                    .map { storage ->
-                        MediaMoveTargetDirectory(
-                            name = storage.name,
-                            path = storage.rootDirectory.path,
-                            storage = storage.toMediaStorageInfo(),
-                        )
-                    },
-                canMoveHere = false,
-            )
-        }
-
-        val currentDirectory = File(path)
-        if (!currentDirectory.exists() || !currentDirectory.isDirectory) return@withContext null
-        val storage = resolveStorageLocation(currentDirectory.path) ?: return@withContext null
-        val isStorageRoot = currentDirectory.path.canonicalPathOrSelf() == storage.rootDirectory.path.canonicalPathOrSelf()
-        val directories = runCatching {
-            currentDirectory.listFiles()
-                ?.asSequence()
-                ?.filter { file -> file.isDirectory && file.canRead() }
-                ?.filterNot { file -> isStorageRoot && file.name.equals(ANDROID_DIRECTORY_NAME, ignoreCase = true) }
-                ?.sortedWith(compareBy(String.CASE_INSENSITIVE_ORDER, File::getName))
-                ?.map { directory ->
-                    MediaMoveTargetDirectory(
-                        name = directory.name,
-                        path = directory.path,
-                    )
-                }
-                ?.toList()
-                .orEmpty()
-        }.getOrDefault(emptyList())
-
-        MediaMoveTargetDirectoryContent(
-            currentDirectory = MediaMoveTargetDirectory(
-                name = storage.name.takeIf { isStorageRoot } ?: currentDirectory.name,
-                path = currentDirectory.path,
-                storage = storage.toMediaStorageInfo(),
-            ),
-            directories = directories,
-            canMoveHere = resolveMoveTarget(currentDirectory.path) != null,
-        )
-    }
-
-    override suspend fun checkMoveSpace(
-        videoUris: List<Uri>,
-        folderPaths: List<String>,
-        targetFolderPath: String,
-    ): MediaMoveSpaceCheck? = withContext(Dispatchers.IO) {
-        val targetStorage = resolveStorageLocation(targetFolderPath) ?: return@withContext null
-        val sourceFiles = buildList {
-            videoUris.mapNotNullTo(this) { uri -> context.getPath(uri)?.let(::File) }
-            folderPaths.distinct().forEach { folderPath ->
-                val folder = File(folderPath)
-                if (folder.exists() && folder.isDirectory) {
-                    addAll(folder.walkTopDown().filter(File::isFile))
-                }
-            }
-        }.distinctBy { file -> file.path.canonicalPathOrSelf() }
-        val requiredBytes = sourceFiles
-            .filter { file -> isAcrossStorageVolumes(file, targetStorage) }
-            .sumOf(File::length)
-        val availableBytes = getAvailableBytes(targetStorage.rootDirectory)
-
-        MediaMoveSpaceCheck(
-            requiredBytes = requiredBytes,
-            availableBytes = availableBytes,
-            hasEnoughSpace = availableBytes == null || requiredBytes <= availableBytes,
-        )
-    }
-
     override suspend fun moveMediaToRecycleBin(uri: Uri): MediaMoveResult? = withContext(Dispatchers.IO) {
         moveMedia(
             uri = uri,
@@ -203,22 +124,20 @@ class LocalMediaService @Inject constructor(
     override suspend fun moveFolderToFolder(
         folderPath: String,
         targetFolderPath: String,
-    ): MediaFolderMoveResult = withContext(Dispatchers.IO) {
+    ): List<MediaMoveResult> = withContext(Dispatchers.IO) {
         val folder = File(folderPath)
         val targetFolder = File(targetFolderPath)
-        if (!folder.exists() || !folder.isDirectory) return@withContext MediaFolderMoveResult()
-        if (!targetFolder.exists() || !targetFolder.isDirectory) return@withContext MediaFolderMoveResult()
-        if (folder.parentFile?.canonicalPath == targetFolder.canonicalPath) return@withContext MediaFolderMoveResult()
-        if (targetFolder.canonicalPath.startsWith(folder.canonicalPath + File.separator)) {
-            return@withContext MediaFolderMoveResult()
-        }
+        if (!folder.exists() || !folder.isDirectory) return@withContext emptyList()
+        if (!targetFolder.exists() || !targetFolder.isDirectory) return@withContext emptyList()
+        if (folder.parentFile?.canonicalPath == targetFolder.canonicalPath) return@withContext emptyList()
+        if (targetFolder.canonicalPath.startsWith(folder.canonicalPath + File.separator)) return@withContext emptyList()
 
         val originalFiles = folder.walkTopDown()
             .filter(File::isFile)
             .map { file -> file.path to file.name }
             .toList()
         val movedFolder = File(targetFolder, folder.name)
-        if (movedFolder.exists()) return@withContext MediaFolderMoveResult()
+        if (movedFolder.exists()) return@withContext emptyList()
         if (!folder.renameTo(movedFolder)) {
             return@withContext moveFolderFilesWithMediaStore(
                 folder = folder,
@@ -227,13 +146,10 @@ class LocalMediaService @Inject constructor(
             )
         }
 
-        MediaFolderMoveResult(
-            movedMedia = buildMovedFolderResults(
-                folder = folder,
-                movedFolder = movedFolder,
-                originalFiles = originalFiles,
-            ),
-            isComplete = true,
+        buildMovedFolderResults(
+            folder = folder,
+            movedFolder = movedFolder,
+            originalFiles = originalFiles,
         )
     }
 
@@ -289,9 +205,7 @@ class LocalMediaService @Inject constructor(
         folder: File,
         movedFolder: File,
         originalFiles: List<Pair<String, String>>,
-    ): MediaFolderMoveResult {
-        if (originalFiles.isEmpty()) return MediaFolderMoveResult()
-
+    ): List<MediaMoveResult> {
         val movedMedia = originalFiles.mapNotNull { (originalPath, fileName) ->
             val movedFile = File(movedFolder, originalPath.removePrefix(folder.path).trimStart(File.separatorChar))
             val target = resolveMoveTarget(movedFile.parent ?: return@mapNotNull null) ?: return@mapNotNull null
@@ -306,16 +220,7 @@ class LocalMediaService @Inject constructor(
                 target = target,
             )
         }
-        val isComplete = movedMedia.size == originalFiles.size
-        if (isComplete) {
-            folder.walkBottomUp()
-                .filter(File::isDirectory)
-                .forEach(File::delete)
-        }
-        return MediaFolderMoveResult(
-            movedMedia = movedMedia,
-            isComplete = isComplete,
-        )
+        return movedMedia.takeIf { it.size == originalFiles.size }.orEmpty()
     }
 
     private suspend fun buildMovedFolderResults(
@@ -377,7 +282,6 @@ class LocalMediaService @Inject constructor(
         val mediaStoreUri = ensureMediaStoreUri(uri)
         val sourceStorage = resolveStorageLocation(currentFile.path)
         if (sourceStorage?.rootDirectory?.canonicalPath != target.storageRoot.canonicalPath) {
-            if (!hasAvailableSpace(target.storageRoot, totalBytes)) return null
             return moveMediaAcrossStorageVolumes(
                 sourceUri = mediaStoreUri?.let { resolveVolumeSpecificMediaUri(it, sourceStorage) } ?: uri,
                 currentFile = currentFile,
@@ -505,7 +409,7 @@ class LocalMediaService @Inject constructor(
         )
         val resultPath = context.getPath(targetUri) ?: expectedFile.path
         val resultFile = File(resultPath)
-        if (!didPublish || !resultFile.exists() || resultFile.length() != currentFile.length()) {
+        if (!didPublish || !resultFile.exists()) {
             deleteInsertedMedia(targetUri)
             return null
         }
@@ -570,7 +474,7 @@ class LocalMediaService @Inject constructor(
                 }
             }
             onProgress(MediaCopyProgress(copiedBytes = copiedBytes, totalBytes = totalBytes))
-            copiedBytes == totalBytes
+            true
         }.onFailure { throwable ->
             Logger.error(TAG, "Failed to copy media across storage volumes", throwable)
         }.getOrDefault(false)
@@ -649,60 +553,26 @@ class LocalMediaService @Inject constructor(
 
     private fun resolveStorageLocation(path: String): StorageLocation? {
         val normalizedPath = path.canonicalPathOrSelf().replace('\\', '/').trimEnd('/')
-        return getStorageLocations()
+        val storageManager = context.getSystemService(StorageManager::class.java)
+        return storageManager.storageVolumes
+            .mapNotNull { volume ->
+                val directory = volume.directory ?: return@mapNotNull null
+                val volumeName = volume.mediaStoreVolumeName
+                    ?: if (volume.isPrimary) {
+                        MediaStore.VOLUME_EXTERNAL_PRIMARY
+                    } else {
+                        return@mapNotNull null
+                    }
+                StorageLocation(
+                    rootDirectory = directory,
+                    mediaStoreVolumeName = volumeName,
+                )
+            }
             .filter { storage ->
                 val rootPath = storage.rootDirectory.path.canonicalPathOrSelf().replace('\\', '/').trimEnd('/')
                 normalizedPath == rootPath || normalizedPath.startsWith("$rootPath/")
             }
             .maxByOrNull { storage -> storage.rootDirectory.path.length }
-    }
-
-    private fun getStorageLocations(): List<StorageLocation> {
-        val storageManager = context.getSystemService(StorageManager::class.java)
-        return storageManager.storageVolumes.mapNotNull { volume ->
-            val directory = volume.directory ?: return@mapNotNull null
-            val volumeName = volume.mediaStoreVolumeName
-                ?: if (volume.isPrimary) {
-                    MediaStore.VOLUME_EXTERNAL_PRIMARY
-                } else {
-                    return@mapNotNull null
-                }
-            StorageLocation(
-                name = volume.getDescription(context),
-                rootDirectory = directory,
-                mediaStoreVolumeName = volumeName,
-                isPrimary = volume.isPrimary,
-            )
-        }
-    }
-
-    private fun StorageLocation.toMediaStorageInfo(): MediaStorageInfo {
-        val statFs = runCatching { StatFs(rootDirectory.path) }.getOrNull()
-        return MediaStorageInfo(
-            name = name,
-            availableBytes = statFs?.availableBytes,
-            totalBytes = statFs?.totalBytes,
-        )
-    }
-
-    private fun getAvailableBytes(storageRoot: File): Long? = runCatching {
-        StatFs(storageRoot.path).availableBytes
-    }.getOrNull()
-
-    private fun hasAvailableSpace(
-        storageRoot: File,
-        requiredBytes: Long,
-    ): Boolean = getAvailableBytes(storageRoot)?.let { availableBytes ->
-        requiredBytes <= availableBytes
-    } ?: true
-
-    private fun isAcrossStorageVolumes(
-        file: File,
-        targetStorage: StorageLocation,
-    ): Boolean {
-        val sourceRoot = resolveStorageLocation(file.path)?.rootDirectory?.path?.canonicalPathOrSelf()
-        val targetRoot = targetStorage.rootDirectory.path.canonicalPathOrSelf()
-        return sourceRoot != targetRoot
     }
 
     private fun resolveVolumeSpecificMediaUri(
@@ -845,10 +715,8 @@ class LocalMediaService @Inject constructor(
     )
 
     private data class StorageLocation(
-        val name: String,
         val rootDirectory: File,
         val mediaStoreVolumeName: String,
-        val isPrimary: Boolean,
     )
 
     private data class MediaMoveTarget(
@@ -860,7 +728,6 @@ class LocalMediaService @Inject constructor(
 
     companion object {
         private const val TAG = "LocalMediaService"
-        private const val ANDROID_DIRECTORY_NAME = "Android"
         private const val COPY_BUFFER_SIZE = 256 * 1024
         private const val COPY_PROGRESS_INTERVAL_MS = 100L
         private const val RECYCLE_BIN_FOLDER_NAME = ".only_player"

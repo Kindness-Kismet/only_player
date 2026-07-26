@@ -155,23 +155,36 @@ fun PlayerButton(
             contentAlignment = Alignment.Center,
         ) {
             when (playerIconStyle) {
-                PlayerIconStyle.CLASSIC -> {
-                    val backgroundModifier = if (isOutlineOnly) outlineModifier else Modifier
+                PlayerIconStyle.TRANSPARENT -> {
                     CompositionLocalProvider(
                         LocalContentColor provides if (isOutlineOnly) colorScheme.primary else Color.White,
                         LocalRippleConfiguration provides whiteRippleConfiguration,
                     ) {
+                        // 全透：无圆形背景，无额外阴影
                         IconButton(
                             onClick = {},
                             enabled = isEnabled,
-                            modifier = Modifier.size(buttonSize).then(backgroundModifier),
+                            modifier = Modifier
+                                .size(buttonSize)
+                                .then(if (isOutlineOnly) outlineModifier else Modifier)
+                                .background(Color.Transparent),
                             interactionSource = interactionSource,
+                            colors = IconButtonDefaults.iconButtonColors(
+                                containerColor = Color.Transparent,
+                                contentColor = if (isOutlineOnly) colorScheme.primary else Color.White,
+                                disabledContainerColor = Color.Transparent,
+                                disabledContentColor = Color.White.copy(alpha = 0.5f),
+                            ),
                             content = buttonContent,
                         )
                     }
                 }
 
-                PlayerIconStyle.TONAL, PlayerIconStyle.TRANSLUCENT -> {
+                // CLASSIC 已下线，与 TONAL 同渲染
+                PlayerIconStyle.TONAL,
+                PlayerIconStyle.CLASSIC,
+                PlayerIconStyle.TRANSLUCENT,
+                -> {
                     val containerColor = when {
                         isOutlineOnly -> colorScheme.surface.copy(alpha = 0f)
                         playerIconStyle == PlayerIconStyle.TRANSLUCENT -> colorScheme.primary.copy(alpha = 0.20f)

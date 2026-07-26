@@ -1,12 +1,19 @@
 package one.only.player.core.ui.components
 
 import androidx.compose.foundation.layout.PaddingValues
+import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.LazyListScope
 import androidx.compose.foundation.selection.selectableGroup
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
+import top.yukonga.miuix.kmp.basic.HorizontalDivider
+import top.yukonga.miuix.kmp.basic.Text
+import top.yukonga.miuix.kmp.theme.MiuixTheme
 
 @Composable
 fun OptionsDialog(
@@ -18,13 +25,24 @@ fun OptionsDialog(
     NextDialog(
         modifier = modifier,
         onDismissRequest = onDismissClick,
-        title = title,
+        title = {
+            Text(
+                text = title,
+                style = MiuixTheme.textStyles.title3.copy(fontWeight = FontWeight.Bold),
+                textAlign = TextAlign.Center,
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(bottom = 10.dp),
+            )
+        },
         content = {
+            HorizontalDivider(modifier = Modifier.padding(bottom = 4.dp))
             LazyColumn(
                 contentPadding = PaddingValues(vertical = 8.dp),
                 modifier = Modifier.selectableGroup(),
                 content = options,
             )
+            HorizontalDivider()
         },
         dismissButton = { CancelButton(onClick = onDismissClick) },
         confirmButton = { },

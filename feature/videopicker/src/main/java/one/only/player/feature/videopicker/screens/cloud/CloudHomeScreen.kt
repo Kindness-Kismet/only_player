@@ -108,6 +108,7 @@ internal fun CloudHomeScreen(
             )
         },
         contentWindowInsets = WindowInsets.displayCutout,
+        containerColor = MiuixTheme.colorScheme.background,
     ) { innerPadding ->
         Column(
             modifier = Modifier

@@ -99,7 +99,11 @@ object PlayerPreferencesSerializer : Serializer<PlayerPreferences> {
             upgradedPreferences = upgradedPreferences.copy(shouldApplyVideoFilters = true)
         }
         if ("playerIconStyle" !in root && root["shouldUseClassicPlayerIcons"]?.jsonPrimitive?.content == "true") {
-            upgradedPreferences = upgradedPreferences.copy(playerIconStyle = PlayerIconStyle.CLASSIC)
+            // 「经典」已下线，旧开关映射为质感
+            upgradedPreferences = upgradedPreferences.copy(playerIconStyle = PlayerIconStyle.TONAL)
+        }
+        if (upgradedPreferences.playerIconStyle == PlayerIconStyle.CLASSIC) {
+            upgradedPreferences = upgradedPreferences.copy(playerIconStyle = PlayerIconStyle.TONAL)
         }
         root["shouldRememberSelections"]?.jsonPrimitive?.content?.toBooleanStrictOrNull()?.let { shouldRememberSelections ->
             upgradedPreferences = upgradedPreferences.copy(

@@ -47,12 +47,12 @@ import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import one.only.player.core.common.extensions.appIcon
 import one.only.player.core.ui.R
 import one.only.player.core.ui.components.ClickablePreferenceItem
+import one.only.player.core.ui.components.ListSectionTitle
 import one.only.player.core.ui.components.NextDialog
 import one.only.player.core.ui.components.PreferenceItem
 import one.only.player.core.ui.components.PreferenceSwitch
 import one.only.player.core.ui.components.SegmentedItemGap
 import one.only.player.core.ui.components.SettingsContentTopPadding
-import one.only.player.core.ui.components.SettingsGroupGap
 import one.only.player.core.ui.designsystem.NextIcons
 import one.only.player.core.ui.extensions.withBottomFallback
 import top.yukonga.miuix.kmp.basic.ButtonDefaults
@@ -61,7 +61,7 @@ import top.yukonga.miuix.kmp.basic.IconButton as MiuixIconButton
 import top.yukonga.miuix.kmp.basic.Scaffold
 import top.yukonga.miuix.kmp.basic.Text as MiuixText
 import top.yukonga.miuix.kmp.basic.TextButton as MiuixTextButton
-import top.yukonga.miuix.kmp.basic.TopAppBar
+import top.yukonga.miuix.kmp.basic.SmallTopAppBar
 import top.yukonga.miuix.kmp.theme.MiuixTheme
 
 @Composable
@@ -81,7 +81,7 @@ fun AboutPreferencesScreen(
 
     Scaffold(
         topBar = {
-            TopAppBar(
+            SmallTopAppBar(
                 title = stringResource(id = R.string.about_name),
                 navigationIcon = {
                     MiuixIconButton(
@@ -99,6 +99,7 @@ fun AboutPreferencesScreen(
                 },
             )
         },
+        containerColor = MiuixTheme.colorScheme.background,
     ) { innerPadding ->
         Column(
             modifier = Modifier
@@ -107,7 +108,6 @@ fun AboutPreferencesScreen(
                 .padding(innerPadding.withBottomFallback())
                 .padding(top = SettingsContentTopPadding)
                 .padding(horizontal = 16.dp),
-            verticalArrangement = Arrangement.spacedBy(SettingsGroupGap),
         ) {
             AboutApp(
                 onLibrariesClick = onLibrariesClick,
@@ -120,6 +120,7 @@ fun AboutPreferencesScreen(
                 currentVersionName = currentVersionName,
                 onEvent = viewModel::onEvent,
             )
+            ListSectionTitle(text = stringResource(id = R.string.device_info))
             Column(
                 verticalArrangement = Arrangement.spacedBy(SegmentedItemGap),
             ) {
@@ -151,6 +152,7 @@ fun AboutPreferencesScreen(
 private fun DiagnosticsSection(
     onLogsClick: () -> Unit,
 ) {
+    ListSectionTitle(text = stringResource(id = R.string.diagnostics))
     Column(
         verticalArrangement = Arrangement.spacedBy(SegmentedItemGap),
     ) {
@@ -175,6 +177,7 @@ private fun UpdateSection(
     val context = LocalContext.current
     val uriHandler = LocalUriHandler.current
 
+    ListSectionTitle(text = stringResource(id = R.string.update_check))
     Column(
         verticalArrangement = Arrangement.spacedBy(SegmentedItemGap),
     ) {
@@ -227,7 +230,12 @@ private fun StartupUpdateDialog(
 
     NextDialog(
         onDismissRequest = { onEvent(AboutPreferencesUiEvent.DismissStartupUpdateDialog) },
-        title = stringResource(R.string.update_dialog_title),
+        title = {
+            MiuixText(
+                text = stringResource(R.string.update_dialog_title),
+                style = MiuixTheme.textStyles.title4,
+            )
+        },
         content = { MiuixText(text = stringResource(R.string.update_dialog_message, state.latestVersion)) },
         confirmButton = {
             MiuixTextButton(
@@ -424,7 +432,7 @@ private fun rememberAndroidVersion(): String = remember {
     "${Build.VERSION.RELEASE} (API ${Build.VERSION.SDK_INT})"
 }
 
-private const val PROJECT_REPOSITORY_URL = "https://github.com/Kindness-Kismet/only_player"
+private const val PROJECT_REPOSITORY_URL = "https://github.com/Kindness-Kismet/One-Player"
 private const val TELEGRAM_GROUP_URL = "https://t.me/MaterialDesign3"
 
 internal fun UriHandler.openUriOrShowToast(uri: String, context: Context) {

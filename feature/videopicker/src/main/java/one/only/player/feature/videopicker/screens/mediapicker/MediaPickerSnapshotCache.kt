@@ -4,10 +4,8 @@ import java.io.File
 import java.io.ObjectInputStream
 import java.io.ObjectOutputStream
 import java.io.Serializable
-import kotlinx.coroutines.CompletableDeferred
 import kotlinx.coroutines.CoroutineDispatcher
 import kotlinx.coroutines.CoroutineScope
-import kotlinx.coroutines.channels.Channel
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 import one.only.player.core.common.Logger
@@ -24,27 +22,9 @@ class MediaPickerSnapshotCache(
 ) {
 
     private val snapshots = LinkedHashMap<SnapshotKey, Folder?>()
-    private val initialLoadCompleted = CompletableDeferred<Unit>()
-    private val diskOperations = Channel<DiskOperation>(Channel.UNLIMITED)
 
     init {
-        scope.launch {
-            try {
-                loadFromDisk()
-            } finally {
-                initialLoadCompleted.complete(Unit)
-            }
-        }
-        scope.launch {
-            initialLoadCompleted.await()
-            for (operation in diskOperations) {
-                when (operation) {
-                    is DiskOperation.Write -> writeToDisk(operation.key, operation.folder)
-                    is DiskOperation.Delete -> deleteFile(operation.key)
-                    DiskOperation.Clear -> clearDisk()
-                }
-            }
-        }
+        scope.launch { loadFromDisk() }
     }
 
     @Synchronized
@@ -53,15 +33,6 @@ class MediaPickerSnapshotCache(
         preferences: ApplicationPreferences,
         hasAllFilesAccess: Boolean,
     ): Folder? = snapshots[buildKey(folderPath, preferences, hasAllFilesAccess)]
-
-    suspend fun awaitGet(
-        folderPath: String?,
-        preferences: ApplicationPreferences,
-        hasAllFilesAccess: Boolean,
-    ): Folder? {
-        initialLoadCompleted.await()
-        return get(folderPath, preferences, hasAllFilesAccess)
-    }
 
     @Synchronized
     fun put(
@@ -73,13 +44,13 @@ class MediaPickerSnapshotCache(
         val key = buildKey(folderPath, preferences, hasAllFilesAccess)
         snapshots[key] = folder
         trimToMaxSize()
-        diskOperations.trySend(DiskOperation.Write(key, folder))
+        scope.launch { writeToDisk(key, folder) }
     }
 
     @Synchronized
     fun clear() {
         snapshots.clear()
-        diskOperations.trySend(DiskOperation.Clear)
+        scope.launch { clearDisk() }
     }
 
     internal val size: Int
@@ -96,7 +67,7 @@ class MediaPickerSnapshotCache(
             }
         }
         if (evicted.isNotEmpty()) {
-            evicted.forEach { diskOperations.trySend(DiskOperation.Delete(it)) }
+            scope.launch { evicted.forEach { deleteFile(it) } }
         }
     }
 
@@ -180,14 +151,6 @@ class MediaPickerSnapshotCache(
         companion object {
             private const val serialVersionUID = 1L
         }
-    }
-
-    private sealed interface DiskOperation {
-        data class Write(val key: SnapshotKey, val folder: Folder?) : DiskOperation
-
-        data class Delete(val key: SnapshotKey) : DiskOperation
-
-        data object Clear : DiskOperation
     }
 
     companion object {

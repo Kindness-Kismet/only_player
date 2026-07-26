@@ -2,6 +2,7 @@ package one.only.player.feature.player.service
 
 import android.net.Uri
 import android.os.Bundle
+import androidx.media3.common.Player
 import androidx.media3.session.MediaController
 import androidx.media3.session.SessionCommand
 import androidx.media3.session.SessionResult
@@ -27,6 +28,8 @@ enum class CustomCommands(val customAction: String) {
     PREVIEW_VIDEO_FILTERS(customAction = "PREVIEW_VIDEO_FILTERS"),
     SET_AMBIENCE_MODE_ENABLED(customAction = "SET_AMBIENCE_MODE_ENABLED"),
     GET_VIDEO_FORMAT(customAction = "GET_VIDEO_FORMAT"),
+    SEEK_TO_MEDIA_ITEM(customAction = "SEEK_TO_MEDIA_ITEM"),
+    SET_DECODER_PRIORITY(customAction = "SET_DECODER_PRIORITY"),
     ;
 
     val sessionCommand = SessionCommand(customAction, Bundle.EMPTY)
@@ -70,6 +73,12 @@ enum class CustomCommands(val customAction: String) {
         const val IS_VIDEO_HDR_KEY = "is_video_hdr"
         const val IS_VIDEO_EFFECTS_AVAILABLE_KEY = "is_video_effects_available"
         const val IS_VIDEO_EFFECTS_ACTIVE_KEY = "is_video_effects_active"
+        const val MEDIA_ITEM_INDEX_KEY = "media_item_index"
+        const val MEDIA_ITEM_POSITION_MS_KEY = "media_item_position_ms"
+        const val DECODER_PRIORITY_NAME_KEY = "decoder_priority_name"
+        const val REMEMBER_FOR_FILE_KEY = "remember_for_file"
+        /** 关闭「记住」时为 false：只清 per-file，不把当前解码写进扩展名表 */
+        const val UPDATE_EXTENSION_DEFAULT_KEY = "update_extension_default"
     }
 }
 
@@ -198,4 +207,90 @@ suspend fun MediaController.getLoudnessGain(): Int {
 suspend fun MediaController.isLoudnessGainSupported(): Boolean {
     val result = sendCustomCommand(CustomCommands.IS_LOUDNESS_GAIN_SUPPORTED.sessionCommand, Bundle.EMPTY)
     return result.await().extras.getBoolean(CustomCommands.IS_LOUDNESS_GAIN_SUPPORTED_KEY, false)
+}
+
+
+fun MediaController.seekToMediaItemPrepared(index: Int, positionMs: Long = androidx.media3.common.C.TIME_UNSET) {
+    val args = Bundle().apply {
+        putInt(CustomCommands.MEDIA_ITEM_INDEX_KEY, index)
+        putLong(CustomCommands.MEDIA_ITEM_POSITION_MS_KEY, positionMs)
+    }
+    sendCustomCommand(CustomCommands.SEEK_TO_MEDIA_ITEM.sessionCommand, args)
+}
+
+fun MediaController.seekToNextPrepared() {
+    val next = currentMediaItemIndex + 1
+    if (next < mediaItemCount) {
+        seekToMediaItemPrepared(next)
+    } else {
+        seekToNext()
+    }
+}
+
+fun MediaController.seekToPreviousPrepared() {
+    val prev = currentMediaItemIndex - 1
+    if (prev >= 0) {
+        seekToMediaItemPrepared(prev)
+    } else {
+        // 队列开头：仅重播当前，避免 ExoPlayer 默认 seekToPrevious 的阈值行为
+        seekTo(0L)
+    }
+}
+
+/**
+ * 「上一」经典双击语义（受 [PlayerPreferences.shouldRestartCurrentOnPreviousClick] 控制）：
+ * - 开启：进度 > [PREVIOUS_RESTART_THRESHOLD_MS] 时第一下重播当前，已在开头附近再点则跳上一视频
+ * - 关闭：始终跳上一视频
+ */
+private const val PREVIOUS_RESTART_THRESHOLD_MS = 3_000L
+
+fun MediaController.handlePreviousClick(
+    shouldRestartCurrentOnPreviousClick: Boolean = false,
+) {
+    if (shouldRestartCurrentOnPreviousClick && currentPosition > PREVIOUS_RESTART_THRESHOLD_MS) {
+        seekTo(0L)
+        return
+    }
+    // 无上一曲时：开启重播才 seek 0；关闭时与 UI 灰态一致，不动作
+    if (!hasPreviousMediaItem()) {
+        if (shouldRestartCurrentOnPreviousClick && currentPosition > 0L) {
+            seekTo(0L)
+        }
+        return
+    }
+    seekToPreviousPrepared()
+}
+
+fun Player.handlePreviousClick(
+    shouldRestartCurrentOnPreviousClick: Boolean = false,
+) {
+    if (shouldRestartCurrentOnPreviousClick && currentPosition > PREVIOUS_RESTART_THRESHOLD_MS) {
+        seekTo(0L)
+        return
+    }
+    val prev = currentMediaItemIndex - 1
+    if (prev >= 0) {
+        seekTo(prev, 0L)
+    } else if (shouldRestartCurrentOnPreviousClick && currentPosition > 0L) {
+        seekTo(0L)
+    }
+}
+
+/** 上一键是否可点：有上一曲；或开启「重播当前」且已离开开头。 */
+fun Player.canSeekPrevious(shouldRestartCurrentOnPreviousClick: Boolean): Boolean =
+    hasPreviousMediaItem() ||
+        (shouldRestartCurrentOnPreviousClick && currentPosition > 0L)
+
+
+fun MediaController.setDecoderPriorityNow(
+    priorityName: String,
+    rememberForThisFile: Boolean = false,
+    shouldUpdateExtensionDefault: Boolean = true,
+) {
+    val args = Bundle().apply {
+        putString(CustomCommands.DECODER_PRIORITY_NAME_KEY, priorityName)
+        putBoolean(CustomCommands.REMEMBER_FOR_FILE_KEY, rememberForThisFile)
+        putBoolean(CustomCommands.UPDATE_EXTENSION_DEFAULT_KEY, shouldUpdateExtensionDefault)
+    }
+    sendCustomCommand(CustomCommands.SET_DECODER_PRIORITY.sessionCommand, args)
 }

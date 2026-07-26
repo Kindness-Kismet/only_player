@@ -20,13 +20,13 @@ import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import one.only.player.core.model.PlayerPreferences
 import one.only.player.core.ui.R
 import one.only.player.core.ui.components.ClickablePreferenceItem
+import one.only.player.core.ui.components.ListSectionTitle
 import one.only.player.core.ui.components.NextResetIconButton
 import one.only.player.core.ui.components.PreferenceSlider
 import one.only.player.core.ui.components.PreferenceSwitch
 import one.only.player.core.ui.components.RadioTextButton
 import one.only.player.core.ui.components.SegmentedItemGap
 import one.only.player.core.ui.components.SettingsContentTopPadding
-import one.only.player.core.ui.components.SettingsGroupGap
 import one.only.player.core.ui.designsystem.NextIcons
 import one.only.player.core.ui.extensions.withBottomFallback
 import one.only.player.core.ui.theme.OnlyPlayerTheme
@@ -35,7 +35,7 @@ import one.only.player.settings.utils.LocalesHelper
 import top.yukonga.miuix.kmp.basic.Icon as MiuixIcon
 import top.yukonga.miuix.kmp.basic.IconButton as MiuixIconButton
 import top.yukonga.miuix.kmp.basic.Scaffold
-import top.yukonga.miuix.kmp.basic.TopAppBar
+import top.yukonga.miuix.kmp.basic.SmallTopAppBar
 import top.yukonga.miuix.kmp.theme.MiuixTheme
 
 @Composable
@@ -65,7 +65,7 @@ private fun AudioPreferencesContent(
 
     Scaffold(
         topBar = {
-            TopAppBar(
+            SmallTopAppBar(
                 title = stringResource(id = R.string.audio),
                 navigationIcon = {
                     MiuixIconButton(
@@ -83,6 +83,7 @@ private fun AudioPreferencesContent(
                 },
             )
         },
+        containerColor = MiuixTheme.colorScheme.background,
     ) { innerPadding ->
         Column(
             modifier = Modifier
@@ -91,7 +92,6 @@ private fun AudioPreferencesContent(
                 .padding(innerPadding.withBottomFallback())
                 .padding(top = SettingsContentTopPadding)
                 .padding(horizontal = 16.dp),
-            verticalArrangement = Arrangement.spacedBy(SettingsGroupGap),
         ) {
             Column(
                 verticalArrangement = Arrangement.spacedBy(SegmentedItemGap),
@@ -115,6 +115,7 @@ private fun AudioPreferencesContent(
                 )
             }
 
+            ListSectionTitle(text = stringResource(id = R.string.audio_focus_and_devices))
             Column(
                 verticalArrangement = Arrangement.spacedBy(SegmentedItemGap),
             ) {
@@ -146,6 +147,7 @@ private fun AudioPreferencesContent(
                 )
             }
 
+            ListSectionTitle(text = stringResource(id = R.string.volume_memory))
             Column(
                 verticalArrangement = Arrangement.spacedBy(SegmentedItemGap),
             ) {
@@ -186,6 +188,7 @@ private fun AudioPreferencesContent(
                 )
             }
 
+            ListSectionTitle(text = stringResource(id = R.string.volume_processing))
             Column(
                 verticalArrangement = Arrangement.spacedBy(SegmentedItemGap),
             ) {

@@ -84,7 +84,6 @@ fun SearchRoute(
     onPlayVideo: (video: Video, playerPreferences: PlayerPreferences, playlist: List<Video>) -> Unit,
     onFolderClick: (folderPath: String) -> Unit,
     onNavigateUp: () -> Unit,
-    onMoveSelectionStarted: () -> Unit,
 ) {
     val uiState by viewModel.uiState.collectAsStateWithLifecycle()
 
@@ -93,7 +92,6 @@ fun SearchRoute(
         onNavigateUp = onNavigateUp,
         onFolderClick = { folder -> onFolderClick(folder.path) },
         onVideoClick = { video, playlist -> onPlayVideo(video, uiState.playerPreferences, playlist) },
-        onMoveSelectionStarted = onMoveSelectionStarted,
         onEvent = viewModel::onEvent,
     )
 }
@@ -104,7 +102,6 @@ internal fun SearchScreen(
     onNavigateUp: () -> Unit = {},
     onFolderClick: (Folder) -> Unit = {},
     onVideoClick: (Video, List<Video>) -> Unit = { _, _ -> },
-    onMoveSelectionStarted: () -> Unit = {},
     onEvent: (SearchUiEvent) -> Unit = {},
 ) {
     val context = LocalContext.current
@@ -224,7 +221,7 @@ internal fun SearchScreen(
                                             ),
                                         )
                                         selectionManager.exitSelectionMode()
-                                        onMoveSelectionStarted()
+                                        onNavigateUp()
                                     },
                                     onFavoriteAction = {
                                         shouldShowSelectionMenu = false
@@ -256,6 +253,7 @@ internal fun SearchScreen(
             }
         },
         contentWindowInsets = WindowInsets.displayCutout,
+        containerColor = MiuixTheme.colorScheme.background,
     ) { scaffoldPadding ->
         Column(
             modifier = Modifier
@@ -597,10 +595,14 @@ private fun SearchDeleteConfirmationDialog(
     val totalSize = selectedVideoList.sumOf(SelectedVideo::size)
     NextDialog(
         onDismissRequest = onCancel,
-        title = if (isRecycleBinEnabled) {
-            stringResource(R.string.move_to_recycle_bin)
-        } else {
-            stringResource(R.string.delete_videos, selectedVideoList.size)
+        title = {
+            Text(
+                text = if (isRecycleBinEnabled) {
+                    stringResource(R.string.move_to_recycle_bin)
+                } else {
+                    stringResource(R.string.delete_videos, selectedVideoList.size)
+                },
+            )
         },
         content = {
             val warningText = stringResource(

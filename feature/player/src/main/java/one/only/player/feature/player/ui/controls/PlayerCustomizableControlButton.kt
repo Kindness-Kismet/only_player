@@ -3,6 +3,7 @@ package one.only.player.feature.player.ui.controls
 import androidx.compose.foundation.layout.size
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.Icon
+import androidx.compose.material3.LocalContentColor
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
@@ -48,6 +49,9 @@ internal fun PlayerCustomizableControlButton(
     onVideoFiltersClick: () -> Unit,
     onPictureInPictureClick: () -> Unit,
     onRotateClick: () -> Unit,
+    onRotateLongClick: () -> Unit = {},
+    isOrientationRemembered: Boolean = false,
+    onCustomizeControlsClick: () -> Unit = {},
     isTakingScreenshot: Boolean,
     onScreenshotClick: () -> Unit,
     onPlayInBackgroundClick: () -> Unit,
@@ -56,8 +60,8 @@ internal fun PlayerCustomizableControlButton(
     onSleepTimerClick: (() -> Unit)? = null,
     sleepTimerState: SleepTimerState? = null,
 ) {
-    if (!isCustomizingControls && control !in visiblePlayerControls) return
-    if (!isCustomizingControls && control == PlayerControl.PIP && !isPipSupported) return
+    if (!isCustomizingControls && control !in visiblePlayerControls && !isOutlineOnly) return
+    if (!isCustomizingControls && control == PlayerControl.PIP && !isPipSupported && !isOutlineOnly) return
 
     val isSelected = isCustomizingControls && control in visiblePlayerControls
     val isPlaceholder = isBeingDragged || isOutlineOnly
@@ -79,6 +83,8 @@ internal fun PlayerCustomizableControlButton(
                 Icon(
                     painter = painterResource(R.drawable.ic_playlist),
                     contentDescription = "btn_playlist",
+                    // 播放列表略大，避免比旋转小
+                    modifier = Modifier.size(24.dp),
                 )
             }
         }
@@ -386,6 +392,7 @@ internal fun PlayerCustomizableControlButton(
             PlayerButton(
                 modifier = buttonModifier,
                 onClick = onRotateClick,
+                onLongClick = onRotateLongClick,
                 isSelected = isSelected,
                 label = label,
                 shouldDimWhenUnselected = isCustomizingControls,
@@ -395,6 +402,32 @@ internal fun PlayerCustomizableControlButton(
                 Icon(
                     painter = painterResource(R.drawable.ic_screen_rotation),
                     contentDescription = "btn_rotate",
+                    // 与播放列表等同为 22dp，避免偏大
+                    modifier = Modifier.size(22.dp),
+                    // 记住该文件旋转方式时跟随主题色
+                    tint = if (isOrientationRemembered) {
+                        MaterialTheme.colorScheme.primary
+                    } else {
+                        LocalContentColor.current
+                    },
+                )
+            }
+        }
+
+        PlayerControl.CUSTOMIZE -> {
+            PlayerButton(
+                modifier = buttonModifier,
+                onClick = onCustomizeControlsClick,
+                isSelected = isSelected,
+                label = label,
+                shouldDimWhenUnselected = isCustomizingControls,
+                shouldShowCustomizeFrame = isCustomizingControls,
+                shouldShowSelectionBadge = false,
+                isOutlineOnly = isPlaceholder,
+            ) {
+                Icon(
+                    imageVector = NextIcons.Edit,
+                    contentDescription = "btn_customize_controls",
                 )
             }
         }
@@ -409,7 +442,7 @@ internal fun PlayerCustomizableControlButton(
 
 @Composable
 private fun PlayerControl.label(isMuted: Boolean): String = when (this) {
-    PlayerControl.PLAYLIST -> stringResource(R.string.now_playing)
+    PlayerControl.PLAYLIST -> stringResource(R.string.playlist)
 
     PlayerControl.PLAYBACK_SPEED -> stringResource(R.string.speed)
 
@@ -444,6 +477,8 @@ private fun PlayerControl.label(isMuted: Boolean): String = when (this) {
     PlayerControl.SLEEP_TIMER -> stringResource(R.string.sleep_timer)
 
     PlayerControl.ROTATE -> stringResource(R.string.screen_rotation)
+
+    PlayerControl.CUSTOMIZE -> stringResource(R.string.controls_customize)
 
     PlayerControl.BACK,
     PlayerControl.PREVIOUS,

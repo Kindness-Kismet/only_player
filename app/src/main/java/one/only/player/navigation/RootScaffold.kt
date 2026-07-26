@@ -1,6 +1,6 @@
 package one.only.player.navigation
 
-import androidx.activity.compose.BackHandler
+import android.os.Bundle
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.interaction.MutableInteractionSource
 import androidx.compose.foundation.layout.Arrangement
@@ -12,22 +12,29 @@ import androidx.compose.foundation.layout.WindowInsets
 import androidx.compose.foundation.layout.asPaddingValues
 import androidx.compose.foundation.layout.defaultMinSize
 import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.navigationBars
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
-import androidx.compose.foundation.pager.HorizontalPager
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.rounded.Cloud
 import androidx.compose.material.icons.rounded.Home
 import androidx.compose.material.icons.rounded.Settings
 import androidx.compose.material.icons.rounded.Star
+import androidx.compose.animation.AnimatedVisibility
+import androidx.compose.animation.fadeIn
+import androidx.compose.animation.fadeOut
+import androidx.compose.foundation.background
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.CompositionLocalProvider
-import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.res.stringResource
@@ -36,18 +43,33 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
-import kotlinx.serialization.Serializable
+import androidx.navigation.NavBackStackEntry
+import androidx.navigation.NavDestination
+import androidx.navigation.NavDestination.Companion.hasRoute
+import androidx.navigation.NavGraph.Companion.findStartDestination
+import androidx.navigation.NavHostController
+import androidx.navigation.NavOptionsBuilder
+import androidx.navigation.navOptions
 import one.only.player.core.ui.R as UiR
 import one.only.player.core.ui.extensions.LocalRootBottomBarPadding
+import one.only.player.core.ui.extensions.LocalRootMenuScrimSetter
+import one.only.player.core.ui.extensions.LocalRootMenuScrimVisible
+import one.only.player.feature.videopicker.navigation.CloudHomeRoute
+import one.only.player.feature.videopicker.navigation.FavoritesRoute
+import one.only.player.feature.videopicker.navigation.MediaPickerRoute
+import one.only.player.feature.videopicker.navigation.MediaPickerScreenMode
+import one.only.player.feature.videopicker.navigation.folderIdArg
+import one.only.player.feature.videopicker.navigation.screenModeArg
+import one.only.player.settings.navigation.settingsNavigationRoute
 import one.only.player.ui.component.FloatingBottomBar
 import one.only.player.ui.component.FloatingBottomBarItem
 import top.yukonga.miuix.kmp.basic.Icon
 import top.yukonga.miuix.kmp.basic.NavigationBar
 import top.yukonga.miuix.kmp.basic.Text
 import top.yukonga.miuix.kmp.blur.Backdrop
-import top.yukonga.miuix.kmp.blur.isRuntimeShaderSupported
 import top.yukonga.miuix.kmp.blur.layerBackdrop
 import top.yukonga.miuix.kmp.blur.rememberLayerBackdrop
+import top.yukonga.miuix.kmp.shader.isRenderEffectSupported
 import top.yukonga.miuix.kmp.theme.MiuixTheme
 
 // 根 Tab 定义，每项对应一个顶级导航目的地
@@ -62,33 +84,34 @@ enum class RootDestination(
     SETTINGS(UiR.string.tab_settings, Icons.Rounded.Settings, "root_tab_settings"),
 }
 
-@Serializable
-data object RootPagerRoute
-
 @Composable
 fun RootScaffold(
-    rootNavigationState: RootNavigationState,
+    currentRoot: RootDestination?,
+    onTabSelected: (RootDestination) -> Unit,
     modifier: Modifier = Modifier,
+    visibleTabs: List<RootDestination> = RootDestination.entries,
+    selectedIndexProvider: () -> Int = {
+        visibleTabs.indexOf(currentRoot).coerceAtLeast(0)
+    },
     shouldUseFloatingNavigationBar: Boolean = false,
     shouldBlurFloatingNavigationBar: Boolean = true,
-    content: @Composable (RootDestination) -> Unit,
+    content: @Composable () -> Unit,
 ) {
-    val currentPage = rootNavigationState.pagerState.currentPage
-    LaunchedEffect(currentPage) {
-        rootNavigationState.syncPage()
-    }
-    BackHandler(enabled = rootNavigationState.selectedDestination != RootDestination.HOME) {
-        rootNavigationState.animateTo(RootDestination.HOME)
+    val shouldShowBar = currentRoot != null
+    var isRootMenuScrimVisible by remember { mutableStateOf(false) }
+    val setRootMenuScrim = remember {
+        { visible: Boolean -> isRootMenuScrimVisible = visible }
     }
 
-    // 内容区底部预留：系统导航栏 + 底栏高度，避免导航栏遮挡内容
+    // 内容区底部预留：系统导航栏 + 底栏高度。
+    // 即使当前页不显示 tab（如进入文件夹），也按有 tab 预留，保证近期播放 FAB 等与主页同高。
     val navigationBarsBottom = WindowInsets.navigationBars.asPaddingValues().calculateBottomPadding()
     val navigationBarHeight = if (shouldUseFloatingNavigationBar) FLOATING_NAV_BAR_RESERVED_HEIGHT else NAV_BAR_CONTENT_HEIGHT
-    val bottomBarPadding = PaddingValues(bottom = navigationBarsBottom + navigationBarHeight)
-    // 液态模糊管线依赖 RuntimeShader（API 33+），与 miuix-blur 门槛对齐
+    val reservedBottom = navigationBarsBottom + navigationBarHeight
+    val bottomBarPadding = PaddingValues(bottom = reservedBottom)
     val shouldEnableFloatingBlur = shouldUseFloatingNavigationBar &&
         shouldBlurFloatingNavigationBar &&
-        isRuntimeShaderSupported()
+        isRenderEffectSupported()
     val floatingBlurBackdrop = if (shouldEnableFloatingBlur) {
         val surfaceColor = MiuixTheme.colorScheme.surface
         rememberLayerBackdrop {
@@ -99,42 +122,80 @@ fun RootScaffold(
         null
     }
 
-    Box(modifier = modifier.fillMaxSize()) {
-        HorizontalPager(
-            modifier = Modifier
-                .fillMaxSize()
-                .then(if (floatingBlurBackdrop != null) Modifier.layerBackdrop(floatingBlurBackdrop) else Modifier),
-            state = rootNavigationState.pagerState,
-            beyondViewportPageCount = RootDestination.entries.lastIndex,
-            key = { page -> RootDestination.entries[page] },
-        ) { page ->
-            CompositionLocalProvider(LocalRootBottomBarPadding provides bottomBarPadding) {
-                content(RootDestination.entries[page])
+    CompositionLocalProvider(
+        LocalRootBottomBarPadding provides bottomBarPadding,
+        LocalRootMenuScrimVisible provides isRootMenuScrimVisible,
+        LocalRootMenuScrimSetter provides setRootMenuScrim,
+    ) {
+        Box(modifier = modifier.fillMaxSize()) {
+            Box(
+                modifier = Modifier
+                    .fillMaxSize()
+                    .then(if (floatingBlurBackdrop != null) Modifier.layerBackdrop(floatingBlurBackdrop) else Modifier),
+            ) {
+                content()
             }
-        }
-        Box(
-            modifier = Modifier.align(Alignment.BottomCenter),
-        ) {
-            RootBottomBar(
-                currentRoot = rootNavigationState.selectedDestination,
-                shouldUseFloatingNavigationBar = shouldUseFloatingNavigationBar,
-                floatingBlurBackdrop = floatingBlurBackdrop,
-                onTabSelected = rootNavigationState::animateTo,
-            )
+            // Use plain if to avoid even a one-frame bar flash when nested/hidden.
+            if (shouldShowBar) {
+                // 全宽父盒：悬浮底栏在子盒内居中。
+                // 悬浮胶囊的压暗在 FloatingBottomBar 内做（只盖胶囊），避免全宽遮罩错位/整条变暗。
+                Box(
+                    modifier = Modifier
+                        .align(Alignment.BottomCenter)
+                        .fillMaxWidth(),
+                ) {
+                    Box(
+                        modifier = Modifier.align(Alignment.BottomCenter),
+                    ) {
+                        RootBottomBar(
+                            currentRoot = currentRoot,
+                            visibleTabs = visibleTabs,
+                            selectedIndexProvider = selectedIndexProvider,
+                            shouldUseFloatingNavigationBar = shouldUseFloatingNavigationBar,
+                            floatingBlurBackdrop = floatingBlurBackdrop,
+                            onTabSelected = onTabSelected,
+                        )
+                    }
+                    // 非悬浮底栏：Miuix 窗口遮罩盖不到底栏，只压暗底栏本身
+                    if (!shouldUseFloatingNavigationBar) {
+                        AnimatedVisibility(
+                            visible = isRootMenuScrimVisible,
+                            enter = fadeIn(),
+                            exit = fadeOut(),
+                            modifier = Modifier.align(Alignment.BottomCenter),
+                        ) {
+                            Box(
+                                modifier = Modifier
+                                    .fillMaxWidth()
+                                    .height(NAV_BAR_CONTENT_HEIGHT)
+                                    .background(Color.Black.copy(alpha = 0.36f))
+                                    .clickable(
+                                        interactionSource = remember { MutableInteractionSource() },
+                                        indication = null,
+                                        onClick = {},
+                                    ),
+                            )
+                        }
+                    }
+                }
+            }
         }
     }
 }
 
 @Composable
 private fun RootBottomBar(
-    currentRoot: RootDestination,
+    currentRoot: RootDestination?,
+    visibleTabs: List<RootDestination>,
+    selectedIndexProvider: () -> Int,
     shouldUseFloatingNavigationBar: Boolean,
     floatingBlurBackdrop: Backdrop?,
     onTabSelected: (RootDestination) -> Unit,
 ) {
     if (shouldUseFloatingNavigationBar) {
         FloatingRootBottomBar(
-            currentRoot = currentRoot,
+            visibleTabs = visibleTabs,
+            selectedIndexProvider = selectedIndexProvider,
             blurBackdrop = floatingBlurBackdrop,
             onTabSelected = onTabSelected,
         )
@@ -144,7 +205,7 @@ private fun RootBottomBar(
     NavigationBar(
         color = MiuixTheme.colorScheme.surface,
     ) {
-        RootDestination.entries.forEach { target ->
+        visibleTabs.forEach { target ->
             RootNavigationBarItem(
                 destination = target,
                 isSelected = currentRoot == target,
@@ -156,7 +217,8 @@ private fun RootBottomBar(
 
 @Composable
 private fun FloatingRootBottomBar(
-    currentRoot: RootDestination,
+    visibleTabs: List<RootDestination>,
+    selectedIndexProvider: () -> Int,
     blurBackdrop: Backdrop?,
     onTabSelected: (RootDestination) -> Unit,
 ) {
@@ -164,17 +226,18 @@ private fun FloatingRootBottomBar(
     // isBlurEnabled 为 false 时 backdrop 不被采样，兜底一个空 backdrop 即可
     val fallbackBackdrop = rememberLayerBackdrop { drawContent() }
     val backdrop = blurBackdrop ?: fallbackBackdrop
-    val selectedIndex = currentRoot.ordinal
 
     FloatingBottomBar(
         modifier = Modifier.padding(bottom = navigationBarsBottom + 12.dp),
-        selectedIndex = { selectedIndex },
-        onSelected = { index -> onTabSelected(RootDestination.entries[index]) },
+        selectedIndex = selectedIndexProvider,
+        onSelected = { index ->
+            visibleTabs.getOrNull(index)?.let(onTabSelected)
+        },
         backdrop = backdrop,
-        tabsCount = RootDestination.entries.size,
+        tabsCount = visibleTabs.size,
         isBlurEnabled = blurBackdrop != null,
     ) {
-        RootDestination.entries.forEach { target ->
+        visibleTabs.forEach { target ->
             val label = stringResource(target.labelRes)
             FloatingBottomBarItem(
                 onClick = { onTabSelected(target) },
@@ -249,5 +312,46 @@ private fun RowScope.RootNavigationBarItem(
     }
 }
 
+// 底栏切 Tab 用 saveState / restoreState 保留各 Tab 独立栈
+fun NavHostController.navigateToRoot(destination: RootDestination) {
+    val options: NavOptionsBuilder.() -> Unit = {
+        popUpTo(graph.findStartDestination().id) { saveState = true }
+        launchSingleTop = true
+        restoreState = true
+    }
+    val builtOptions = navOptions(options)
+    when (destination) {
+        RootDestination.HOME -> navigate(MediaPickerRoute(), builtOptions)
+        RootDestination.CLOUD -> navigate(CloudHomeRoute, builtOptions)
+        RootDestination.FAVORITES -> navigate(FavoritesRoute, builtOptions)
+        RootDestination.SETTINGS -> navigate(settingsNavigationRoute, builtOptions)
+    }
+}
+
+// 解析 back stack entry 对应的 root tab 索引，非 root 目的地返回 null
+internal fun NavBackStackEntry.rootTabIndex(): Int? {
+    val tab = destination.resolveRootTab(arguments) ?: return null
+    return RootDestination.entries.indexOf(tab)
+}
+
+// 仅当前 destination 为 4 个 root startDestination 时展示底栏
+internal fun NavDestination?.resolveRootTab(arguments: Bundle?): RootDestination? {
+    val dest = this ?: return null
+    return when {
+        dest.hasRoute<CloudHomeRoute>() -> RootDestination.CLOUD
+        dest.hasRoute<FavoritesRoute>() -> RootDestination.FAVORITES
+        dest.route == settingsNavigationRoute -> RootDestination.SETTINGS
+        dest.hasRoute<MediaPickerRoute>() -> {
+            val folderId = arguments?.getString(folderIdArg)
+            val screenMode = arguments?.getString(screenModeArg)
+            val isLibraryRoot = folderId == null &&
+                (screenMode == null || screenMode == MediaPickerScreenMode.LIBRARY.name)
+            if (isLibraryRoot) RootDestination.HOME else null
+        }
+        else -> null
+    }
+}
+
 private val NAV_BAR_CONTENT_HEIGHT = 72.dp
+private val FLOATING_NAV_BAR_HEIGHT = 64.dp
 private val FLOATING_NAV_BAR_RESERVED_HEIGHT = 88.dp

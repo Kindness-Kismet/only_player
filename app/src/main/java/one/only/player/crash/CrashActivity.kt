@@ -57,12 +57,9 @@ import one.only.player.MainActivityUiState
 import one.only.player.MainViewModel
 import one.only.player.core.common.extensions.applyPrivacyProtection
 import one.only.player.core.common.extensions.resolvePrivacyPreviewScrim
-import one.only.player.core.model.ThemeColorSpec
-import one.only.player.core.model.ThemePaletteStyle
 import one.only.player.core.ui.R
 import one.only.player.core.ui.components.LogsSelectionContainer
 import one.only.player.core.ui.designsystem.NextIcons
-import one.only.player.core.ui.theme.DEFAULT_SEED_COLOR
 import one.only.player.core.ui.theme.OnlyPlayerTheme
 import one.only.player.navigation.NavigationBarColorEffect
 import one.only.player.shouldUseDarkTheme
@@ -143,10 +140,6 @@ class CrashActivity : AppCompatActivity() {
             OnlyPlayerTheme(
                 shouldUseDarkTheme = shouldUseDarkTheme,
                 shouldUseDynamicColor = shouldUseDynamicTheming(uiState = uiState),
-                shouldUseSystemDynamicColor = preferences?.shouldUseSystemDynamicColor != false,
-                seedColor = preferences?.themeSeedColor ?: DEFAULT_SEED_COLOR,
-                paletteStyle = preferences?.themePaletteStyle ?: ThemePaletteStyle.TONAL_SPOT,
-                colorSpec = preferences?.themeColorSpec ?: ThemeColorSpec.SPEC_2025,
             ) {
                 NavigationBarColorEffect(
                     activity = this@CrashActivity,

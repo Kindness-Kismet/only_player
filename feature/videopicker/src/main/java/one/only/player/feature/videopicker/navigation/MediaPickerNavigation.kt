@@ -57,10 +57,6 @@ fun NavController.navigateToRecycleBinScreen(navOptions: NavOptions? = null) {
     this.navigate(MediaPickerRoute(screenMode = MediaPickerScreenMode.RECYCLE_BIN), navOptions)
 }
 
-fun NavController.navigateToMoveTargetScreen(navOptions: NavOptions? = null) {
-    this.navigate(MediaPickerRoute(), navOptions)
-}
-
 fun NavGraphBuilder.mediaPickerScreen(
     onNavigateUp: () -> Unit,
     onNavigateHome: () -> Unit,
@@ -73,8 +69,6 @@ fun NavGraphBuilder.mediaPickerScreen(
     onFavoritesClick: () -> Unit,
     onSettingsClick: () -> Unit,
     onExitAppClick: () -> Unit,
-    onMoveSelectionStarted: () -> Unit,
-    onMoveSelectionClosed: () -> Unit,
 ) {
     composable<MediaPickerRoute> {
         MediaPickerRoute(
@@ -89,8 +83,6 @@ fun NavGraphBuilder.mediaPickerScreen(
             onFavoritesClick = onFavoritesClick,
             onSettingsClick = onSettingsClick,
             onExitAppClick = onExitAppClick,
-            onMoveSelectionStarted = onMoveSelectionStarted,
-            onMoveSelectionClosed = onMoveSelectionClosed,
         )
     }
 }

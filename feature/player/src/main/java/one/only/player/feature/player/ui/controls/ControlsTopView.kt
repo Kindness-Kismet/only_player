@@ -1,8 +1,8 @@
 package one.only.player.feature.player.ui.controls
 
 import androidx.annotation.OptIn
-import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.RowScope
 import androidx.compose.foundation.layout.WindowInsets
@@ -12,8 +12,6 @@ import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.systemBars
 import androidx.compose.foundation.layout.union
-import androidx.compose.foundation.layout.widthIn
-import androidx.compose.foundation.rememberScrollState
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
@@ -24,7 +22,6 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.geometry.Rect
 import androidx.compose.ui.graphics.Color
-import androidx.compose.ui.platform.LocalConfiguration
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.style.TextOverflow
@@ -83,8 +80,11 @@ fun ControlsTopView(
     onVideoFiltersClick: () -> Unit = {},
     onPictureInPictureClick: () -> Unit = {},
     onRotateClick: () -> Unit = {},
+    onRotateLongClick: () -> Unit = {},
+    isOrientationRemembered: Boolean = false,
     onScreenshotClick: () -> Unit = {},
     onPlayInBackgroundClick: () -> Unit = {},
+    onCustomizeControlsClick: () -> Unit = {},
     onLoopClick: (() -> Unit)? = null,
     onShuffleClick: (() -> Unit)? = null,
     onSleepTimerClick: (() -> Unit)? = null,
@@ -92,10 +92,11 @@ fun ControlsTopView(
     onBackClick: () -> Unit,
 ) {
     val systemBarsPadding = WindowInsets.systemBars.union(WindowInsets.displayCutout).asPaddingValues()
-    val isLandscape = LocalConfiguration.current.orientation == android.content.res.Configuration.ORIENTATION_LANDSCAPE
-    val maxVisibleCount = if (isLandscape) 6 else 4
-    val buttonSlotWidth = if (isCustomizingControls) 72.dp else 48.dp
-    val maxRowWidth = buttonSlotWidth * maxVisibleCount
+    // 旧版右上角固定最多 4 个，与进度条上方右侧控件同垂直对齐风格；不可横向滚动加更多
+    val maxVisibleCount = 4
+    val renderedTopControls = topRightControls
+        .filter { control -> isCustomizingControls || control in visiblePlayerControls }
+        .take(maxVisibleCount)
 
     @Composable
     fun BackButton() {
@@ -125,16 +126,15 @@ fun ControlsTopView(
             color = Color.White,
             maxLines = 2,
             overflow = TextOverflow.Ellipsis,
-            modifier = Modifier.weight(1f),
+            modifier = Modifier.weight(1f, fill = true),
         )
     }
 
     @Composable
-    fun TopControls() {
+    fun RowScope.TopControls() {
         Row(
             modifier = Modifier
-                .widthIn(max = maxRowWidth)
-                .heightIn(min = 72.dp)
+                .heightIn(min = 40.dp)
                 .then(
                     when (isCustomizingControls) {
                         true -> Modifier.playerControlZoneTarget(
@@ -143,13 +143,12 @@ fun ControlsTopView(
                         )
                         false -> Modifier
                     },
-                )
-                .horizontalScroll(rememberScrollState()),
+                ),
             verticalAlignment = Alignment.CenterVertically,
-            horizontalArrangement = Arrangement.spacedBy(8.dp),
+            // 与进度条上方右侧控件 spacedBy(8.dp) 对齐
+            horizontalArrangement = Arrangement.spacedBy(8.dp, Alignment.End),
         ) {
-            topRightControls.forEach { control ->
-                if (!isCustomizingControls && control !in visiblePlayerControls) return@forEach
+            renderedTopControls.forEach { control ->
                 key(control) {
                     AnimatedPlayerControlPlacement(
                         control = control,
@@ -189,9 +188,12 @@ fun ControlsTopView(
                             onVideoFiltersClick = onVideoFiltersClick,
                             onPictureInPictureClick = onPictureInPictureClick,
                             onRotateClick = onRotateClick,
+                            onRotateLongClick = onRotateLongClick,
+                            isOrientationRemembered = isOrientationRemembered,
                             isTakingScreenshot = isTakingScreenshot,
                             onScreenshotClick = onScreenshotClick,
                             onPlayInBackgroundClick = onPlayInBackgroundClick,
+                            onCustomizeControlsClick = onCustomizeControlsClick,
                             onLoopClick = onLoopClick,
                             onShuffleClick = onShuffleClick,
                             onSleepTimerClick = onSleepTimerClick,
@@ -203,10 +205,13 @@ fun ControlsTopView(
         }
     }
 
+    // 与进度条上方右侧控件垂直方向对齐：水平边距 8.dp
     Row(
         modifier = modifier
+            .fillMaxWidth()
             .padding(systemBarsPadding.copy(bottom = 0.dp))
-            .padding(horizontal = 8.dp)
+            // 旧版右上角最右间距 24dp
+            .padding(start = 8.dp, end = 24.dp)
             .padding(bottom = 16.dp),
         verticalAlignment = Alignment.CenterVertically,
         horizontalArrangement = Arrangement.spacedBy(16.dp),

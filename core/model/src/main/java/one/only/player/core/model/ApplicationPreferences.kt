@@ -10,14 +10,15 @@ data class ApplicationPreferences(
     val sortOrder: Sort.Order = Sort.Order.ASCENDING,
     val themeConfig: ThemeConfig = ThemeConfig.SYSTEM,
     val shouldUseDynamicColors: Boolean = true,
-    val shouldUseSystemDynamicColor: Boolean = true,
     val themeSeedColor: Long = DEFAULT_THEME_SEED_COLOR,
     val themePaletteStyle: ThemePaletteStyle = ThemePaletteStyle.TONAL_SPOT,
     val themeColorSpec: ThemeColorSpec = ThemeColorSpec.SPEC_2025,
     val shouldNavigateHomeOnTitleLongPress: Boolean = false,
-    val shouldUseFloatingNavigationBar: Boolean = false,
+    val shouldUseFloatingNavigationBar: Boolean = true,
     val shouldBlurFloatingNavigationBar: Boolean = true,
-    val shouldEnablePredictiveBack: Boolean = false,
+    val shouldHideCloudTab: Boolean = false,
+    val shouldHideFavoritesTab: Boolean = false,
+    val shouldEnablePredictiveBack: Boolean = true,
     val shouldPreventScreenshots: Boolean = false,
     val shouldHideInRecents: Boolean = false,
     val shouldMarkLastPlayedMedia: Boolean = true,
@@ -47,6 +48,10 @@ data class ApplicationPreferences(
     val shouldCheckForUpdatesOnStartup: Boolean = false,
     val manualVideoPaths: List<String> = emptyList(),
     val pendingExternalVideoPaths: List<String> = emptyList(),
+    // 自定义/内置扩展名及其默认解码方式
+    val extensionDecoderPreferences: List<ExtensionDecoderPreference> = ExtensionDecoderPreference.defaults(),
+    // 按文件名记住的解码/方向
+    val perFilePlaybackPreferences: List<PerFilePlaybackPreference> = emptyList(),
 ) {
 
     fun isPathExcluded(path: String): Boolean {
@@ -56,6 +61,75 @@ data class ApplicationPreferences(
             path == excludedPath || path.startsWith("$excludedPath/")
         }
     }
+
+    fun normalizedExtensionDecoderPreferences(): List<ExtensionDecoderPreference> =
+        extensionDecoderPreferences.normalized()
+
+    fun withExtensionDecoderPreferences(
+        preferences: List<ExtensionDecoderPreference>,
+    ): ApplicationPreferences = copy(
+        extensionDecoderPreferences = preferences.normalized(),
+    )
+
+
+    fun normalizedPerFilePlaybackPreferences(): List<PerFilePlaybackPreference> =
+        perFilePlaybackPreferences.normalized()
+
+    fun withPerFilePlaybackPreferences(
+        preferences: List<PerFilePlaybackPreference>,
+    ): ApplicationPreferences = copy(
+        perFilePlaybackPreferences = preferences.normalized(),
+    )
+
+    fun perFilePreferenceForPath(pathOrName: String?): PerFilePlaybackPreference? =
+        normalizedPerFilePlaybackPreferences().forFileName(pathOrName)
+
+    fun withPerFileDecoder(
+        fileName: String,
+        decoderPriority: DecoderPriority?,
+    ): ApplicationPreferences {
+        val key = PerFilePlaybackPreference.fromPathOrName(fileName) ?: return this
+        val existing = perFilePreferenceForPath(key)
+        val next = (existing ?: PerFilePlaybackPreference(fileName = key)).copy(
+            decoderPriority = decoderPriority,
+        )
+        return withPerFilePlaybackPreferences(normalizedPerFilePlaybackPreferences().upsert(next))
+    }
+
+    fun withPerFileOrientation(
+        fileName: String,
+        orientation: LastPlayerScreenOrientation?,
+    ): ApplicationPreferences {
+        val key = PerFilePlaybackPreference.fromPathOrName(fileName) ?: return this
+        val existing = perFilePreferenceForPath(key)
+        val next = (existing ?: PerFilePlaybackPreference(fileName = key)).copy(
+            screenOrientation = orientation,
+        )
+        return withPerFilePlaybackPreferences(normalizedPerFilePlaybackPreferences().upsert(next))
+    }
+
+    fun withPerFileVideoContentScale(
+        fileName: String,
+        videoContentScale: VideoContentScale?,
+    ): ApplicationPreferences {
+        val key = PerFilePlaybackPreference.fromPathOrName(fileName) ?: return this
+        val existing = perFilePreferenceForPath(key)
+        val next = (existing ?: PerFilePlaybackPreference(fileName = key)).copy(
+            videoContentScale = videoContentScale,
+        )
+        return withPerFilePlaybackPreferences(normalizedPerFilePlaybackPreferences().upsert(next))
+    }
+
+    fun withoutPerFilePreferences(fileNames: Collection<String>): ApplicationPreferences =
+        withPerFilePlaybackPreferences(
+            normalizedPerFilePlaybackPreferences().removeByFileNames(fileNames),
+        )
+
+    fun decoderPriorityForPath(path: String): DecoderPriority? =
+        normalizedExtensionDecoderPreferences().decoderPriorityForPath(path)
+
+    fun knownVideoExtensions(): Set<String> =
+        normalizedExtensionDecoderPreferences().knownExtensions()
 
     fun normalizedMediaLayoutScale(): Float = mediaLayoutScale
         .coerceIn(MIN_MEDIA_LAYOUT_SCALE, MAX_MEDIA_LAYOUT_SCALE)

@@ -16,10 +16,13 @@
         android:allowBackup="true"
         android:dataExtractionRules="@xml/data_extraction_rules"
         android:fullBackupContent="@xml/backup_rules"
+        android:hardwareAccelerated="true"
         android:icon="@mipmap/ic_launcher"
         android:label="@string/app_name"
+        android:largeHeap="true"
         android:supportsRtl="true"
         android:theme="@style/Theme.OnlyPlayer"
+        android:enableOnBackInvokedCallback="true"
         tools:targetApi="s">
         <activity
             android:name=".MainActivity"

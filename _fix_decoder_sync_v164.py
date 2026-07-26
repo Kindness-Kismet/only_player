@@ -1,0 +1,61 @@
+# -*- coding: utf-8 -*-
+from pathlib import Path
+import re
+ps = Path(r"E:/Downloads/only_player_src/feature/player/src/main/java/one/only/player/feature/player/service/PlayerService.kt")
+ms = Path(r"E:/Downloads/only_player_src/feature/player/src/main/java/one/only/player/feature/player/MediaPlayerScreen.kt")
+gradle = Path(r"E:/Downloads/only_player_src/app/build.gradle.kts")
+t = ps.read_text(encoding="utf-8")
+if "import one.only.player.feature.player.extensions.copy" not in t:
+    t = t.replace("import one.only.player.feature.player.extensions.decoderPriorityName\n", "import one.only.player.feature.player.extensions.copy\nimport one.only.player.feature.player.extensions.decoderPriorityName\n", 1)
+old_flags = "    private var activeDecoderPriority: DecoderPriority = DecoderPriority.AUTOMATIC\n    @Volatile private var isDecoderSwitchInFlight: Boolean = false\n"
+new_flags = old_flags + "    @Volatile private var isManualDecoderApply: Boolean = false\n"
+if "isManualDecoderApply" not in t:
+    assert old_flags in t, "flags missing"
+    t = t.replace(old_flags, new_flags, 1)
+    print("flags ok")
+t = t.replace("    private fun updateExtensionDecoderFromManualSelection(", "    private suspend fun updateExtensionDecoderFromManualSelection(", 1)
+t = t.replace("        serviceScope.launch(Dispatchers.IO) {\n            preferencesRepository.updateApplicationPreferences { current ->\n", "        preferencesRepository.updateApplicationPreferences { current ->\n", 1)
+old_tail = """            }\n        }\n    }\n\n    private fun applyExtensionDecoderForMediaItem"""
+new_tail = """            }\n    }\n\n    private fun stampDecoderOnCurrentMediaItem(\n        player: ExoPlayer,\n        decoderPriority: DecoderPriority?,\n        isRemembered: Boolean,\n    ) {\n        val index = player.currentMediaItemIndex\n        if (index !in 0 until player.mediaItemCount) return\n        val current = player.getMediaItemAt(index)\n        val stamped = current.copy(\n            decoderPriorityName = if (isRemembered) decoderPriority?.name else null,\n            isDecoderRemembered = isRemembered,\n            isVideoEffectsAvailable = shouldApplyVideoEffects(\n                decoderPriority ?: activeDecoderPriority,\n            ),\n        )\n        player.replaceMediaItem(index, stamped)\n    }\n\n    private fun applyExtensionDecoderForMediaItem"""
+if old_tail not in t:
+    # try alternate if already partially patched
+    print("tail exact missing, dump nearby")
+    idx = t.find("private fun applyExtensionDecoderForMediaItem")
+    print(repr(t[idx-120:idx+40]))
+    raise SystemExit(1)
+t = t.replace(old_tail, new_tail, 1)
+print("suspend+stamp ok")
+t = t.replace("    private fun applyExtensionDecoderForMediaItem(mediaItem: MediaItem?) {\n        // N≈u(NéPOY}SÿfÙeˆ[˘üP_SRMâ„xˇNW(RgaçÔ_Ñåu(\n        if (mediaItem == null) return\n", "    private fun applyExtensionDecoderForMediaItem(mediaItem: MediaItem?) {\n        // N≈u(NéPOY}SÿfÙeˆ[˘üP_SRMâ„xˇNW(RgaçÔ_Ñåu(\n        if (isManualDecoderApply) return\n        if (mediaItem == null) return\n", 1)
+t = t.replace("        val currentPlayer = session.player as? ExoPlayer ?: return\n        isDecoderSwitchInFlight = true\n", "        val currentPlayer = session.player as? ExoPlayer ?: return\n        val ass = assHandler ?: return\n        isDecoderSwitchInFlight = true\n        try {\n", 1)
+t = t.replace("            assHandler = assHandler ?: return,\n", "            assHandler = ass,\n", 1)
+t = t.replace("        runCatching {\n            currentPlayer.clearMediaItems()\n            currentPlayer.stop()\n            currentPlayer.release()\n        }\n        isDecoderSwitchInFlight = false\n    }\n\n    private fun applyAmbienceModeToPlayer", "        runCatching {\n            currentPlayer.clearMediaItems()\n            currentPlayer.stop()\n            currentPlayer.release()\n        }\n        } finally {\n            isDecoderSwitchInFlight = false\n        }\n    }\n\n    private fun applyAmbienceModeToPlayer", 1)
+print("switch finally ok")
+old_set = """                CustomCommands.SET_DECODER_PRIORITY -> {\n                    val name = args.getString(CustomCommands.DECODER_PRIORITY_NAME_KEY).orEmpty()\n                    val priority = runCatching { DecoderPriority.valueOf(name) }.getOrNull()\n                        ?: return@future SessionResult(SessionError.ERROR_BAD_VALUE)\n                    val rememberForFile = args.getBoolean(CustomCommands.REMEMBER_FOR_FILE_KEY, false)\n                    val player = mediaSession?.player as? ExoPlayer\n                    val mediaItem = player?.currentMediaItem\n                    if (mediaItem != null) {\n                        // cßNˆe9â„xˇTkeQôVﬁbi\UTãænˇSÃTTkeˇ	\n                        updateExtensionDecoderFromManualSelection(mediaItem, priority)\n                        if (rememberForFile) {\n                            // N~Ìd≠è€^¶v¯Tˇc	 URI Qô media_state.decoder_priority\n                            val playbackStateUri = playbackStateCoordinator.resolvePlaybackStateUri(mediaItem)\n                            mediaRepository.updateMediumDecoderPriority(\n                                uri = playbackStateUri,\n                                decoderPriority = priority.name,\n                            )\n                        } else {\n                            // Qsã∞OOˇncâãÂeáNˆvÑ DB â„x\n                            val playbackStateUri = playbackStateCoordinator.resolvePlaybackStateUri(mediaItem)\n                            mediaRepository.updateMediumDecoderPriority(\n                                uri = playbackStateUri,\n                                decoderPriority = null,\n                            )\n                        }\n                    }\n                    // zÀSsc	b@ê	P<ëÕ^˙_SRMd≠e>\n                    switchPlayerDecoderPriority(priority)\n                    return@future SessionResult(SessionResult.RESULT_SUCCESS)\n                }"""
+new_set = """                CustomCommands.SET_DECODER_PRIORITY -> {\n                    val name = args.getString(CustomCommands.DECODER_PRIORITY_NAME_KEY).orEmpty()\n                    val priority = runCatching { DecoderPriority.valueOf(name) }.getOrNull()\n                        ?: return@future SessionResult(SessionError.ERROR_BAD_VALUE)\n                    val rememberForFile = args.getBoolean(CustomCommands.REMEMBER_FOR_FILE_KEY, false)\n                    val player = mediaSession?.player as? ExoPlayer\n                    val mediaItem = player?.currentMediaItem\n                    isManualDecoderApply = true\n                    try {\n                        if (player != null && mediaItem != null) {\n                            val playbackStateUri = playbackStateCoordinator.resolvePlaybackStateUri(mediaItem)\n                            if (rememberForFile) {\n                                mediaRepository.updateMediumDecoderPriority(\n                                    uri = playbackStateUri,\n                                    decoderPriority = priority.name,\n                                )\n                                stampDecoderOnCurrentMediaItem(\n                                    player = player,\n                                    decoderPriority = priority,\n                                    isRemembered = true,\n                                )\n                            } else {\n                                mediaRepository.updateMediumDecoderPriority(\n                                    uri = playbackStateUri,\n                                    decoderPriority = null,\n                                )\n                                updateExtensionDecoderFromManualSelection(mediaItem, priority)\n                                stampDecoderOnCurrentMediaItem(\n                                    player = player,\n                                    decoderPriority = priority,\n                                    isRemembered = false,\n                                )\n                            }\n                        }\n                        switchPlayerDecoderPriority(priority)\n                    } finally {\n                        isManualDecoderApply = false\n                    }\n                    return@future SessionResult(SessionResult.RESULT_SUCCESS)\n                }"""
+assert old_set in t, "SET_DECODER missing"
+t = t.replace(old_set, new_set, 1)
+print("SET_DECODER ok")
+old_global = """        serviceScope.launch {\n            // Qh\@â„xPOY}ˇN%h<^îu(b@ê	P<ˇyÅkbQç~œbi\UTâ„gêˇT&RcßNˆê	 HW Oà´bSVﬁ AUTOˇ	\n            preferencesRepository.playerPreferences\n                .distinctUntilChanged { old, new -> old.decoderPriority == new.decoderPriority }\n                .collect { prefs ->\n                    if (prefs.decoderPriority != activeDecoderPriority) {\n                        switchPlayerDecoderPriority(prefs.decoderPriority)\n                    }\n                }\n        }"""
+new_global = """        serviceScope.launch {\n            // Qh\@ûÿã§â„xSÿfÙˇc	 eáNˆã∞OO > bi\UT > Qh\@ ëÕe∞â„gêˇyÅkbxlâÜv÷bi\UT\n            preferencesRepository.playerPreferences\n                .distinctUntilChanged { old, new -> old.decoderPriority == new.decoderPriority }\n                .collect {\n                    if (isManualDecoderApply) return@collect\n                    val current = mediaSession?.player?.currentMediaItem\n                    applyExtensionDecoderForMediaItem(current)\n                }\n        }"""
+assert old_global in t, "global collector missing"
+t = t.replace(old_global, new_global, 1)
+print("global collector ok")
+ps.write_text(t, encoding="utf-8")
+mt = ms.read_text(encoding="utf-8")
+old_click = """                                    controller?.setDecoderPriorityNow(\n                                        priorityName = priority.name,\n                                        rememberForThisFile = isRememberForThisFile,\n                                    )\n                                    // TkeQh\@ûÿã§ˇeπOøãænòuN ÅÙ\n                                    viewModel.updateDecoderPriority(priority)\n"""
+new_click = """                                    controller?.setDecoderPriorityNow(\n                                        priorityName = priority.name,\n                                        rememberForThisFile = isRememberForThisFile,\n                                    )\n"""
+assert old_click in mt, "ui click missing"
+mt = mt.replace(old_click, new_click, 1)
+old_rem = """                                    controller?.setDecoderPriorityNow(\n                                        priorityName = selectedPriority.name,\n                                        rememberForThisFile = enabled,\n                                    )\n                                    if (enabled) {\n                                        viewModel.rememberDecoderForMediaUri(mediaUri, selectedPriority)\n                                    } else {\n                                        viewModel.clearDecoderForMediaUri(mediaUri)\n                                    }\n"""
+new_rem = """                                    controller?.setDecoderPriorityNow(\n                                        priorityName = selectedPriority.name,\n                                        rememberForThisFile = enabled,\n                                    )\n"""
+assert old_rem in mt, "ui remember missing"
+mt = mt.replace(old_rem, new_rem, 1)
+mt = mt.replace("                            val mediaUri = currentMediaUriString()\n", "", 1)
+ms.write_text(mt, encoding="utf-8")
+print("UI ok")
+g = gradle.read_text(encoding="utf-8")
+g2 = re.sub(r"versionCode\\s*=\\s*\\d+", "versionCode = 165", g, count=1)
+g2 = re.sub(r'versionName\\s*=\\s*"[^"]+"', 'versionName = "1.0.164"', g2, count=1)
+gradle.write_text(g2, encoding="utf-8")
+print("version", re.search(r'versionName\\s*=\\s*"([^"]+)"', g2).group(1))
+print("ALL DONE")

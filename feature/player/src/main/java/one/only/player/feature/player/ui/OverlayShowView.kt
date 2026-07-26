@@ -39,7 +39,10 @@ fun BoxScope.OverlayShowView(
     onConfirmVideoFilters: (PlayerPreferences) -> Unit = {},
     onCloseVideoFilters: () -> Unit = {},
     onShowVideoFilters: () -> Unit = {},
+    currentDecoderPriority: DecoderPriority = playerPreferences.decoderPriority,
     onDecoderPriorityChanged: (DecoderPriority) -> Unit = {},
+    isRememberDecoderForThisFileEnabled: Boolean = false,
+    onRememberDecoderForThisFileChanged: ((Boolean) -> Unit)? = null,
     playbackMarks: List<PlaybackMark> = emptyList(),
     onAddPlaybackMarkClick: () -> Unit = {},
     onPlaybackMarkClick: (PlaybackMark) -> Unit = {},
@@ -113,8 +116,10 @@ fun BoxScope.OverlayShowView(
 
     DecoderPrioritySelectorView(
         shouldShow = overlayView == OverlayView.DECODER_PRIORITY,
-        currentDecoderPriority = playerPreferences.decoderPriority,
+        currentDecoderPriority = currentDecoderPriority,
         onDecoderPriorityClick = onDecoderPriorityChanged,
+        isRememberForThisFileEnabled = isRememberDecoderForThisFileEnabled,
+        onRememberForThisFileChanged = onRememberDecoderForThisFileChanged,
         onDismiss = onDismiss,
     )
 
@@ -247,4 +252,5 @@ enum class OverlayView {
     MUTE,
     AMBIENCE_MODE,
     MIRROR_VIDEO,
+    SCREEN_ROTATION,
 }

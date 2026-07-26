@@ -2,10 +2,8 @@ package one.only.player.core.ui.theme
 
 import androidx.compose.foundation.isSystemInDarkTheme
 import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.darkColorScheme
 import androidx.compose.material3.dynamicDarkColorScheme
 import androidx.compose.material3.dynamicLightColorScheme
-import androidx.compose.material3.lightColorScheme
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.remember
 import androidx.compose.ui.graphics.Color
@@ -16,66 +14,54 @@ import com.materialkolor.rememberDynamicColorScheme
 import one.only.player.core.model.ThemeColorSpec as ModelColorSpec
 import one.only.player.core.model.ThemePaletteStyle as ModelPaletteStyle
 import top.yukonga.miuix.kmp.theme.ColorSchemeMode
-import top.yukonga.miuix.kmp.theme.Colors
 import top.yukonga.miuix.kmp.theme.MiuixTheme
 import top.yukonga.miuix.kmp.theme.ThemeColorSpec
 import top.yukonga.miuix.kmp.theme.ThemeController
 import top.yukonga.miuix.kmp.theme.ThemePaletteStyle
 
-// 应用主题入口，Miuix 为主，Material3 跟随同一色板
+// 应用主题入口，miuix 为主，Material3 用同一 seed 兜底，保证迁移期配色一致
 @Composable
 fun OnlyPlayerTheme(
     shouldUseDarkTheme: Boolean = isSystemInDarkTheme(),
     shouldUseDynamicColor: Boolean = true,
-    shouldUseSystemDynamicColor: Boolean = true,
     seedColor: Long = DEFAULT_SEED_COLOR,
     paletteStyle: ModelPaletteStyle = ModelPaletteStyle.TONAL_SPOT,
     colorSpec: ModelColorSpec = ModelColorSpec.SPEC_2025,
     content: @Composable () -> Unit,
 ) {
-    val shouldUseMonet = shouldUseDynamicColor &&
-        (supportsDynamicTheming() || !shouldUseSystemDynamicColor)
     val miuixController = remember(
         shouldUseDarkTheme,
-        shouldUseMonet,
-        shouldUseSystemDynamicColor,
+        shouldUseDynamicColor,
         seedColor,
         paletteStyle,
         colorSpec,
     ) {
         ThemeController(
-            colorSchemeMode = when {
-                shouldUseMonet && shouldUseDarkTheme -> ColorSchemeMode.MonetDark
-                shouldUseMonet -> ColorSchemeMode.MonetLight
-                shouldUseDarkTheme -> ColorSchemeMode.Dark
-                else -> ColorSchemeMode.Light
-            },
-            keyColor = Color(seedColor).takeIf {
-                shouldUseMonet && !shouldUseSystemDynamicColor
-            },
+            colorSchemeMode = if (shouldUseDarkTheme) ColorSchemeMode.MonetDark else ColorSchemeMode.MonetLight,
+            keyColor = if (shouldUseDynamicColor) null else Color(seedColor),
             colorSpec = colorSpec.toMiuix(),
             paletteStyle = paletteStyle.toMiuix(),
             isDark = shouldUseDarkTheme,
         )
     }
 
+    // Material3 兜底色板，迁移期未改造页面仍能取到协调配色
     val context = LocalContext.current
+    val materialScheme = when {
+        // 动态取色且系统支持时，与 miuix platformDynamicColors 对齐取系统色
+        shouldUseDynamicColor && supportsDynamicTheming() ->
+            if (shouldUseDarkTheme) dynamicDarkColorScheme(context) else dynamicLightColorScheme(context)
+
+        else -> rememberDynamicColorScheme(
+            seedColor = Color(seedColor),
+            isDark = shouldUseDarkTheme,
+            isAmoled = false,
+            style = paletteStyle.toMaterialKolor(),
+            specVersion = colorSpec.toMaterialKolorSpec(),
+        )
+    }
+
     MiuixTheme(controller = miuixController) {
-        // Material3 组件跟随同一套 Miuix 色板，避免迁移期出现两套配色。
-        val materialScheme = when {
-            shouldUseMonet && shouldUseSystemDynamicColor ->
-                if (shouldUseDarkTheme) dynamicDarkColorScheme(context) else dynamicLightColorScheme(context)
-
-            shouldUseMonet -> rememberDynamicColorScheme(
-                seedColor = Color(seedColor),
-                isDark = shouldUseDarkTheme,
-                isAmoled = false,
-                style = paletteStyle.toMaterialKolor(),
-                specVersion = colorSpec.toMaterialKolorSpec(),
-            )
-
-            else -> MiuixTheme.colorScheme.toMaterialColorScheme(shouldUseDarkTheme)
-        }
         MaterialTheme(
             colorScheme = materialScheme,
             typography = Typography,
@@ -83,36 +69,6 @@ fun OnlyPlayerTheme(
         )
     }
 }
-
-private fun Colors.toMaterialColorScheme(isDark: Boolean) = (if (isDark) darkColorScheme() else lightColorScheme()).copy(
-    primary = primary,
-    onPrimary = onPrimary,
-    primaryContainer = primaryContainer,
-    onPrimaryContainer = onPrimaryContainer,
-    secondary = secondary,
-    onSecondary = onSecondary,
-    secondaryContainer = secondaryContainer,
-    onSecondaryContainer = onSecondaryContainer,
-    tertiary = tertiaryContainer,
-    onTertiary = onTertiaryContainer,
-    tertiaryContainer = tertiaryContainer,
-    onTertiaryContainer = onTertiaryContainer,
-    error = error,
-    onError = onError,
-    errorContainer = errorContainer,
-    onErrorContainer = onErrorContainer,
-    background = background,
-    onBackground = onBackground,
-    surface = surface,
-    surfaceTint = primary,
-    onSurface = onSurface,
-    surfaceVariant = surfaceVariant,
-    onSurfaceVariant = onSurfaceVariantSummary,
-    outline = outline,
-    surfaceContainer = surfaceContainer,
-    surfaceContainerHigh = surfaceContainerHigh,
-    surfaceContainerHighest = surfaceContainerHighest,
-)
 
 private fun ModelPaletteStyle.toMiuix(): ThemePaletteStyle = when (this) {
     ModelPaletteStyle.TONAL_SPOT -> ThemePaletteStyle.TonalSpot

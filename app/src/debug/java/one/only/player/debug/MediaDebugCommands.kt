@@ -250,4 +250,4 @@ private suspend fun MediaRepository.requireDebugVideo(
 
 private fun Video.debugSummary(): String = "name=$nameWithExtension uri=$uriString path=$path recycle=$isInRecycleBin exists=${File(path).exists()}"
 
-private fun MediaMoveSummary.debugSummary(): String = "moved=$movedCount partiallyMoved=$partiallyMovedCount failed=$failedCount canceled=$canceledCount"
+private fun MediaMoveSummary.debugSummary(): String = "moved=$movedCount failed=$failedCount canceled=$canceledCount"

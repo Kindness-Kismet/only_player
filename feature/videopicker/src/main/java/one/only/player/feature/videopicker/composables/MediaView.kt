@@ -67,7 +67,6 @@ fun MediaView(
             MediaLayoutMode.LIST -> 2.dp
             MediaLayoutMode.GRID -> 2.dp
         }
-        val sectionTitleStartPadding = if (preferences.mediaViewMode == MediaViewMode.FOLDER_TREE) 15.dp else 0.dp
         val maxWidth = this.maxWidth - (contentHorizontalPadding * 2) - itemSpacing
         val maxFolders = (maxWidth / folderMinWidth).toInt()
         val maxVideos = (maxWidth / videoMinWidth).toInt()
@@ -100,14 +99,7 @@ fun MediaView(
         ) {
             if (shouldShowHeaders && rootFolder.folderList.isNotEmpty()) {
                 item(span = { GridItemSpan(maxLineSpan) }) {
-                    ListSectionTitle(
-                        text = stringResource(id = R.string.folders) + " (${rootFolder.folderList.size})",
-                        contentPadding = PaddingValues(
-                            start = sectionTitleStartPadding,
-                            top = 4.dp,
-                            bottom = 4.dp,
-                        ),
-                    )
+                    ListSectionTitle(text = stringResource(id = R.string.folders) + " (${rootFolder.folderList.size})")
                 }
             }
             itemsIndexed(
@@ -146,14 +138,7 @@ fun MediaView(
 
             if (shouldShowHeaders && rootFolder.mediaList.isNotEmpty()) {
                 item(span = { GridItemSpan(maxLineSpan) }) {
-                    ListSectionTitle(
-                        text = stringResource(id = R.string.videos) + " (${rootFolder.mediaList.size})",
-                        contentPadding = PaddingValues(
-                            start = sectionTitleStartPadding,
-                            top = 4.dp,
-                            bottom = 4.dp,
-                        ),
-                    )
+                    ListSectionTitle(text = stringResource(id = R.string.videos) + " (${rootFolder.mediaList.size})")
                 }
             }
 

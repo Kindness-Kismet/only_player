@@ -16,7 +16,6 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
-import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.ExperimentalComposeUiApi
 import androidx.compose.ui.Modifier
@@ -31,20 +30,14 @@ import androidx.lifecycle.compose.LifecycleEventEffect
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.lifecycle.lifecycleScope
 import androidx.lifecycle.repeatOnLifecycle
-import androidx.navigation.NavHostController
-import androidx.navigation.compose.NavHost
-import androidx.navigation.compose.composable
-import androidx.navigation.compose.rememberNavController
 import dagger.hilt.android.AndroidEntryPoint
 import java.io.File
 import javax.inject.Inject
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
 import one.only.player.core.common.AppThemeMode
-import one.only.player.core.common.createManageExternalStorageAccessIntent
 import one.only.player.core.common.extensions.applyPrivacyProtection
 import one.only.player.core.common.extensions.resolvePrivacyPreviewScrim
-import one.only.player.core.common.hasManageExternalStorageAccess
 import one.only.player.core.common.storagePermission
 import one.only.player.core.media.services.MediaService
 import one.only.player.core.media.sync.MediaSynchronizer
@@ -59,27 +52,14 @@ import one.only.player.core.ui.theme.OnlyPlayerTheme
 import one.only.player.feature.player.PlayerActivity
 import one.only.player.feature.videopicker.navigation.navigateToRecycleBinScreen
 import one.only.player.feature.videopicker.navigation.navigateToSearch
-import one.only.player.navigation.CloudRootPage
 import one.only.player.navigation.DEBUG_ACTION_OPEN_PAGE
 import one.only.player.navigation.DEBUG_ACTION_OPEN_PLAYER
 import one.only.player.navigation.DEBUG_EXTRA_PAGE
 import one.only.player.navigation.DebugPageRoute
-import one.only.player.navigation.FavoritesRootPage
-import one.only.player.navigation.MediaRootPage
 import one.only.player.navigation.NavigationBarColorEffect
 import one.only.player.navigation.RootDestination
-import one.only.player.navigation.RootNavigationState
-import one.only.player.navigation.RootPagerRoute
-import one.only.player.navigation.RootScaffold
-import one.only.player.navigation.SettingsRootPage
-import one.only.player.navigation.cloudDetailNavGraph
-import one.only.player.navigation.mediaDetailNavGraph
-import one.only.player.navigation.pageEnterTransition
-import one.only.player.navigation.pageExitTransition
-import one.only.player.navigation.pagePopEnterTransition
-import one.only.player.navigation.pagePopExitTransition
-import one.only.player.navigation.rememberRootNavigationState
-import one.only.player.navigation.settingsDetailNavGraph
+import one.only.player.navigation.RootTabController
+import one.only.player.navigation.RootTabPager
 import one.only.player.settings.navigation.navigateToAboutPreferences
 import one.only.player.settings.navigation.navigateToAppearancePreferences
 import one.only.player.settings.navigation.navigateToAudioPreferences
@@ -122,6 +102,7 @@ class MainActivity : AppCompatActivity() {
     private val viewModel: MainViewModel by viewModels()
     private var pendingDebugPageRoute by mutableStateOf<DebugPageRoute?>(null)
     private var pendingDebugPlayerIntent by mutableStateOf<Intent?>(null)
+    private var rootTabController by mutableStateOf<RootTabController?>(null)
 
     override fun onNewIntent(intent: Intent) {
         super.onNewIntent(intent)
@@ -182,7 +163,14 @@ class MainActivity : AppCompatActivity() {
             val preferences = (uiState as? MainActivityUiState.Success)?.preferences
             val shouldPreventScreenshots = preferences?.shouldPreventScreenshots == true
             val shouldHideInRecents = preferences?.shouldHideInRecents == true
+            val shouldEnablePredictiveBack = preferences?.shouldEnablePredictiveBack != false
             val shouldShowStartupSplash = uiState == MainActivityUiState.Loading || !isStartupSplashReady
+
+            LaunchedEffect(shouldEnablePredictiveBack) {
+                // Manifest defaults to true; recreate applies enableOnBackInvokedCallback effectively
+                // by toggling window callback registration for predictive back.
+                applyPredictiveBackEnabled(shouldEnablePredictiveBack)
+            }
 
             LaunchedEffect(Unit) {
                 delay(STARTUP_SPLASH_MIN_DURATION_MILLIS)
@@ -207,11 +195,14 @@ class MainActivity : AppCompatActivity() {
             OnlyPlayerTheme(
                 shouldUseDarkTheme = shouldUseDarkTheme,
                 shouldUseDynamicColor = shouldUseDynamicColor,
-                shouldUseSystemDynamicColor = preferences?.shouldUseSystemDynamicColor != false,
                 seedColor = preferences?.themeSeedColor ?: DEFAULT_SEED_COLOR,
                 paletteStyle = preferences?.themePaletteStyle ?: ThemePaletteStyle.TONAL_SPOT,
                 colorSpec = preferences?.themeColorSpec ?: ThemeColorSpec.SPEC_2025,
             ) {
+                if (!shouldShowStartupSplash) {
+                    StartupUpdateDialog(viewModel = viewModel)
+                }
+
                 Surface(
                     modifier = Modifier.fillMaxSize(),
                     color = MiuixTheme.colorScheme.surface,
@@ -220,8 +211,10 @@ class MainActivity : AppCompatActivity() {
                         StartupSplashScreen()
                     } else {
                         MainAppContent(
-                            shouldUseFloatingNavigationBar = preferences?.shouldUseFloatingNavigationBar == true,
+                            shouldUseFloatingNavigationBar = preferences?.shouldUseFloatingNavigationBar != false,
                             shouldBlurFloatingNavigationBar = preferences?.shouldBlurFloatingNavigationBar != false,
+                            shouldHideCloudTab = preferences?.shouldHideCloudTab == true,
+                            shouldHideFavoritesTab = preferences?.shouldHideFavoritesTab == true,
                             onPermissionGranted = {
                                 synchronizer.startSync()
                                 lastAutoRefreshAt = SystemClock.elapsedRealtime()
@@ -269,78 +262,77 @@ class MainActivity : AppCompatActivity() {
     }
 
     private fun navigateToDebugPage(
-        navController: NavHostController,
-        rootNavigationState: RootNavigationState,
+        rootController: RootTabController,
         pageRoute: DebugPageRoute,
     ) {
-        navController.popBackStack(RootPagerRoute, inclusive = false)
+        val navController = rootController.activeNavController()
         when (pageRoute) {
-            DebugPageRoute.HOME -> rootNavigationState.jumpTo(RootDestination.HOME)
+            DebugPageRoute.HOME -> rootController.selectRoot(RootDestination.HOME)
             DebugPageRoute.SEARCH -> {
-                rootNavigationState.jumpTo(RootDestination.HOME)
+                rootController.selectRoot(RootDestination.HOME)
                 navController.navigateToSearch()
             }
             DebugPageRoute.RECYCLE_BIN -> {
-                rootNavigationState.jumpTo(RootDestination.HOME)
+                rootController.selectRoot(RootDestination.HOME)
                 navController.navigateToRecycleBinScreen()
             }
-            DebugPageRoute.FAVORITES -> rootNavigationState.jumpTo(RootDestination.FAVORITES)
-            DebugPageRoute.CLOUD -> rootNavigationState.jumpTo(RootDestination.CLOUD)
-            DebugPageRoute.SETTINGS -> rootNavigationState.jumpTo(RootDestination.SETTINGS)
+            DebugPageRoute.FAVORITES -> rootController.selectRoot(RootDestination.FAVORITES)
+            DebugPageRoute.CLOUD -> rootController.selectRoot(RootDestination.CLOUD)
+            DebugPageRoute.SETTINGS -> rootController.selectRoot(RootDestination.SETTINGS)
             DebugPageRoute.SETTINGS_APPEARANCE -> {
-                rootNavigationState.jumpTo(RootDestination.SETTINGS)
+                rootController.selectRoot(RootDestination.SETTINGS)
                 navController.navigateToAppearancePreferences()
             }
             DebugPageRoute.SETTINGS_MEDIA_LIBRARY -> {
-                rootNavigationState.jumpTo(RootDestination.SETTINGS)
+                rootController.selectRoot(RootDestination.SETTINGS)
                 navController.navigateToMediaLibraryPreferencesScreen()
             }
             DebugPageRoute.SETTINGS_FOLDERS -> {
-                rootNavigationState.jumpTo(RootDestination.SETTINGS)
+                rootController.selectRoot(RootDestination.SETTINGS)
                 navController.navigateToFolderPreferencesScreen()
             }
             DebugPageRoute.SETTINGS_THUMBNAILS -> {
-                rootNavigationState.jumpTo(RootDestination.SETTINGS)
+                rootController.selectRoot(RootDestination.SETTINGS)
                 navController.navigateToThumbnailPreferencesScreen()
             }
             DebugPageRoute.SETTINGS_PLAYER -> {
-                rootNavigationState.jumpTo(RootDestination.SETTINGS)
+                rootController.selectRoot(RootDestination.SETTINGS)
                 navController.navigateToPlayerPreferences()
             }
             DebugPageRoute.SETTINGS_GESTURES -> {
-                rootNavigationState.jumpTo(RootDestination.SETTINGS)
+                rootController.selectRoot(RootDestination.SETTINGS)
                 navController.navigateToGesturePreferences()
             }
             DebugPageRoute.SETTINGS_DECODER -> {
-                rootNavigationState.jumpTo(RootDestination.SETTINGS)
+                rootController.selectRoot(RootDestination.SETTINGS)
                 navController.navigateToDecoderPreferences()
             }
             DebugPageRoute.SETTINGS_AUDIO -> {
-                rootNavigationState.jumpTo(RootDestination.SETTINGS)
+                rootController.selectRoot(RootDestination.SETTINGS)
                 navController.navigateToAudioPreferences()
             }
             DebugPageRoute.SETTINGS_SUBTITLE -> {
-                rootNavigationState.jumpTo(RootDestination.SETTINGS)
+                rootController.selectRoot(RootDestination.SETTINGS)
                 navController.navigateToSubtitlePreferences()
             }
             DebugPageRoute.SETTINGS_PRIVACY -> {
-                rootNavigationState.jumpTo(RootDestination.SETTINGS)
+                rootController.selectRoot(RootDestination.SETTINGS)
                 navController.navigateToPrivacyPreferences()
             }
             DebugPageRoute.SETTINGS_GENERAL -> {
-                rootNavigationState.jumpTo(RootDestination.SETTINGS)
+                rootController.selectRoot(RootDestination.SETTINGS)
                 navController.navigateToGeneralPreferences()
             }
             DebugPageRoute.SETTINGS_ABOUT -> {
-                rootNavigationState.jumpTo(RootDestination.SETTINGS)
+                rootController.selectRoot(RootDestination.SETTINGS)
                 navController.navigateToAboutPreferences()
             }
             DebugPageRoute.SETTINGS_LIBRARIES -> {
-                rootNavigationState.jumpTo(RootDestination.SETTINGS)
+                rootController.selectRoot(RootDestination.SETTINGS)
                 navController.navigateToLibraries()
             }
             DebugPageRoute.SETTINGS_LOGS -> {
-                rootNavigationState.jumpTo(RootDestination.SETTINGS)
+                rootController.selectRoot(RootDestination.SETTINGS)
                 navController.navigateToLogs()
             }
         }
@@ -351,58 +343,31 @@ class MainActivity : AppCompatActivity() {
     private fun MainAppContent(
         shouldUseFloatingNavigationBar: Boolean,
         shouldBlurFloatingNavigationBar: Boolean,
+        shouldHideCloudTab: Boolean,
+        shouldHideFavoritesTab: Boolean,
         onPermissionGranted: () -> Unit,
         onResumeWithPermission: () -> Unit,
     ) {
         val storagePermissionState = rememberRuntimePermissionState(permission = storagePermission)
-        var hasAllFilesAccess by remember {
-            mutableStateOf(hasManageExternalStorageAccess())
-        }
 
         LifecycleEventEffect(event = Lifecycle.Event.ON_START) {
             storagePermissionState.launchPermissionRequest()
         }
 
-        LaunchedEffect(storagePermissionState.isGranted, hasAllFilesAccess) {
-            if (!storagePermissionState.isGranted || !hasAllFilesAccess) return@LaunchedEffect
+        LaunchedEffect(storagePermissionState.isGranted) {
+            if (!storagePermissionState.isGranted) return@LaunchedEffect
             onPermissionGranted()
         }
 
         LifecycleEventEffect(event = Lifecycle.Event.ON_RESUME) {
             if (!storagePermissionState.isGranted) return@LifecycleEventEffect
-            val hasAccess = hasManageExternalStorageAccess()
-            hasAllFilesAccess = hasAccess
-            if (!hasAccess) return@LifecycleEventEffect
             onResumeWithPermission()
         }
 
-        NavigationBarColorEffect(
-            activity = this@MainActivity,
-            color = MiuixTheme.colorScheme.surface,
-        )
-
-        if (storagePermissionState.isGranted && !hasAllFilesAccess) {
-            AllFilesAccessDialog(
-                onGrantClick = {
-                    startActivity(createManageExternalStorageAccessIntent(this@MainActivity))
-                },
-            )
-            return
-        }
-
-        if (storagePermissionState.isGranted && hasAllFilesAccess) {
-            StartupUpdateDialog(viewModel = viewModel)
-        }
-
-        val mainNavController = rememberNavController()
-        val rootNavigationState = rememberRootNavigationState()
-        LaunchedEffect(mainNavController, rootNavigationState, pendingDebugPageRoute) {
+        LaunchedEffect(rootTabController, pendingDebugPageRoute) {
+            val controller = rootTabController ?: return@LaunchedEffect
             val pageRoute = pendingDebugPageRoute ?: return@LaunchedEffect
-            navigateToDebugPage(
-                navController = mainNavController,
-                rootNavigationState = rootNavigationState,
-                pageRoute = pageRoute,
-            )
+            navigateToDebugPage(controller, pageRoute)
             pendingDebugPageRoute = null
         }
         LaunchedEffect(pendingDebugPlayerIntent) {
@@ -410,6 +375,10 @@ class MainActivity : AppCompatActivity() {
             pendingDebugPlayerIntent = null
             startActivity(playerIntent)
         }
+        NavigationBarColorEffect(
+            activity = this@MainActivity,
+            color = MiuixTheme.colorScheme.surface,
+        )
 
         Surface(
             modifier = Modifier
@@ -419,49 +388,58 @@ class MainActivity : AppCompatActivity() {
                 },
             color = MiuixTheme.colorScheme.surface,
         ) {
-            NavHost(
-                navController = mainNavController,
-                startDestination = RootPagerRoute,
-                enterTransition = { pageEnterTransition() },
-                exitTransition = { pageExitTransition() },
-                popEnterTransition = { pagePopEnterTransition() },
-                popExitTransition = { pagePopExitTransition() },
-            ) {
-                composable<RootPagerRoute> {
-                    RootScaffold(
-                        rootNavigationState = rootNavigationState,
-                        shouldUseFloatingNavigationBar = shouldUseFloatingNavigationBar,
-                        shouldBlurFloatingNavigationBar = shouldBlurFloatingNavigationBar,
-                    ) { destination ->
-                        when (destination) {
-                            RootDestination.HOME -> MediaRootPage(
-                                context = this@MainActivity,
-                                navController = mainNavController,
-                                onRootSelected = rootNavigationState::animateTo,
-                            )
-                            RootDestination.CLOUD -> CloudRootPage(navController = mainNavController)
-                            RootDestination.FAVORITES -> FavoritesRootPage(
-                                context = this@MainActivity,
-                                navController = mainNavController,
-                            )
-                            RootDestination.SETTINGS -> SettingsRootPage(navController = mainNavController)
-                        }
-                    }
+            RootTabPager(
+                context = this@MainActivity,
+                shouldUseFloatingNavigationBar = shouldUseFloatingNavigationBar,
+                shouldBlurFloatingNavigationBar = shouldBlurFloatingNavigationBar,
+                shouldHideCloudTab = shouldHideCloudTab,
+                shouldHideFavoritesTab = shouldHideFavoritesTab,
+                onBindRootController = { controller ->
+                    rootTabController = controller
+                },
+            )
+        }
+    }
+    private var predictiveBackDisabledCallback: android.window.OnBackInvokedCallback? = null
+
+    private fun applyPredictiveBackEnabled(isEnabled: Boolean) {
+        if (android.os.Build.VERSION.SDK_INT < android.os.Build.VERSION_CODES.TIRAMISU) {
+            return
+        }
+        val dispatcher = onBackInvokedDispatcher
+        // Always clear previous blocker first to avoid stacking callbacks.
+        predictiveBackDisabledCallback?.let { callback ->
+            runCatching { dispatcher.unregisterOnBackInvokedCallback(callback) }
+        }
+        predictiveBackDisabledCallback = null
+
+        if (isEnabled) {
+            // Manifest has enableOnBackInvokedCallback=true; leave system predictive back alone.
+            return
+        }
+
+        // Disabled: consume system back-invoked callbacks so predictive animation does not run,
+        // then route to classic OnBackPressedDispatcher (Compose Navigation / back stack).
+        val callback = if (android.os.Build.VERSION.SDK_INT >= 34) {
+            object : android.window.OnBackAnimationCallback {
+                override fun onBackStarted(backEvent: android.window.BackEvent) = Unit
+                override fun onBackProgressed(backEvent: android.window.BackEvent) = Unit
+                override fun onBackCancelled() = Unit
+                override fun onBackInvoked() {
+                    onBackPressedDispatcher.onBackPressed()
                 }
-                mediaDetailNavGraph(
-                    context = this@MainActivity,
-                    navController = mainNavController,
-                    onRootSelected = { destination ->
-                        rootNavigationState.jumpTo(destination)
-                        mainNavController.popBackStack(RootPagerRoute, inclusive = false)
-                    },
-                )
-                cloudDetailNavGraph(
-                    context = this@MainActivity,
-                    navController = mainNavController,
-                )
-                settingsDetailNavGraph(navController = mainNavController)
             }
+        } else {
+            android.window.OnBackInvokedCallback {
+                onBackPressedDispatcher.onBackPressed()
+            }
+        }
+        predictiveBackDisabledCallback = callback
+        runCatching {
+            dispatcher.registerOnBackInvokedCallback(
+                android.window.OnBackInvokedDispatcher.PRIORITY_DEFAULT + 1,
+                callback,
+            )
         }
     }
 
@@ -587,25 +565,6 @@ private fun StartupSplashScreen() {
                 testTagsAsResourceId = true
             }
             .testTag("startup_splash"),
-    )
-}
-
-@Composable
-private fun AllFilesAccessDialog(
-    onGrantClick: () -> Unit,
-) {
-    NextDialog(
-        onDismissRequest = {},
-        title = stringResource(UiR.string.all_files_access_title),
-        content = { Text(text = stringResource(UiR.string.all_files_access_required_desc)) },
-        confirmButton = {
-            TextButton(
-                modifier = Modifier.testTag("btn_all_files_access_grant"),
-                text = stringResource(UiR.string.grant_permission),
-                colors = ButtonDefaults.textButtonColorsPrimary(),
-                onClick = onGrantClick,
-            )
-        },
     )
 }
 

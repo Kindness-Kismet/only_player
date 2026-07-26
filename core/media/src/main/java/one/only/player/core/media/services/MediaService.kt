@@ -7,12 +7,6 @@ interface MediaService {
     fun initialize(activity: ComponentActivity)
     suspend fun deleteMedia(uris: List<Uri>): Boolean
     suspend fun renameMedia(uri: Uri, to: String): Boolean
-    suspend fun getMoveTargetDirectory(path: String?): MediaMoveTargetDirectoryContent?
-    suspend fun checkMoveSpace(
-        videoUris: List<Uri>,
-        folderPaths: List<String>,
-        targetFolderPath: String,
-    ): MediaMoveSpaceCheck?
     suspend fun moveMediaToRecycleBin(uri: Uri): MediaMoveResult?
     suspend fun moveMediaToFolder(
         uri: Uri,
@@ -20,10 +14,7 @@ interface MediaService {
         shouldCancel: () -> Boolean = { false },
         onProgress: (MediaCopyProgress) -> Unit = {},
     ): MediaMoveResult?
-    suspend fun moveFolderToFolder(
-        folderPath: String,
-        targetFolderPath: String,
-    ): MediaFolderMoveResult
+    suspend fun moveFolderToFolder(folderPath: String, targetFolderPath: String): List<MediaMoveResult>
     suspend fun restoreMediaFromRecycleBin(
         uri: Uri,
         originalPath: String,
@@ -42,35 +33,6 @@ data class MediaMoveResult(
     val parentPath: String,
     val fileName: String,
     val originalPath: String? = null,
-)
-
-data class MediaMoveTargetDirectoryContent(
-    val currentDirectory: MediaMoveTargetDirectory?,
-    val directories: List<MediaMoveTargetDirectory>,
-    val canMoveHere: Boolean,
-)
-
-data class MediaMoveTargetDirectory(
-    val name: String,
-    val path: String,
-    val storage: MediaStorageInfo? = null,
-)
-
-data class MediaStorageInfo(
-    val name: String,
-    val availableBytes: Long?,
-    val totalBytes: Long?,
-)
-
-data class MediaMoveSpaceCheck(
-    val requiredBytes: Long,
-    val availableBytes: Long?,
-    val hasEnoughSpace: Boolean,
-)
-
-data class MediaFolderMoveResult(
-    val movedMedia: List<MediaMoveResult> = emptyList(),
-    val isComplete: Boolean = false,
 )
 
 data class MediaCopyProgress(

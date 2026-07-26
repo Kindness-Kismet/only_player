@@ -22,8 +22,8 @@ android {
         minSdk = libs.versions.android.minSdk.get().toInt()
         targetSdk = libs.versions.android.targetSdk.get().toInt()
         applicationId = "one.only.player"
-        versionCode = 154
-        versionName = "1.0.153"
+        versionCode = 212
+        versionName = "1.0.212"
     }
 
     buildFeatures {
@@ -83,7 +83,8 @@ android {
         }
 
         jniLibs {
-            keepDebugSymbols += listOf("**/*.so")
+            // release 不保留 so 调试符号，接近原版体积
+            // debug 构建可保留以便排查 native 问题
         }
     }
 
@@ -113,7 +114,6 @@ dependencies {
 
     // Compose 依赖
     implementation(platform(libs.androidx.compose.bom))
-    implementation(libs.androidx.compose.foundation)
     implementation(libs.androidx.compose.ui)
     implementation(libs.androidx.compose.ui.tooling.preview)
     implementation(libs.androidx.compose.material3)

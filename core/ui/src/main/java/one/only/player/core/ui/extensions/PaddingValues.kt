@@ -7,6 +7,7 @@ import androidx.compose.foundation.layout.calculateEndPadding
 import androidx.compose.foundation.layout.calculateStartPadding
 import androidx.compose.foundation.layout.navigationBars
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.compositionLocalOf
 import androidx.compose.runtime.staticCompositionLocalOf
 import androidx.compose.ui.platform.LocalLayoutDirection
 import androidx.compose.ui.unit.Dp
@@ -14,6 +15,12 @@ import androidx.compose.ui.unit.dp
 
 // Root Tab 底栏留白（悬浮或贴底）由 RootScaffold 注入；非 root 页保持 0
 val LocalRootBottomBarPadding = staticCompositionLocalOf { PaddingValues(0.dp) }
+
+// 首页下拉菜单等需要盖住普通 NavigationBar 时的全局遮罩开关（由 RootScaffold 持有状态）
+val LocalRootMenuScrimVisible = compositionLocalOf { false }
+
+// 子页面设置全局遮罩可见性；RootScaffold 提供默认 no-op
+val LocalRootMenuScrimSetter = staticCompositionLocalOf<(Boolean) -> Unit> { {} }
 
 @Composable
 operator fun PaddingValues.plus(other: PaddingValues): PaddingValues = PaddingValues(

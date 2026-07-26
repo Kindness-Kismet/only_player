@@ -5,9 +5,16 @@ import android.widget.Toast
 import androidx.activity.compose.BackHandler
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
+import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.gestures.detectTapGestures
 import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.animation.AnimatedContent
+import androidx.compose.animation.fadeIn
+import androidx.compose.animation.fadeOut
+import androidx.compose.animation.slideInVertically
+import androidx.compose.animation.slideOutVertically
+import androidx.compose.animation.togetherWith
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
@@ -30,11 +37,13 @@ import androidx.compose.foundation.lazy.grid.rememberLazyGridState
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.remember
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.input.nestedscroll.nestedScroll
 import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalLayoutDirection
@@ -66,6 +75,7 @@ import one.only.player.core.ui.base.DataState
 import one.only.player.core.ui.components.CancelButton
 import one.only.player.core.ui.components.DoneButton
 import one.only.player.core.ui.components.NextDialog
+import one.only.player.core.ui.components.NextSearchTopAppBar
 import one.only.player.core.ui.composables.PermissionMissingView
 import one.only.player.core.ui.composables.rememberRuntimePermissionState
 import one.only.player.core.ui.designsystem.NextIcons
@@ -75,7 +85,6 @@ import one.only.player.core.ui.preview.DayNightPreview
 import one.only.player.core.ui.preview.VideoPickerPreviewParameterProvider
 import one.only.player.core.ui.theme.OnlyPlayerTheme
 import one.only.player.feature.videopicker.composables.MediaView
-import one.only.player.feature.videopicker.composables.MoveTargetView
 import one.only.player.feature.videopicker.composables.NoVideosFound
 import one.only.player.feature.videopicker.composables.QuickSettingsDialog
 import one.only.player.feature.videopicker.composables.RenameDialog
@@ -93,6 +102,8 @@ import top.yukonga.miuix.kmp.basic.Icon
 import top.yukonga.miuix.kmp.basic.IconButton
 import top.yukonga.miuix.kmp.basic.ListPopupColumn
 import top.yukonga.miuix.kmp.basic.ListPopupDefaults
+import top.yukonga.miuix.kmp.basic.MiuixScrollBehavior
+import top.yukonga.miuix.kmp.basic.ScrollBehavior
 import top.yukonga.miuix.kmp.basic.PopupPositionProvider
 import top.yukonga.miuix.kmp.basic.PullToRefresh
 import top.yukonga.miuix.kmp.basic.Scaffold
@@ -102,6 +113,8 @@ import top.yukonga.miuix.kmp.basic.TextButton
 import top.yukonga.miuix.kmp.basic.TextField
 import top.yukonga.miuix.kmp.basic.TopAppBar
 import top.yukonga.miuix.kmp.basic.TopAppBarDefaults
+import one.only.player.core.ui.extensions.LocalRootMenuScrimSetter
+import androidx.compose.runtime.DisposableEffect
 import top.yukonga.miuix.kmp.overlay.OverlayListPopup
 import top.yukonga.miuix.kmp.theme.MiuixTheme
 
@@ -119,8 +132,6 @@ fun MediaPickerRoute(
     onExitAppClick: () -> Unit,
     onNavigateUp: () -> Unit,
     onNavigateHome: () -> Unit,
-    onMoveSelectionStarted: () -> Unit,
-    onMoveSelectionClosed: () -> Unit,
 ) {
     val uiState by viewModel.uiState.collectAsStateWithLifecycle()
 
@@ -137,8 +148,6 @@ fun MediaPickerRoute(
         onFavoritesClick = onFavoritesClick,
         onSettingsClick = onSettingsClick,
         onExitAppClick = onExitAppClick,
-        onMoveSelectionStarted = onMoveSelectionStarted,
-        onMoveSelectionClosed = onMoveSelectionClosed,
         onEvent = viewModel::onEvent,
     )
 }
@@ -167,8 +176,6 @@ internal fun MediaPickerScreen(
     onFavoritesClick: () -> Unit = {},
     onSettingsClick: () -> Unit = {},
     onExitAppClick: () -> Unit = {},
-    onMoveSelectionStarted: () -> Unit = {},
-    onMoveSelectionClosed: () -> Unit = {},
     onEvent: (MediaPickerUiEvent) -> Unit = {},
 ) {
     val selectionManager = rememberSelectionManager()
@@ -185,6 +192,8 @@ internal fun MediaPickerScreen(
     var shouldShowMainMenu by rememberSaveable { mutableStateOf(false) }
     var shouldShowSelectionMenu by rememberSaveable { mutableStateOf(false) }
     var shouldShowUrlDialog by rememberSaveable { mutableStateOf(false) }
+    var isSearchActive by rememberSaveable { mutableStateOf(false) }
+    var searchQuery by rememberSaveable { mutableStateOf("") }
 
     var showRenameActionFor: Video? by rememberSaveable { mutableStateOf(null) }
     var showInfoActionFor: Video? by rememberSaveable { mutableStateOf(null) }
@@ -192,9 +201,8 @@ internal fun MediaPickerScreen(
     var shouldShowMoveProgressDialog by rememberSaveable { mutableStateOf(false) }
 
     val isLibraryMode = uiState.screenMode == MediaPickerScreenMode.LIBRARY
-    val isMoveMode = uiState.moveSelection != null && isLibraryMode
     val isTitleLongPressHomeNavigationEnabled = shouldEnableTitleLongPressHomeNavigation(
-        isInSelectionMode = selectionManager.isInSelectionMode || isMoveMode,
+        isInSelectionMode = selectionManager.isInSelectionMode,
         folderName = uiState.folderName,
         shouldNavigateHomeOnTitleLongPress = uiState.preferences.shouldNavigateHomeOnTitleLongPress,
     )
@@ -208,19 +216,19 @@ internal fun MediaPickerScreen(
         uiState.preferences.isRecycleBinEnabled -> MediaPickerDeleteAction.MoveToRecycleBin
         else -> MediaPickerDeleteAction.PermanentlyDelete
     }
+    // 搜索激活时拦截系统返回/手势返回，先退出本页搜索
+    BackHandler(enabled = isSearchActive) {
+        isSearchActive = false
+        searchQuery = ""
+    }
     val selectedItemsSize = selectionManager.selectedFolders.size + selectionManager.selectedVideos.size
     val totalItemsSize = (uiState.mediaDataState as? DataState.Success)?.value?.run { folderList.size + mediaList.size } ?: 0
     val recentlyPlayedVideo = (uiState.mediaDataState as? DataState.Success)?.value?.recentlyPlayedVideo
+    val isMoveMode = uiState.moveSelection != null
     val moveResult = uiState.moveResult
     val moveResultMessage = when {
         moveResult == null -> null
         moveResult.canceledCount > 0 -> stringResource(R.string.move_cancelled, moveResult.movedCount, moveResult.failedCount)
-        moveResult.partiallyMovedCount > 0 -> stringResource(
-            R.string.move_incomplete,
-            moveResult.movedCount,
-            moveResult.partiallyMovedCount,
-            moveResult.failedCount,
-        )
         moveResult.movedCount > 0 && moveResult.failedCount > 0 -> stringResource(
             R.string.move_partial_success,
             moveResult.movedCount,
@@ -237,9 +245,8 @@ internal fun MediaPickerScreen(
     }
     val canMoveToCurrentFolder = when {
         !isMoveMode -> false
+        !isLibraryMode -> false
         uiState.folderPath == null -> false
-        (uiState.moveTargetDataState as? DataState.Success)?.value?.canMoveHere != true -> false
-        uiState.moveSpaceCheck?.hasEnoughSpace != true -> false
         else -> uiState.moveSelection.canMoveTo(uiState.folderPath)
     }
     val moveProgress = uiState.moveProgress
@@ -247,61 +254,118 @@ internal fun MediaPickerScreen(
     val selectedCountTitle = stringResource(R.string.m_n_selected, selectedItemsSize, totalItemsSize)
     val topBarTitle = when {
         selectionManager.isInSelectionMode -> selectedCountTitle
-        isMoveMode -> stringResource(R.string.move)
+        isMoveMode -> stringResource(R.string.move_here)
         else -> uiState.folderName ?: stringResource(
             if (isRecycleBinMode) R.string.recycle_bin else R.string.app_name,
         )
     }
     val shouldUseLargeTopBar = !selectionManager.isInSelectionMode &&
         !isMoveMode &&
+        !isSearchActive &&
         isLibraryMode &&
         uiState.folderName == null
+    val scrollBehavior = MiuixScrollBehavior()
+    val filteredMediaDataState = remember(uiState.mediaDataState, searchQuery, isSearchActive) {
+        if (!isSearchActive || searchQuery.isBlank()) {
+            uiState.mediaDataState
+        } else {
+            when (val state = uiState.mediaDataState) {
+                is DataState.Success -> {
+                    val folder = state.value
+                    if (folder == null) {
+                        state
+                    } else {
+                        DataState.Success(folder.filterByQuery(searchQuery))
+                    }
+                }
+                else -> state
+            }
+        }
+    }
 
     Scaffold(
         topBar = {
-            MediaPickerTopAppBar(
-                title = topBarTitle,
-                shouldUseLargeTitle = shouldUseLargeTopBar,
-                largeTitlePadding = TopAppBarDefaults.TitlePadding,
-                smallTitlePadding = 16.dp,
-                isTitleLongPressHomeNavigationEnabled = isTitleLongPressHomeNavigationEnabled,
-                onTitleLongPress = onNavigateHome,
-                navigationIcon = {
-                    if (selectionManager.isInSelectionMode) {
-                        IconButton(
-                            onClick = { selectionManager.exitSelectionMode() },
-                            modifier = Modifier
-                                .padding(start = 12.dp)
-                                .testTag("btn_selection_exit"),
-                        ) {
-                            Icon(
-                                imageVector = NextIcons.Close,
-                                contentDescription = stringResource(id = R.string.navigate_up),
-                                tint = MiuixTheme.colorScheme.onBackground,
-                            )
-                        }
-                    } else if (uiState.folderName != null || isRecycleBinMode) {
-                        IconButton(
-                            onClick = onNavigateUp,
-                            modifier = Modifier
-                                .padding(start = 12.dp)
-                                .testTag("btn_media_picker_back"),
-                        ) {
-                            Icon(
-                                imageVector = NextIcons.ArrowBack,
-                                contentDescription = stringResource(id = R.string.navigate_up),
-                                tint = MiuixTheme.colorScheme.onBackground,
-                            )
-                        }
+            AnimatedContent(
+                targetState = isSearchActive && !selectionManager.isInSelectionMode && !isMoveMode,
+                transitionSpec = {
+                    // 与设置页搜索框进出动画一致：淡入淡出 + 轻微纵向滑动
+                    if (targetState) {
+                        (fadeIn() + slideInVertically { -it / 4 }) togetherWith
+                            (fadeOut() + slideOutVertically { -it / 6 })
+                    } else {
+                        (fadeIn() + slideInVertically { -it / 6 }) togetherWith
+                            (fadeOut() + slideOutVertically { -it / 4 })
                     }
                 },
-                actions = {
-                    if (isMoveMode) {
-                        IconButton(
+                label = "media_picker_top_bar",
+            ) { searching ->
+            if (searching) {
+                NextSearchTopAppBar(
+                    query = searchQuery,
+                    placeholder = stringResource(R.string.search_videos_and_folders),
+                    searchFieldTestTag = "input_media_picker_search_query",
+                    clearButtonTestTag = "btn_media_picker_search_clear",
+                    closeButtonTestTag = "btn_media_picker_search_close",
+                    onQueryChange = { searchQuery = it },
+                    onClose = {
+                        isSearchActive = false
+                        searchQuery = ""
+                    },
+                )
+            } else {
+                MediaPickerTopAppBar(
+                    title = topBarTitle,
+                    shouldUseLargeTitle = shouldUseLargeTopBar,
+                    largeTitlePadding = TopAppBarDefaults.TitlePadding,
+                    smallTitlePadding = 16.dp,
+                    isTitleLongPressHomeNavigationEnabled = isTitleLongPressHomeNavigationEnabled,
+                    onTitleLongPress = onNavigateHome,
+                    scrollBehavior = if (shouldUseLargeTopBar) scrollBehavior else null,
+                    navigationIcon = {
+                        if (selectionManager.isInSelectionMode) {
+                            IconButton(
+                                onClick = { selectionManager.exitSelectionMode() },
+                                modifier = Modifier
+                                    .padding(start = 12.dp)
+                                    .testTag("btn_selection_exit"),
+                            ) {
+                                Icon(
+                                    imageVector = NextIcons.Close,
+                                    contentDescription = stringResource(id = R.string.navigate_up),
+                                    tint = MiuixTheme.colorScheme.onBackground,
+                                )
+                            }
+                        } else if (uiState.folderName != null || isRecycleBinMode) {
+                            IconButton(
+                                onClick = onNavigateUp,
+                                modifier = Modifier
+                                    .padding(start = 12.dp)
+                                    .testTag("btn_media_picker_back"),
+                            ) {
+                                Icon(
+                                    imageVector = NextIcons.ArrowBack,
+                                    contentDescription = stringResource(id = R.string.navigate_up),
+                                    tint = MiuixTheme.colorScheme.onBackground,
+                                )
+                            }
+                        }
+                    },
+                    actions = {
+                        if (isMoveMode) {
+                        TextButton(
+                            text = stringResource(
+                                if (uiState.isMovingSelection) R.string.moving else R.string.move_here,
+                            ),
                             onClick = {
-                                onEvent(MediaPickerUiEvent.CancelMoveSelection)
-                                onMoveSelectionClosed()
+                                uiState.folderPath?.let { folderPath ->
+                                    onEvent(MediaPickerUiEvent.MoveSelectionToFolder(folderPath))
+                                }
                             },
+                            enabled = canMoveToCurrentFolder && !uiState.isMovingSelection,
+                            modifier = Modifier.testTag("btn_move_here"),
+                        )
+                        IconButton(
+                            onClick = { onEvent(MediaPickerUiEvent.CancelMoveSelection) },
                             enabled = !uiState.isMovingSelection,
                             modifier = Modifier.testTag("btn_cancel_move"),
                         ) {
@@ -385,7 +449,6 @@ internal fun MediaPickerScreen(
                                         ),
                                     )
                                     selectionManager.exitSelectionMode()
-                                    onMoveSelectionStarted()
                                 },
                                 onFavoriteAction = {
                                     shouldShowSelectionMenu = false
@@ -423,7 +486,10 @@ internal fun MediaPickerScreen(
                     } else {
                         if (isLibraryMode) {
                             IconButton(
-                                onClick = onSearchClick,
+                                onClick = {
+                                    // 本页展开搜索；保留 onSearchClick 供外部调试入口
+                                    isSearchActive = true
+                                },
                                 modifier = Modifier.testTag("btn_media_picker_search"),
                             ) {
                                 Icon(
@@ -483,9 +549,13 @@ internal fun MediaPickerScreen(
                                             onPlayVideo(video, uiState.playerPreferences)
                                         }
                                     },
-                                    onExit = {
-                                        shouldShowMainMenu = false
-                                        onExitAppClick()
+                                    onExit = if (uiState.folderName == null && !isRecycleBinMode) {
+                                        {
+                                            shouldShowMainMenu = false
+                                            onExitAppClick()
+                                        }
+                                    } else {
+                                        null
                                     },
                                 )
                             }
@@ -493,18 +563,29 @@ internal fun MediaPickerScreen(
                     }
                 },
             )
+            }
+            }
         },
         contentWindowInsets = WindowInsets.displayCutout,
+        containerColor = MiuixTheme.colorScheme.background,
     ) { scaffoldPadding ->
         Column(
             modifier = Modifier
                 .fillMaxSize()
+                .then(
+                    if (shouldUseLargeTopBar) {
+                        Modifier.nestedScroll(scrollBehavior.nestedScrollConnection)
+                    } else {
+                        Modifier
+                    },
+                )
                 .padding(top = scaffoldPadding.calculateTopPadding())
                 .padding(start = scaffoldPadding.calculateStartPadding(LocalLayoutDirection.current)),
         ) {
             Box(
                 modifier = Modifier
-                    .fillMaxSize(),
+                    .fillMaxSize()
+                    .background(MiuixTheme.colorScheme.background),
             ) {
                 PermissionMissingView(
                     isGranted = permissionState.isGranted,
@@ -512,62 +593,54 @@ internal fun MediaPickerScreen(
                     permission = permissionState.permission,
                     launchPermissionRequest = { permissionState.launchPermissionRequest() },
                 ) {
-                    val activeDataState = if (isMoveMode) uiState.moveTargetDataState else uiState.mediaDataState
-                    val shouldShowRefreshIndicator = uiState.isRefreshing
+                    val shouldShowRefreshIndicator = uiState.isRefreshing ||
+                        filteredMediaDataState is DataState.Loading
                     val updatedScaffoldPadding = scaffoldPadding.copy(top = 0.dp, start = 0.dp).withBottomFallback()
                     val refreshTexts = rememberPullToRefreshTexts()
                     PullToRefresh(
                         modifier = Modifier.fillMaxSize(),
-                        isRefreshing = shouldShowRefreshIndicator,
+                        isRefreshing = shouldShowRefreshIndicator && !isSearchActive,
                         onRefresh = { onEvent(MediaPickerUiEvent.Refresh) },
                         refreshTexts = refreshTexts,
+                        // 与大标题折叠联动：顶部先展开 title，再触发刷新，避免手势冲突
+                        topAppBarScrollBehavior = if (shouldUseLargeTopBar) scrollBehavior else null,
                     ) {
-                        when (activeDataState) {
-                            DataState.Loading -> Box(modifier = Modifier.fillMaxSize()) {
-                                CircularProgressIndicator(
+                        when (filteredMediaDataState) {
+                            DataState.Loading -> {
+                                Box(modifier = Modifier.fillMaxSize())
+                            }
+
+                            is DataState.Error -> {
+                                Box(
                                     modifier = Modifier
-                                        .align(Alignment.Center)
-                                        .testTag("media_picker_loading"),
-                                )
+                                        .fillMaxSize()
+                                        .background(MiuixTheme.colorScheme.background),
+                                ) {
+                                    Text(
+                                        text = stringResource(id = R.string.unknown_error),
+                                        modifier = Modifier.padding(16.dp),
+                                    )
+                                }
                             }
-                            is DataState.Error -> Box(
-                                modifier = Modifier.fillMaxSize(),
-                            ) {
-                                Text(
-                                    text = stringResource(id = R.string.unknown_error),
-                                    modifier = Modifier.padding(16.dp),
-                                )
-                            }
-                            is DataState.Success -> if (isMoveMode) {
-                                val moveTargetContent = (uiState.moveTargetDataState as DataState.Success).value
-                                MoveTargetView(
-                                    content = moveTargetContent,
-                                    spaceCheck = uiState.moveSpaceCheck,
-                                    canMoveHere = canMoveToCurrentFolder,
-                                    isMoving = uiState.isMovingSelection,
-                                    contentPadding = updatedScaffoldPadding,
-                                    onDirectoryClick = { directory ->
-                                        onFolderClick(directory.path, MediaPickerScreenMode.LIBRARY)
-                                    },
-                                    onMoveHere = {
-                                        uiState.folderPath?.let { folderPath ->
-                                            onEvent(MediaPickerUiEvent.MoveSelectionToFolder(folderPath))
-                                        }
-                                    },
-                                )
-                            } else {
-                                val rootFolder = (uiState.mediaDataState as DataState.Success).value
+
+                            is DataState.Success -> {
+                                val rootFolder = filteredMediaDataState.value
                                 if (rootFolder == null || rootFolder.folderList.isEmpty() && rootFolder.mediaList.isEmpty()) {
                                     NoVideosFound(contentPadding = updatedScaffoldPadding)
                                 } else {
                                     MediaView(
                                         rootFolder = rootFolder,
                                         preferences = uiState.preferences,
+                                        // 搜索时强制显示文件夹/视频分区，便于同时展示两类结果
+                                        shouldShowHeaders = isSearchActive ||
+                                            uiState.preferences.mediaViewMode == MediaViewMode.FOLDER_TREE,
                                         onFolderClick = {
                                             onEvent(MediaPickerUiEvent.CacheFolderSnapshot(it))
                                             onFolderClick(it.path, uiState.screenMode)
                                         },
-                                        onVideoClick = { video -> onPlayVideo(video, uiState.playerPreferences) },
+                                        onVideoClick = { video ->
+                                            if (!isMoveMode) onPlayVideo(video, uiState.playerPreferences)
+                                        },
                                         selectionManager = selectionManager,
                                         lazyGridState = lazyGridState,
                                         contentPadding = updatedScaffoldPadding,
@@ -579,6 +652,24 @@ internal fun MediaPickerScreen(
                     }
                 }
 
+                // 主页根目录 + 有近期播放的子文件夹：右下角近期播放。
+                // 底边 inset 经 LocalRootBottomBarPadding 始终按「有 tab」预留，文件夹与主页同高。
+                val shouldShowRecentlyPlayedFab = recentlyPlayedVideo != null &&
+                    !isRecycleBinMode &&
+                    !selectionManager.isInSelectionMode &&
+                    !isMoveMode &&
+                    !isSearchActive
+                if (shouldShowRecentlyPlayedFab && recentlyPlayedVideo != null) {
+                    RecentlyPlayedFab(
+                        onClick = { onPlayVideo(recentlyPlayedVideo, uiState.playerPreferences) },
+                        modifier = Modifier
+                            .align(Alignment.BottomEnd)
+                            .padding(scaffoldPadding.withBottomFallback())
+                            // 相对 203 再下移 15dp（16 → 1），主页/文件夹仍同高
+                            .padding(end = 21.dp, bottom = 1.dp)
+                            .testTag("btn_recently_played_fab"),
+                    )
+                }
                 if (moveProgress != null) {
                     MoveProgressButton(
                         progress = moveProgress.completedCount.toFloat() / moveProgress.totalCount.coerceAtLeast(1),
@@ -597,7 +688,6 @@ internal fun MediaPickerScreen(
         val message = moveResultMessage ?: return@LaunchedEffect
         Toast.makeText(context, message, Toast.LENGTH_SHORT).show()
         onEvent(MediaPickerUiEvent.ClearMoveResult)
-        if (uiState.moveSelection == null) onMoveSelectionClosed()
     }
 
     LaunchedEffect(moveProgress != null) {
@@ -610,36 +700,19 @@ internal fun MediaPickerScreen(
         onEvent(MediaPickerUiEvent.ClearDeleteResult)
     }
 
-    LaunchedEffect(uiState.folderPath) {
+    // 进入文件夹时滚到顶部一次。勿把 mediaDataState 当 key：刷新/同步会反复 Success 把列表拽回顶。
+    var lastTopScrollFolderPath by rememberSaveable { mutableStateOf<String?>(null) }
+    LaunchedEffect(uiState.folderPath, uiState.mediaDataState) {
         restoredPlaybackAnchor = null
-    }
-
-    LaunchedEffect(
-        uiState.folderPath,
-        uiState.preferences.shouldRestoreLastPlayedMediaInFolders,
-        uiState.mediaDataState,
-    ) {
-        if (!uiState.preferences.shouldRestoreLastPlayedMediaInFolders) return@LaunchedEffect
-        val folderPath = uiState.folderPath ?: return@LaunchedEffect
-        val rootFolder = (uiState.mediaDataState as? DataState.Success)?.value ?: return@LaunchedEffect
-        val playbackAnchor = uiState.preferences.localFolderLastPlayedMediaUris[folderPath]
-        val recentlyPlayedVideo = rootFolder.recentlyPlayedVideo ?: return@LaunchedEffect
-        val restoreToken = playbackAnchor ?: recentlyPlayedVideo.uriString
-        if (restoredPlaybackAnchor == restoreToken) return@LaunchedEffect
-        val scrollIndex = resolveRestoreScrollIndex(
-            rootFolder = rootFolder,
-            mediaViewMode = uiState.preferences.mediaViewMode,
-            lastPlayedMediaUri = playbackAnchor,
-            recentlyPlayedVideo = recentlyPlayedVideo,
-        ) ?: return@LaunchedEffect
-
-        Logger.debug(
-            TAG,
-            "Restore last played media: mode=${uiState.preferences.mediaViewMode}, index=$scrollIndex, " +
-                "folders=${rootFolder.folderList.size}, videos=${rootFolder.mediaList.size}",
-        )
-        lazyGridState.scrollToItem(scrollIndex)
-        restoredPlaybackAnchor = restoreToken
+        val folderPath = uiState.folderPath
+        if (folderPath == null) {
+            lastTopScrollFolderPath = null
+            return@LaunchedEffect
+        }
+        if (uiState.mediaDataState !is DataState.Success) return@LaunchedEffect
+        if (lastTopScrollFolderPath == folderPath) return@LaunchedEffect
+        lazyGridState.scrollToItem(0)
+        lastTopScrollFolderPath = folderPath
     }
 
     LaunchedEffect(selectionManager.isInSelectionMode, isMoveMode) {
@@ -652,13 +725,6 @@ internal fun MediaPickerScreen(
 
     BackHandler(enabled = selectionManager.isInSelectionMode) {
         selectionManager.exitSelectionMode()
-    }
-
-    BackHandler(
-        enabled = isMoveMode && uiState.folderPath == null && !uiState.isMovingSelection,
-    ) {
-        onEvent(MediaPickerUiEvent.CancelMoveSelection)
-        onMoveSelectionClosed()
     }
 
     if (shouldShowQuickSettingsDialog) {
@@ -729,6 +795,7 @@ internal fun MediaPickerScreen(
     }
 }
 
+
 @Composable
 private fun MediaPickerTopAppBar(
     title: String,
@@ -737,6 +804,7 @@ private fun MediaPickerTopAppBar(
     smallTitlePadding: Dp,
     isTitleLongPressHomeNavigationEnabled: Boolean,
     onTitleLongPress: () -> Unit,
+    scrollBehavior: ScrollBehavior? = null,
     navigationIcon: @Composable () -> Unit,
     actions: @Composable RowScope.() -> Unit,
 ) {
@@ -746,6 +814,7 @@ private fun MediaPickerTopAppBar(
             titlePadding = largeTitlePadding,
             navigationIcon = navigationIcon,
             actions = actions,
+            scrollBehavior = scrollBehavior,
         )
         return
     }
@@ -757,6 +826,34 @@ private fun MediaPickerTopAppBar(
         onTitleLongPress = onTitleLongPress,
         navigationIcon = navigationIcon,
         actions = actions,
+    )
+}
+
+private fun Folder.filterByQuery(query: String): Folder {
+    val needle = query.trim()
+    if (needle.isEmpty()) return this
+
+    fun Video.matchesQuery(): Boolean =
+        displayName.contains(needle, ignoreCase = true) ||
+            nameWithExtension.contains(needle, ignoreCase = true) ||
+            path.contains(needle, ignoreCase = true)
+
+    fun Folder.matchesQuery(): Boolean =
+        name.contains(needle, ignoreCase = true) ||
+            path.contains(needle, ignoreCase = true)
+
+    // 文件夹模式根页 mediaList 为空，视频在子文件夹里；搜索时同时匹配文件夹名与全量子视频
+    val matchingFolders = folderList.filter { it.matchesQuery() }
+    val matchingVideosInFolders = folderList
+        .flatMap { it.allMediaList }
+        .filter { it.matchesQuery() }
+    val matchingRootVideos = mediaList.filter { it.matchesQuery() }
+    val matchingVideos = (matchingRootVideos + matchingVideosInFolders)
+        .distinctBy { it.uriString }
+
+    return copy(
+        folderList = matchingFolders,
+        mediaList = matchingVideos,
     )
 }
 
@@ -838,6 +935,32 @@ private fun MoveProgressButton(
             modifier = Modifier.size(26.dp),
             strokeWidth = 3.dp,
         )
+    }
+}
+
+/** 主页近期播放悬浮按钮：主题色圆形底 + 播放图标，贴 tab 上方右下角。 */
+@Composable
+private fun RecentlyPlayedFab(
+    onClick: () -> Unit,
+    modifier: Modifier = Modifier,
+) {
+    Surface(
+        modifier = modifier.size(56.dp),
+        shape = androidx.compose.foundation.shape.CircleShape,
+        color = MiuixTheme.colorScheme.primary,
+        onClick = onClick,
+    ) {
+        Box(
+            modifier = Modifier.fillMaxSize(),
+            contentAlignment = Alignment.Center,
+        ) {
+            Icon(
+                imageVector = NextIcons.Play,
+                contentDescription = stringResource(id = R.string.recently_played),
+                tint = MiuixTheme.colorScheme.onPrimary,
+                modifier = Modifier.size(28.dp),
+            )
+        }
     }
 }
 
@@ -933,22 +1056,27 @@ private fun DeleteConfirmationDialog(
 ) {
     NextDialog(
         onDismissRequest = onCancel,
-        title = if (deleteAction == MediaPickerDeleteAction.MoveToRecycleBin) {
-            stringResource(R.string.move_to_recycle_bin)
-        } else {
-            when {
-                selectedVideos.isEmpty() -> when (selectedFolders.size) {
-                    1 -> stringResource(R.string.delete_one_folder)
-                    else -> stringResource(R.string.delete_folders, selectedFolders.size)
-                }
+        title = {
+            Text(
+                text = if (deleteAction == MediaPickerDeleteAction.MoveToRecycleBin) {
+                    stringResource(R.string.move_to_recycle_bin)
+                } else {
+                    when {
+                        selectedVideos.isEmpty() -> when (selectedFolders.size) {
+                            1 -> stringResource(R.string.delete_one_folder)
+                            else -> stringResource(R.string.delete_folders, selectedFolders.size)
+                        }
 
-                selectedFolders.isEmpty() -> when (selectedVideos.size) {
-                    1 -> stringResource(R.string.delete_one_video)
-                    else -> stringResource(R.string.delete_videos, selectedVideos.size)
-                }
+                        selectedFolders.isEmpty() -> when (selectedVideos.size) {
+                            1 -> stringResource(R.string.delete_one_video)
+                            else -> stringResource(R.string.delete_videos, selectedVideos.size)
+                        }
 
-                else -> stringResource(R.string.delete_items, selectedFolders.size + selectedVideos.size)
-            }
+                        else -> stringResource(R.string.delete_items, selectedFolders.size + selectedVideos.size)
+                    }
+                },
+                modifier = Modifier.fillMaxWidth(),
+            )
         },
         confirmButton = {
             TextButton(
@@ -1167,15 +1295,28 @@ private fun MainMenuPopup(
     onOpenNetworkStream: () -> Unit,
     onOpenLocalVideo: () -> Unit,
     onOpenRecentlyPlayed: (() -> Unit)?,
-    onExit: () -> Unit,
+    onExit: (() -> Unit)?,
 ) {
+    // 同步全局遮罩：普通（非悬浮）tab 栏也能变暗
+    val setRootMenuScrim = LocalRootMenuScrimSetter.current
+    DisposableEffect(expanded) {
+        setRootMenuScrim(expanded)
+        onDispose { setRootMenuScrim(false) }
+    }
     OverlayListPopup(
         show = expanded,
+        // 右侧略留白即可，避免贴边也不要留白过大
+        popupModifier = Modifier.padding(end = 10.dp),
         popupPositionProvider = ListPopupDefaults.DropdownPositionProvider,
         alignment = PopupPositionProvider.Align.TopEnd,
+        // 窗口级遮罩：悬浮导航栏会被盖住；普通 tab 另有 RootScaffold 全局遮罩
+        enableWindowDim = true,
+        renderInRootScaffold = true,
         onDismissRequest = onDismissRequest,
     ) {
         ListPopupColumn {
+            // 顶部/底部留白加大
+            Spacer(modifier = Modifier.height(10.dp))
             PopupMenuItem(
                 text = stringResource(id = R.string.open_network_stream),
                 icon = NextIcons.Link,
@@ -1196,16 +1337,15 @@ private fun MainMenuPopup(
                     onClick = onOpenRecentlyPlayed,
                 )
             }
-            HorizontalDivider(
-                modifier = Modifier.padding(horizontal = 20.dp, vertical = 4.dp),
-                thickness = 1.dp,
-            )
-            PopupMenuItem(
-                text = stringResource(id = R.string.exit),
-                icon = NextIcons.Close,
-                testTag = "item_main_menu_exit_app",
-                onClick = onExit,
-            )
+            if (onExit != null) {
+                PopupMenuItem(
+                    text = stringResource(id = R.string.exit),
+                    icon = NextIcons.Close,
+                    testTag = "item_main_menu_exit_app",
+                    onClick = onExit,
+                )
+            }
+            Spacer(modifier = Modifier.height(10.dp))
         }
     }
 }
@@ -1228,10 +1368,11 @@ private fun PopupMenuItem(
         modifier = Modifier
             .fillMaxWidth()
             .clickable(onClick = onClick)
-            .padding(horizontal = 20.dp, vertical = 12.dp)
+            // 上下加高，右侧内边距略减
+            .padding(start = 16.dp, end = 12.dp, top = 15.dp, bottom = 15.dp)
             .testTag(testTag),
         verticalAlignment = Alignment.CenterVertically,
-        horizontalArrangement = Arrangement.spacedBy(14.dp),
+        horizontalArrangement = Arrangement.spacedBy(12.dp),
     ) {
         Icon(
             imageVector = icon,
