@@ -503,7 +503,13 @@ internal fun MediaPickerScreen(
         Column(
             modifier = Modifier
                 .fillMaxSize()
-                .nestedScroll(scrollBehavior.nestedScrollConnection)
+                .then(
+                    if (shouldUseLargeTopBar) {
+                        Modifier.nestedScroll(scrollBehavior.nestedScrollConnection)
+                    } else {
+                        Modifier
+                    },
+                )
                 .padding(top = scaffoldPadding.calculateTopPadding())
                 .padding(start = scaffoldPadding.calculateStartPadding(LocalLayoutDirection.current)),
         ) {
