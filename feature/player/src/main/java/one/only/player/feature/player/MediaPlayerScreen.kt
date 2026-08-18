@@ -1217,6 +1217,7 @@ internal fun MediaPlayerScreen(
                                             if (isCustomizingControls) {
                                                 toggleControlVisibility(PlayerControl.SCALE)
                                             } else {
+                                                controlsVisibilityState.showControls()
                                                 videoZoomAndContentScaleState.switchToNextVideoContentScale()
                                             }
                                         },
@@ -1473,6 +1474,7 @@ internal fun MediaPlayerScreen(
                                             if (isCustomizingControls) {
                                                 toggleControlVisibility(PlayerControl.SCALE)
                                             } else {
+                                                controlsVisibilityState.showControls()
                                                 videoZoomAndContentScaleState.switchToNextVideoContentScale()
                                             }
                                         },
