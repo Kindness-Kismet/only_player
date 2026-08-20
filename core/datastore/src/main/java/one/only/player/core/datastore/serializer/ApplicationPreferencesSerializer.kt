@@ -2,15 +2,18 @@ package one.only.player.core.datastore.serializer
 
 import androidx.datastore.core.CorruptionException
 import androidx.datastore.core.Serializer
+import java.io.File
 import java.io.InputStream
 import java.io.OutputStream
 import kotlinx.serialization.SerializationException
 import kotlinx.serialization.json.Json
 import kotlinx.serialization.json.jsonObject
+import one.only.player.core.common.Logger
 import one.only.player.core.model.ApplicationPreferences
 
 object ApplicationPreferencesSerializer : Serializer<ApplicationPreferences> {
 
+    private const val TAG = "ApplicationPreferencesSerializer"
     private val jsonFormat = Json { ignoreUnknownKeys = true }
     private val legacyKeys = setOf(
         "ignoreNoMediaFiles",
@@ -28,9 +31,23 @@ object ApplicationPreferencesSerializer : Serializer<ApplicationPreferences> {
     override val defaultValue: ApplicationPreferences
         get() = ApplicationPreferences()
 
-    override suspend fun readFrom(input: InputStream): ApplicationPreferences {
-        val serializedPreferences = input.readBytes().decodeToString()
+    override suspend fun readFrom(input: InputStream): ApplicationPreferences =
+        decode(input.readBytes().decodeToString())
 
+    fun readFromFile(file: File): ApplicationPreferences {
+        if (!file.exists()) return defaultValue
+
+        return try {
+            file.inputStream().use { input ->
+                decode(input.readBytes().decodeToString())
+            }
+        } catch (exception: Exception) {
+            Logger.error(TAG, "Failed to bootstrap app preferences: $exception")
+            defaultValue
+        }
+    }
+
+    private fun decode(serializedPreferences: String): ApplicationPreferences {
         if (serializedPreferences.containsLegacyApplicationPreferences()) {
             throw CorruptionException(
                 message = "Cannot read datastore",
@@ -38,8 +55,8 @@ object ApplicationPreferencesSerializer : Serializer<ApplicationPreferences> {
             )
         }
 
-        try {
-            return jsonFormat.decodeFromString(
+        return try {
+            jsonFormat.decodeFromString(
                 deserializer = ApplicationPreferences.serializer(),
                 string = serializedPreferences,
             )
