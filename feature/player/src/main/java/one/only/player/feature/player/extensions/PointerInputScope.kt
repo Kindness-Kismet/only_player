@@ -140,7 +140,8 @@ suspend fun PointerInputScope.detectCustomHorizontalDragGestures(
             overSlop = over
         }
         if (drag != null && currentEvent.changes.count { it.pressed } == 1) {
-            onDragStart.invoke(drag.position)
+            // Preserve the initial origin so absolute drag consumers include the touch slop distance.
+            onDragStart.invoke(down.position)
             onHorizontalDrag(drag, overSlop)
             if (
                 horizontalDrag(drag.id) {
