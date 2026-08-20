@@ -122,7 +122,7 @@ fun PlayerGestures(
                             onDragStart = {
                                 if (tapGestureState.isLongPressGestureCaptured) return@detectCustomHorizontalDragGestures
                                 val wasControlsVisible = controlsVisibilityState.isControlsVisible
-                                seekGestureState.onDragStart(it)
+                                seekGestureState.onDragStart()
                                 shouldRestoreControlsAutoHideAfterSeek = wasControlsVisible && seekGestureState.isSeeking
                                 if (shouldRestoreControlsAutoHideAfterSeek) {
                                     controlsVisibilityState.showControls(duration = Duration.INFINITE)
@@ -133,7 +133,11 @@ fun PlayerGestures(
                                     change.consume()
                                     return@detectCustomHorizontalDragGestures
                                 }
-                                seekGestureState.onDrag(change, dragAmount)
+                                seekGestureState.onDrag(
+                                    change = change,
+                                    dragAmount = dragAmount,
+                                    hysteresisPx = viewConfiguration.touchSlop * SEEK_PREVIEW_HYSTERESIS_FRACTION,
+                                )
                             },
                             onDragCancel = {
                                 try {
@@ -292,6 +296,7 @@ private const val CHAPTER_SWIPE_DIRECTION_RATIO = 1.5f
 private const val CHAPTER_SWIPE_MAX_SCALE_DELTA = 0.06f
 private const val CHAPTER_SWIPE_MAX_ROTATION_DEGREES = 8f
 private const val CHAPTER_SWIPE_MAX_ACTIVE_ZOOM = 1.02f
+private const val SEEK_PREVIEW_HYSTERESIS_FRACTION = 0.05f
 
 enum class ChapterSwipeDirection {
     PREVIOUS,

@@ -13,6 +13,8 @@ import androidx.core.net.toUri
 import coil3.ImageLoader
 import dagger.hilt.android.qualifiers.ApplicationContext
 import java.io.File
+import java.nio.file.Files
+import java.util.Locale
 import javax.inject.Inject
 import kotlin.math.absoluteValue
 import kotlinx.coroutines.CoroutineDispatcher
@@ -71,6 +73,23 @@ private fun String.isInsideScanFolders(scanFolderPaths: List<String>): Boolean {
     return scanFolderPaths.any { scanFolder ->
         this == scanFolder || startsWith("$scanFolder/")
     }
+}
+
+private fun List<MediaVideo>.distinctByEquivalentPath(): List<MediaVideo> {
+    val pathsByCaseFoldedPath = mutableMapOf<String, MutableList<String>>()
+    return filter { mediaVideo ->
+        val path = mediaVideo.data.canonicalPathOrSelf()
+        val equivalentPaths = pathsByCaseFoldedPath.getOrPut(path.lowercase(Locale.ROOT)) { mutableListOf() }
+        if (equivalentPaths.any { existingPath -> existingPath.isSameFileAs(path) }) return@filter false
+
+        equivalentPaths += path
+        true
+    }
+}
+
+private fun String.isSameFileAs(other: String): Boolean {
+    if (this == other) return true
+    return runCatching { Files.isSameFile(File(this).toPath(), File(other).toPath()) }.getOrDefault(false)
 }
 
 private data class AutomaticMediaSyncSettings(
@@ -418,7 +437,7 @@ class LocalMediaSynchronizer @Inject constructor(
             .map { it.toBasicMediaVideo() }
             .toList()
         val media = (mediaStoreVideos + manualVideos)
-            .distinctBy { mediaVideo -> mediaVideo.data.canonicalPathOrSelf() }
+            .distinctByEquivalentPath()
             .filter { mediaVideo -> mediaVideo.data.canonicalPathOrSelf().isInsideScanFolders(scanFolderPaths) }
 
         val existingMedia = mediumDao.getAll().first()
@@ -590,7 +609,7 @@ class LocalMediaSynchronizer @Inject constructor(
         )
         if (!shouldIgnoreNoMediaFiles || !hasAllFilesAccess) {
             return@withContext combinedVisibleMedia
-                .distinctBy { mediaVideo -> mediaVideo.data.canonicalPathOrSelf() }
+                .distinctByEquivalentPath()
                 .sortedBy(MediaVideo::data)
         }
 
@@ -599,13 +618,13 @@ class LocalMediaSynchronizer @Inject constructor(
         }
         if (noMediaVideos.isEmpty()) {
             return@withContext combinedVisibleMedia
-                .distinctBy(MediaVideo::data)
+                .distinctByEquivalentPath()
                 .sortedBy(MediaVideo::data)
         }
 
         Logger.info(TAG, "Found ${noMediaVideos.size} videos inside .nomedia directories")
         return@withContext (combinedVisibleMedia + noMediaVideos)
-            .distinctBy { mediaVideo -> mediaVideo.data.canonicalPathOrSelf() }
+            .distinctByEquivalentPath()
             .sortedBy(MediaVideo::data)
     }
 

@@ -1,5 +1,9 @@
 package one.only.player.feature.player.ui.controls
 
+import androidx.compose.animation.core.Spring
+import androidx.compose.animation.core.animateFloatAsState
+import androidx.compose.animation.core.snap
+import androidx.compose.animation.core.spring
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.layout.Arrangement
@@ -23,8 +27,11 @@ import androidx.compose.material3.Slider
 import androidx.compose.material3.SliderDefaults
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.CompositionLocalProvider
+import androidx.compose.runtime.SideEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.rememberUpdatedState
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
@@ -57,6 +64,7 @@ internal fun ControlsBottomModernView(
     modifier: Modifier = Modifier,
     mediaPresentationState: MediaPresentationState,
     pendingSeekPosition: Long?,
+    shouldAnimateSeekPreview: Boolean,
     isPlaying: Boolean,
     hasPrevious: Boolean,
     hasNext: Boolean,
@@ -89,6 +97,7 @@ internal fun ControlsBottomModernView(
             ),
             position = displayedPosition.toFloat(),
             duration = mediaPresentationState.duration.toFloat(),
+            shouldAnimatePosition = shouldAnimateSeekPreview,
             onSeek = {
                 controlsVisibilityState?.showControls()
                 onSeek(it.toLong())
@@ -177,14 +186,38 @@ private fun ModernSeekbar(
     modifier: Modifier = Modifier,
     position: Float,
     duration: Float,
+    shouldAnimatePosition: Boolean,
     onSeek: (Float) -> Unit,
     onSeekFinished: () -> Unit,
 ) {
     val accentColor = MaterialTheme.colorScheme.primary
+    val targetPosition = position.coerceIn(0f, duration.coerceAtLeast(0f))
+    var continueAnimatingAfterRelease by remember { mutableStateOf(false) }
+    val currentShouldAnimatePosition = rememberUpdatedState(shouldAnimatePosition)
+    SideEffect {
+        if (shouldAnimatePosition) continueAnimatingAfterRelease = true
+    }
+    val usePreviewAnimation = shouldAnimatePosition || continueAnimatingAfterRelease
+    val displayedPosition by animateFloatAsState(
+        targetValue = targetPosition,
+        animationSpec = if (usePreviewAnimation) {
+            spring(
+                dampingRatio = Spring.DampingRatioNoBouncy,
+                stiffness = Spring.StiffnessMedium,
+                visibilityThreshold = 1f,
+            )
+        } else {
+            snap()
+        },
+        label = "seekPreviewPosition",
+        finishedListener = {
+            if (!currentShouldAnimatePosition.value) continueAnimatingAfterRelease = false
+        },
+    )
     CompositionLocalProvider(LocalLayoutDirection provides LayoutDirection.Ltr) {
         Slider(
             modifier = modifier.fillMaxWidth(),
-            value = position.coerceIn(0f, duration.coerceAtLeast(0f)),
+            value = displayedPosition,
             valueRange = 0f..duration.coerceAtLeast(0f),
             onValueChange = onSeek,
             onValueChangeFinished = onSeekFinished,

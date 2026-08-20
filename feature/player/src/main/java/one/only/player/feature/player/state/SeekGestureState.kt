@@ -6,8 +6,8 @@ import androidx.compose.runtime.Stable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.rememberUpdatedState
 import androidx.compose.runtime.setValue
-import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.input.pointer.PointerInputChange
 import androidx.media3.common.C
 import androidx.media3.common.Player
@@ -25,12 +25,15 @@ fun rememberSeekGestureState(
     player: Player,
     sensitivity: Float = 0.5f,
     isSeekGestureEnabled: Boolean,
+    onSeekCommitted: (Long) -> Unit = {},
 ): SeekGestureState {
-    val seekGestureState = remember {
+    val currentOnSeekCommitted = rememberUpdatedState(onSeekCommitted)
+    val seekGestureState = remember(player, sensitivity, isSeekGestureEnabled) {
         SeekGestureState(
             player = player,
             sensitivity = sensitivity,
             isSeekGestureEnabled = isSeekGestureEnabled,
+            onSeekCommitted = { position -> currentOnSeekCommitted.value(position) },
         )
     }
     return seekGestureState
@@ -41,6 +44,7 @@ class SeekGestureState(
     private val player: Player,
     private val isSeekGestureEnabled: Boolean = true,
     private val sensitivity: Float = 0.5f,
+    private val onSeekCommitted: (Long) -> Unit = {},
 ) {
     var isSeeking: Boolean by mutableStateOf(false)
         private set
@@ -54,7 +58,10 @@ class SeekGestureState(
     var pendingSeekPosition: Long? by mutableStateOf(null)
         private set
 
-    private var seekStartX = 0f
+    var shouldAnimatePreview: Boolean by mutableStateOf(false)
+        private set
+
+    private val dragStabilizer = SeekDragStabilizer()
 
     fun onSeek(value: Long) {
         val duration = player.availableDurationMs()
@@ -63,6 +70,7 @@ class SeekGestureState(
 
         if (!isSeeking) {
             isSeeking = true
+            shouldAnimatePreview = false
             seekStartPosition = currentPosition
             pendingSeekPosition = currentPosition
             player.setIsScrubbingModeEnabled(true)
@@ -81,14 +89,15 @@ class SeekGestureState(
         reset()
     }
 
-    fun onDragStart(offset: Offset) {
+    fun onDragStart() {
         if (!isSeekGestureEnabled) return
         val duration = player.availableDurationMs()
         if (duration == C.TIME_UNSET || duration <= 0L) return
         val currentPosition = player.currentPosition.takeIf { it != C.TIME_UNSET } ?: 0L
 
         isSeeking = true
-        seekStartX = offset.x
+        shouldAnimatePreview = true
+        dragStabilizer.reset()
         seekStartPosition = currentPosition
         pendingSeekPosition = currentPosition
 
@@ -96,7 +105,11 @@ class SeekGestureState(
     }
 
     @OptIn(UnstableApi::class)
-    fun onDrag(change: PointerInputChange, dragAmount: Float) {
+    fun onDrag(
+        change: PointerInputChange,
+        dragAmount: Float,
+        hysteresisPx: Float,
+    ) {
         val seekStartPosition = seekStartPosition ?: return
         val duration = player.availableDurationMs()
         if (duration == C.TIME_UNSET) return
@@ -106,8 +119,11 @@ class SeekGestureState(
         if (currentPreviewPosition <= 0L && dragAmount < 0) return
         if (currentPreviewPosition >= duration && dragAmount > 0) return
 
-        val newPosition = (seekStartPosition + ((change.position.x - seekStartX) * (sensitivity * 100)).toInt())
+        val stabilizedDragAmount = dragStabilizer.add(dragAmount, hysteresisPx) ?: return
+        val newPosition = (seekStartPosition + (stabilizedDragAmount * (sensitivity * 100)).toLong())
             .coerceIn(0L, duration)
+        if (newPosition == currentPreviewPosition) return
+
         pendingSeekPosition = newPosition
         seekAmount = (newPosition - seekStartPosition).coerceIn(
             minimumValue = 0 - seekStartPosition,
@@ -122,10 +138,13 @@ class SeekGestureState(
 
     private fun commitPendingSeek() {
         val pendingSeekPosition = pendingSeekPosition ?: return
+        val seekAmount = seekAmount ?: return
+        if (seekAmount == 0L) return
         val currentPosition = player.currentPosition.takeIf { it != C.TIME_UNSET }
         if (currentPosition == null || currentPosition != pendingSeekPosition) {
             player.seekToRequestedPosition(pendingSeekPosition)
         }
+        onSeekCommitted(pendingSeekPosition)
     }
 
     private fun reset() {
@@ -134,8 +153,29 @@ class SeekGestureState(
         seekStartPosition = null
         seekAmount = null
         pendingSeekPosition = null
+        shouldAnimatePreview = false
 
-        seekStartX = 0f
+        dragStabilizer.reset()
+    }
+}
+
+internal class SeekDragStabilizer {
+    private var rawDragAmount = 0f
+    private var stabilizedDragAmount = 0f
+
+    fun add(dragAmount: Float, hysteresisPx: Float): Float? {
+        rawDragAmount += dragAmount
+        val safeHysteresis = hysteresisPx.coerceAtLeast(0f)
+        val difference = rawDragAmount - stabilizedDragAmount
+        if (abs(difference) <= safeHysteresis) return null
+
+        stabilizedDragAmount = rawDragAmount - kotlin.math.sign(difference) * safeHysteresis
+        return stabilizedDragAmount
+    }
+
+    fun reset() {
+        rawDragAmount = 0f
+        stabilizedDragAmount = 0f
     }
 }
 

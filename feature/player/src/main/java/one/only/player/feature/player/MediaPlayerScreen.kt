@@ -243,6 +243,7 @@ internal fun MediaPlayerScreen(
         player = player,
         sensitivity = playerPreferences.seekSensitivity,
         isSeekGestureEnabled = playerPreferences.shouldUseSeekControls,
+        onSeekCommitted = mediaPresentationState::updatePositionAfterSeek,
     )
     val pictureInPictureState = rememberPictureInPictureState(
         player = player,
@@ -1008,6 +1009,7 @@ internal fun MediaPlayerScreen(
                                 ControlsBottomModernView(
                                     mediaPresentationState = mediaPresentationState,
                                     pendingSeekPosition = seekGestureState.pendingSeekPosition,
+                                    shouldAnimateSeekPreview = seekGestureState.shouldAnimatePreview,
                                     isPlaying = mediaPresentationState.isPlaying,
                                     hasPrevious = player.hasPreviousMediaItem(),
                                     hasNext = player.hasNextMediaItem(),
