@@ -23,7 +23,7 @@ import one.only.player.core.model.ApplicationPreferences
 import one.only.player.core.model.PlayerPreferences
 import one.only.player.core.model.SearchHistory
 
-private const val APP_PREFERENCES_DATASTORE_FILE = "app_preferences.json"
+internal const val APP_PREFERENCES_DATASTORE_FILE = "app_preferences.json"
 private const val PLAYER_PREFERENCES_DATASTORE_FILE = "player_preferences.json"
 private const val SEARCH_HISTORY_DATASTORE_FILE = "search_history.json"
 
