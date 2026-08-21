@@ -4,11 +4,10 @@ import android.content.ClipData
 import android.content.Intent
 import android.os.Build
 import android.os.Bundle
-import androidx.activity.SystemBarStyle
 import androidx.activity.compose.setContent
 import androidx.activity.enableEdgeToEdge
-import androidx.activity.viewModels
 import androidx.appcompat.app.AppCompatActivity
+import androidx.compose.foundation.isSystemInDarkTheme
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.fillMaxSize
@@ -16,7 +15,6 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.runtime.Composable
-import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.setValue
@@ -27,11 +25,7 @@ import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.tooling.preview.PreviewLightDark
 import androidx.compose.ui.unit.dp
 import androidx.core.content.FileProvider
-import androidx.core.splashscreen.SplashScreen.Companion.installSplashScreen
-import androidx.lifecycle.Lifecycle
 import androidx.lifecycle.lifecycleScope
-import androidx.lifecycle.repeatOnLifecycle
-import dagger.hilt.android.AndroidEntryPoint
 import java.io.BufferedReader
 import java.io.File
 import java.io.InputStreamReader
@@ -41,19 +35,12 @@ import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 import one.only.player.BuildConfig
 import one.only.player.MainActivity
-import one.only.player.MainActivityUiState
-import one.only.player.MainViewModel
-import one.only.player.core.common.extensions.applyPrivacyProtection
-import one.only.player.core.common.extensions.resolvePrivacyPreviewScrim
 import one.only.player.core.ui.R
 import one.only.player.core.ui.components.LogsSelectionContainer
 import one.only.player.core.ui.components.PageContentTopPadding
 import one.only.player.core.ui.designsystem.AppIcons
 import one.only.player.core.ui.extensions.withBottomFallback
 import one.only.player.core.ui.theme.OnlyPlayerTheme
-import one.only.player.navigation.NavigationBarColorEffect
-import one.only.player.shouldUseDarkTheme
-import one.only.player.shouldUseDynamicTheming
 import top.yukonga.miuix.kmp.basic.Icon
 import top.yukonga.miuix.kmp.basic.IconButton
 import top.yukonga.miuix.kmp.basic.Scaffold
@@ -61,80 +48,23 @@ import top.yukonga.miuix.kmp.basic.Text
 import top.yukonga.miuix.kmp.basic.TopAppBar
 import top.yukonga.miuix.kmp.theme.MiuixTheme
 
-@AndroidEntryPoint
 class CrashActivity : AppCompatActivity() {
-
-    private val viewModel: MainViewModel by viewModels()
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
-        applyPrivacyProtection(
-            shouldPreventScreenshots = viewModel.currentPreferences.shouldPreventScreenshots,
-            shouldHideInRecents = viewModel.currentPreferences.shouldHideInRecents,
-        )
-
-        var uiState: MainActivityUiState by mutableStateOf(MainActivityUiState.Loading)
-        val exceptionString = intent.getStringExtra("exception") ?: ""
+        enableEdgeToEdge()
+        val exceptionString = intent.getStringExtra(CrashScreenLauncher.EXTRA_EXCEPTION).orEmpty()
         var logcat by mutableStateOf("")
 
         lifecycleScope.launch {
             logcat = collectLogcat()
         }
 
-        lifecycleScope.launch {
-            repeatOnLifecycle(Lifecycle.State.STARTED) {
-                viewModel.uiState.collect { state ->
-                    uiState = state
-                }
-            }
-        }
-
-        installSplashScreen().setKeepOnScreenCondition {
-            when (uiState) {
-                MainActivityUiState.Loading -> true
-                is MainActivityUiState.Success -> false
-            }
-        }
-
         setContent {
-            val shouldUseDarkTheme = shouldUseDarkTheme(uiState = uiState)
-
-            val preferences = (uiState as? MainActivityUiState.Success)?.preferences
-            val shouldPreventScreenshots = preferences?.shouldPreventScreenshots == true
-            val shouldHideInRecents = preferences?.shouldHideInRecents == true
-
-            LaunchedEffect(shouldPreventScreenshots, shouldHideInRecents) {
-                if (preferences == null) return@LaunchedEffect
-                this@CrashActivity.applyPrivacyProtection(
-                    shouldPreventScreenshots = shouldPreventScreenshots,
-                    shouldHideInRecents = shouldHideInRecents,
-                )
-            }
-
-            LaunchedEffect(shouldHideInRecents, shouldUseDarkTheme) {
-                val systemBarScrim = this@CrashActivity.resolvePrivacyPreviewScrim(shouldHideInRecents)
-                enableEdgeToEdge(
-                    statusBarStyle = SystemBarStyle.auto(
-                        lightScrim = systemBarScrim,
-                        darkScrim = systemBarScrim,
-                        detectDarkMode = { shouldUseDarkTheme },
-                    ),
-                    navigationBarStyle = SystemBarStyle.auto(
-                        lightScrim = systemBarScrim,
-                        darkScrim = systemBarScrim,
-                        detectDarkMode = { shouldUseDarkTheme },
-                    ),
-                )
-            }
-
             OnlyPlayerTheme(
-                shouldUseDarkTheme = shouldUseDarkTheme,
-                shouldUseDynamicColor = shouldUseDynamicTheming(uiState = uiState),
+                shouldUseDarkTheme = isSystemInDarkTheme(),
+                shouldUseDynamicColor = false,
             ) {
-                NavigationBarColorEffect(
-                    activity = this@CrashActivity,
-                    color = MiuixTheme.colorScheme.surfaceContainer,
-                )
                 val clipboard = LocalClipboard.current
                 CrashScreen(
                     exceptionString = exceptionString,
@@ -157,8 +87,11 @@ class CrashActivity : AppCompatActivity() {
                         )
                     },
                     onRestartClick = {
+                        val restartIntent = Intent(this@CrashActivity, MainActivity::class.java).apply {
+                            addFlags(Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_CLEAR_TASK)
+                        }
+                        startActivity(restartIntent)
                         finish()
-                        startActivity(Intent(this@CrashActivity, MainActivity::class.java))
                     },
                 )
             }
@@ -182,7 +115,7 @@ class CrashActivity : AppCompatActivity() {
         file.writeText(text = logs)
         val uri = FileProvider.getUriForFile(
             this@CrashActivity,
-            "$packageName.fileprovider",
+            "$packageName.crash.fileprovider",
             file,
         )
         val intent = Intent(Intent.ACTION_SEND).apply {

@@ -33,7 +33,11 @@
             </intent-filter>
         </activity>
 
-        <activity android:name=".crash.CrashActivity" />
+        <activity
+            android:name=".crash.CrashActivity"
+            android:excludeFromRecents="true"
+            android:exported="false"
+            android:process=":crash" />
 
         <service
             android:name="androidx.appcompat.app.AppLocalesMetadataHolderService"
@@ -49,6 +53,17 @@
             android:authorities="${applicationId}.fileprovider"
             android:exported="false"
             android:grantUriPermissions="true">
+            <meta-data
+                android:name="android.support.FILE_PROVIDER_PATHS"
+                android:resource="@xml/file_provider_paths" />
+        </provider>
+
+        <provider
+            android:name=".crash.CrashLogFileProvider"
+            android:authorities="${applicationId}.crash.fileprovider"
+            android:exported="false"
+            android:grantUriPermissions="true"
+            android:process=":crash">
             <meta-data
                 android:name="android.support.FILE_PROVIDER_PATHS"
                 android:resource="@xml/file_provider_paths" />

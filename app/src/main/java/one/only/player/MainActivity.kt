@@ -54,6 +54,7 @@ import one.only.player.core.ui.components.AppDialog
 import one.only.player.core.ui.composables.rememberRuntimePermissionState
 import one.only.player.core.ui.extensions.LocalRootBottomBarPadding
 import one.only.player.core.ui.theme.OnlyPlayerTheme
+import one.only.player.crash.StartupWatchdog
 import one.only.player.feature.player.PlayerActivity
 import one.only.player.feature.videopicker.navigation.navigateToHistory
 import one.only.player.feature.videopicker.navigation.navigateToPlaylists
@@ -127,13 +128,17 @@ class MainActivity : AppCompatActivity() {
 
     @OptIn(ExperimentalComposeUiApi::class)
     override fun onCreate(savedInstanceState: Bundle?) {
+        StartupWatchdog.start(applicationContext)
         val persistedStartupPreferences = StartupPreferencesCache.consume(context = this)
         val bootstrapTheme = resolveBootstrapTheme(
             themeConfig = persistedStartupPreferences.themeConfig,
             isSystemDarkTheme = isSystemDarkTheme(resources.configuration),
         )
         setTheme(resolveBootstrapSplashThemeStyle(shouldUseDarkTheme = bootstrapTheme.shouldUseDarkTheme))
-        installSplashScreen().setOnExitAnimationListener { it.remove() }
+        installSplashScreen().setOnExitAnimationListener {
+            StartupWatchdog.markStartupComplete()
+            it.remove()
+        }
         super.onCreate(savedInstanceState)
         applyPrivacyProtection(
             shouldPreventScreenshots = viewModel.currentPreferences.shouldPreventScreenshots,
