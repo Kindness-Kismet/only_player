@@ -1,26 +1,37 @@
 package one.only.player.crash
 
 import android.content.Context
-import android.content.Intent
+import android.os.Process
+import android.util.Log
+import java.util.concurrent.atomic.AtomicBoolean
 import kotlin.system.exitProcess
-import one.only.player.core.common.Logger
 
 class GlobalExceptionHandler(
     private val context: Context,
-    private val activity: Class<*>,
 ) : Thread.UncaughtExceptionHandler {
 
-    override fun uncaughtException(t: Thread, e: Throwable) {
-        Logger.error(TAG, "Uncaught exception on ${t.name}", e)
-        val intent = Intent(context, activity)
-        intent.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
-        intent.addFlags(Intent.FLAG_ACTIVITY_CLEAR_TASK)
-        intent.putExtra("exception", e.stackTraceToString())
-        context.startActivity(intent)
-        exitProcess(0)
+    private val isHandlingException = AtomicBoolean(false)
+
+    override fun uncaughtException(thread: Thread, throwable: Throwable) {
+        if (!isHandlingException.compareAndSet(false, true)) terminateProcess()
+
+        Log.e(TAG, "Uncaught exception on ${thread.name}", throwable)
+        try {
+            CrashScreenLauncher.launch(context, throwable.stackTraceToString())
+        } catch (launchException: RuntimeException) {
+            Log.e(TAG, "Unable to launch crash screen", launchException)
+        } finally {
+            terminateProcess()
+        }
+    }
+
+    private fun terminateProcess(): Nothing {
+        Process.killProcess(Process.myPid())
+        exitProcess(EXIT_CODE_CRASH)
     }
 
     private companion object {
         const val TAG = "GlobalExceptionHandler"
+        const val EXIT_CODE_CRASH = 1
     }
 }
