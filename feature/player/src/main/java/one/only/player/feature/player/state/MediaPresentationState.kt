@@ -164,6 +164,10 @@ class MediaPresentationState(
         }
     }
 
+    fun onSeekCommitted(positionMs: Long) {
+        position = positionMs.coerceAtLeast(0L)
+    }
+
     private fun updatePosition() {
         position = player.currentPosition.coerceAtLeast(0L)
     }

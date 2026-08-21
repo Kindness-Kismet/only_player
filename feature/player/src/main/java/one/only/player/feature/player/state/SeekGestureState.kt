@@ -25,12 +25,14 @@ fun rememberSeekGestureState(
     player: Player,
     sensitivity: Float = 0.5f,
     isSeekGestureEnabled: Boolean,
+    onSeekCommitted: (Long) -> Unit,
 ): SeekGestureState {
     val seekGestureState = remember {
         SeekGestureState(
             player = player,
             sensitivity = sensitivity,
             isSeekGestureEnabled = isSeekGestureEnabled,
+            onSeekCommitted = onSeekCommitted,
         )
     }
     return seekGestureState
@@ -41,6 +43,7 @@ class SeekGestureState(
     private val player: Player,
     private val isSeekGestureEnabled: Boolean = true,
     private val sensitivity: Float = 0.5f,
+    private val onSeekCommitted: (Long) -> Unit = {},
 ) {
     var isSeeking: Boolean by mutableStateOf(false)
         private set
@@ -126,6 +129,7 @@ class SeekGestureState(
         if (currentPosition == null || currentPosition != pendingSeekPosition) {
             player.seekToRequestedPosition(pendingSeekPosition)
         }
+        onSeekCommitted(pendingSeekPosition)
     }
 
     private fun reset() {

@@ -243,6 +243,7 @@ internal fun MediaPlayerScreen(
         player = player,
         sensitivity = playerPreferences.seekSensitivity,
         isSeekGestureEnabled = playerPreferences.shouldUseSeekControls,
+        onSeekCommitted = mediaPresentationState::onSeekCommitted,
     )
     val pictureInPictureState = rememberPictureInPictureState(
         player = player,
