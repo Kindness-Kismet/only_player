@@ -44,7 +44,6 @@ import one.only.player.core.ui.R
 import one.only.player.core.ui.components.AppScaffold
 import one.only.player.core.ui.components.ClickablePreferenceItem
 import one.only.player.core.ui.components.LocalTopBarBackdrop
-import one.only.player.core.ui.components.PageContentTopPadding
 import one.only.player.core.ui.components.PreferenceGroup
 import one.only.player.core.ui.components.PreferenceItem
 import one.only.player.core.ui.components.PreferenceSwitch
@@ -101,7 +100,8 @@ fun AboutPreferencesScreen(
                     .fillMaxSize()
                     .verticalScroll(rememberScrollState())
                     .padding(innerPadding.withBottomFallback())
-                    .padding(top = PageContentTopPadding)
+                    // 小标题顶栏较矮，hero 区需要额外的顶部留白
+                    .padding(top = 50.dp)
                     .padding(horizontal = 16.dp),
                 verticalArrangement = Arrangement.spacedBy(SettingsGroupGap),
                 horizontalAlignment = Alignment.CenterHorizontally,
