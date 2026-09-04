@@ -26,7 +26,6 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.asImageBitmap
 import androidx.compose.ui.graphics.painter.Painter
 import androidx.compose.ui.graphics.vector.ImageVector
-import androidx.compose.ui.input.nestedscroll.nestedScroll
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalUriHandler
 import androidx.compose.ui.platform.UriHandler
@@ -43,19 +42,20 @@ import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import one.only.player.core.common.extensions.appIcon
 import one.only.player.core.ui.R
 import one.only.player.core.ui.components.AppScaffold
-import one.only.player.core.ui.components.AppTopAppBar
 import one.only.player.core.ui.components.ClickablePreferenceItem
+import one.only.player.core.ui.components.LocalTopBarBackdrop
 import one.only.player.core.ui.components.PageContentTopPadding
 import one.only.player.core.ui.components.PreferenceGroup
 import one.only.player.core.ui.components.PreferenceItem
 import one.only.player.core.ui.components.PreferenceSwitch
 import one.only.player.core.ui.components.SettingsGroupGap
+import one.only.player.core.ui.components.surfaceBlur
 import one.only.player.core.ui.designsystem.AppIcons
 import one.only.player.core.ui.extensions.withBottomFallback
 import one.only.player.settings.screens.about.effect.FlowLightBackground
 import top.yukonga.miuix.kmp.basic.Icon as MiuixIcon
 import top.yukonga.miuix.kmp.basic.IconButton as MiuixIconButton
-import top.yukonga.miuix.kmp.basic.MiuixScrollBehavior
+import top.yukonga.miuix.kmp.basic.SmallTopAppBar as MiuixSmallTopAppBar
 import top.yukonga.miuix.kmp.basic.Text as MiuixText
 import top.yukonga.miuix.kmp.theme.MiuixTheme
 
@@ -71,14 +71,13 @@ fun AboutPreferencesScreen(
     val currentVersionName = remember { context.versionName() }
 
     FlowLightBackground(modifier = Modifier.fillMaxSize()) {
-        val scrollBehavior = MiuixScrollBehavior()
-
         AppScaffold(
             containerColor = Color.Transparent,
             topBar = {
-                AppTopAppBar(
+                // 小标题固定顶栏，透明底透出流光背景
+                MiuixSmallTopAppBar(
                     title = stringResource(id = R.string.about_name),
-                    scrollBehavior = scrollBehavior,
+                    modifier = Modifier.surfaceBlur(LocalTopBarBackdrop.current),
                     color = Color.Transparent,
                     navigationIcon = {
                         MiuixIconButton(
@@ -100,7 +99,6 @@ fun AboutPreferencesScreen(
             Column(
                 modifier = Modifier
                     .fillMaxSize()
-                    .nestedScroll(scrollBehavior.nestedScrollConnection)
                     .verticalScroll(rememberScrollState())
                     .padding(innerPadding.withBottomFallback())
                     .padding(top = PageContentTopPadding)
