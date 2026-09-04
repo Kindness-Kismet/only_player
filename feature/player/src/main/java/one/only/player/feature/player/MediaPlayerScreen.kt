@@ -959,7 +959,7 @@ internal fun MediaPlayerScreen(
                     )
                 }
 
-                if (controlsVisibilityState.isControlsVisible && controlsVisibilityState.isControlsLocked) {
+                if (controlsVisibilityState.isUnlockButtonVisible) {
                     // 解锁按钮跟随自定义锁定控件的位置：顶栏右上角，或在底栏控件上方
                     val isLockControlInTopBar = playerPreferences.controlsArrangement
                         .slotOf(PlayerControl.LOCK) == PlayerControlSlot.TOP_RIGHT
@@ -973,7 +973,7 @@ internal fun MediaPlayerScreen(
                     PlayerControlsView(
                         topView = {
                             AnimatedVisibility(
-                                visible = controlsVisibilityState.isControlsVisible,
+                                visible = controlsVisibilityState.isControlsVisible && !controlsVisibilityState.isControlsLocked,
                                 enter = fadeIn(),
                                 exit = fadeOut(),
                             ) {

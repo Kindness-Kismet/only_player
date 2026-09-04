@@ -12,11 +12,15 @@ import androidx.compose.runtime.setValue
 import androidx.media3.common.Player
 import androidx.media3.common.listen
 import kotlin.time.Duration
+import kotlin.time.Duration.Companion.seconds
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
 import one.only.player.feature.player.extensions.togglePlayerSystemBars
+
+// 解锁按钮独立于控制栏的停留时长：出现后 1.5 秒自动隐藏
+private val UNLOCK_BUTTON_HIDE_AFTER: Duration = 1.5.seconds
 
 @Composable
 fun rememberControlsVisibilityState(
@@ -54,6 +58,11 @@ class ControlsVisibilityState(
     var isControlsLocked: Boolean by mutableStateOf(false)
         private set
 
+    var isUnlockButtonVisible: Boolean by mutableStateOf(false)
+        private set
+
+    private var unlockButtonAutoHideJob: Job? = null
+
     fun updateHideAfter(duration: Duration?) {
         hideAfter = duration
         if (isControlsVisible && player.isPlaying) {
@@ -72,6 +81,15 @@ class ControlsVisibilityState(
     }
 
     fun toggleControlsVisibility() {
+        if (isControlsLocked) {
+            if (isUnlockButtonVisible) {
+                unlockButtonAutoHideJob?.cancel()
+                isUnlockButtonVisible = false
+            } else {
+                showUnlockButton()
+            }
+            return
+        }
         if (isControlsVisible) {
             hideControls()
         } else {
@@ -81,11 +99,23 @@ class ControlsVisibilityState(
 
     fun lockControls() {
         isControlsLocked = true
+        showUnlockButton()
     }
 
     fun unlockControls() {
         isControlsLocked = false
+        unlockButtonAutoHideJob?.cancel()
+        isUnlockButtonVisible = false
         showControls()
+    }
+
+    fun showUnlockButton() {
+        isUnlockButtonVisible = true
+        unlockButtonAutoHideJob?.cancel()
+        unlockButtonAutoHideJob = scope.launch {
+            delay(UNLOCK_BUTTON_HIDE_AFTER)
+            isUnlockButtonVisible = false
+        }
     }
 
     suspend fun observe() {
