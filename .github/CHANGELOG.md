@@ -1,7 +1,9 @@
-- Lock the controls with one tap instead of opening a picker
-- Restyle and shrink the unlock button, now shown right above the lock control
+- Hide the unlock button after 1.5 seconds while controls are locked
+- Stop the top bar from reappearing together with the unlock button in lock mode
+- Keep the about page title as a fixed small top bar
 
 ---
 
-- 点击一次直接锁定控件，不再弹出选择面板
-- 解锁按钮改用面板配色并整体缩小，显示在自定义锁定控件上方
+- 锁定时解锁按钮停留 1.5 秒后自动隐藏
+- 修复锁定状态下顶栏按钮会意外显示的问题
+- 关于页标题固定为顶部小标题
