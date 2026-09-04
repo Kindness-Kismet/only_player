@@ -77,3 +77,6 @@ docs/
 
 # Local git worktrees
 .worktrees/
+
+# Local pi settings
+.pi/

@@ -1,9 +1,7 @@
-- Hide the unlock button after 1.5 seconds while controls are locked
-- Stop the top bar from reappearing together with the unlock button in lock mode
-- Keep the about page title as a fixed small top bar
+- Fix portrait videos being displayed in landscape orientation, with screen rotation now following each video
+- Widen the top spacing on the About page
 
 ---
 
-- 锁定时解锁按钮停留 1.5 秒后自动隐藏
-- 修复锁定状态下顶栏按钮会意外显示的问题
-- 关于页标题固定为顶部小标题
+- 修复竖屏视频被错误横屏显示的问题，屏幕方向现在跟随每个视频自身的方向
+- 加宽关于页顶部留白
