@@ -92,14 +92,7 @@ fun PlayerContentFrame(
     val surfaceType = if (shouldUseTextureView) SURFACE_TYPE_TEXTURE_VIEW else SURFACE_TYPE_SURFACE_VIEW
 
     // Media3 1.10.1 的 videoSizeDp 名带 Dp 但实际存视频 px
-    val metadataVideoSizePx = run {
-        val w = videoZoomAndContentScaleState.metadataVideoWidth.toFloat()
-        val h = videoZoomAndContentScaleState.metadataVideoHeight.toFloat()
-        if (w <= 0f || h <= 0f) return@run null
-        val rotation = videoZoomAndContentScaleState.metadataVideoRotation
-        if (rotation == 90 || rotation == 270) Size(h, w) else Size(w, h)
-    }
-    val sourceVideoSizePx = presentationState.videoSizeDp ?: metadataVideoSizePx
+    val sourceVideoSizePx = presentationState.videoSizeDp
 
     key(surfaceRefreshKey, surfaceType) {
         BoxWithConstraints(

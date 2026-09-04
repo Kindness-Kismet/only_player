@@ -11,9 +11,10 @@ private const val MEDIA_METADATA_SUBTITLE_TRACK_INDEX_KEY = "subtitle_track_inde
 private const val MEDIA_METADATA_VIDEO_ZOOM_KEY = "media_metadata_video_zoom"
 private const val MEDIA_METADATA_SUBTITLE_DELAY_KEY = "media_metadata_subtitle_delay"
 private const val MEDIA_METADATA_SUBTITLE_SPEED_KEY = "media_metadata_subtitle_speed"
+
+// 仅供播放列表分辨率标签使用，编码宽高；方向判断走 player.videoSize
 private const val MEDIA_METADATA_VIDEO_WIDTH_KEY = "media_metadata_video_width"
 private const val MEDIA_METADATA_VIDEO_HEIGHT_KEY = "media_metadata_video_height"
-private const val MEDIA_METADATA_VIDEO_ROTATION_KEY = "media_metadata_video_rotation"
 private const val MEDIA_METADATA_HAS_RENDERED_FIRST_FRAME_KEY = "media_metadata_has_rendered_first_frame"
 private const val MEDIA_METADATA_APPROXIMATE_SEEK_ENABLED_KEY = "media_metadata_approximate_seek_enabled"
 private const val MEDIA_METADATA_VIDEO_EFFECTS_AVAILABLE_KEY = "media_metadata_video_effects_available"
@@ -34,7 +35,6 @@ private fun Bundle.setExtras(
     subtitleSpeed: Float? = null,
     videoWidth: Int? = null,
     videoHeight: Int? = null,
-    videoRotation: Int? = null,
     hasRenderedFirstFrame: Boolean? = null,
     isApproximateSeekEnabled: Boolean? = null,
     isVideoEffectsAvailable: Boolean? = null,
@@ -53,7 +53,6 @@ private fun Bundle.setExtras(
     subtitleSpeed?.let { putFloat(MEDIA_METADATA_SUBTITLE_SPEED_KEY, it) }
     videoWidth?.let { putInt(MEDIA_METADATA_VIDEO_WIDTH_KEY, it) }
     videoHeight?.let { putInt(MEDIA_METADATA_VIDEO_HEIGHT_KEY, it) }
-    videoRotation?.let { putInt(MEDIA_METADATA_VIDEO_ROTATION_KEY, it) }
     hasRenderedFirstFrame?.let { putBoolean(MEDIA_METADATA_HAS_RENDERED_FIRST_FRAME_KEY, it) }
     isApproximateSeekEnabled?.let { putBoolean(MEDIA_METADATA_APPROXIMATE_SEEK_ENABLED_KEY, it) }
     isVideoEffectsAvailable?.let { putBoolean(MEDIA_METADATA_VIDEO_EFFECTS_AVAILABLE_KEY, it) }
@@ -74,7 +73,6 @@ fun MediaMetadata.Builder.setExtras(
     subtitleSpeed: Float? = null,
     videoWidth: Int? = null,
     videoHeight: Int? = null,
-    videoRotation: Int? = null,
     hasRenderedFirstFrame: Boolean? = null,
     isApproximateSeekEnabled: Boolean? = null,
     isVideoEffectsAvailable: Boolean? = null,
@@ -95,7 +93,6 @@ fun MediaMetadata.Builder.setExtras(
         subtitleSpeed = subtitleSpeed,
         videoWidth = videoWidth,
         videoHeight = videoHeight,
-        videoRotation = videoRotation,
         hasRenderedFirstFrame = hasRenderedFirstFrame,
         isApproximateSeekEnabled = isApproximateSeekEnabled,
         isVideoEffectsAvailable = isVideoEffectsAvailable,
@@ -153,6 +150,7 @@ val MediaMetadata.subtitleSpeed: Float?
             .takeIf { containsKey(MEDIA_METADATA_SUBTITLE_SPEED_KEY) }
     }
 
+// 编码宽高，仅供分辨率标签展示
 val MediaMetadata.videoWidth: Int?
     get() = extras?.run {
         getInt(MEDIA_METADATA_VIDEO_WIDTH_KEY)
@@ -163,12 +161,6 @@ val MediaMetadata.videoHeight: Int?
     get() = extras?.run {
         getInt(MEDIA_METADATA_VIDEO_HEIGHT_KEY)
             .takeIf { containsKey(MEDIA_METADATA_VIDEO_HEIGHT_KEY) }
-    }
-
-val MediaMetadata.videoRotation: Int?
-    get() = extras?.run {
-        getInt(MEDIA_METADATA_VIDEO_ROTATION_KEY)
-            .takeIf { containsKey(MEDIA_METADATA_VIDEO_ROTATION_KEY) }
     }
 
 val MediaMetadata.hasRenderedFirstFrame: Boolean
@@ -222,7 +214,6 @@ fun MediaItem.copy(
     subtitleSpeed: Float? = this.mediaMetadata.subtitleSpeed,
     videoWidth: Int? = this.mediaMetadata.videoWidth,
     videoHeight: Int? = this.mediaMetadata.videoHeight,
-    videoRotation: Int? = this.mediaMetadata.videoRotation,
     hasRenderedFirstFrame: Boolean? = this.mediaMetadata.hasRenderedFirstFrame,
     isApproximateSeekEnabled: Boolean? = this.mediaMetadata.isApproximateSeekEnabled,
     isVideoEffectsAvailable: Boolean? = this.mediaMetadata.isVideoEffectsAvailable,
@@ -246,7 +237,6 @@ fun MediaItem.copy(
                 subtitleSpeed = subtitleSpeed,
                 videoWidth = videoWidth,
                 videoHeight = videoHeight,
-                videoRotation = videoRotation,
                 hasRenderedFirstFrame = hasRenderedFirstFrame,
                 isApproximateSeekEnabled = isApproximateSeekEnabled,
                 isVideoEffectsAvailable = isVideoEffectsAvailable,

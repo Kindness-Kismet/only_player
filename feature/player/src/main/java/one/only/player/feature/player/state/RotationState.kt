@@ -21,10 +21,8 @@ import androidx.media3.common.listen
 import androidx.media3.common.util.UnstableApi
 import one.only.player.core.model.LastPlayerScreenOrientation
 import one.only.player.core.model.ScreenOrientation
+import one.only.player.feature.player.extensions.isPortrait
 import one.only.player.feature.player.extensions.toActivityOrientation
-import one.only.player.feature.player.extensions.videoHeight
-import one.only.player.feature.player.extensions.videoRotation
-import one.only.player.feature.player.extensions.videoWidth
 
 @UnstableApi
 @Composable
@@ -114,15 +112,10 @@ class RotationState(
         setOrientation(player)
         maybeApplyVideoOrientation(player)
 
-        // 视频尺寸通过 metadata extras 从 Service 端传递
+        // videoSize 是应用旋转后的显示宽高，作为方向决策的唯一数据源
         player.listen { events ->
-            if (events.containsAny(
-                    Player.EVENT_MEDIA_METADATA_CHANGED,
-                    Player.EVENT_MEDIA_ITEM_TRANSITION,
-                )
-            ) {
-                val metadata = player.mediaMetadata
-                Log.d(TAG, "listen: w=${metadata.videoWidth}, h=${metadata.videoHeight}, rot=${metadata.videoRotation}")
+            if (events.contains(Player.EVENT_VIDEO_SIZE_CHANGED)) {
+                Log.d(TAG, "listen: videoSize=${player.videoSize.width}x${player.videoSize.height}")
                 maybeApplyVideoOrientation(player)
             }
         }
@@ -131,7 +124,6 @@ class RotationState(
     private fun maybeApplyVideoOrientation(player: Player) {
         if (hasSystemIgnoredOrientationRequest) return
         if (screenOrientation != ScreenOrientation.VIDEO_ORIENTATION) return
-        if (activity.requestedOrientation != ActivityInfo.SCREEN_ORIENTATION_UNSPECIFIED) return
         val orientation = getVideoBasedOrientation(player)
         if (orientation != ActivityInfo.SCREEN_ORIENTATION_UNSPECIFIED) {
             Log.d(TAG, "applyOrientation: $orientation")
@@ -158,24 +150,14 @@ class RotationState(
     }
 
     private fun getVideoBasedOrientation(player: Player): Int {
-        val metadata = player.mediaMetadata
-        val width = metadata.videoWidth ?: 0
-        val height = metadata.videoHeight ?: 0
-        if (width == 0 || height == 0) {
-            Log.d(TAG, "getVideoBasedOrientation: metadata=${width}x$height -> UNSPECIFIED")
+        val videoSize = player.videoSize
+        if (videoSize.width == 0 || videoSize.height == 0) {
+            Log.d(TAG, "getVideoBasedOrientation: videoSize=${videoSize.width}x${videoSize.height} -> UNSPECIFIED")
             return ActivityInfo.SCREEN_ORIENTATION_UNSPECIFIED
         }
 
-        val rotation = metadata.videoRotation ?: 0
-
-        val visuallyPortrait = if (rotation == 90 || rotation == 270) {
-            width >= height
-        } else {
-            height >= width
-        }
-
-        Log.d(TAG, "getVideoBasedOrientation: ${width}x$height, rotation=$rotation, portrait=$visuallyPortrait")
-        return if (visuallyPortrait) {
+        Log.d(TAG, "getVideoBasedOrientation: videoSize=${videoSize.width}x${videoSize.height}, portrait=${videoSize.isPortrait}")
+        return if (videoSize.isPortrait) {
             ActivityInfo.SCREEN_ORIENTATION_SENSOR_PORTRAIT
         } else {
             ActivityInfo.SCREEN_ORIENTATION_SENSOR_LANDSCAPE

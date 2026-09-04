@@ -694,9 +694,8 @@ class PlayerService : MediaSessionService() {
             val updatedMediaItem = currentMediaItem.copy(
                 positionMs = currentPosition,
                 durationMs = duration,
-                videoWidth = width,
-                videoHeight = height,
-                videoRotation = rotation,
+                videoWidth = width.takeIf { it > 0 },
+                videoHeight = height.takeIf { it > 0 },
                 hasRenderedFirstFrame = true,
                 isVideoEffectsAvailable = videoEffectsCoordinator.isAvailable(),
             )
@@ -1986,7 +1985,7 @@ class PlayerService : MediaSessionService() {
                         }
                     }
                 }
-                // MediaStore 返回的宽高已考虑 rotation，用于预设屏幕方向
+                // 编码宽高仅供播放列表分辨率标签
                 val videoWidth = video?.width
                 val videoHeight = video?.height
                 val mediaPath = video?.path ?: videoState?.path ?: getPath(uri) ?: uri.path

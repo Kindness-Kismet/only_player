@@ -11,7 +11,6 @@ import androidx.navigation.NavHostController
 import one.only.player.MainActivity
 import one.only.player.core.model.PlayerPreferences
 import one.only.player.core.model.ScreenOrientation
-import one.only.player.core.model.Video
 import one.only.player.feature.player.LandscapePlayerActivity
 import one.only.player.feature.player.PlayerActivity
 import one.only.player.feature.player.PortraitPlayerActivity
@@ -44,7 +43,7 @@ fun MediaRootPage(
         onPlayVideo = { video, playerPreferences ->
             context.startPlayerActivity(
                 uri = video.uriString.toUri(),
-                launchOrientation = video.resolveLaunchOrientation(playerPreferences),
+                launchOrientation = resolveLaunchOrientation(playerPreferences),
             )
         },
         onPlayUri = context::startPlayerActivity,
@@ -79,7 +78,7 @@ fun NavGraphBuilder.mediaDetailNavGraph(
         onPlayVideo = { video, playerPreferences ->
             context.startPlayerActivity(
                 uri = video.uriString.toUri(),
-                launchOrientation = video.resolveLaunchOrientation(playerPreferences),
+                launchOrientation = resolveLaunchOrientation(playerPreferences),
             )
         },
         onPlayUri = context::startPlayerActivity,
@@ -112,7 +111,7 @@ fun NavGraphBuilder.mediaDetailNavGraph(
         onPlayVideo = { video, playerPreferences, playlist ->
             context.startPlayerActivity(
                 uri = video.uriString.toUri(),
-                launchOrientation = video.resolveLaunchOrientation(playerPreferences),
+                launchOrientation = resolveLaunchOrientation(playerPreferences),
                 playlist = playlist.map { it.uriString.toUri() },
             )
         },
@@ -130,7 +129,7 @@ fun NavGraphBuilder.mediaDetailNavGraph(
         onPlayVideo = { video, playerPreferences ->
             context.startPlayerActivity(
                 uri = video.uriString.toUri(),
-                launchOrientation = video.resolveLaunchOrientation(playerPreferences),
+                launchOrientation = resolveLaunchOrientation(playerPreferences),
             )
         },
     )
@@ -140,7 +139,7 @@ fun NavGraphBuilder.mediaDetailNavGraph(
         onPlayVideos = { video, playerPreferences, playlist ->
             context.startPlayerActivity(
                 uri = video.uriString.toUri(),
-                launchOrientation = video.resolveLaunchOrientation(playerPreferences),
+                launchOrientation = resolveLaunchOrientation(playerPreferences),
                 playlist = playlist,
             )
         },
@@ -185,10 +184,10 @@ private fun Int?.playerActivityClass(): Class<out PlayerActivity> = when (this) 
     else -> PlayerActivity::class.java
 }
 
-private fun Video.resolveLaunchOrientation(playerPreferences: PlayerPreferences): Int? {
-    val videoOrientation = resolveVideoOrientation()
+private fun resolveLaunchOrientation(playerPreferences: PlayerPreferences): Int? {
     if (playerPreferences.playerScreenOrientation == ScreenOrientation.VIDEO_ORIENTATION) {
-        return videoOrientation
+        // 方向由 videoSize 事件驱动，启动阶段不预判
+        return null
     }
 
     val rememberedOrientation = playerPreferences.lastPlayerScreenOrientation
@@ -197,14 +196,4 @@ private fun Video.resolveLaunchOrientation(playerPreferences: PlayerPreferences)
     if (rememberedOrientation != null) return rememberedOrientation
 
     return playerPreferences.playerScreenOrientation.toActivityOrientation()
-}
-
-private fun Video.resolveVideoOrientation(): Int? {
-    if (width <= 0 || height <= 0) return null
-
-    return if (height >= width) {
-        ActivityInfo.SCREEN_ORIENTATION_SENSOR_PORTRAIT
-    } else {
-        ActivityInfo.SCREEN_ORIENTATION_SENSOR_LANDSCAPE
-    }
 }
