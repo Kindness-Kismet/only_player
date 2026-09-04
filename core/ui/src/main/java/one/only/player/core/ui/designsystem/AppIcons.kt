@@ -55,6 +55,7 @@ object AppIcons {
     val LibraryBooks: ImageVector get() = MingCuteLibraryBooks
     val Link: ImageVector get() = MingCuteLink
     val Lock: ImageVector get() = MingCuteLock
+    val Unlock: ImageVector get() = MingCuteUnlock
     val Loop: ImageVector get() = MingCuteLoop
     val Menu: ImageVector get() = MingCuteMenu
     val MoreVert: ImageVector get() = MingCuteMoreVert

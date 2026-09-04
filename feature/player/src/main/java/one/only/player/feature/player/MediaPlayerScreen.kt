@@ -29,18 +29,21 @@ import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.BoxScope
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.WindowInsets
 import androidx.compose.foundation.layout.asPaddingValues
+import androidx.compose.foundation.layout.calculateEndPadding
+import androidx.compose.foundation.layout.displayCutout
 import androidx.compose.foundation.layout.displayCutoutPadding
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.safeDrawing
-import androidx.compose.foundation.layout.safeDrawingPadding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.systemBars
+import androidx.compose.foundation.layout.union
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.Icon
@@ -72,6 +75,7 @@ import androidx.compose.ui.layout.onSizeChanged
 import androidx.compose.ui.platform.LocalConfiguration
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalDensity
+import androidx.compose.ui.platform.LocalLayoutDirection
 import androidx.compose.ui.platform.LocalView
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.res.painterResource
@@ -100,17 +104,18 @@ import one.only.player.core.common.Logger
 import one.only.player.core.data.repository.ExternalSubtitleFontSource
 import one.only.player.core.model.PictureInPictureMode
 import one.only.player.core.model.PlaybackMark
+import one.only.player.core.model.PlayerControl
 import one.only.player.core.model.PlayerControlSlot
 import one.only.player.core.model.PlayerPreferences
 import one.only.player.core.model.Video
 import one.only.player.core.model.controllerAutoHideTimeoutSecondsOrNull
 import one.only.player.core.model.playerControls
+import one.only.player.core.model.slotOf
 import one.only.player.core.ui.R as coreUiR
 import one.only.player.core.ui.components.AppDialog
 import one.only.player.core.ui.components.VideoFiltersPanel
 import one.only.player.core.ui.extensions.copy
 import one.only.player.core.ui.extensions.playerCornerControlsCapacity
-import one.only.player.feature.player.buttons.PlayerButton
 import one.only.player.feature.player.extensions.nameRes
 import one.only.player.feature.player.extensions.noRippleClickable
 import one.only.player.feature.player.extensions.seekByRequestedOffset
@@ -161,6 +166,7 @@ import one.only.player.feature.player.ui.VideoContentScaleSelectorContent
 import one.only.player.feature.player.ui.VideoInfoContent
 import one.only.player.feature.player.ui.controls.ControlsBottomModernView
 import one.only.player.feature.player.ui.controls.ControlsTopModernView
+import one.only.player.feature.player.ui.controls.UnlockControlsButton
 import one.only.player.feature.player.ui.panel.rememberFloatingPlayerPanelState
 import one.only.player.feature.player.ui.playerControlBindings
 import top.yukonga.miuix.kmp.basic.ButtonDefaults as MiuixButtonDefaults
@@ -541,6 +547,7 @@ internal fun MediaPlayerScreen(
         onPictureInPicture = ::enterPictureInPicture,
         onScreenshot = onScreenshotClick,
         onPlayInBackground = onPlayInBackgroundClick,
+        onToggleControlsLock = { setControlsLocked(!controlsVisibilityState.isControlsLocked) },
     )
     var longPressOverlayAnimationStep by remember { mutableIntStateOf(0) }
     val keyboardInteractionEnabledState = rememberUpdatedState(
@@ -953,19 +960,15 @@ internal fun MediaPlayerScreen(
                 }
 
                 if (controlsVisibilityState.isControlsVisible && controlsVisibilityState.isControlsLocked) {
-                    Column(
+                    // 解锁按钮跟随自定义锁定控件的位置：顶栏右上角，或在底栏控件上方
+                    val isLockControlInTopBar = playerPreferences.controlsArrangement
+                        .slotOf(PlayerControl.LOCK) == PlayerControlSlot.TOP_RIGHT
+                    UnlockControlsButton(
                         modifier = Modifier
-                            .fillMaxSize()
-                            .safeDrawingPadding()
-                            .padding(top = 24.dp),
-                    ) {
-                        PlayerButton(onClick = { controlsVisibilityState.unlockControls() }) {
-                            Icon(
-                                painter = painterResource(coreUiR.drawable.ic_lock),
-                                contentDescription = stringResource(coreUiR.string.controls_unlock),
-                            )
-                        }
-                    }
+                            .align(if (isLockControlInTopBar) Alignment.TopEnd else Alignment.BottomEnd)
+                            .padding(unlockControlsButtonPadding(isLockControlInTopBar)),
+                        onClick = { controlsVisibilityState.unlockControls() },
+                    )
                 } else {
                     PlayerControlsView(
                         topView = {
@@ -1090,15 +1093,6 @@ internal fun MediaPlayerScreen(
                         menuControls = playerPreferences.playerControls(PlayerControlSlot.MENU),
                         bindings = controlBindings,
                         onNavigate = ::navigateToMenuRoute,
-                        onDismiss = ::dismissOverlay,
-                    )
-
-                    MenuRoute.ControlLock -> ToggleOptionSelectorContent(
-                        panelTestTag = "panel_control_lock",
-                        isEnabled = controlsVisibilityState.isControlsLocked,
-                        offTestTag = "btn_control_lock_off",
-                        onTestTag = "btn_control_lock_on",
-                        onEnabledChanged = ::setControlsLocked,
                         onDismiss = ::dismissOverlay,
                     )
 
@@ -1282,13 +1276,31 @@ private fun PlayerPreferences.hasSameSubtitleStyle(other: PlayerPreferences): Bo
 
 private fun Float.isDefaultVideoZoom(): Boolean = kotlin.math.abs(this - 1f) < 0.0001f
 
+// 顶栏时与顶栏控件对齐；其余情况落在底栏控件行上方，水平与底栏控件对齐
+@Composable
+private fun unlockControlsButtonPadding(isLockControlInTopBar: Boolean): PaddingValues {
+    val systemBarsPadding = WindowInsets.systemBars.union(WindowInsets.displayCutout).asPaddingValues()
+    val endPadding = systemBarsPadding.calculateEndPadding(LocalLayoutDirection.current) +
+        if (isLockControlInTopBar) 4.dp else 8.dp
+    return if (isLockControlInTopBar) {
+        PaddingValues(
+            top = systemBarsPadding.calculateTopPadding() + 4.dp,
+            end = endPadding,
+        )
+    } else {
+        PaddingValues(
+            bottom = systemBarsPadding.calculateBottomPadding() + 48.dp,
+            end = endPadding,
+        )
+    }
+}
+
 @Composable
 private fun titleForMenuRoute(
     route: MenuRoute?,
     playlistItemCount: Int = 0,
 ): String = when (route) {
     null, MenuRoute.Root -> stringResource(coreUiR.string.menu)
-    MenuRoute.ControlLock -> stringResource(coreUiR.string.controls_lock_switch)
     MenuRoute.Mute -> stringResource(coreUiR.string.mute_switch)
     MenuRoute.AmbienceMode -> stringResource(coreUiR.string.ambience_mode)
     MenuRoute.MirrorVideo -> stringResource(coreUiR.string.mirror_video)
