@@ -1,7 +1,6 @@
 ---
 name: version-bump
-description: Bump the app version number and generate changelog. Trigger when user says "更新版本号", "提高版本号", "版本号提升", or "version bump".
-user_invocable: true
+description: 更新 Only Player 版本号、整理更新日志并创建版本提交。用户说「更新版本号」「提高版本号」「版本号提升」或「version bump」时使用。
 ---
 ## ⚠️ 两条最容易被忘记的规则
 
@@ -62,3 +61,7 @@ user_invocable: true
 - issue 校验必须基于 `gh` 返回的原文，不允许凭印象追加 `close #xxxx`
 - issue 关联以功能主题匹配为准，不以 commit 是否写了编号为准
 - 版本号更新只处理本地改动与本地提交，push 阶段交给用户自己执行
+
+## 两端同步
+
+本技能同时保存在 `.codex/skills/version-bump/` 和 `.claude/skills/version-bump/`。修改任一端时，必须同步更新另一端，保持所有同名文件内容一致。

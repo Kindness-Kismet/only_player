@@ -37,4 +37,4 @@ description: 按 Only Player 项目规范创建、修改和整理 Git 提交。�
 
 ## 两端同步
 
-本技能同时保存在 `.codex/skills/commit/SKILL.md` 和 `.claude/skills/commit/SKILL.md`，修改时同步两份内容。
+本技能同时保存在 `.codex/skills/commit/` 和 `.claude/skills/commit/`。修改任一端时，必须同步更新另一端，保持所有同名文件内容一致。
