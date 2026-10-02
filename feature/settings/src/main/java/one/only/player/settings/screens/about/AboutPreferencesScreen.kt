@@ -44,6 +44,7 @@ import one.only.player.core.common.extensions.appIcon
 import one.only.player.core.model.UpdateChannel
 import one.only.player.core.ui.R
 import one.only.player.core.ui.components.AppScaffold
+import one.only.player.core.ui.components.AppUpdateDialog
 import one.only.player.core.ui.components.ClickablePreferenceItem
 import one.only.player.core.ui.components.LocalTopBarBackdrop
 import one.only.player.core.ui.components.PreferenceGroup
@@ -149,9 +150,6 @@ private fun UpdateSection(
     currentVersionName: String,
     onEvent: (AboutPreferencesUiEvent) -> Unit,
 ) {
-    val context = LocalContext.current
-    val uriHandler = LocalUriHandler.current
-
     val updateChannels = remember { UpdateChannel.entries }
 
     PreferenceGroup {
@@ -163,7 +161,7 @@ private fun UpdateSection(
             onClick = {
                 when (val state = uiState.updateState) {
                     is UpdateState.UpdateAvailable -> {
-                        uriHandler.openUriOrShowToast(state.releaseUrl, context)
+                        onEvent(AboutPreferencesUiEvent.ShowDialog(AboutPreferenceDialog.Update(state.info)))
                     }
                     UpdateState.Checking -> {}
                     UpdateState.Idle,
@@ -193,6 +191,10 @@ private fun UpdateSection(
 
     uiState.showDialog?.let { dialog ->
         when (dialog) {
+            is AboutPreferenceDialog.Update -> AppUpdateDialog(
+                info = dialog.info,
+                onDismissRequest = { onEvent(AboutPreferencesUiEvent.ShowDialog(null)) },
+            )
             AboutPreferenceDialog.UpdateChannel -> {
                 OptionsDialog(
                     text = stringResource(R.string.update_channel),
@@ -221,7 +223,7 @@ private fun updateStatusText(state: UpdateState): String = when (state) {
     UpdateState.Idle -> stringResource(R.string.update_status_idle)
     UpdateState.Checking -> stringResource(R.string.update_status_checking)
     UpdateState.UpToDate -> stringResource(R.string.update_status_up_to_date)
-    is UpdateState.UpdateAvailable -> stringResource(R.string.update_status_available, state.latestVersion)
+    is UpdateState.UpdateAvailable -> stringResource(R.string.update_status_available, state.info.latestVersion)
     UpdateState.Error -> stringResource(R.string.update_status_error)
 }
 

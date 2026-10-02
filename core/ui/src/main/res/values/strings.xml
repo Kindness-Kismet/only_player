@@ -581,8 +581,7 @@
     <string name="update_status_up_to_date">Already up to date</string>
     <string name="update_status_available">New version %1$s available, tap to view</string>
     <string name="update_status_error">Check failed, tap to retry</string>
-    <string name="update_dialog_title">Update available</string>
-    <string name="update_dialog_message">Version %1$s is available. Do you want to view the update now?</string>
+    <string name="update_dialog_title">v%1$s update available</string>
     <string name="update_dialog_confirm">View update</string>
     <string name="tab_home">Home</string>
     <string name="tab_cloud">Cloud</string>
