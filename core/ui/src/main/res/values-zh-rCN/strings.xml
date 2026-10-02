@@ -576,8 +576,7 @@
     <string name="update_status_up_to_date">已是最新版本</string>
     <string name="update_status_available">新版本 %1$s 可用，点按查看</string>
     <string name="update_status_error">检查失败，点按重试</string>
-    <string name="update_dialog_title">发现新版本</string>
-    <string name="update_dialog_message">检测到新版本 %1$s，是否前往查看更新？</string>
+    <string name="update_dialog_title">v%1$s 更新可用</string>
     <string name="update_dialog_confirm">前往查看</string>
     <string name="tab_home">主页</string>
     <string name="tab_cloud">云端</string>

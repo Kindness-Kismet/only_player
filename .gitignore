@@ -45,8 +45,9 @@ vendor/
 .bundle/
 .kotlin
 # Codex local files
-.codex/
 .codex/**
+!.codex/skills/
+!.codex/skills/**
 codex/
 codex.*
 
@@ -56,8 +57,9 @@ codex.*
 .gemini*
 
 # Claude local files
-.claude/
 .claude/**
+!.claude/skills/
+!.claude/skills/**
 */**/CLAUDE.md
 
 # Local audit artifacts

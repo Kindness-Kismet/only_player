@@ -570,8 +570,7 @@
     <string name="update_status_up_to_date">已是最新版本</string>
     <string name="update_status_available">新版本 %1$s 可用，點按查看</string>
     <string name="update_status_error">檢查失敗，點按重試</string>
-    <string name="update_dialog_title">發現新版本</string>
-    <string name="update_dialog_message">偵測到新版本 %1$s，是否前往查看更新？</string>
+    <string name="update_dialog_title">v%1$s 更新可用</string>
     <string name="update_dialog_confirm">前往查看</string>
     <string name="tab_home">主頁</string>
     <string name="tab_cloud">雲端</string>

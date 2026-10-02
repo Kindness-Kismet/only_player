@@ -12,6 +12,7 @@ import kotlinx.coroutines.launch
 import one.only.player.core.data.repository.AppUpdateChecker
 import one.only.player.core.data.repository.AppUpdateResult
 import one.only.player.core.data.repository.PreferencesRepository
+import one.only.player.core.model.AppUpdateInfo
 import one.only.player.core.model.UpdateChannel
 
 @HiltViewModel
@@ -57,14 +58,21 @@ class AboutPreferencesViewModel @Inject constructor(
         viewModelScope.launch {
             val channel = uiStateInternal.value.updateChannel
             val result = when (val checkResult = appUpdateChecker.checkForUpdate(currentVersion, channel)) {
-                is AppUpdateResult.Available -> UpdateState.UpdateAvailable(
-                    latestVersion = checkResult.info.latestVersion,
-                    releaseUrl = checkResult.info.releaseUrl,
-                )
+                is AppUpdateResult.Available -> UpdateState.UpdateAvailable(checkResult.info)
                 AppUpdateResult.UpToDate -> UpdateState.UpToDate
                 AppUpdateResult.Failed -> UpdateState.Error
             }
-            uiStateInternal.update { it.copy(updateState = result) }
+            uiStateInternal.update {
+                if (it.updateChannel != channel) return@update it
+                it.copy(
+                    updateState = result,
+                    showDialog = if (result is UpdateState.UpdateAvailable) {
+                        AboutPreferenceDialog.Update(result.info)
+                    } else {
+                        it.showDialog
+                    },
+                )
+            }
         }
     }
 
@@ -108,7 +116,7 @@ sealed interface UpdateState {
     data object Idle : UpdateState
     data object Checking : UpdateState
     data object UpToDate : UpdateState
-    data class UpdateAvailable(val latestVersion: String, val releaseUrl: String) : UpdateState
+    data class UpdateAvailable(val info: AppUpdateInfo) : UpdateState
     data object Error : UpdateState
 }
 
@@ -121,4 +129,5 @@ sealed interface AboutPreferencesUiEvent {
 
 sealed interface AboutPreferenceDialog {
     data object UpdateChannel : AboutPreferenceDialog
+    data class Update(val info: AppUpdateInfo) : AboutPreferenceDialog
 }
