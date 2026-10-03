@@ -3,6 +3,33 @@ package one.only.player.feature.videopicker.composables
 import one.only.player.core.model.ApplicationPreferences
 import one.only.player.core.model.CloudQuickSettings
 import one.only.player.core.model.MediaLayoutOverrides
+import one.only.player.core.model.MediaLayoutTarget
+import one.only.player.core.model.StoragePath
+import one.only.player.core.model.resolveMediaLayouts
+import one.only.player.core.model.withMediaLayout
+
+internal fun ApplicationPreferences.withIndependentLayouts(
+    target: QuickSettingsTarget,
+    serverId: Long?,
+    directoryPath: String,
+    isEnabled: Boolean,
+): ApplicationPreferences = when (target) {
+    QuickSettingsTarget.LOCAL -> {
+        val directory = StoragePath.of(directoryPath)
+        val layouts = resolveMediaLayouts(directory)
+        withMediaLayout(directory, MediaLayoutTarget.FOLDERS, layouts.folders.layout.takeIf { isEnabled })
+            .withMediaLayout(directory, MediaLayoutTarget.VIDEOS, layouts.videos.layout.takeIf { isEnabled })
+    }
+    QuickSettingsTarget.CLOUD -> {
+        val settings = cloudQuickSettings(serverId)
+        val layouts = settings.resolveMediaLayouts(directoryPath)
+        withCloudQuickSettings(
+            serverId,
+            settings.withMediaLayout(directoryPath, MediaLayoutTarget.FOLDERS, layouts.folders.layout.takeIf { isEnabled })
+                .withMediaLayout(directoryPath, MediaLayoutTarget.VIDEOS, layouts.videos.layout.takeIf { isEnabled }),
+        )
+    }
+}
 
 internal fun ApplicationPreferences.applyQuickSettingsChanges(
     original: ApplicationPreferences,

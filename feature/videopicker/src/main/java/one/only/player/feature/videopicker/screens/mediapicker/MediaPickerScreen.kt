@@ -763,7 +763,7 @@ internal fun MediaPickerScreen(
     if (shouldShowQuickSettingsDialog) {
         QuickSettingsDialog(
             applicationPreferences = uiState.preferences,
-            isLibraryRoot = uiState.folderPath == null,
+            isRoot = uiState.folderPath == null,
             directoryPath = layoutDirectoryPath,
             onDismiss = { shouldShowQuickSettingsDialog = false },
             updatePreferences = { onEvent(MediaPickerUiEvent.UpdateMenu(it)) },

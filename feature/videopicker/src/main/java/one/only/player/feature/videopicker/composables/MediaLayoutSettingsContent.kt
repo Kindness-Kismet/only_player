@@ -24,6 +24,7 @@ internal fun MediaLayoutSettingsContent(
     target: QuickSettingsTarget,
     serverId: Long?,
     directoryPath: String?,
+    shouldShowInheritance: Boolean = directoryPath != null,
     onChange: (ApplicationPreferences) -> Unit,
 ) {
     val directory = directoryPath?.let(StoragePath::of)
@@ -72,7 +73,7 @@ internal fun MediaLayoutSettingsContent(
                 },
             ),
         ) {
-            if (directoryPath != null) {
+            if (shouldShowInheritance) {
                 Text(
                     text = if (isOverridden) {
                         stringResource(R.string.layout_directory_custom)
@@ -100,7 +101,7 @@ internal fun MediaLayoutSettingsContent(
                     onIncreaseClick = { update(layoutTarget, layout.copy(scale = layout.scale + ApplicationPreferences.MEDIA_LAYOUT_SCALE_STEP)) },
                 )
             }
-            if (isOverridden) {
+            if (shouldShowInheritance && isOverridden) {
                 TextButton(
                     text = stringResource(R.string.layout_use_parent),
                     onClick = { update(layoutTarget, null) },

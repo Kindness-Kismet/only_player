@@ -11,6 +11,7 @@ import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.selection.toggleable
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.runtime.Composable
@@ -23,15 +24,18 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.res.stringResource
+import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
 import kotlin.math.roundToInt
 import one.only.player.core.model.ApplicationPreferences
 import one.only.player.core.model.MediaViewMode
 import one.only.player.core.model.Sort
+import one.only.player.core.model.StoragePath
 import one.only.player.core.ui.R
 import one.only.player.core.ui.components.AppDialog
 import one.only.player.core.ui.components.AppDialogDefaults
+import one.only.player.core.ui.components.AppSwitch
 import one.only.player.core.ui.components.CancelButton
 import one.only.player.core.ui.components.DoneButton
 import one.only.player.core.ui.designsystem.AppIcons
@@ -56,15 +60,21 @@ fun QuickSettingsDialog(
     target: QuickSettingsTarget = QuickSettingsTarget.LOCAL,
     cloudServerId: Long? = null,
     directoryPath: String? = null,
-    isLibraryRoot: Boolean = false,
+    isRoot: Boolean = false,
 ) {
     val originalPreferences = remember(target, cloudServerId, directoryPath) { applicationPreferences }
-    var isDirectoryScope by remember(target, cloudServerId, directoryPath) { mutableStateOf(directoryPath != null) }
     var preferences by remember(target, cloudServerId, directoryPath) {
         mutableStateOf(applicationPreferences.withSupportedSort(target, cloudServerId))
     }
-    val canConfigureDirectory = directoryPath != null &&
-        !(target == QuickSettingsTarget.LOCAL && isLibraryRoot && preferences.mediaViewMode != MediaViewMode.FOLDER_TREE)
+    val layoutDirectoryPath = directoryPath.takeUnless {
+        target == QuickSettingsTarget.LOCAL && isRoot && preferences.mediaViewMode != MediaViewMode.FOLDER_TREE
+    }
+    val canConfigureDirectory = layoutDirectoryPath != null && !isRoot
+    val overrides = when (target) {
+        QuickSettingsTarget.LOCAL -> preferences.directoryLayouts[layoutDirectoryPath?.let(StoragePath::of)]
+        QuickSettingsTarget.CLOUD -> preferences.cloudQuickSettings(cloudServerId).directoryLayouts[layoutDirectoryPath]
+    }
+    val hasIndependentLayout = overrides?.folders != null || overrides?.videos != null
     val sortBy = preferences.sortBy(target, cloudServerId)
     val sortOrder = preferences.sortOrder(target, cloudServerId)
     AppDialog(
@@ -96,36 +106,50 @@ fun QuickSettingsDialog(
                     }
                 }
                 if (canConfigureDirectory) {
-                    QuickSettingsSection(title = stringResource(R.string.layout_scope)) {
-                        QuickSettingsTabRow(
-                            options = listOf(false, true),
-                            selectedOption = isDirectoryScope,
-                            label = { stringResource(if (it) R.string.layout_directory_scope else R.string.layout_library_default) },
-                            onOptionSelected = { isDirectoryScope = it },
-                            modifier = Modifier.testTag("tabs_layout_scope"),
+                    Row(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .testTag("switch_independent_layout")
+                            .toggleable(
+                                value = hasIndependentLayout,
+                                role = Role.Switch,
+                                onValueChange = { isEnabled ->
+                                    preferences = preferences.withIndependentLayouts(
+                                        target = target,
+                                        serverId = cloudServerId,
+                                        directoryPath = requireNotNull(layoutDirectoryPath),
+                                        isEnabled = isEnabled,
+                                    )
+                                },
+                            )
+                            .padding(horizontal = 4.dp, vertical = 6.dp),
+                        horizontalArrangement = Arrangement.spacedBy(16.dp),
+                        verticalAlignment = Alignment.CenterVertically,
+                    ) {
+                        Text(
+                            text = stringResource(R.string.layout_independent_config),
+                            style = MiuixTheme.textStyles.body1,
+                            modifier = Modifier.weight(1f),
                         )
-                        if (isDirectoryScope) {
-                            Text(
-                                text = requireNotNull(directoryPath),
-                                style = MiuixTheme.textStyles.footnote1,
-                                color = MiuixTheme.colorScheme.onSurfaceVariantSummary,
-                                modifier = Modifier.testTag("text_layout_directory"),
-                            )
-                            Text(
-                                text = stringResource(R.string.layout_recursive_description),
-                                style = MiuixTheme.textStyles.footnote1,
-                                color = MiuixTheme.colorScheme.onSurfaceVariantSummary,
-                            )
-                        }
+                        AppSwitch(isChecked = hasIndependentLayout, onCheckedChange = null)
                     }
                 }
-                MediaLayoutSettingsContent(
-                    preferences = preferences,
-                    target = target,
-                    serverId = cloudServerId,
-                    directoryPath = directoryPath.takeIf { canConfigureDirectory && isDirectoryScope },
-                    onChange = { preferences = it },
-                )
+                if (!canConfigureDirectory || hasIndependentLayout) {
+                    MediaLayoutSettingsContent(
+                        preferences = preferences,
+                        target = target,
+                        serverId = cloudServerId,
+                        directoryPath = layoutDirectoryPath,
+                        shouldShowInheritance = canConfigureDirectory,
+                        onChange = { preferences = it },
+                    )
+                } else {
+                    Text(
+                        text = stringResource(R.string.layout_follow_parent),
+                        style = MiuixTheme.textStyles.footnote1,
+                        color = MiuixTheme.colorScheme.onSurfaceVariantSummary,
+                    )
+                }
                 QuickSettingsSection(title = stringResource(R.string.sort)) {
                     QuickSettingsTabRow(
                         options = target.supportedSortOptions,

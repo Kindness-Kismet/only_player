@@ -499,6 +499,7 @@ internal fun CloudBrowseScreen(
             applicationPreferences = uiState.preferences,
             target = QuickSettingsTarget.CLOUD,
             cloudServerId = uiState.server?.id,
+            isRoot = uiState.isAtRoot,
             directoryPath = layoutDirectoryPath,
             onDismiss = { shouldShowQuickSettingsDialog = false },
             updatePreferences = { onEvent(CloudBrowseEvent.UpdateQuickSettings(it)) },
