@@ -9,6 +9,7 @@ import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.calculateEndPadding
 import androidx.compose.foundation.layout.calculateStartPadding
 import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.lazy.grid.GridCells
 import androidx.compose.foundation.lazy.grid.GridItemSpan
@@ -28,12 +29,14 @@ import androidx.compose.ui.platform.LocalLayoutDirection
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.unit.dp
 import androidx.core.net.toUri
-import kotlin.math.abs
 import one.only.player.core.model.ApplicationPreferences
 import one.only.player.core.model.Folder
-import one.only.player.core.model.MediaLayoutMode
 import one.only.player.core.model.MediaViewMode
+import one.only.player.core.model.StoragePath
 import one.only.player.core.model.Video
+import one.only.player.core.model.resolveMediaLayouts
+import one.only.player.core.model.resolveQuickSettings
+import one.only.player.core.model.withQuickSettings
 import one.only.player.core.ui.R
 import one.only.player.core.ui.components.CardItemGap
 import one.only.player.core.ui.components.ListSectionTitle
@@ -50,6 +53,7 @@ internal val MediaSectionTitleStartPadding = 15.dp
 fun MediaView(
     rootFolder: Folder,
     preferences: ApplicationPreferences,
+    layoutDirectory: StoragePath? = StoragePath.of(rootFolder.path).takeUnless(StoragePath::isRoot),
     shouldShowHeaders: Boolean = preferences.mediaViewMode == MediaViewMode.FOLDER_TREE,
     contentPadding: PaddingValues = PaddingValues(),
     selectionManager: SelectionManager = rememberSelectionManager(),
@@ -59,47 +63,34 @@ fun MediaView(
     onVideoLoaded: (Uri) -> Unit,
 ) {
     val haptic = LocalHapticFeedback.current
-    val layoutScale = preferences.normalizedMediaLayoutScale()
-
-    val folderMinWidth = 90.dp * layoutScale
-    val videoMinWidth = 160.dp * layoutScale
+    val layouts = remember(preferences, layoutDirectory) {
+        preferences.resolveMediaLayouts(layoutDirectory)
+    }
+    val displayPreferences = remember(preferences, layoutDirectory) {
+        preferences.withQuickSettings(null, preferences.resolveQuickSettings(layoutDirectory))
+    }
+    PreserveMediaLayoutScroll(layoutDirectory?.value.orEmpty(), layouts, lazyGridState)
     BoxWithConstraints {
         val layoutDirection = LocalLayoutDirection.current
         val visualContentPadding = contentPadding.subtractBottomPadding(MediaItemContentPadding)
-        val contentHorizontalPadding = when (preferences.mediaLayoutMode) {
-            MediaLayoutMode.LIST -> 8.dp
-            MediaLayoutMode.GRID -> 8.dp
-        }
-        val itemSpacing = when (preferences.mediaLayoutMode) {
-            MediaLayoutMode.LIST -> CardItemGap
-            MediaLayoutMode.GRID -> CardItemGap
-        }
+        val itemSpacing = CardItemGap
+        val contentHorizontalPadding = 8.dp - itemSpacing / 2
         val sectionTitleStartPadding = if (preferences.mediaViewMode == MediaViewMode.FOLDER_TREE) {
-            MediaSectionTitleStartPadding
+            MediaSectionTitleStartPadding + itemSpacing / 2
         } else {
-            0.dp
+            itemSpacing / 2
         }
-        val maxWidth = this.maxWidth - (contentHorizontalPadding * 2) - itemSpacing
-        val maxFolders = (maxWidth / folderMinWidth).toInt()
-        val maxVideos = (maxWidth / videoMinWidth).toInt()
-        val spans = when (preferences.mediaLayoutMode) {
-            MediaLayoutMode.LIST -> 1
-            MediaLayoutMode.GRID -> lcm(maxFolders.coerceAtLeast(1), maxVideos.coerceAtLeast(1))
-        }
-
-        val singleFolderSpan = when (preferences.mediaLayoutMode) {
-            MediaLayoutMode.LIST -> 1
-            MediaLayoutMode.GRID -> spans / maxFolders.coerceAtLeast(1)
-        }
-        val singleVideoSpan = when (preferences.mediaLayoutMode) {
-            MediaLayoutMode.LIST -> 1
-            MediaLayoutMode.GRID -> spans / maxVideos.coerceAtLeast(1)
-        }
+        val geometry = mediaGridGeometry(
+            availableWidth = maxWidth - 16.dp - contentPadding.calculateStartPadding(layoutDirection) - contentPadding.calculateEndPadding(layoutDirection),
+            layouts = layouts,
+            hasFolders = rootFolder.folderList.isNotEmpty(),
+            hasVideos = rootFolder.mediaList.isNotEmpty(),
+        )
 
         LazyVerticalGrid(
             modifier = Modifier.fillMaxSize(),
             state = lazyGridState,
-            columns = GridCells.Fixed(spans),
+            columns = GridCells.Fixed(geometry.slots),
             contentPadding = PaddingValues(
                 start = contentPadding.calculateStartPadding(layoutDirection) + contentHorizontalPadding,
                 top = contentPadding.calculateTopPadding(),
@@ -107,7 +98,7 @@ fun MediaView(
                 bottom = visualContentPadding.calculateBottomPadding(),
             ),
             verticalArrangement = Arrangement.spacedBy(itemSpacing),
-            horizontalArrangement = Arrangement.spacedBy(itemSpacing),
+            horizontalArrangement = Arrangement.spacedBy(0.dp),
         ) {
             if (shouldShowHeaders && rootFolder.folderList.isNotEmpty()) {
                 item(span = { GridItemSpan(maxLineSpan) }) {
@@ -124,13 +115,15 @@ fun MediaView(
             itemsIndexed(
                 items = rootFolder.folderList,
                 key = { _, folder -> folder.path },
-                span = { _, _ -> GridItemSpan(singleFolderSpan) },
+                span = { _, _ -> GridItemSpan(geometry.folderSpan) },
             ) { index, folder ->
                 val isFolderSelected by remember { derivedStateOf { selectionManager.isFolderSelected(folder) } }
                 FolderItem(
                     folder = folder,
+                    layoutMode = layouts.folders.layout.mode,
+                    modifier = Modifier.padding(horizontal = itemSpacing / 2),
                     isRecentlyPlayedFolder = rootFolder.isRecentlyPlayedVideo(folder.recentlyPlayedVideo),
-                    preferences = preferences,
+                    preferences = displayPreferences,
                     isSelected = isFolderSelected,
                     onClick = {
                         if (selectionManager.isInSelectionMode) {
@@ -169,12 +162,13 @@ fun MediaView(
             itemsIndexed(
                 items = rootFolder.mediaList,
                 key = { _, video -> video.uriString },
-                span = { _, _ -> GridItemSpan(singleVideoSpan) },
+                span = { _, _ -> GridItemSpan(geometry.videoSpan) },
             ) { index, video ->
                 val isVideoSelected by remember { derivedStateOf { selectionManager.isVideoSelected(video) } }
                 VideoItem(
                     video = video,
-                    preferences = preferences,
+                    layoutMode = layouts.videos.layout.mode,
+                    preferences = displayPreferences,
                     isRecentlyPlayedVideo = rootFolder.isRecentlyPlayedVideo(video),
                     isSelected = isVideoSelected,
                     onClick = {
@@ -189,7 +183,7 @@ fun MediaView(
                         haptic.performHapticFeedback(HapticFeedbackType.LongPress)
                         selectionManager.toggleVideoSelection(video)
                     },
-                    modifier = Modifier.onVideoFirstVisible {
+                    modifier = Modifier.padding(horizontal = itemSpacing / 2).onVideoFirstVisible {
                         if (video.duration <= 0 || video.width <= 0 || video.height <= 0 || video.videoStream == null) {
                             onVideoLoaded(video.uriString.toUri())
                         }
@@ -199,10 +193,6 @@ fun MediaView(
         }
     }
 }
-
-fun lcm(a: Int, b: Int): Int = abs(a * b) / gcd(a, b)
-
-fun gcd(a: Int, b: Int): Int = if (b == 0) a else gcd(b, a % b)
 
 @Suppress("DEPRECATION")
 private fun Modifier.onVideoFirstVisible(onVisible: () -> Unit): Modifier = onFirstVisible(callback = onVisible)

@@ -683,4 +683,9 @@
     <string name="collapse">Collapse</string>
     <string name="video_duration">Video duration</string>
     <string name="file_name">File name</string>
+    <string name="folder_layout">Folder layout</string>
+    <string name="video_layout">Video layout</string>
+    <string name="layout_independent_config">Independent configuration</string>
+    <string name="quick_settings_edit_global">Editing global defaults</string>
+    <string name="quick_settings_parent_override">This folder still inherits an independent configuration from its parent</string>
 </resources>

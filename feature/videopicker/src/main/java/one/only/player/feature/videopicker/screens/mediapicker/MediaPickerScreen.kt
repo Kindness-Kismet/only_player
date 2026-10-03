@@ -63,6 +63,7 @@ import one.only.player.core.model.Folder
 import one.only.player.core.model.MediaLayoutMode
 import one.only.player.core.model.MediaViewMode
 import one.only.player.core.model.PlayerPreferences
+import one.only.player.core.model.StoragePath
 import one.only.player.core.model.Video
 import one.only.player.core.ui.R
 import one.only.player.core.ui.base.DataState
@@ -216,6 +217,11 @@ internal fun MediaPickerScreen(
     var shouldShowPathPanel by rememberSaveable { mutableStateOf(false) }
 
     val isLibraryMode = uiState.screenMode == MediaPickerScreenMode.LIBRARY
+    val layoutDirectoryPath = if (isLibraryMode) {
+        uiState.folderPath ?: (uiState.mediaDataState as? DataState.Success)?.value?.path?.takeUnless { it == "/" }
+    } else {
+        null
+    }
     val isMoveMode = uiState.moveSelection != null && isLibraryMode
     val pathRootLabel = stringResource(R.string.tab_home)
     val storageRootLabels = rememberStorageRootLabels()
@@ -616,6 +622,7 @@ internal fun MediaPickerScreen(
                                         MediaView(
                                             rootFolder = rootFolder,
                                             preferences = uiState.preferences,
+                                            layoutDirectory = layoutDirectoryPath?.let(StoragePath::of),
                                             onFolderClick = {
                                                 onEvent(MediaPickerUiEvent.CacheFolderSnapshot(it))
                                                 onFolderClick(it.path, uiState.screenMode)
@@ -756,6 +763,8 @@ internal fun MediaPickerScreen(
     if (shouldShowQuickSettingsDialog) {
         QuickSettingsDialog(
             applicationPreferences = uiState.preferences,
+            isRoot = uiState.folderPath == null,
+            directoryPath = layoutDirectoryPath,
             onDismiss = { shouldShowQuickSettingsDialog = false },
             updatePreferences = { onEvent(MediaPickerUiEvent.UpdateMenu(it)) },
         )
@@ -1463,7 +1472,7 @@ private fun MediaPickerScreenPreview(
                 ),
                 preferences = ApplicationPreferences().copy(
                     mediaViewMode = MediaViewMode.FOLDER_TREE,
-                    mediaLayoutMode = MediaLayoutMode.GRID,
+                    videoLayoutMode = MediaLayoutMode.GRID,
                 ),
             ),
         )

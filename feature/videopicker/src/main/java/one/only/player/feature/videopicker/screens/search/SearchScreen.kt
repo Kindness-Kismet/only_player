@@ -441,7 +441,7 @@ private fun SuggestionsContent(
                 FolderItem(
                     folder = folder,
                     isRecentlyPlayedFolder = false,
-                    preferences = preferences.copy(mediaLayoutMode = MediaLayoutMode.LIST),
+                    preferences = preferences.copy(folderLayoutMode = MediaLayoutMode.LIST),
                     modifier = Modifier.padding(horizontal = 8.dp),
                     onClick = { onFolderClick(folder) },
                 )

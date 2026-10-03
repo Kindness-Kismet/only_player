@@ -241,7 +241,7 @@ class MediaPickerViewModel @Inject constructor(
             is MediaPickerUiEvent.Refresh -> refresh()
             is MediaPickerUiEvent.RenameVideo -> renameVideo(event.uri, event.to)
             is MediaPickerUiEvent.AddToSync -> addToMediaInfoSynchronizer(event.uri)
-            is MediaPickerUiEvent.UpdateMenu -> updateMenu(event.preferences)
+            is MediaPickerUiEvent.UpdateMenu -> updateMenu(event.transform)
             is MediaPickerUiEvent.CacheFolderSnapshot -> cacheFolderSnapshot(event.folder)
             MediaPickerUiEvent.ClearDeleteResult -> clearDeleteResult()
         }
@@ -532,9 +532,9 @@ class MediaPickerViewModel @Inject constructor(
         }
     }
 
-    private fun updateMenu(preferences: ApplicationPreferences) {
+    private fun updateMenu(transform: (ApplicationPreferences) -> ApplicationPreferences) {
         viewModelScope.launch {
-            preferencesRepository.updateApplicationPreferences { preferences }
+            preferencesRepository.updateApplicationPreferences(transform)
         }
     }
 
@@ -630,7 +630,7 @@ sealed interface MediaPickerUiEvent {
     data object Refresh : MediaPickerUiEvent
     data class RenameVideo(val uri: Uri, val to: String) : MediaPickerUiEvent
     data class AddToSync(val uri: Uri) : MediaPickerUiEvent
-    data class UpdateMenu(val preferences: ApplicationPreferences) : MediaPickerUiEvent
+    data class UpdateMenu(val transform: (ApplicationPreferences) -> ApplicationPreferences) : MediaPickerUiEvent
     data class CacheFolderSnapshot(val folder: Folder) : MediaPickerUiEvent
     data object ClearDeleteResult : MediaPickerUiEvent
 }

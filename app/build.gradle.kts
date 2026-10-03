@@ -22,8 +22,8 @@ android {
         minSdk = libs.versions.android.minSdk.get().toInt()
         targetSdk = libs.versions.android.targetSdk.get().toInt()
         applicationId = "one.only.player"
-        versionCode = 208
-        versionName = "1.0.207"
+        versionCode = 209
+        versionName = "1.0.208"
     }
 
     buildFeatures {
@@ -145,12 +145,12 @@ dependencies {
     debugImplementation(libs.kotlinx.coroutines.guava)
 }
 
-// navigationevent 1.1.2 丢失拖动中的手势进度导致预测返回动画失效，1.2.0-alpha04 已修复，stable 后移除
+// navigationevent 1.1.2 会丢失预测返回手势进度，固定到已修复的 1.2，正式版发布后移除。
 configurations.all {
     resolutionStrategy {
-        force("androidx.navigationevent:navigationevent:1.2.0-alpha04")
-        force("androidx.navigationevent:navigationevent-android:1.2.0-alpha04")
-        force("androidx.navigationevent:navigationevent-compose:1.2.0-alpha04")
-        force("androidx.navigationevent:navigationevent-compose-android:1.2.0-alpha04")
+        force("androidx.navigationevent:navigationevent:1.2.0-rc01")
+        force("androidx.navigationevent:navigationevent-android:1.2.0-rc01")
+        force("androidx.navigationevent:navigationevent-compose:1.2.0-rc01")
+        force("androidx.navigationevent:navigationevent-compose-android:1.2.0-rc01")
     }
 }

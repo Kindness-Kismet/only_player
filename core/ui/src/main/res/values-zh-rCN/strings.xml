@@ -678,4 +678,9 @@
     <string name="collapse">收起</string>
     <string name="video_duration">视频时长</string>
     <string name="file_name">文件名</string>
+    <string name="folder_layout">文件夹布局</string>
+    <string name="video_layout">视频布局</string>
+    <string name="layout_independent_config">独立配置</string>
+    <string name="quick_settings_edit_global">正在修改全局默认配置</string>
+    <string name="quick_settings_parent_override">当前目录仍继承上级的独立配置</string>
 </resources>

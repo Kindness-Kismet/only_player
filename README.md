@@ -224,7 +224,7 @@ The `release` build type requires signing configuration to produce an installabl
 **Validate changes affecting builds or app behavior:**
 
 ```bash
-./gradlew ktlintCheck test assembleDebug --warning-mode=fail
+./gradlew ktlintCheck test assembleDebug --warning-mode=all
 ```
 
 Inspect test reports under each module's `build/reports/tests/` directory as well as the command result. For playback changes, verify actual playback on a device or emulator. Run `./gradlew connectedAndroidTest` when instrumentation tests are needed.

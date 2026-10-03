@@ -1,6 +1,7 @@
 package one.only.player.core.model
 
 import kotlin.math.roundToInt
+import kotlinx.serialization.SerialName
 import kotlinx.serialization.Serializable
 
 @Serializable
@@ -27,8 +28,14 @@ data class ApplicationPreferences(
     val localFolderLastPlayedMediaUris: Map<String, String> = emptyMap(),
     val remoteFolderLastPlayedMediaPaths: Map<String, String> = emptyMap(),
     val mediaViewMode: MediaViewMode = MediaViewMode.FOLDER_TREE,
-    val mediaLayoutMode: MediaLayoutMode = MediaLayoutMode.LIST,
-    val mediaLayoutScale: Float = DEFAULT_MEDIA_LAYOUT_SCALE,
+    @SerialName("mediaLayoutMode")
+    val videoLayoutMode: MediaLayoutMode = MediaLayoutMode.LIST,
+    @SerialName("mediaLayoutScale")
+    val videoLayoutScale: Float = DEFAULT_MEDIA_LAYOUT_SCALE,
+    val folderLayoutMode: MediaLayoutMode = videoLayoutMode,
+    val folderLayoutScale: Float = videoLayoutScale,
+    @SerialName("directoryLayouts")
+    val directoryQuickSettings: Map<StoragePath, MediaQuickSettingsOverrides> = emptyMap(),
     val cloudQuickSettingsByServerId: Map<String, CloudQuickSettings> = emptyMap(),
 
     // 字段显示
@@ -56,12 +63,12 @@ data class ApplicationPreferences(
     // 扫描目录白名单为空时表示扫描全部存储
     fun isPathInsideScanFolders(path: StoragePath): Boolean = scanFolders.isEmpty() || scanFolders.any(path::isInside)
 
-    fun normalizedMediaLayoutScale(): Float = mediaLayoutScale
+    fun normalizedVideoLayoutScale(): Float = videoLayoutScale
         .coerceIn(MIN_MEDIA_LAYOUT_SCALE, MAX_MEDIA_LAYOUT_SCALE)
         .roundToStep(MEDIA_LAYOUT_SCALE_STEP)
 
-    fun withMediaLayoutScale(scale: Float): ApplicationPreferences = copy(
-        mediaLayoutScale = scale
+    fun withVideoLayoutScale(scale: Float): ApplicationPreferences = copy(
+        videoLayoutScale = scale
             .coerceIn(MIN_MEDIA_LAYOUT_SCALE, MAX_MEDIA_LAYOUT_SCALE)
             .roundToStep(MEDIA_LAYOUT_SCALE_STEP),
     )
@@ -98,27 +105,33 @@ data class ApplicationPreferences(
 data class CloudQuickSettings(
     val sortBy: Sort.By = Sort.By.TITLE,
     val sortOrder: Sort.Order = Sort.Order.ASCENDING,
-    val mediaLayoutMode: MediaLayoutMode = MediaLayoutMode.LIST,
-    val mediaLayoutScale: Float = ApplicationPreferences.DEFAULT_MEDIA_LAYOUT_SCALE,
+    @SerialName("mediaLayoutMode")
+    val videoLayoutMode: MediaLayoutMode = MediaLayoutMode.LIST,
+    @SerialName("mediaLayoutScale")
+    val videoLayoutScale: Float = ApplicationPreferences.DEFAULT_MEDIA_LAYOUT_SCALE,
+    val folderLayoutMode: MediaLayoutMode = videoLayoutMode,
+    val folderLayoutScale: Float = videoLayoutScale,
+    @SerialName("directoryLayouts")
+    val directoryQuickSettings: Map<String, MediaQuickSettingsOverrides> = emptyMap(),
     val shouldShowExtensionField: Boolean = false,
     val shouldShowPathField: Boolean = true,
     val shouldShowSizeField: Boolean = true,
     val shouldShowThumbnailField: Boolean = true,
     val shouldShowPlayedProgress: Boolean = true,
 ) {
-    fun normalizedMediaLayoutScale(): Float = mediaLayoutScale
+    fun normalizedVideoLayoutScale(): Float = videoLayoutScale
         .coerceIn(ApplicationPreferences.MIN_MEDIA_LAYOUT_SCALE, ApplicationPreferences.MAX_MEDIA_LAYOUT_SCALE)
         .roundToStep(ApplicationPreferences.MEDIA_LAYOUT_SCALE_STEP)
 
-    fun withMediaLayoutScale(scale: Float): CloudQuickSettings = copy(
-        mediaLayoutScale = scale
+    fun withVideoLayoutScale(scale: Float): CloudQuickSettings = copy(
+        videoLayoutScale = scale
             .coerceIn(ApplicationPreferences.MIN_MEDIA_LAYOUT_SCALE, ApplicationPreferences.MAX_MEDIA_LAYOUT_SCALE)
             .roundToStep(ApplicationPreferences.MEDIA_LAYOUT_SCALE_STEP),
     )
 
     fun normalized(): CloudQuickSettings = copy(
         sortBy = sortBy.takeIf { it in SUPPORTED_SORT_OPTIONS } ?: Sort.By.TITLE,
-        mediaLayoutScale = normalizedMediaLayoutScale(),
+        videoLayoutScale = normalizedVideoLayoutScale(),
     )
 
     companion object {

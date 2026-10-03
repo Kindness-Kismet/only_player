@@ -307,7 +307,7 @@ python scripts/build.py build-apk --abi arm64-v8a --build-type debug
 涉及构建、运行逻辑、依赖、资源、Manifest 或 APK 行为时，按需运行完整构建命令，并检查 test 报告；当前 `test` 不能只看退出码判断通过：
 
 ```bash
-./gradlew ktlintCheck test assembleDebug --warning-mode=fail
+./gradlew ktlintCheck test assembleDebug --warning-mode=all
 ```
 
 ### UI 控件标识

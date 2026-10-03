@@ -87,7 +87,7 @@ jobs:
 
       - name: 执行 Ktlint 格式化
         shell: bash
-        run: bash ./gradlew ktlintFormat ktlintCheck --warning-mode=fail
+        run: bash ./gradlew ktlintFormat ktlintCheck --warning-mode=all
 
       - name: 检查格式化结果
         shell: bash

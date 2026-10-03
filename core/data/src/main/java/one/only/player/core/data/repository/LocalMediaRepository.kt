@@ -32,8 +32,10 @@ import one.only.player.core.model.Folder
 import one.only.player.core.model.StoragePath
 import one.only.player.core.model.SubtitleCalibration
 import one.only.player.core.model.Video
+import one.only.player.core.model.moveDirectoryLayouts
 
 class LocalMediaRepository @Inject constructor(
+    private val preferencesRepository: PreferencesRepository,
     private val mediumDao: MediumDao,
     private val mediumStateDao: MediumStateDao,
     private val subtitleCalibrationDao: SubtitleCalibrationDao,
@@ -477,6 +479,12 @@ class LocalMediaRepository @Inject constructor(
             }
             when {
                 result.isComplete -> {
+                    preferencesRepository.updateApplicationPreferences { preferences ->
+                        preferences.moveDirectoryLayouts(
+                            from = StoragePath.of(folderPath.canonicalPathOrSelf()),
+                            to = StoragePath.of(movedFolderPath.canonicalPathOrSelf()),
+                        )
+                    }
                     favoriteRepository.updateLocalFolderPath(
                         oldPath = folderPath,
                         newPath = movedFolderPath,

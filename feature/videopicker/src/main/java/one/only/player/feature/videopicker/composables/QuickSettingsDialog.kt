@@ -27,14 +27,20 @@ import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
 import kotlin.math.roundToInt
 import one.only.player.core.model.ApplicationPreferences
-import one.only.player.core.model.MediaLayoutMode
+import one.only.player.core.model.MediaDisplayFields
+import one.only.player.core.model.MediaQuickSettings
 import one.only.player.core.model.MediaViewMode
 import one.only.player.core.model.Sort
+import one.only.player.core.model.StoragePath
+import one.only.player.core.model.hasInheritedQuickSettings
+import one.only.player.core.model.resolveQuickSettings
+import one.only.player.core.model.withQuickSettings
 import one.only.player.core.ui.R
 import one.only.player.core.ui.components.AppDialog
 import one.only.player.core.ui.components.AppDialogDefaults
 import one.only.player.core.ui.components.CancelButton
 import one.only.player.core.ui.components.DoneButton
+import one.only.player.core.ui.components.PreferenceSwitch
 import one.only.player.core.ui.designsystem.AppIcons
 import one.only.player.feature.videopicker.extensions.name
 import top.yukonga.miuix.kmp.basic.Icon
@@ -53,16 +59,49 @@ enum class QuickSettingsTarget {
 fun QuickSettingsDialog(
     applicationPreferences: ApplicationPreferences,
     onDismiss: () -> Unit,
-    updatePreferences: (ApplicationPreferences) -> Unit,
+    updatePreferences: ((ApplicationPreferences) -> ApplicationPreferences) -> Unit,
     target: QuickSettingsTarget = QuickSettingsTarget.LOCAL,
     cloudServerId: Long? = null,
+    directoryPath: String? = null,
+    isRoot: Boolean = false,
 ) {
-    var preferences by remember(applicationPreferences, target, cloudServerId) {
-        mutableStateOf(applicationPreferences.withSupportedSort(target, cloudServerId))
+    val originalPreferences = remember(target, cloudServerId, directoryPath) { applicationPreferences }
+    var preferences by remember(target, cloudServerId, directoryPath) {
+        mutableStateOf(applicationPreferences)
     }
-    val layoutMode = preferences.layoutMode(target, cloudServerId)
-    val sortBy = preferences.sortBy(target, cloudServerId)
-    val sortOrder = preferences.sortOrder(target, cloudServerId)
+    val settingsDirectoryPath = directoryPath.takeUnless {
+        target == QuickSettingsTarget.LOCAL && isRoot && preferences.mediaViewMode != MediaViewMode.FOLDER_TREE
+    }
+    val canConfigureDirectory = settingsDirectoryPath != null && !isRoot
+    val overrides = when (target) {
+        QuickSettingsTarget.LOCAL -> preferences.directoryQuickSettings[settingsDirectoryPath?.let(StoragePath::of)]
+        QuickSettingsTarget.CLOUD -> preferences.cloudQuickSettings(cloudServerId).directoryQuickSettings[settingsDirectoryPath]
+    }
+    val hasIndependentSettings = overrides?.isEmpty == false
+    val editorDirectoryPath = settingsDirectoryPath.takeIf { isRoot || hasIndependentSettings }
+    val hasInheritedSettings = if (canConfigureDirectory) {
+        when (target) {
+            QuickSettingsTarget.LOCAL -> preferences.hasInheritedQuickSettings(StoragePath.of(requireNotNull(settingsDirectoryPath)))
+            QuickSettingsTarget.CLOUD -> preferences.cloudQuickSettings(cloudServerId).hasInheritedQuickSettings(requireNotNull(settingsDirectoryPath))
+        }
+    } else {
+        false
+    }
+    val settings = when (target) {
+        QuickSettingsTarget.LOCAL -> preferences.resolveQuickSettings(editorDirectoryPath?.let(StoragePath::of))
+        QuickSettingsTarget.CLOUD -> preferences.cloudQuickSettings(cloudServerId).resolveQuickSettings(editorDirectoryPath)
+    }
+    fun updateSettings(updated: MediaQuickSettings) {
+        preferences = when (target) {
+            QuickSettingsTarget.LOCAL -> preferences.withQuickSettings(editorDirectoryPath?.let(StoragePath::of), updated)
+            QuickSettingsTarget.CLOUD -> preferences.withCloudQuickSettings(
+                cloudServerId,
+                preferences.cloudQuickSettings(cloudServerId).withQuickSettings(editorDirectoryPath, updated),
+            )
+        }
+    }
+    val sortBy = settings.sort.by
+    val sortOrder = settings.sort.order
     AppDialog(
         modifier = Modifier.testTag(target.dialogTestTag),
         onDismissRequest = onDismiss,
@@ -80,7 +119,7 @@ fun QuickSettingsDialog(
                     .verticalScroll(rememberScrollState()),
                 verticalArrangement = Arrangement.spacedBy(SectionSpacing),
             ) {
-                if (target == QuickSettingsTarget.LOCAL) {
+                if (target == QuickSettingsTarget.LOCAL && isRoot) {
                     QuickSettingsSection(title = stringResource(R.string.media_view_mode)) {
                         QuickSettingsTabRow(
                             options = MediaViewMode.entries,
@@ -91,54 +130,55 @@ fun QuickSettingsDialog(
                         )
                     }
                 }
-                QuickSettingsSection(title = stringResource(R.string.media_layout)) {
-                    QuickSettingsTabRow(
-                        options = MediaLayoutMode.entries,
-                        selectedOption = layoutMode,
-                        label = MediaLayoutMode::name,
-                        onOptionSelected = { preferences = preferences.withLayoutMode(target, cloudServerId, it) },
-                        modifier = Modifier.testTag("tabs_${target.dialogTestTag}_layout_mode"),
+                if (canConfigureDirectory) {
+                    PreferenceSwitch(
+                        title = stringResource(R.string.layout_independent_config),
+                        isChecked = hasIndependentSettings,
+                        onClick = {
+                            preferences = preferences.withIndependentQuickSettings(
+                                target = target,
+                                serverId = cloudServerId,
+                                directoryPath = requireNotNull(settingsDirectoryPath),
+                                isEnabled = !hasIndependentSettings,
+                            )
+                        },
+                        modifier = Modifier.fillMaxWidth().testTag("switch_independent_config"),
                     )
-                    if (layoutMode == MediaLayoutMode.GRID) {
-                        MediaLayoutScaleControls(
-                            scale = preferences.normalizedLayoutScale(target, cloudServerId),
-                            onResetClick = {
-                                preferences = preferences.withLayoutScale(
-                                    target = target,
-                                    serverId = cloudServerId,
-                                    scale = ApplicationPreferences.DEFAULT_MEDIA_LAYOUT_SCALE,
-                                )
-                            },
-                            onDecreaseClick = {
-                                preferences = preferences.withLayoutScale(
-                                    target = target,
-                                    serverId = cloudServerId,
-                                    scale = preferences.layoutScale(target, cloudServerId) - ApplicationPreferences.MEDIA_LAYOUT_SCALE_STEP,
-                                )
-                            },
-                            onIncreaseClick = {
-                                preferences = preferences.withLayoutScale(
-                                    target = target,
-                                    serverId = cloudServerId,
-                                    scale = preferences.layoutScale(target, cloudServerId) + ApplicationPreferences.MEDIA_LAYOUT_SCALE_STEP,
-                                )
-                            },
+                    if (!hasIndependentSettings) {
+                        Text(
+                            text = stringResource(R.string.quick_settings_edit_global),
+                            style = MiuixTheme.textStyles.footnote1,
+                            color = MiuixTheme.colorScheme.onSurfaceVariantSummary,
+                            modifier = Modifier.testTag("text_quick_settings_scope"),
                         )
+                        if (hasInheritedSettings) {
+                            Text(
+                                text = stringResource(R.string.quick_settings_parent_override),
+                                style = MiuixTheme.textStyles.footnote1,
+                                color = MiuixTheme.colorScheme.onSurfaceVariantSummary,
+                                modifier = Modifier.testTag("text_quick_settings_parent_override"),
+                            )
+                        }
                     }
                 }
+                MediaLayoutSettingsContent(
+                    settings = settings,
+                    shouldShowFolders = target == QuickSettingsTarget.CLOUD || preferences.mediaViewMode != MediaViewMode.VIDEOS,
+                    onChange = ::updateSettings,
+                )
                 QuickSettingsSection(title = stringResource(R.string.sort)) {
                     QuickSettingsTabRow(
                         options = target.supportedSortOptions,
                         selectedOption = sortBy,
                         label = { it.label() },
-                        onOptionSelected = { preferences = preferences.withSortBy(target, cloudServerId, it) },
+                        onOptionSelected = { updateSettings(settings.copy(sort = settings.sort.copy(by = it))) },
                         modifier = Modifier.testTag("tabs_${target.dialogTestTag}_sort_by"),
                     )
                     QuickSettingsTabRow(
                         options = Sort.Order.entries,
                         selectedOption = sortOrder,
                         label = { it.name(sortBy = sortBy) },
-                        onOptionSelected = { preferences = preferences.withSortOrder(target, cloudServerId, it) },
+                        onOptionSelected = { updateSettings(settings.copy(sort = settings.sort.copy(order = it))) },
                         modifier = Modifier.testTag("tabs_${target.dialogTestTag}_sort_order"),
                     )
                 }
@@ -149,10 +189,9 @@ fun QuickSettingsDialog(
                         verticalArrangement = Arrangement.spacedBy(8.dp),
                     ) {
                         QuickSettingsFields(
-                            preferences = preferences,
+                            fields = settings.fields,
                             target = target,
-                            cloudServerId = cloudServerId,
-                            onPreferencesChange = { preferences = it },
+                            onChange = { updateSettings(settings.copy(fields = it)) },
                         )
                     }
                 }
@@ -161,7 +200,9 @@ fun QuickSettingsDialog(
         confirmButton = {
             DoneButton(
                 onClick = {
-                    updatePreferences(preferences)
+                    updatePreferences { current ->
+                        current.applyQuickSettingsChanges(originalPreferences, preferences, target, cloudServerId)
+                    }
                     onDismiss()
                 },
                 modifier = Modifier.testTag("btn_${target.dialogTestTag}_done"),
@@ -178,7 +219,7 @@ fun QuickSettingsDialog(
 
 // 标题在控件上方，控件直接铺在对话框背景上，与 miuix 原生对话框风格一致。
 @Composable
-private fun QuickSettingsSection(
+internal fun QuickSettingsSection(
     title: String,
     content: @Composable ColumnScope.() -> Unit,
 ) {
@@ -195,7 +236,7 @@ private fun QuickSettingsSection(
 
 // 单选项使用 miuix 分段控件，选项少时自动铺满整行，多时可横向滚动。
 @Composable
-private fun <T> QuickSettingsTabRow(
+internal fun <T> QuickSettingsTabRow(
     options: List<T>,
     selectedOption: T,
     label: @Composable (T) -> String,
@@ -211,8 +252,9 @@ private fun <T> QuickSettingsTabRow(
 }
 
 @Composable
-private fun MediaLayoutScaleControls(
+internal fun MediaLayoutScaleControls(
     scale: Float,
+    testTagPrefix: String,
     onResetClick: () -> Unit,
     onDecreaseClick: () -> Unit,
     onIncreaseClick: () -> Unit,
@@ -233,24 +275,24 @@ private fun MediaLayoutScaleControls(
         Text(
             text = "${(scale * 100).roundToInt()}%",
             style = MiuixTheme.textStyles.body1,
-            modifier = Modifier.testTag("text_media_layout_scale"),
+            modifier = Modifier.testTag("text_${testTagPrefix}_layout_scale"),
         )
         ScaleIconButton(
             icon = AppIcons.Remove,
             contentDescription = stringResource(R.string.media_layout_scale_decrease),
-            testTag = "btn_media_layout_scale_decrease",
+            testTag = "btn_${testTagPrefix}_layout_scale_decrease",
             onClick = onDecreaseClick,
         )
         ScaleIconButton(
             icon = AppIcons.Add,
             contentDescription = stringResource(R.string.media_layout_scale_increase),
-            testTag = "btn_media_layout_scale_increase",
+            testTag = "btn_${testTagPrefix}_layout_scale_increase",
             onClick = onIncreaseClick,
         )
         ScaleIconButton(
             icon = AppIcons.Replay,
             contentDescription = stringResource(R.string.media_layout_scale_reset),
-            testTag = "btn_media_layout_scale_reset",
+            testTag = "btn_${testTagPrefix}_layout_scale_reset",
             onClick = onResetClick,
         )
     }
@@ -282,125 +324,57 @@ private fun ScaleIconButton(
 
 @Composable
 private fun QuickSettingsFields(
-    preferences: ApplicationPreferences,
+    fields: MediaDisplayFields,
     target: QuickSettingsTarget,
-    cloudServerId: Long?,
-    onPreferencesChange: (ApplicationPreferences) -> Unit,
+    onChange: (MediaDisplayFields) -> Unit,
 ) {
-    when (target) {
-        QuickSettingsTarget.LOCAL -> {
-            FieldChip(
-                key = "duration",
-                label = stringResource(id = R.string.video_duration),
-                isSelected = preferences.shouldShowDurationField,
-                onClick = { onPreferencesChange(preferences.copy(shouldShowDurationField = !preferences.shouldShowDurationField)) },
-            )
-            FieldChip(
-                key = "extension",
-                label = stringResource(id = R.string.extension),
-                isSelected = preferences.shouldShowExtensionField,
-                onClick = { onPreferencesChange(preferences.copy(shouldShowExtensionField = !preferences.shouldShowExtensionField)) },
-            )
-            FieldChip(
-                key = "path",
-                label = stringResource(id = R.string.folder_path),
-                isSelected = preferences.shouldShowPathField,
-                onClick = { onPreferencesChange(preferences.copy(shouldShowPathField = !preferences.shouldShowPathField)) },
-            )
-            FieldChip(
-                key = "played_progress",
-                label = stringResource(id = R.string.played_progress),
-                isSelected = preferences.shouldShowPlayedProgress,
-                onClick = { onPreferencesChange(preferences.copy(shouldShowPlayedProgress = !preferences.shouldShowPlayedProgress)) },
-            )
-            FieldChip(
-                key = "resolution",
-                label = stringResource(id = R.string.resolution),
-                isSelected = preferences.shouldShowResolutionField,
-                onClick = { onPreferencesChange(preferences.copy(shouldShowResolutionField = !preferences.shouldShowResolutionField)) },
-            )
-            FieldChip(
-                key = "size",
-                label = stringResource(id = R.string.size),
-                isSelected = preferences.shouldShowSizeField,
-                onClick = { onPreferencesChange(preferences.copy(shouldShowSizeField = !preferences.shouldShowSizeField)) },
-            )
-            FieldChip(
-                key = "thumbnail",
-                label = stringResource(id = R.string.thumbnail),
-                isSelected = preferences.shouldShowThumbnailField,
-                onClick = { onPreferencesChange(preferences.copy(shouldShowThumbnailField = !preferences.shouldShowThumbnailField)) },
-            )
-        }
-        QuickSettingsTarget.CLOUD -> {
-            val cloudSettings = preferences.cloudQuickSettings(cloudServerId)
-            FieldChip(
-                key = "cloud_extension",
-                label = stringResource(id = R.string.extension),
-                isSelected = cloudSettings.shouldShowExtensionField,
-                onClick = {
-                    onPreferencesChange(
-                        preferences.withCloudQuickSettings(
-                            serverId = cloudServerId,
-                            settings = cloudSettings.copy(shouldShowExtensionField = !cloudSettings.shouldShowExtensionField),
-                        ),
-                    )
-                },
-            )
-            FieldChip(
-                key = "cloud_path",
-                label = stringResource(id = R.string.folder_path),
-                isSelected = cloudSettings.shouldShowPathField,
-                onClick = {
-                    onPreferencesChange(
-                        preferences.withCloudQuickSettings(
-                            serverId = cloudServerId,
-                            settings = cloudSettings.copy(shouldShowPathField = !cloudSettings.shouldShowPathField),
-                        ),
-                    )
-                },
-            )
-            FieldChip(
-                key = "cloud_played_progress",
-                label = stringResource(id = R.string.played_progress),
-                isSelected = cloudSettings.shouldShowPlayedProgress,
-                onClick = {
-                    onPreferencesChange(
-                        preferences.withCloudQuickSettings(
-                            serverId = cloudServerId,
-                            settings = cloudSettings.copy(shouldShowPlayedProgress = !cloudSettings.shouldShowPlayedProgress),
-                        ),
-                    )
-                },
-            )
-            FieldChip(
-                key = "cloud_size",
-                label = stringResource(id = R.string.size),
-                isSelected = cloudSettings.shouldShowSizeField,
-                onClick = {
-                    onPreferencesChange(
-                        preferences.withCloudQuickSettings(
-                            serverId = cloudServerId,
-                            settings = cloudSettings.copy(shouldShowSizeField = !cloudSettings.shouldShowSizeField),
-                        ),
-                    )
-                },
-            )
-            FieldChip(
-                key = "cloud_thumbnail",
-                label = stringResource(id = R.string.thumbnail),
-                isSelected = cloudSettings.shouldShowThumbnailField,
-                onClick = {
-                    onPreferencesChange(
-                        preferences.withCloudQuickSettings(
-                            serverId = cloudServerId,
-                            settings = cloudSettings.copy(shouldShowThumbnailField = !cloudSettings.shouldShowThumbnailField),
-                        ),
-                    )
-                },
-            )
-        }
+    val prefix = if (target == QuickSettingsTarget.CLOUD) "cloud_" else ""
+    if (target == QuickSettingsTarget.LOCAL) {
+        FieldChip(
+            key = "${prefix}duration",
+            label = stringResource(R.string.video_duration),
+            isSelected = fields.shouldShowDurationField,
+            onClick = { onChange(fields.copy(shouldShowDurationField = !fields.shouldShowDurationField)) },
+        )
     }
+    FieldChip(
+        key = "${prefix}extension",
+        label = stringResource(R.string.extension),
+        isSelected = fields.shouldShowExtensionField,
+        onClick = { onChange(fields.copy(shouldShowExtensionField = !fields.shouldShowExtensionField)) },
+    )
+    FieldChip(
+        key = "${prefix}path",
+        label = stringResource(R.string.folder_path),
+        isSelected = fields.shouldShowPathField,
+        onClick = { onChange(fields.copy(shouldShowPathField = !fields.shouldShowPathField)) },
+    )
+    FieldChip(
+        key = "${prefix}played_progress",
+        label = stringResource(R.string.played_progress),
+        isSelected = fields.shouldShowPlayedProgress,
+        onClick = { onChange(fields.copy(shouldShowPlayedProgress = !fields.shouldShowPlayedProgress)) },
+    )
+    if (target == QuickSettingsTarget.LOCAL) {
+        FieldChip(
+            key = "${prefix}resolution",
+            label = stringResource(R.string.resolution),
+            isSelected = fields.shouldShowResolutionField,
+            onClick = { onChange(fields.copy(shouldShowResolutionField = !fields.shouldShowResolutionField)) },
+        )
+    }
+    FieldChip(
+        key = "${prefix}size",
+        label = stringResource(R.string.size),
+        isSelected = fields.shouldShowSizeField,
+        onClick = { onChange(fields.copy(shouldShowSizeField = !fields.shouldShowSizeField)) },
+    )
+    FieldChip(
+        key = "${prefix}thumbnail",
+        label = stringResource(R.string.thumbnail),
+        isSelected = fields.shouldShowThumbnailField,
+        onClick = { onChange(fields.copy(shouldShowThumbnailField = !fields.shouldShowThumbnailField)) },
+    )
 }
 
 // 多选字段用胶囊 Chip，选中态填充主题色，与 miuix 无边框风格一致。
@@ -438,102 +412,6 @@ private val QuickSettingsTarget.supportedSortOptions: List<Sort.By>
         QuickSettingsTarget.LOCAL -> Sort.By.entries
         QuickSettingsTarget.CLOUD -> listOf(Sort.By.TITLE, Sort.By.SIZE, Sort.By.PATH)
     }
-
-private fun ApplicationPreferences.withSupportedSort(
-    target: QuickSettingsTarget,
-    serverId: Long?,
-): ApplicationPreferences {
-    if (sortBy(target, serverId) in target.supportedSortOptions) return this
-    return withSortBy(target, serverId, Sort.By.TITLE)
-}
-
-private fun ApplicationPreferences.layoutMode(
-    target: QuickSettingsTarget,
-    serverId: Long?,
-): MediaLayoutMode = when (target) {
-    QuickSettingsTarget.LOCAL -> mediaLayoutMode
-    QuickSettingsTarget.CLOUD -> cloudQuickSettings(serverId).mediaLayoutMode
-}
-
-private fun ApplicationPreferences.withLayoutMode(
-    target: QuickSettingsTarget,
-    serverId: Long?,
-    layoutMode: MediaLayoutMode,
-): ApplicationPreferences = when (target) {
-    QuickSettingsTarget.LOCAL -> copy(mediaLayoutMode = layoutMode)
-    QuickSettingsTarget.CLOUD -> withCloudQuickSettings(
-        serverId = serverId,
-        settings = cloudQuickSettings(serverId).copy(mediaLayoutMode = layoutMode),
-    )
-}
-
-private fun ApplicationPreferences.layoutScale(
-    target: QuickSettingsTarget,
-    serverId: Long?,
-): Float = when (target) {
-    QuickSettingsTarget.LOCAL -> mediaLayoutScale
-    QuickSettingsTarget.CLOUD -> cloudQuickSettings(serverId).mediaLayoutScale
-}
-
-private fun ApplicationPreferences.normalizedLayoutScale(
-    target: QuickSettingsTarget,
-    serverId: Long?,
-): Float = when (target) {
-    QuickSettingsTarget.LOCAL -> normalizedMediaLayoutScale()
-    QuickSettingsTarget.CLOUD -> cloudQuickSettings(serverId).normalizedMediaLayoutScale()
-}
-
-private fun ApplicationPreferences.withLayoutScale(
-    target: QuickSettingsTarget,
-    serverId: Long?,
-    scale: Float,
-): ApplicationPreferences = when (target) {
-    QuickSettingsTarget.LOCAL -> withMediaLayoutScale(scale)
-    QuickSettingsTarget.CLOUD -> withCloudQuickSettings(
-        serverId = serverId,
-        settings = cloudQuickSettings(serverId).withMediaLayoutScale(scale),
-    )
-}
-
-private fun ApplicationPreferences.sortBy(
-    target: QuickSettingsTarget,
-    serverId: Long?,
-): Sort.By = when (target) {
-    QuickSettingsTarget.LOCAL -> sortBy
-    QuickSettingsTarget.CLOUD -> cloudQuickSettings(serverId).sortBy.takeIf { it in target.supportedSortOptions } ?: Sort.By.TITLE
-}
-
-private fun ApplicationPreferences.withSortBy(
-    target: QuickSettingsTarget,
-    serverId: Long?,
-    sortBy: Sort.By,
-): ApplicationPreferences = when (target) {
-    QuickSettingsTarget.LOCAL -> copy(sortBy = sortBy)
-    QuickSettingsTarget.CLOUD -> withCloudQuickSettings(
-        serverId = serverId,
-        settings = cloudQuickSettings(serverId).copy(sortBy = sortBy.takeIf { it in target.supportedSortOptions } ?: Sort.By.TITLE),
-    )
-}
-
-private fun ApplicationPreferences.sortOrder(
-    target: QuickSettingsTarget,
-    serverId: Long?,
-): Sort.Order = when (target) {
-    QuickSettingsTarget.LOCAL -> sortOrder
-    QuickSettingsTarget.CLOUD -> cloudQuickSettings(serverId).sortOrder
-}
-
-private fun ApplicationPreferences.withSortOrder(
-    target: QuickSettingsTarget,
-    serverId: Long?,
-    sortOrder: Sort.Order,
-): ApplicationPreferences = when (target) {
-    QuickSettingsTarget.LOCAL -> copy(sortOrder = sortOrder)
-    QuickSettingsTarget.CLOUD -> withCloudQuickSettings(
-        serverId = serverId,
-        settings = cloudQuickSettings(serverId).copy(sortOrder = sortOrder),
-    )
-}
 
 @Composable
 private fun Sort.By.label(): String = when (this) {
