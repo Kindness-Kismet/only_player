@@ -110,7 +110,7 @@
 | `settings.action` | `general.clear_video_cache` | 清除缩略图、媒体列表快照、字幕转换和 MKV Cues seek 缓存，保留已下载字幕 |
 | `settings.action` | `general.reset_settings` | 重置设置 |
 | `settings.action` | `subtitle.clear_external_font` | 清除导入的外部字幕字体 |
-| `settings.action` | `media.layout_scale_reset` | 重置媒体布局缩放为 `1.0` |
+| `settings.action` | `media.layout_scale_reset` | 重置文件夹与视频默认网格缩放为 `1.0`，保留目录覆盖 |
 | `settings.action` | `player.reset_controls` | 把播放器控件编排恢复默认 |
 | `settings.action` | `decoder.save_filter_preset` | 把当前滤镜参数保存为预设（value=名称） |
 | `settings.action` | `decoder.apply_filter_preset` | 应用指定名称的滤镜预设（value=名称） |

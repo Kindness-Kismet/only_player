@@ -432,7 +432,7 @@ internal suspend fun DebugCommandEntryPoint.runSettingAction(
         }
         "subtitle.clear_external_font" -> subtitleFontRepository().clearFont()
         "media.layout_scale_reset" -> preferencesRepository().updateApplicationPreferences {
-            it.withMediaLayoutScale(ApplicationPreferences.DEFAULT_MEDIA_LAYOUT_SCALE)
+            it.withVideoLayoutScale(ApplicationPreferences.DEFAULT_MEDIA_LAYOUT_SCALE).copy(folderLayoutScale = ApplicationPreferences.DEFAULT_MEDIA_LAYOUT_SCALE)
         }
         "player.reset_controls" -> preferencesRepository().updatePlayerPreferences {
             it.copy(controlsArrangement = PlayerControlsArrangement())

@@ -9,8 +9,12 @@ import kotlinx.coroutines.runBlocking
 import one.only.player.core.model.ApplicationPreferences
 import one.only.player.core.model.CloudQuickSettings
 import one.only.player.core.model.MediaLayoutMode
+import one.only.player.core.model.MediaLayoutTarget
 import one.only.player.core.model.RemoteFile
+import one.only.player.core.model.ServerProtocol
 import one.only.player.core.model.Sort
+import one.only.player.core.model.resolveMediaLayouts
+import one.only.player.core.model.withMediaLayout
 
 internal fun Context.runCloudMediaCommand(
     action: String,
@@ -136,15 +140,20 @@ private suspend fun DebugCommandEntryPoint.runCloudQuickSettingsAction(
 ): Bundle {
     val command = "cloud.quick_settings.$action"
     val server = remoteServerRepository().getById(extras.requiredServerId()) ?: error("Cloud server not found")
+    val directory = extras.getString("directory")?.let { raw ->
+        remoteMediaResolver().normalizeDirectoryPath(server, raw).trimEnd('/').ifEmpty { "/" }.let { path ->
+            if (server.protocol == ServerProtocol.SMB) path.lowercase() else path
+        }
+    }
     return when (action) {
         "get" -> {
             val settings = preferencesRepository().applicationPreferences.value.cloudQuickSettings(server.id)
             debugResult(
                 isOk = true,
-                message = settings.debugSummary(server.id),
+                message = settings.debugSummary(server.id, directory),
                 command = command,
                 target = target,
-                value = settings.debugSummary(server.id),
+                value = settings.debugSummary(server.id, directory),
             )
         }
         "set" -> {
@@ -154,7 +163,7 @@ private suspend fun DebugCommandEntryPoint.runCloudQuickSettingsAction(
             var updatedSettings = CloudQuickSettings()
             preferencesRepository().updateApplicationPreferences { preferences ->
                 val current = preferences.cloudQuickSettings(server.id)
-                updatedSettings = current.updated(settingTarget, extras).normalized()
+                updatedSettings = current.updated(settingTarget, extras, directory).normalized()
                 preferences.withCloudQuickSettings(
                     serverId = server.id,
                     settings = updatedSettings,
@@ -162,10 +171,10 @@ private suspend fun DebugCommandEntryPoint.runCloudQuickSettingsAction(
             }
             debugResult(
                 isOk = true,
-                message = updatedSettings.debugSummary(server.id),
+                message = updatedSettings.debugSummary(server.id, directory),
                 command = command,
                 target = settingTarget,
-                value = updatedSettings.debugSummary(server.id),
+                value = updatedSettings.debugSummary(server.id, directory),
             )
         }
         else -> error("Unknown cloud quick settings action: $action")
@@ -180,23 +189,44 @@ private fun Bundle.requiredServerId(): Long {
 private fun CloudQuickSettings.updated(
     target: String,
     extras: Bundle,
-): CloudQuickSettings = when (target) {
-    "layout_mode" -> copy(mediaLayoutMode = enumValue<MediaLayoutMode>(extras.requiredString(EXTRA_VALUE)))
-    "layout_scale" -> withMediaLayoutScale(extras.requiredFloat(EXTRA_VALUE))
-    "sort_by" -> {
-        val sortBy = enumValue<Sort.By>(extras.requiredString(EXTRA_VALUE))
-        if (sortBy !in CloudQuickSettings.SUPPORTED_SORT_OPTIONS) {
-            error("Unsupported cloud sort option: $sortBy")
-        }
-        copy(sortBy = sortBy)
+    directory: String?,
+): CloudQuickSettings {
+    val layoutTarget = when (target.substringBefore('.')) {
+        "folder" -> MediaLayoutTarget.FOLDERS
+        "video" -> MediaLayoutTarget.VIDEOS
+        else -> null
     }
-    "sort_order" -> copy(sortOrder = enumValue<Sort.Order>(extras.requiredString(EXTRA_VALUE)))
-    "field.extension" -> copy(shouldShowExtensionField = extras.requiredBoolean(EXTRA_ENABLED))
-    "field.path" -> copy(shouldShowPathField = extras.requiredBoolean(EXTRA_ENABLED))
-    "field.size" -> copy(shouldShowSizeField = extras.requiredBoolean(EXTRA_ENABLED))
-    "field.thumbnail" -> copy(shouldShowThumbnailField = extras.requiredBoolean(EXTRA_ENABLED))
-    "field.played_progress" -> copy(shouldShowPlayedProgress = extras.requiredBoolean(EXTRA_ENABLED))
-    else -> error("Unknown cloud quick setting target: $target")
+    if (layoutTarget != null) {
+        val current = resolveMediaLayouts(directory)[layoutTarget].layout
+        val layout = when (target.substringAfter('.')) {
+            "layout_mode" -> current.copy(mode = enumValue<MediaLayoutMode>(extras.requiredString(EXTRA_VALUE)))
+            "layout_scale" -> current.copy(scale = extras.requiredFloat(EXTRA_VALUE))
+            "inherit" -> {
+                require(directory != null) { "Missing directory" }
+                null
+            }
+            else -> error("Unknown layout setting: $target")
+        }
+        return withMediaLayout(directory, layoutTarget, layout)
+    }
+    return when (target) {
+        "layout_mode" -> enumValue<MediaLayoutMode>(extras.requiredString(EXTRA_VALUE)).let { copy(videoLayoutMode = it, folderLayoutMode = it) }
+        "layout_scale" -> withVideoLayoutScale(extras.requiredFloat(EXTRA_VALUE)).let { it.copy(folderLayoutScale = it.videoLayoutScale) }
+        "sort_by" -> {
+            val sortBy = enumValue<Sort.By>(extras.requiredString(EXTRA_VALUE))
+            if (sortBy !in CloudQuickSettings.SUPPORTED_SORT_OPTIONS) {
+                error("Unsupported cloud sort option: $sortBy")
+            }
+            copy(sortBy = sortBy)
+        }
+        "sort_order" -> copy(sortOrder = enumValue<Sort.Order>(extras.requiredString(EXTRA_VALUE)))
+        "field.extension" -> copy(shouldShowExtensionField = extras.requiredBoolean(EXTRA_ENABLED))
+        "field.path" -> copy(shouldShowPathField = extras.requiredBoolean(EXTRA_ENABLED))
+        "field.size" -> copy(shouldShowSizeField = extras.requiredBoolean(EXTRA_ENABLED))
+        "field.thumbnail" -> copy(shouldShowThumbnailField = extras.requiredBoolean(EXTRA_ENABLED))
+        "field.played_progress" -> copy(shouldShowPlayedProgress = extras.requiredBoolean(EXTRA_ENABLED))
+        else -> error("Unknown cloud quick setting target: $target")
+    }
 }
 
 private fun List<RemoteFile>.sortedForCloud(
@@ -238,9 +268,11 @@ private fun List<RemoteFile>.requireTargetFile(extras: Bundle): RemoteFile {
 
 private fun RemoteFile.debugSummary(): String = "name=$name path=$path size=$size"
 
-private fun CloudQuickSettings.debugSummary(serverId: Long): String {
+private fun CloudQuickSettings.debugSummary(serverId: Long, directory: String?): String {
+    val layouts = resolveMediaLayouts(directory)
+    val layoutSummary = "folder=${layouts.folders.layout.mode}/${layouts.folders.layout.scale} folder_source=${layouts.folders.sourcePath ?: "default"} video=${layouts.videos.layout.mode}/${layouts.videos.layout.scale} video_source=${layouts.videos.sourcePath ?: "default"}"
     val fields = "extension:$shouldShowExtensionField,path:$shouldShowPathField,size:$shouldShowSizeField,thumbnail:$shouldShowThumbnailField,played:$shouldShowPlayedProgress"
-    return "server_id=$serverId layout=$mediaLayoutMode scale=${normalizedMediaLayoutScale()} sort=$sortBy/$sortOrder fields=$fields"
+    return "$layoutSummary server_id=$serverId layout=$videoLayoutMode scale=${normalizedVideoLayoutScale()} sort=$sortBy/$sortOrder fields=$fields"
 }
 
 private fun Bundle.resolveOpenDirectoryPath(defaultPath: String): String {
