@@ -12,7 +12,10 @@ import one.only.player.core.model.MediaViewMode
 import one.only.player.core.model.Sort
 import one.only.player.core.model.StoragePath
 import one.only.player.core.model.resolveMediaLayouts
+import one.only.player.core.model.resolveQuickSettings
+import one.only.player.core.model.withIndependentQuickSettings
 import one.only.player.core.model.withMediaLayout
+import one.only.player.core.model.withQuickSettings
 
 internal fun Context.runQuickSettingsCommand(
     action: String,
@@ -58,6 +61,9 @@ private suspend fun DebugCommandEntryPoint.runQuickSettingsAction(
             val settingTarget = target?.takeIf { it.isNotBlank() }
                 ?: extras.getString("target")?.takeIf { it.isNotBlank() }
                 ?: error("Missing quick setting target")
+            require(settingTarget != "view_mode" || extras.getString("directory") == null) {
+                "Media view mode is global; directory is not supported"
+            }
             var updatedPreferences = preferencesRepository().applicationPreferences.value
             preferencesRepository().updateApplicationPreferences { preferences ->
                 updatedPreferences = preferences.updatedQuickSetting(settingTarget, extras)
@@ -98,35 +104,49 @@ private fun ApplicationPreferences.updatedQuickSetting(
         }
         return withMediaLayout(directory, layoutTarget, layout)
     }
-    return when (target) {
-        "view_mode" -> copy(mediaViewMode = enumValue<MediaViewMode>(extras.requiredString(EXTRA_VALUE)))
-        "layout_mode" -> enumValue<MediaLayoutMode>(extras.requiredString(EXTRA_VALUE)).let { copy(videoLayoutMode = it, folderLayoutMode = it) }
-        "layout_scale" -> withVideoLayoutScale(extras.requiredFloat(EXTRA_VALUE)).let { it.copy(folderLayoutScale = it.videoLayoutScale) }
-        "sort_by" -> copy(sortBy = enumValue<Sort.By>(extras.requiredString(EXTRA_VALUE)))
-        "sort_order" -> copy(sortOrder = enumValue<Sort.Order>(extras.requiredString(EXTRA_VALUE)))
-        "field.duration" -> copy(shouldShowDurationField = extras.requiredBoolean(EXTRA_ENABLED))
-        "field.extension" -> copy(shouldShowExtensionField = extras.requiredBoolean(EXTRA_ENABLED))
-        "field.path" -> copy(shouldShowPathField = extras.requiredBoolean(EXTRA_ENABLED))
-        "field.played_progress" -> copy(shouldShowPlayedProgress = extras.requiredBoolean(EXTRA_ENABLED))
-        "field.resolution" -> copy(shouldShowResolutionField = extras.requiredBoolean(EXTRA_ENABLED))
-        "field.size" -> copy(shouldShowSizeField = extras.requiredBoolean(EXTRA_ENABLED))
-        "field.thumbnail" -> copy(shouldShowThumbnailField = extras.requiredBoolean(EXTRA_ENABLED))
+    if (target == "independent") {
+        require(directory != null) { "Missing directory" }
+        return withIndependentQuickSettings(directory, extras.requiredBoolean(EXTRA_ENABLED))
+    }
+    if (target == "view_mode") {
+        return copy(mediaViewMode = enumValue<MediaViewMode>(extras.requiredString(EXTRA_VALUE)))
+    }
+    if (target == "layout_mode") {
+        val mode = enumValue<MediaLayoutMode>(extras.requiredString(EXTRA_VALUE))
+        return copy(videoLayoutMode = mode, folderLayoutMode = mode)
+    }
+    if (target == "layout_scale") {
+        return withVideoLayoutScale(extras.requiredFloat(EXTRA_VALUE)).let { it.copy(folderLayoutScale = it.videoLayoutScale) }
+    }
+    val current = resolveQuickSettings(directory)
+    val updated = when (target) {
+        "sort_by" -> current.copy(sort = current.sort.copy(by = enumValue<Sort.By>(extras.requiredString(EXTRA_VALUE))))
+        "sort_order" -> current.copy(sort = current.sort.copy(order = enumValue<Sort.Order>(extras.requiredString(EXTRA_VALUE))))
+        "field.duration" -> current.copy(fields = current.fields.copy(shouldShowDurationField = extras.requiredBoolean(EXTRA_ENABLED)))
+        "field.extension" -> current.copy(fields = current.fields.copy(shouldShowExtensionField = extras.requiredBoolean(EXTRA_ENABLED)))
+        "field.path" -> current.copy(fields = current.fields.copy(shouldShowPathField = extras.requiredBoolean(EXTRA_ENABLED)))
+        "field.played_progress" -> current.copy(fields = current.fields.copy(shouldShowPlayedProgress = extras.requiredBoolean(EXTRA_ENABLED)))
+        "field.resolution" -> current.copy(fields = current.fields.copy(shouldShowResolutionField = extras.requiredBoolean(EXTRA_ENABLED)))
+        "field.size" -> current.copy(fields = current.fields.copy(shouldShowSizeField = extras.requiredBoolean(EXTRA_ENABLED)))
+        "field.thumbnail" -> current.copy(fields = current.fields.copy(shouldShowThumbnailField = extras.requiredBoolean(EXTRA_ENABLED)))
         else -> error("Unknown quick setting target: $target")
     }
+    return withQuickSettings(directory, updated)
 }
 
 private fun ApplicationPreferences.debugSummary(extras: Bundle): String {
     val directory = extras.getString("directory")?.let { StoragePath.of(it.canonicalPathOrSelf()) }
+    val settings = resolveQuickSettings(directory)
     val layouts = resolveMediaLayouts(directory)
     val layoutSummary = "folder=${layouts.folders.layout.mode}/${layouts.folders.layout.scale} folder_source=${layouts.folders.sourcePath ?: "default"} video=${layouts.videos.layout.mode}/${layouts.videos.layout.scale} video_source=${layouts.videos.sourcePath ?: "default"}"
     val fields = listOf(
-        "duration:$shouldShowDurationField",
-        "extension:$shouldShowExtensionField",
-        "path:$shouldShowPathField",
-        "played:$shouldShowPlayedProgress",
-        "resolution:$shouldShowResolutionField",
-        "size:$shouldShowSizeField",
-        "thumbnail:$shouldShowThumbnailField",
+        "duration:${settings.fields.shouldShowDurationField}",
+        "extension:${settings.fields.shouldShowExtensionField}",
+        "path:${settings.fields.shouldShowPathField}",
+        "played:${settings.fields.shouldShowPlayedProgress}",
+        "resolution:${settings.fields.shouldShowResolutionField}",
+        "size:${settings.fields.shouldShowSizeField}",
+        "thumbnail:${settings.fields.shouldShowThumbnailField}",
     ).joinToString(separator = ",")
-    return "$layoutSummary view=$mediaViewMode layout=$videoLayoutMode scale=${normalizedVideoLayoutScale()} sort=$sortBy/$sortOrder fields=$fields"
+    return "$layoutSummary view=$mediaViewMode layout=$videoLayoutMode scale=${normalizedVideoLayoutScale()} sort=${settings.sort.by}/${settings.sort.order} fields=$fields"
 }

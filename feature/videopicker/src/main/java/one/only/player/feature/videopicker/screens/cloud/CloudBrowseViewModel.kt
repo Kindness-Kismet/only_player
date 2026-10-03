@@ -35,8 +35,8 @@ import one.only.player.core.model.ApplicationPreferences
 import one.only.player.core.model.RemoteFile
 import one.only.player.core.model.RemoteServer
 import one.only.player.core.model.ServerProtocol
-import one.only.player.core.model.Sort
 import one.only.player.core.model.Video
+import one.only.player.core.model.resolveQuickSettings
 
 @HiltViewModel
 class CloudBrowseViewModel @Inject constructor(
@@ -68,15 +68,16 @@ class CloudBrowseViewModel @Inject constructor(
         viewModelScope.launch {
             preferencesRepository.applicationPreferences.collect { preferences ->
                 _uiState.update { currentState ->
-                    val previousSettings = currentState.preferences.cloudQuickSettings(currentState.server?.id)
-                    val settings = preferences.cloudQuickSettings(currentState.server?.id)
-                    val hasSortChanged = previousSettings.sortBy != settings.sortBy || previousSettings.sortOrder != settings.sortOrder
+                    val previousSettings = currentState.preferences.cloudQuickSettings(currentState.server?.id).resolveQuickSettings(currentState.settingsDirectoryPath)
+                    val settings = preferences.cloudQuickSettings(currentState.server?.id).resolveQuickSettings(currentState.settingsDirectoryPath)
+                    val hasSortChanged = previousSettings.sort != settings.sort
                     currentState.copy(
                         preferences = preferences,
                         files = if (hasSortChanged) {
                             currentState.files.sortedForCloud(
                                 preferences = preferences,
                                 serverId = currentState.server?.id,
+                                directoryPath = currentState.settingsDirectoryPath,
                             )
                         } else {
                             currentState.files
@@ -159,6 +160,7 @@ class CloudBrowseViewModel @Inject constructor(
                             files = files.sortedForCloud(
                                 preferences = it.preferences,
                                 serverId = server.id,
+                                directoryPath = it.settingsDirectoryPath,
                             ),
                             isError = false,
                             errorMessage = "",
@@ -387,12 +389,10 @@ class CloudBrowseViewModel @Inject constructor(
     private fun List<RemoteFile>.sortedForCloud(
         preferences: ApplicationPreferences,
         serverId: Long?,
+        directoryPath: String,
     ): List<RemoteFile> {
-        val settings = preferences.cloudQuickSettings(serverId)
-        val comparator = Sort(
-            by = settings.sortBy,
-            order = settings.sortOrder,
-        ).remoteFileComparator()
+        val settings = preferences.cloudQuickSettings(serverId).resolveQuickSettings(directoryPath)
+        val comparator = settings.sort.toSort().remoteFileComparator()
         val (folders, videos) = partition(RemoteFile::isDirectory)
         return folders.sortedWith(comparator) + videos.sortedWith(comparator)
     }
@@ -428,3 +428,8 @@ sealed interface CloudBrowseEvent {
     data class AddFavorites(val files: List<RemoteFile>) : CloudBrowseEvent
     data class UpdateQuickSettings(val transform: (ApplicationPreferences) -> ApplicationPreferences) : CloudBrowseEvent
 }
+
+internal val CloudBrowseUiState.settingsDirectoryPath: String
+    get() = currentPath.trimEnd('/').ifEmpty { "/" }.let { path ->
+        if (server?.protocol == ServerProtocol.SMB) path.lowercase() else path
+    }

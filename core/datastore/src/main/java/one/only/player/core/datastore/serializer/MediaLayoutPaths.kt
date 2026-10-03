@@ -5,5 +5,5 @@ import one.only.player.core.model.ApplicationPreferences
 import one.only.player.core.model.StoragePath
 
 fun ApplicationPreferences.withCanonicalLayoutPaths(): ApplicationPreferences = copy(
-    directoryLayouts = directoryLayouts.mapKeys { (path, _) -> StoragePath.of(path.value.canonicalPathOrSelf()) },
+    directoryQuickSettings = directoryQuickSettings.mapKeys { (path, _) -> StoragePath.of(path.value.canonicalPathOrSelf()) },
 )

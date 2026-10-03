@@ -34,7 +34,8 @@ data class ApplicationPreferences(
     val videoLayoutScale: Float = DEFAULT_MEDIA_LAYOUT_SCALE,
     val folderLayoutMode: MediaLayoutMode = videoLayoutMode,
     val folderLayoutScale: Float = videoLayoutScale,
-    val directoryLayouts: Map<StoragePath, MediaLayoutOverrides> = emptyMap(),
+    @SerialName("directoryLayouts")
+    val directoryQuickSettings: Map<StoragePath, MediaQuickSettingsOverrides> = emptyMap(),
     val cloudQuickSettingsByServerId: Map<String, CloudQuickSettings> = emptyMap(),
 
     // 字段显示
@@ -110,7 +111,8 @@ data class CloudQuickSettings(
     val videoLayoutScale: Float = ApplicationPreferences.DEFAULT_MEDIA_LAYOUT_SCALE,
     val folderLayoutMode: MediaLayoutMode = videoLayoutMode,
     val folderLayoutScale: Float = videoLayoutScale,
-    val directoryLayouts: Map<String, MediaLayoutOverrides> = emptyMap(),
+    @SerialName("directoryLayouts")
+    val directoryQuickSettings: Map<String, MediaQuickSettingsOverrides> = emptyMap(),
     val shouldShowExtensionField: Boolean = false,
     val shouldShowPathField: Boolean = true,
     val shouldShowSizeField: Boolean = true,

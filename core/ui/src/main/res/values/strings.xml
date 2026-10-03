@@ -685,10 +685,7 @@
     <string name="file_name">File name</string>
     <string name="folder_layout">Folder layout</string>
     <string name="video_layout">Video layout</string>
-    <string name="layout_library_default">Library defaults</string>
-    <string name="layout_directory_custom">Set for this folder</string>
-    <string name="layout_inherited_from">Inherited from: %1$s</string>
-    <string name="layout_use_parent">Use parent settings</string>
     <string name="layout_independent_config">Independent configuration</string>
-    <string name="layout_follow_parent">Inherit parent layout</string>
+    <string name="quick_settings_edit_global">Editing global defaults</string>
+    <string name="quick_settings_parent_override">This folder still inherits an independent configuration from its parent</string>
 </resources>

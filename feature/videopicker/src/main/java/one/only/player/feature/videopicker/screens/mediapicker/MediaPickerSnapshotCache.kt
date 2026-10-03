@@ -16,6 +16,7 @@ import one.only.player.core.model.Folder
 import one.only.player.core.model.MediaViewMode
 import one.only.player.core.model.Sort
 import one.only.player.core.model.StoragePath
+import one.only.player.core.model.directorySortOverrides
 
 // 文件夹快照缓存，兼顾内存与磁盘持久化，冷启动后仍可命中
 class MediaPickerSnapshotCache(
@@ -151,6 +152,7 @@ class MediaPickerSnapshotCache(
         mediaViewMode = prefs.mediaViewMode,
         sortBy = prefs.sortBy,
         sortOrder = prefs.sortOrder,
+        directorySorts = prefs.directorySortOverrides(),
         shouldIgnoreNoMediaFiles = prefs.shouldIgnoreNoMediaFiles,
         isRecycleBinEnabled = prefs.isRecycleBinEnabled,
         excludeFolders = prefs.excludeFolders.map(StoragePath::value),
@@ -164,13 +166,14 @@ class MediaPickerSnapshotCache(
         val mediaViewMode: MediaViewMode,
         val sortBy: Sort.By,
         val sortOrder: Sort.Order,
+        val directorySorts: Map<String, Pair<Sort.By, Sort.Order>>,
         val shouldIgnoreNoMediaFiles: Boolean,
         val isRecycleBinEnabled: Boolean,
         val excludeFolders: List<String>,
         val hasAllFilesAccess: Boolean,
     ) : Serializable {
         companion object {
-            private const val serialVersionUID = 1L
+            private const val serialVersionUID = 2L
         }
     }
 
@@ -179,7 +182,7 @@ class MediaPickerSnapshotCache(
         val folder: Folder?,
     ) : Serializable {
         companion object {
-            private const val serialVersionUID = 1L
+            private const val serialVersionUID = 2L
         }
     }
 

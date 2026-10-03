@@ -11,9 +11,10 @@ import one.only.player.core.common.Dispatcher
 import one.only.player.core.common.DispatcherType
 import one.only.player.core.data.repository.MediaRepository
 import one.only.player.core.data.repository.PreferencesRepository
-import one.only.player.core.model.Sort
 import one.only.player.core.model.StoragePath
 import one.only.player.core.model.Video
+import one.only.player.core.model.directorySortOverrides
+import one.only.player.core.model.resolveQuickSettings
 
 class GetSortedVideosUseCase @Inject constructor(
     private val mediaRepository: MediaRepository,
@@ -36,7 +37,7 @@ class GetSortedVideosUseCase @Inject constructor(
         return combine(
             videosFlow,
             preferencesRepository.applicationPreferences.distinctUntilChangedBy {
-                Triple(it.sortBy to it.sortOrder, it.excludeFolders, it.isRecycleBinEnabled)
+                Triple((it.sortBy to it.sortOrder) to it.directorySortOverrides(), it.excludeFolders, it.isRecycleBinEnabled)
             },
         ) { videoItems, preferences ->
             val visibleVideos = videoItems.filterNot { video ->
@@ -44,7 +45,7 @@ class GetSortedVideosUseCase @Inject constructor(
                     (!isRecycleBinOnly && preferences.isRecycleBinEnabled && video.isInRecycleBin)
             }
 
-            val sort = Sort(by = preferences.sortBy, order = preferences.sortOrder)
+            val sort = preferences.resolveQuickSettings(folderPath?.let(StoragePath::of)).sort.toSort()
             visibleVideos.sortedWith(sort.videoComparator())
         }.flowOn(defaultDispatcher)
     }

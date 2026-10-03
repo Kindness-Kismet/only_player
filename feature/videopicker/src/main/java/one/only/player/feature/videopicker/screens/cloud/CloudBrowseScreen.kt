@@ -61,8 +61,9 @@ import one.only.player.core.model.CloudQuickSettings
 import one.only.player.core.model.MediaLayoutMode
 import one.only.player.core.model.RemoteFile
 import one.only.player.core.model.RemoteServer
-import one.only.player.core.model.ServerProtocol
 import one.only.player.core.model.resolveMediaLayouts
+import one.only.player.core.model.resolveQuickSettings
+import one.only.player.core.model.withQuickSettings
 import one.only.player.core.ui.R
 import one.only.player.core.ui.components.AppDialog
 import one.only.player.core.ui.components.AppScaffold
@@ -191,9 +192,7 @@ internal fun CloudBrowseScreen(
         ?: stringResource(R.string.browsing)
     val haptic = LocalHapticFeedback.current
     val lazyGridState = rememberLazyGridState()
-    val layoutDirectoryPath = uiState.currentPath.trimEnd('/').ifEmpty { "/" }.let { path ->
-        if (uiState.server?.protocol == ServerProtocol.SMB) path.lowercase() else path
-    }
+    val layoutDirectoryPath = uiState.settingsDirectoryPath
     var selectedFilePaths by remember { mutableStateOf<Set<String>>(emptySet()) }
     var shouldShowSelectionMenu by remember { mutableStateOf(false) }
     var shouldShowQuickSettingsDialog by rememberSaveable { mutableStateOf(false) }
@@ -528,6 +527,9 @@ private fun CloudRemoteMediaView(
     val folders = files.filter(RemoteFile::isDirectory)
     val videos = files.filterNot(RemoteFile::isDirectory)
     val layouts = remember(settings, directoryPath) { settings.resolveMediaLayouts(directoryPath) }
+    val displaySettings = remember(settings, directoryPath) {
+        settings.withQuickSettings(null, settings.resolveQuickSettings(directoryPath))
+    }
     PreserveMediaLayoutScroll(directoryPath, layouts, lazyGridState)
 
     BoxWithConstraints {
@@ -570,7 +572,7 @@ private fun CloudRemoteMediaView(
                 RemoteFileItem(
                     file = file,
                     layoutMode = if (file.isDirectory) layouts.folders.layout.mode else layouts.videos.layout.mode,
-                    settings = settings,
+                    settings = displaySettings,
                     thumbnailUri = null,
                     shouldMarkLastPlayedMedia = shouldMarkLastPlayedMedia,
                     isRecentlyPlayed = false,
@@ -607,8 +609,8 @@ private fun CloudRemoteMediaView(
                 RemoteFileItem(
                     file = file,
                     layoutMode = if (file.isDirectory) layouts.folders.layout.mode else layouts.videos.layout.mode,
-                    settings = settings,
-                    thumbnailUri = if (settings.shouldShowThumbnailField) buildFileThumbnailUri(file) else null,
+                    settings = displaySettings,
+                    thumbnailUri = if (displaySettings.shouldShowThumbnailField) buildFileThumbnailUri(file) else null,
                     shouldMarkLastPlayedMedia = shouldMarkLastPlayedMedia,
                     isRecentlyPlayed = isRecentlyPlayed,
                     hasBeenPlayed = hasBeenPlayed,

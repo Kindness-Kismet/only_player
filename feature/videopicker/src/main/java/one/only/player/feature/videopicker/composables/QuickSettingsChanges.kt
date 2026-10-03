@@ -2,13 +2,11 @@ package one.only.player.feature.videopicker.composables
 
 import one.only.player.core.model.ApplicationPreferences
 import one.only.player.core.model.CloudQuickSettings
-import one.only.player.core.model.MediaLayoutOverrides
-import one.only.player.core.model.MediaLayoutTarget
+import one.only.player.core.model.MediaQuickSettingsOverrides
 import one.only.player.core.model.StoragePath
-import one.only.player.core.model.resolveMediaLayouts
-import one.only.player.core.model.withMediaLayout
+import one.only.player.core.model.withIndependentQuickSettings
 
-internal fun ApplicationPreferences.withIndependentLayouts(
+internal fun ApplicationPreferences.withIndependentQuickSettings(
     target: QuickSettingsTarget,
     serverId: Long?,
     directoryPath: String,
@@ -16,17 +14,13 @@ internal fun ApplicationPreferences.withIndependentLayouts(
 ): ApplicationPreferences = when (target) {
     QuickSettingsTarget.LOCAL -> {
         val directory = StoragePath.of(directoryPath)
-        val layouts = resolveMediaLayouts(directory)
-        withMediaLayout(directory, MediaLayoutTarget.FOLDERS, layouts.folders.layout.takeIf { isEnabled })
-            .withMediaLayout(directory, MediaLayoutTarget.VIDEOS, layouts.videos.layout.takeIf { isEnabled })
+        withIndependentQuickSettings(directory, isEnabled)
     }
     QuickSettingsTarget.CLOUD -> {
         val settings = cloudQuickSettings(serverId)
-        val layouts = settings.resolveMediaLayouts(directoryPath)
         withCloudQuickSettings(
             serverId,
-            settings.withMediaLayout(directoryPath, MediaLayoutTarget.FOLDERS, layouts.folders.layout.takeIf { isEnabled })
-                .withMediaLayout(directoryPath, MediaLayoutTarget.VIDEOS, layouts.videos.layout.takeIf { isEnabled }),
+            settings.withIndependentQuickSettings(directoryPath, isEnabled),
         )
     }
 }
@@ -52,7 +46,7 @@ internal fun ApplicationPreferences.applyQuickSettingsChanges(
         shouldShowSizeField = changed(original.shouldShowSizeField, edited.shouldShowSizeField, shouldShowSizeField),
         shouldShowThumbnailField = changed(original.shouldShowThumbnailField, edited.shouldShowThumbnailField, shouldShowThumbnailField),
         shouldShowPlayedProgress = changed(original.shouldShowPlayedProgress, edited.shouldShowPlayedProgress, shouldShowPlayedProgress),
-        directoryLayouts = directoryLayouts.applyChanges(original.directoryLayouts, edited.directoryLayouts),
+        directoryQuickSettings = directoryQuickSettings.applyChanges(original.directoryQuickSettings, edited.directoryQuickSettings),
     )
     QuickSettingsTarget.CLOUD -> withCloudQuickSettings(
         serverId,
@@ -75,26 +69,28 @@ private fun CloudQuickSettings.applyChanges(
     shouldShowSizeField = changed(original.shouldShowSizeField, edited.shouldShowSizeField, shouldShowSizeField),
     shouldShowThumbnailField = changed(original.shouldShowThumbnailField, edited.shouldShowThumbnailField, shouldShowThumbnailField),
     shouldShowPlayedProgress = changed(original.shouldShowPlayedProgress, edited.shouldShowPlayedProgress, shouldShowPlayedProgress),
-    directoryLayouts = directoryLayouts.applyChanges(original.directoryLayouts, edited.directoryLayouts),
+    directoryQuickSettings = directoryQuickSettings.applyChanges(original.directoryQuickSettings, edited.directoryQuickSettings),
 )
 
 private fun <T> changed(original: T, edited: T, current: T): T = if (original == edited) current else edited
 
-private fun <K> Map<K, MediaLayoutOverrides>.applyChanges(
-    original: Map<K, MediaLayoutOverrides>,
-    edited: Map<K, MediaLayoutOverrides>,
-): Map<K, MediaLayoutOverrides> {
+private fun <K> Map<K, MediaQuickSettingsOverrides>.applyChanges(
+    original: Map<K, MediaQuickSettingsOverrides>,
+    edited: Map<K, MediaQuickSettingsOverrides>,
+): Map<K, MediaQuickSettingsOverrides> {
     val result = toMutableMap()
     for (key in original.keys + edited.keys) {
         if (original[key] == edited[key]) continue
-        val before = original[key] ?: MediaLayoutOverrides()
-        val after = edited[key] ?: MediaLayoutOverrides()
-        val current = result[key] ?: MediaLayoutOverrides()
-        val updated = MediaLayoutOverrides(
+        val before = original[key] ?: MediaQuickSettingsOverrides()
+        val after = edited[key] ?: MediaQuickSettingsOverrides()
+        val current = result[key] ?: MediaQuickSettingsOverrides()
+        val updated = MediaQuickSettingsOverrides(
             folders = changed(before.folders, after.folders, current.folders),
             videos = changed(before.videos, after.videos, current.videos),
+            sort = changed(before.sort, after.sort, current.sort),
+            fields = changed(before.fields, after.fields, current.fields),
         )
-        if (updated.folders == null && updated.videos == null) result.remove(key) else result[key] = updated
+        if (updated.isEmpty) result.remove(key) else result[key] = updated
     }
     return result
 }

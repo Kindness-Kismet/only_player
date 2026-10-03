@@ -38,7 +38,12 @@ data class Folder(
 }
 
 // 媒体与子目录都按给定排序落位，快照缓存会拿它当文件夹页首帧，顺序必须与目录流一致
-fun Folder.withSortedContent(sort: Sort): Folder = copy(
-    mediaList = mediaList.sortedWith(sort.videoComparator()),
-    folderList = folderList.map { child -> child.withSortedContent(sort) }.sortedWith(sort.folderComparator()),
-)
+fun Folder.withSortedContent(sort: Sort): Folder = withSortedContent { sort }
+
+fun Folder.withSortedContent(sortForDirectory: (Folder) -> Sort): Folder {
+    val sort = sortForDirectory(this)
+    return copy(
+        mediaList = mediaList.sortedWith(sort.videoComparator()),
+        folderList = folderList.map { it.withSortedContent(sortForDirectory) }.sortedWith(sort.folderComparator()),
+    )
+}

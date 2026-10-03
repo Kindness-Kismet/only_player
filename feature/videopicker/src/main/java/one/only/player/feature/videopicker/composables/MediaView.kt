@@ -35,6 +35,8 @@ import one.only.player.core.model.MediaViewMode
 import one.only.player.core.model.StoragePath
 import one.only.player.core.model.Video
 import one.only.player.core.model.resolveMediaLayouts
+import one.only.player.core.model.resolveQuickSettings
+import one.only.player.core.model.withQuickSettings
 import one.only.player.core.ui.R
 import one.only.player.core.ui.components.CardItemGap
 import one.only.player.core.ui.components.ListSectionTitle
@@ -63,6 +65,9 @@ fun MediaView(
     val haptic = LocalHapticFeedback.current
     val layouts = remember(preferences, layoutDirectory) {
         preferences.resolveMediaLayouts(layoutDirectory)
+    }
+    val displayPreferences = remember(preferences, layoutDirectory) {
+        preferences.withQuickSettings(null, preferences.resolveQuickSettings(layoutDirectory))
     }
     PreserveMediaLayoutScroll(layoutDirectory?.value.orEmpty(), layouts, lazyGridState)
     BoxWithConstraints {
@@ -118,7 +123,7 @@ fun MediaView(
                     layoutMode = layouts.folders.layout.mode,
                     modifier = Modifier.padding(horizontal = itemSpacing / 2),
                     isRecentlyPlayedFolder = rootFolder.isRecentlyPlayedVideo(folder.recentlyPlayedVideo),
-                    preferences = preferences,
+                    preferences = displayPreferences,
                     isSelected = isFolderSelected,
                     onClick = {
                         if (selectionManager.isInSelectionMode) {
@@ -163,7 +168,7 @@ fun MediaView(
                 VideoItem(
                     video = video,
                     layoutMode = layouts.videos.layout.mode,
-                    preferences = preferences,
+                    preferences = displayPreferences,
                     isRecentlyPlayedVideo = rootFolder.isRecentlyPlayedVideo(video),
                     isSelected = isVideoSelected,
                     onClick = {

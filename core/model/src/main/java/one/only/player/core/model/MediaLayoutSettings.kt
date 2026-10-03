@@ -25,14 +25,18 @@ data class MediaItemLayout(
 
 // 空值表示继承；与父目录相同的显式设置仍然保留。
 @Serializable
-data class MediaLayoutOverrides(
+data class MediaQuickSettingsOverrides(
     val folders: MediaItemLayout? = null,
     val videos: MediaItemLayout? = null,
+    val sort: MediaSortSettings? = null,
+    val fields: MediaDisplayFields? = null,
 ) {
+    val isEmpty: Boolean get() = folders == null && videos == null && sort == null && fields == null
+
     fun withLayout(
         target: MediaLayoutTarget,
         layout: MediaItemLayout?,
-    ): MediaLayoutOverrides = when (target) {
+    ): MediaQuickSettingsOverrides = when (target) {
         MediaLayoutTarget.FOLDERS -> copy(folders = layout?.normalized())
         MediaLayoutTarget.VIDEOS -> copy(videos = layout?.normalized())
     }
@@ -56,7 +60,7 @@ data class ResolvedMediaLayouts(
 fun ApplicationPreferences.resolveMediaLayouts(directory: StoragePath? = null): ResolvedMediaLayouts = resolveMediaLayouts(
     folderDefault = MediaItemLayout(folderLayoutMode, folderLayoutScale),
     videoDefault = MediaItemLayout(videoLayoutMode, videoLayoutScale),
-    ancestors = generateSequence(directory) { it.parent }.map { it.value to directoryLayouts[it] },
+    ancestors = generateSequence(directory) { it.parent }.map { it.value to directoryQuickSettings[it] },
 )
 
 fun ApplicationPreferences.withMediaLayout(
@@ -65,7 +69,7 @@ fun ApplicationPreferences.withMediaLayout(
     layout: MediaItemLayout?,
 ): ApplicationPreferences {
     if (directory != null) {
-        return copy(directoryLayouts = directoryLayouts.withLayout(directory, target, layout))
+        return copy(directoryQuickSettings = directoryQuickSettings.withLayout(directory, target, layout))
     }
     val value = layout?.normalized() ?: return this
     return when (target) {
@@ -77,9 +81,7 @@ fun ApplicationPreferences.withMediaLayout(
 fun CloudQuickSettings.resolveMediaLayouts(directory: String? = null): ResolvedMediaLayouts = resolveMediaLayouts(
     folderDefault = MediaItemLayout(folderLayoutMode, folderLayoutScale),
     videoDefault = MediaItemLayout(videoLayoutMode, videoLayoutScale),
-    ancestors = generateSequence(directory?.trimEnd('/')?.ifEmpty { "/" }) { path ->
-        path.takeUnless { it == "/" }?.substringBeforeLast('/', "")?.ifEmpty { "/" }
-    }.map { it to directoryLayouts[it] },
+    ancestors = cloudDirectoryAncestors(directory).map { it to directoryQuickSettings[it] },
 )
 
 fun CloudQuickSettings.withMediaLayout(
@@ -89,7 +91,7 @@ fun CloudQuickSettings.withMediaLayout(
 ): CloudQuickSettings {
     if (directory != null) {
         val key = directory.trimEnd('/').ifEmpty { "/" }
-        return copy(directoryLayouts = directoryLayouts.withLayout(key, target, layout))
+        return copy(directoryQuickSettings = directoryQuickSettings.withLayout(key, target, layout))
     }
     val value = layout?.normalized() ?: return this
     return when (target) {
@@ -98,19 +100,19 @@ fun CloudQuickSettings.withMediaLayout(
     }
 }
 
-private fun <T> Map<T, MediaLayoutOverrides>.withLayout(
+private fun <T> Map<T, MediaQuickSettingsOverrides>.withLayout(
     directory: T,
     target: MediaLayoutTarget,
     layout: MediaItemLayout?,
-): Map<T, MediaLayoutOverrides> {
-    val updated = (this[directory] ?: MediaLayoutOverrides()).withLayout(target, layout)
-    return if (updated.folders == null && updated.videos == null) this - directory else this + (directory to updated)
+): Map<T, MediaQuickSettingsOverrides> {
+    val updated = (this[directory] ?: MediaQuickSettingsOverrides()).withLayout(target, layout)
+    return if (updated.isEmpty) this - directory else this + (directory to updated)
 }
 
 private fun resolveMediaLayouts(
     folderDefault: MediaItemLayout,
     videoDefault: MediaItemLayout,
-    ancestors: Sequence<Pair<String, MediaLayoutOverrides?>>,
+    ancestors: Sequence<Pair<String, MediaQuickSettingsOverrides?>>,
 ): ResolvedMediaLayouts {
     var folders: ResolvedMediaLayout? = null
     var videos: ResolvedMediaLayout? = null
@@ -129,11 +131,11 @@ fun ApplicationPreferences.moveDirectoryLayouts(
     from: StoragePath,
     to: StoragePath,
 ): ApplicationPreferences {
-    val moved = directoryLayouts.filterKeys { it.isInside(from) }
+    val moved = directoryQuickSettings.filterKeys { it.isInside(from) }
     if (moved.isEmpty()) return this
-    val updated = directoryLayouts - moved.keys
+    val updated = directoryQuickSettings - moved.keys
     return copy(
-        directoryLayouts = updated + moved.mapKeys { (path, _) ->
+        directoryQuickSettings = updated + moved.mapKeys { (path, _) ->
             StoragePath.of(to.value + path.value.substring(from.value.length))
         },
     )

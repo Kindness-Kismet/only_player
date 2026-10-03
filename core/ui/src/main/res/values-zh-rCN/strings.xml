@@ -680,10 +680,7 @@
     <string name="file_name">文件名</string>
     <string name="folder_layout">文件夹布局</string>
     <string name="video_layout">视频布局</string>
-    <string name="layout_library_default">媒体库默认</string>
-    <string name="layout_directory_custom">本目录设置</string>
-    <string name="layout_inherited_from">继承自：%1$s</string>
-    <string name="layout_use_parent">使用上级设置</string>
     <string name="layout_independent_config">独立配置</string>
-    <string name="layout_follow_parent">继承上级布局</string>
+    <string name="quick_settings_edit_global">正在修改全局默认配置</string>
+    <string name="quick_settings_parent_override">当前目录仍继承上级的独立配置</string>
 </resources>

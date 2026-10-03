@@ -674,10 +674,7 @@
     <string name="file_name">檔案名稱</string>
     <string name="folder_layout">資料夾版面</string>
     <string name="video_layout">影片版面</string>
-    <string name="layout_library_default">媒體庫預設</string>
-    <string name="layout_directory_custom">本資料夾設定</string>
-    <string name="layout_inherited_from">繼承自：%1$s</string>
-    <string name="layout_use_parent">使用上層設定</string>
     <string name="layout_independent_config">獨立設定</string>
-    <string name="layout_follow_parent">繼承上層版面</string>
+    <string name="quick_settings_edit_global">正在修改全域預設設定</string>
+    <string name="quick_settings_parent_override">目前目錄仍繼承上級的獨立設定</string>
 </resources>
