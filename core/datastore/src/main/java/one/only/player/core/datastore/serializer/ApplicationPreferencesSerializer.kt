@@ -52,7 +52,7 @@ object ApplicationPreferencesSerializer : Serializer<ApplicationPreferences> {
             jsonFormat.decodeFromString(
                 deserializer = ApplicationPreferences.serializer(),
                 string = serializedPreferences,
-            )
+            ).withCanonicalLayoutPaths()
         } catch (exception: SerializationException) {
             throw CorruptionException("Cannot read datastore", exception)
         }

@@ -4,6 +4,7 @@ import javax.inject.Inject
 import kotlinx.coroutines.CoroutineDispatcher
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.combine
+import kotlinx.coroutines.flow.distinctUntilChangedBy
 import kotlinx.coroutines.flow.flowOn
 import one.only.player.core.common.Dispatcher
 import one.only.player.core.common.DispatcherType
@@ -22,7 +23,9 @@ class GetSortedFoldersUseCase @Inject constructor(
 
     operator fun invoke(): Flow<List<Folder>> = combine(
         mediaRepository.getFoldersFlow(),
-        preferencesRepository.applicationPreferences,
+        preferencesRepository.applicationPreferences.distinctUntilChangedBy {
+            Triple(it.sortBy to it.sortOrder, it.excludeFolders, it.isRecycleBinEnabled)
+        },
     ) { folders, preferences ->
         val sort = Sort(by = preferences.sortBy, order = preferences.sortOrder)
         val visibleDirectories = folders.mapNotNull { folder ->

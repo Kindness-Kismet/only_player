@@ -5,6 +5,7 @@ import kotlinx.coroutines.CoroutineDispatcher
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.combine
+import kotlinx.coroutines.flow.distinctUntilChangedBy
 import kotlinx.coroutines.flow.flowOn
 import one.only.player.core.common.Dispatcher
 import one.only.player.core.common.DispatcherType
@@ -34,7 +35,9 @@ class GetSortedVideosUseCase @Inject constructor(
 
         return combine(
             videosFlow,
-            preferencesRepository.applicationPreferences,
+            preferencesRepository.applicationPreferences.distinctUntilChangedBy {
+                Triple(it.sortBy to it.sortOrder, it.excludeFolders, it.isRecycleBinEnabled)
+            },
         ) { videoItems, preferences ->
             val visibleVideos = videoItems.filterNot { video ->
                 (!isRecycleBinOnly && preferences.isPathExcluded(StoragePath.of(video.parentPath))) ||

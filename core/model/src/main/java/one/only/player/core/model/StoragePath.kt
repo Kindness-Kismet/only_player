@@ -20,6 +20,9 @@ class StoragePath private constructor(val value: String) : Comparable<StoragePat
 
     val name: String get() = value.substringAfterLast(SEPARATOR)
 
+    val parent: StoragePath?
+        get() = if (isRoot) null else of(value.substringBeforeLast(SEPARATOR).ifEmpty { "/" })
+
     // 文件系统根，不对应任何可浏览的媒体目录
     val isRoot: Boolean get() = comparisonKey == SEPARATOR.toString()
 
