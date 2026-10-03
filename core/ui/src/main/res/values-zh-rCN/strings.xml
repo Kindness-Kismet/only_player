@@ -678,4 +678,13 @@
     <string name="collapse">收起</string>
     <string name="video_duration">视频时长</string>
     <string name="file_name">文件名</string>
+    <string name="folder_layout">文件夹布局</string>
+    <string name="video_layout">视频布局</string>
+    <string name="layout_scope">布局作用范围</string>
+    <string name="layout_library_default">媒体库默认</string>
+    <string name="layout_directory_scope">当前目录及子目录</string>
+    <string name="layout_directory_custom">本目录设置</string>
+    <string name="layout_inherited_from">继承自：%1$s</string>
+    <string name="layout_use_parent">使用上级设置</string>
+    <string name="layout_recursive_description">子目录自动继承；单独设置过的布局优先生效。</string>
 </resources>

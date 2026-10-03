@@ -68,12 +68,19 @@ class CloudBrowseViewModel @Inject constructor(
         viewModelScope.launch {
             preferencesRepository.applicationPreferences.collect { preferences ->
                 _uiState.update { currentState ->
+                    val previousSettings = currentState.preferences.cloudQuickSettings(currentState.server?.id)
+                    val settings = preferences.cloudQuickSettings(currentState.server?.id)
+                    val hasSortChanged = previousSettings.sortBy != settings.sortBy || previousSettings.sortOrder != settings.sortOrder
                     currentState.copy(
                         preferences = preferences,
-                        files = currentState.files.sortedForCloud(
-                            preferences = preferences,
-                            serverId = currentState.server?.id,
-                        ),
+                        files = if (hasSortChanged) {
+                            currentState.files.sortedForCloud(
+                                preferences = preferences,
+                                serverId = currentState.server?.id,
+                            )
+                        } else {
+                            currentState.files
+                        },
                     )
                 }
             }
@@ -94,7 +101,7 @@ class CloudBrowseViewModel @Inject constructor(
             }
             CloudBrowseEvent.RefreshPlaybackStates -> loadPlaybackStates()
             is CloudBrowseEvent.AddFavorites -> addFavorites(event.files)
-            is CloudBrowseEvent.UpdateQuickSettings -> updateQuickSettings(event.preferences)
+            is CloudBrowseEvent.UpdateQuickSettings -> updateQuickSettings(event.transform)
         }
     }
 
@@ -312,16 +319,9 @@ class CloudBrowseViewModel @Inject constructor(
         }
     }
 
-    private fun updateQuickSettings(preferences: ApplicationPreferences) {
-        val currentServerId = _uiState.value.server?.id ?: return
-        val settings = preferences.cloudQuickSettings(currentServerId)
+    private fun updateQuickSettings(transform: (ApplicationPreferences) -> ApplicationPreferences) {
         viewModelScope.launch {
-            preferencesRepository.updateApplicationPreferences { currentPreferences ->
-                currentPreferences.withCloudQuickSettings(
-                    serverId = currentServerId,
-                    settings = settings,
-                )
-            }
+            preferencesRepository.updateApplicationPreferences(transform)
         }
     }
 
@@ -426,5 +426,5 @@ sealed interface CloudBrowseEvent {
     data object Retry : CloudBrowseEvent
     data object RefreshPlaybackStates : CloudBrowseEvent
     data class AddFavorites(val files: List<RemoteFile>) : CloudBrowseEvent
-    data class UpdateQuickSettings(val preferences: ApplicationPreferences) : CloudBrowseEvent
+    data class UpdateQuickSettings(val transform: (ApplicationPreferences) -> ApplicationPreferences) : CloudBrowseEvent
 }

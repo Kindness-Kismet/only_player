@@ -672,4 +672,13 @@
     <string name="collapse">收起</string>
     <string name="video_duration">影片時長</string>
     <string name="file_name">檔案名稱</string>
+    <string name="folder_layout">資料夾版面</string>
+    <string name="video_layout">影片版面</string>
+    <string name="layout_scope">版面套用範圍</string>
+    <string name="layout_library_default">媒體庫預設</string>
+    <string name="layout_directory_scope">目前資料夾及子資料夾</string>
+    <string name="layout_directory_custom">本資料夾設定</string>
+    <string name="layout_inherited_from">繼承自：%1$s</string>
+    <string name="layout_use_parent">使用上層設定</string>
+    <string name="layout_recursive_description">子資料夾自動繼承；個別設定過的版面優先生效。</string>
 </resources>

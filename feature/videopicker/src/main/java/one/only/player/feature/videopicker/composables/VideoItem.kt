@@ -45,12 +45,13 @@ fun VideoItem(
     video: Video,
     isRecentlyPlayedVideo: Boolean,
     preferences: ApplicationPreferences,
+    layoutMode: MediaLayoutMode = preferences.videoLayoutMode,
     modifier: Modifier = Modifier,
     isSelected: Boolean = false,
     onClick: () -> Unit = {},
     onLongClick: (() -> Unit)? = null,
 ) {
-    when (preferences.mediaLayoutMode) {
+    when (layoutMode) {
         MediaLayoutMode.LIST -> VideoListItem(
             video = video,
             isRecentlyPlayedVideo = isRecentlyPlayedVideo,

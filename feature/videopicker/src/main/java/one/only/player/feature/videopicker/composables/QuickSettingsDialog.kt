@@ -27,7 +27,6 @@ import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
 import kotlin.math.roundToInt
 import one.only.player.core.model.ApplicationPreferences
-import one.only.player.core.model.MediaLayoutMode
 import one.only.player.core.model.MediaViewMode
 import one.only.player.core.model.Sort
 import one.only.player.core.ui.R
@@ -53,14 +52,19 @@ enum class QuickSettingsTarget {
 fun QuickSettingsDialog(
     applicationPreferences: ApplicationPreferences,
     onDismiss: () -> Unit,
-    updatePreferences: (ApplicationPreferences) -> Unit,
+    updatePreferences: ((ApplicationPreferences) -> ApplicationPreferences) -> Unit,
     target: QuickSettingsTarget = QuickSettingsTarget.LOCAL,
     cloudServerId: Long? = null,
+    directoryPath: String? = null,
+    isLibraryRoot: Boolean = false,
 ) {
-    var preferences by remember(applicationPreferences, target, cloudServerId) {
+    val originalPreferences = remember(target, cloudServerId, directoryPath) { applicationPreferences }
+    var isDirectoryScope by remember(target, cloudServerId, directoryPath) { mutableStateOf(directoryPath != null) }
+    var preferences by remember(target, cloudServerId, directoryPath) {
         mutableStateOf(applicationPreferences.withSupportedSort(target, cloudServerId))
     }
-    val layoutMode = preferences.layoutMode(target, cloudServerId)
+    val canConfigureDirectory = directoryPath != null &&
+        !(target == QuickSettingsTarget.LOCAL && isLibraryRoot && preferences.mediaViewMode != MediaViewMode.FOLDER_TREE)
     val sortBy = preferences.sortBy(target, cloudServerId)
     val sortOrder = preferences.sortOrder(target, cloudServerId)
     AppDialog(
@@ -91,41 +95,37 @@ fun QuickSettingsDialog(
                         )
                     }
                 }
-                QuickSettingsSection(title = stringResource(R.string.media_layout)) {
-                    QuickSettingsTabRow(
-                        options = MediaLayoutMode.entries,
-                        selectedOption = layoutMode,
-                        label = MediaLayoutMode::name,
-                        onOptionSelected = { preferences = preferences.withLayoutMode(target, cloudServerId, it) },
-                        modifier = Modifier.testTag("tabs_${target.dialogTestTag}_layout_mode"),
-                    )
-                    if (layoutMode == MediaLayoutMode.GRID) {
-                        MediaLayoutScaleControls(
-                            scale = preferences.normalizedLayoutScale(target, cloudServerId),
-                            onResetClick = {
-                                preferences = preferences.withLayoutScale(
-                                    target = target,
-                                    serverId = cloudServerId,
-                                    scale = ApplicationPreferences.DEFAULT_MEDIA_LAYOUT_SCALE,
-                                )
-                            },
-                            onDecreaseClick = {
-                                preferences = preferences.withLayoutScale(
-                                    target = target,
-                                    serverId = cloudServerId,
-                                    scale = preferences.layoutScale(target, cloudServerId) - ApplicationPreferences.MEDIA_LAYOUT_SCALE_STEP,
-                                )
-                            },
-                            onIncreaseClick = {
-                                preferences = preferences.withLayoutScale(
-                                    target = target,
-                                    serverId = cloudServerId,
-                                    scale = preferences.layoutScale(target, cloudServerId) + ApplicationPreferences.MEDIA_LAYOUT_SCALE_STEP,
-                                )
-                            },
+                if (canConfigureDirectory) {
+                    QuickSettingsSection(title = stringResource(R.string.layout_scope)) {
+                        QuickSettingsTabRow(
+                            options = listOf(false, true),
+                            selectedOption = isDirectoryScope,
+                            label = { stringResource(if (it) R.string.layout_directory_scope else R.string.layout_library_default) },
+                            onOptionSelected = { isDirectoryScope = it },
+                            modifier = Modifier.testTag("tabs_layout_scope"),
                         )
+                        if (isDirectoryScope) {
+                            Text(
+                                text = requireNotNull(directoryPath),
+                                style = MiuixTheme.textStyles.footnote1,
+                                color = MiuixTheme.colorScheme.onSurfaceVariantSummary,
+                                modifier = Modifier.testTag("text_layout_directory"),
+                            )
+                            Text(
+                                text = stringResource(R.string.layout_recursive_description),
+                                style = MiuixTheme.textStyles.footnote1,
+                                color = MiuixTheme.colorScheme.onSurfaceVariantSummary,
+                            )
+                        }
                     }
                 }
+                MediaLayoutSettingsContent(
+                    preferences = preferences,
+                    target = target,
+                    serverId = cloudServerId,
+                    directoryPath = directoryPath.takeIf { canConfigureDirectory && isDirectoryScope },
+                    onChange = { preferences = it },
+                )
                 QuickSettingsSection(title = stringResource(R.string.sort)) {
                     QuickSettingsTabRow(
                         options = target.supportedSortOptions,
@@ -161,7 +161,9 @@ fun QuickSettingsDialog(
         confirmButton = {
             DoneButton(
                 onClick = {
-                    updatePreferences(preferences)
+                    updatePreferences { current ->
+                        current.applyQuickSettingsChanges(originalPreferences, preferences, target, cloudServerId)
+                    }
                     onDismiss()
                 },
                 modifier = Modifier.testTag("btn_${target.dialogTestTag}_done"),
@@ -178,7 +180,7 @@ fun QuickSettingsDialog(
 
 // 标题在控件上方，控件直接铺在对话框背景上，与 miuix 原生对话框风格一致。
 @Composable
-private fun QuickSettingsSection(
+internal fun QuickSettingsSection(
     title: String,
     content: @Composable ColumnScope.() -> Unit,
 ) {
@@ -195,7 +197,7 @@ private fun QuickSettingsSection(
 
 // 单选项使用 miuix 分段控件，选项少时自动铺满整行，多时可横向滚动。
 @Composable
-private fun <T> QuickSettingsTabRow(
+internal fun <T> QuickSettingsTabRow(
     options: List<T>,
     selectedOption: T,
     label: @Composable (T) -> String,
@@ -211,8 +213,9 @@ private fun <T> QuickSettingsTabRow(
 }
 
 @Composable
-private fun MediaLayoutScaleControls(
+internal fun MediaLayoutScaleControls(
     scale: Float,
+    testTagPrefix: String,
     onResetClick: () -> Unit,
     onDecreaseClick: () -> Unit,
     onIncreaseClick: () -> Unit,
@@ -233,24 +236,24 @@ private fun MediaLayoutScaleControls(
         Text(
             text = "${(scale * 100).roundToInt()}%",
             style = MiuixTheme.textStyles.body1,
-            modifier = Modifier.testTag("text_media_layout_scale"),
+            modifier = Modifier.testTag("text_${testTagPrefix}_layout_scale"),
         )
         ScaleIconButton(
             icon = AppIcons.Remove,
             contentDescription = stringResource(R.string.media_layout_scale_decrease),
-            testTag = "btn_media_layout_scale_decrease",
+            testTag = "btn_${testTagPrefix}_layout_scale_decrease",
             onClick = onDecreaseClick,
         )
         ScaleIconButton(
             icon = AppIcons.Add,
             contentDescription = stringResource(R.string.media_layout_scale_increase),
-            testTag = "btn_media_layout_scale_increase",
+            testTag = "btn_${testTagPrefix}_layout_scale_increase",
             onClick = onIncreaseClick,
         )
         ScaleIconButton(
             icon = AppIcons.Replay,
             contentDescription = stringResource(R.string.media_layout_scale_reset),
-            testTag = "btn_media_layout_scale_reset",
+            testTag = "btn_${testTagPrefix}_layout_scale_reset",
             onClick = onResetClick,
         )
     }
@@ -445,54 +448,6 @@ private fun ApplicationPreferences.withSupportedSort(
 ): ApplicationPreferences {
     if (sortBy(target, serverId) in target.supportedSortOptions) return this
     return withSortBy(target, serverId, Sort.By.TITLE)
-}
-
-private fun ApplicationPreferences.layoutMode(
-    target: QuickSettingsTarget,
-    serverId: Long?,
-): MediaLayoutMode = when (target) {
-    QuickSettingsTarget.LOCAL -> mediaLayoutMode
-    QuickSettingsTarget.CLOUD -> cloudQuickSettings(serverId).mediaLayoutMode
-}
-
-private fun ApplicationPreferences.withLayoutMode(
-    target: QuickSettingsTarget,
-    serverId: Long?,
-    layoutMode: MediaLayoutMode,
-): ApplicationPreferences = when (target) {
-    QuickSettingsTarget.LOCAL -> copy(mediaLayoutMode = layoutMode)
-    QuickSettingsTarget.CLOUD -> withCloudQuickSettings(
-        serverId = serverId,
-        settings = cloudQuickSettings(serverId).copy(mediaLayoutMode = layoutMode),
-    )
-}
-
-private fun ApplicationPreferences.layoutScale(
-    target: QuickSettingsTarget,
-    serverId: Long?,
-): Float = when (target) {
-    QuickSettingsTarget.LOCAL -> mediaLayoutScale
-    QuickSettingsTarget.CLOUD -> cloudQuickSettings(serverId).mediaLayoutScale
-}
-
-private fun ApplicationPreferences.normalizedLayoutScale(
-    target: QuickSettingsTarget,
-    serverId: Long?,
-): Float = when (target) {
-    QuickSettingsTarget.LOCAL -> normalizedMediaLayoutScale()
-    QuickSettingsTarget.CLOUD -> cloudQuickSettings(serverId).normalizedMediaLayoutScale()
-}
-
-private fun ApplicationPreferences.withLayoutScale(
-    target: QuickSettingsTarget,
-    serverId: Long?,
-    scale: Float,
-): ApplicationPreferences = when (target) {
-    QuickSettingsTarget.LOCAL -> withMediaLayoutScale(scale)
-    QuickSettingsTarget.CLOUD -> withCloudQuickSettings(
-        serverId = serverId,
-        settings = cloudQuickSettings(serverId).withMediaLayoutScale(scale),
-    )
 }
 
 private fun ApplicationPreferences.sortBy(

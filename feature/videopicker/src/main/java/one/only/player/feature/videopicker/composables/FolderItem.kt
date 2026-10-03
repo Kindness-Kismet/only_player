@@ -32,12 +32,13 @@ fun FolderItem(
     folder: Folder,
     isRecentlyPlayedFolder: Boolean,
     preferences: ApplicationPreferences,
+    layoutMode: MediaLayoutMode = preferences.folderLayoutMode,
     modifier: Modifier = Modifier,
     isSelected: Boolean = false,
     onClick: () -> Unit = {},
     onLongClick: (() -> Unit)? = null,
 ) {
-    when (preferences.mediaLayoutMode) {
+    when (layoutMode) {
         MediaLayoutMode.LIST -> FolderListItem(
             folder = folder,
             isRecentlyPlayedFolder = isRecentlyPlayedFolder,

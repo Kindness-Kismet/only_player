@@ -683,4 +683,13 @@
     <string name="collapse">Collapse</string>
     <string name="video_duration">Video duration</string>
     <string name="file_name">File name</string>
+    <string name="folder_layout">Folder layout</string>
+    <string name="video_layout">Video layout</string>
+    <string name="layout_scope">Layout scope</string>
+    <string name="layout_library_default">Library defaults</string>
+    <string name="layout_directory_scope">This folder and subfolders</string>
+    <string name="layout_directory_custom">Set for this folder</string>
+    <string name="layout_inherited_from">Inherited from: %1$s</string>
+    <string name="layout_use_parent">Use parent settings</string>
+    <string name="layout_recursive_description">Subfolders inherit these settings unless they have their own overrides.</string>
 </resources>

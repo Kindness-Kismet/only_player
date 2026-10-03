@@ -55,13 +55,14 @@ import coil3.compose.AsyncImage
 import coil3.request.ImageRequest
 import coil3.request.crossfade
 import java.security.MessageDigest
-import kotlin.math.abs
 import one.only.player.core.common.needsLocalNetworkPermission
 import one.only.player.core.data.models.RemotePlaybackInfo
 import one.only.player.core.model.CloudQuickSettings
 import one.only.player.core.model.MediaLayoutMode
 import one.only.player.core.model.RemoteFile
 import one.only.player.core.model.RemoteServer
+import one.only.player.core.model.ServerProtocol
+import one.only.player.core.model.resolveMediaLayouts
 import one.only.player.core.ui.R
 import one.only.player.core.ui.components.AppDialog
 import one.only.player.core.ui.components.AppScaffold
@@ -85,12 +86,14 @@ import one.only.player.feature.videopicker.composables.MediaMetaText
 import one.only.player.feature.videopicker.composables.MediaSectionTitleStartPadding
 import one.only.player.feature.videopicker.composables.MenuAction
 import one.only.player.feature.videopicker.composables.MenuActionsPopup
+import one.only.player.feature.videopicker.composables.PreserveMediaLayoutScroll
 import one.only.player.feature.videopicker.composables.QuickSettingsDialog
 import one.only.player.feature.videopicker.composables.QuickSettingsTarget
 import one.only.player.feature.videopicker.composables.RequestLocalNetworkPermissionIfNeeded
 import one.only.player.feature.videopicker.composables.SelectionCheckIndicator
 import one.only.player.feature.videopicker.composables.VideoInfoDialog
 import one.only.player.feature.videopicker.composables.libraryListThumbWidth
+import one.only.player.feature.videopicker.composables.mediaGridGeometry
 import one.only.player.feature.videopicker.composables.rememberLocalNetworkPermissionState
 import one.only.player.feature.videopicker.composables.rememberPullToRefreshTexts
 import top.yukonga.miuix.kmp.basic.CircularProgressIndicator
@@ -188,6 +191,9 @@ internal fun CloudBrowseScreen(
         ?: stringResource(R.string.browsing)
     val haptic = LocalHapticFeedback.current
     val lazyGridState = rememberLazyGridState()
+    val layoutDirectoryPath = uiState.currentPath.trimEnd('/').ifEmpty { "/" }.let { path ->
+        if (uiState.server?.protocol == ServerProtocol.SMB) path.lowercase() else path
+    }
     var selectedFilePaths by remember { mutableStateOf<Set<String>>(emptySet()) }
     var shouldShowSelectionMenu by remember { mutableStateOf(false) }
     var shouldShowQuickSettingsDialog by rememberSaveable { mutableStateOf(false) }
@@ -447,6 +453,7 @@ internal fun CloudBrowseScreen(
 
                             CloudRemoteMediaView(
                                 files = uiState.files,
+                                directoryPath = layoutDirectoryPath,
                                 settings = uiState.preferences.cloudQuickSettings(uiState.server?.id),
                                 shouldMarkLastPlayedMedia = uiState.preferences.shouldMarkLastPlayedMedia,
                                 playbackStates = uiState.playbackStates,
@@ -492,6 +499,7 @@ internal fun CloudBrowseScreen(
             applicationPreferences = uiState.preferences,
             target = QuickSettingsTarget.CLOUD,
             cloudServerId = uiState.server?.id,
+            directoryPath = layoutDirectoryPath,
             onDismiss = { shouldShowQuickSettingsDialog = false },
             updatePreferences = { onEvent(CloudBrowseEvent.UpdateQuickSettings(it)) },
         )
@@ -500,6 +508,7 @@ internal fun CloudBrowseScreen(
 
 @Composable
 private fun CloudRemoteMediaView(
+    directoryPath: String,
     files: List<RemoteFile>,
     settings: CloudQuickSettings,
     shouldMarkLastPlayedMedia: Boolean,
@@ -517,42 +526,32 @@ private fun CloudRemoteMediaView(
 ) {
     val folders = files.filter(RemoteFile::isDirectory)
     val videos = files.filterNot(RemoteFile::isDirectory)
-    val layoutScale = settings.normalizedMediaLayoutScale()
-    val folderMinWidth = 90.dp * layoutScale
-    val videoMinWidth = 160.dp * layoutScale
+    val layouts = remember(settings, directoryPath) { settings.resolveMediaLayouts(directoryPath) }
+    PreserveMediaLayoutScroll(directoryPath, layouts, lazyGridState)
 
     BoxWithConstraints {
-        val contentHorizontalPadding = 8.dp
         val itemSpacing = CardItemGap
+        val contentHorizontalPadding = 8.dp - itemSpacing / 2
         val sectionTitlePadding = PaddingValues(
-            start = MediaSectionTitleStartPadding,
+            start = MediaSectionTitleStartPadding + itemSpacing / 2,
             top = 4.dp,
             bottom = 4.dp,
         )
-        val maxWidth = this.maxWidth - (contentHorizontalPadding * 2) - itemSpacing
-        val maxFolders = (maxWidth / folderMinWidth).toInt()
-        val maxVideos = (maxWidth / videoMinWidth).toInt()
-        val spans = when (settings.mediaLayoutMode) {
-            MediaLayoutMode.LIST -> 1
-            MediaLayoutMode.GRID -> cloudLcm(maxFolders.coerceAtLeast(1), maxVideos.coerceAtLeast(1))
-        }
-        val singleFolderSpan = when (settings.mediaLayoutMode) {
-            MediaLayoutMode.LIST -> 1
-            MediaLayoutMode.GRID -> spans / maxFolders.coerceAtLeast(1)
-        }
-        val singleVideoSpan = when (settings.mediaLayoutMode) {
-            MediaLayoutMode.LIST -> 1
-            MediaLayoutMode.GRID -> spans / maxVideos.coerceAtLeast(1)
-        }
+        val geometry = mediaGridGeometry(
+            availableWidth = maxWidth - 16.dp,
+            layouts = layouts,
+            hasFolders = folders.isNotEmpty(),
+            hasVideos = videos.isNotEmpty(),
+        )
 
         LazyVerticalGrid(
             modifier = Modifier.fillMaxSize(),
             state = lazyGridState,
-            columns = GridCells.Fixed(spans),
+            columns = GridCells.Fixed(geometry.slots),
             contentPadding = contentPadding
                 .subtractBottomPadding(MediaItemContentPadding) + PaddingValues(horizontal = contentHorizontalPadding),
             verticalArrangement = Arrangement.spacedBy(itemSpacing),
-            horizontalArrangement = Arrangement.spacedBy(itemSpacing),
+            horizontalArrangement = Arrangement.spacedBy(0.dp),
         ) {
             if (folders.isNotEmpty()) {
                 item(span = { GridItemSpan(maxLineSpan) }) {
@@ -565,10 +564,11 @@ private fun CloudRemoteMediaView(
             itemsIndexed(
                 items = folders,
                 key = { _, file -> file.path },
-                span = { _, _ -> GridItemSpan(singleFolderSpan) },
+                span = { _, _ -> GridItemSpan(geometry.folderSpan) },
             ) { index, file ->
                 RemoteFileItem(
                     file = file,
+                    layoutMode = if (file.isDirectory) layouts.folders.layout.mode else layouts.videos.layout.mode,
                     settings = settings,
                     thumbnailUri = null,
                     shouldMarkLastPlayedMedia = shouldMarkLastPlayedMedia,
@@ -597,7 +597,7 @@ private fun CloudRemoteMediaView(
             itemsIndexed(
                 items = videos,
                 key = { _, file -> file.path },
-                span = { _, _ -> GridItemSpan(singleVideoSpan) },
+                span = { _, _ -> GridItemSpan(geometry.videoSpan) },
             ) { index, file ->
                 val playbackInfo = playbackStates[file.path]
                 val isRecentlyPlayed = file.path == mostRecentFilePath
@@ -605,6 +605,7 @@ private fun CloudRemoteMediaView(
                 val isSelected = file.path in selectedFilePaths
                 RemoteFileItem(
                     file = file,
+                    layoutMode = if (file.isDirectory) layouts.folders.layout.mode else layouts.videos.layout.mode,
                     settings = settings,
                     thumbnailUri = if (settings.shouldShowThumbnailField) buildFileThumbnailUri(file) else null,
                     shouldMarkLastPlayedMedia = shouldMarkLastPlayedMedia,
@@ -649,6 +650,7 @@ private fun CloudBrowseMessageState(
 
 @Composable
 private fun RemoteFileItem(
+    layoutMode: MediaLayoutMode,
     file: RemoteFile,
     settings: CloudQuickSettings,
     thumbnailUri: Uri?,
@@ -659,29 +661,31 @@ private fun RemoteFileItem(
     onClick: () -> Unit,
     onLongClick: (() -> Unit)? = null,
 ) {
-    when (settings.mediaLayoutMode) {
-        MediaLayoutMode.LIST -> RemoteFileListItem(
-            file = file,
-            settings = settings,
-            thumbnailUri = thumbnailUri,
-            shouldMarkLastPlayedMedia = shouldMarkLastPlayedMedia,
-            isRecentlyPlayed = isRecentlyPlayed,
-            hasBeenPlayed = hasBeenPlayed,
-            isSelected = isSelected,
-            onClick = onClick,
-            onLongClick = onLongClick,
-        )
-        MediaLayoutMode.GRID -> RemoteFileGridItem(
-            file = file,
-            settings = settings,
-            thumbnailUri = thumbnailUri,
-            shouldMarkLastPlayedMedia = shouldMarkLastPlayedMedia,
-            isRecentlyPlayed = isRecentlyPlayed,
-            hasBeenPlayed = hasBeenPlayed,
-            isSelected = isSelected,
-            onClick = onClick,
-            onLongClick = onLongClick,
-        )
+    androidx.compose.foundation.layout.Box(Modifier.padding(horizontal = CardItemGap / 2)) {
+        when (layoutMode) {
+            MediaLayoutMode.LIST -> RemoteFileListItem(
+                file = file,
+                settings = settings,
+                thumbnailUri = thumbnailUri,
+                shouldMarkLastPlayedMedia = shouldMarkLastPlayedMedia,
+                isRecentlyPlayed = isRecentlyPlayed,
+                hasBeenPlayed = hasBeenPlayed,
+                isSelected = isSelected,
+                onClick = onClick,
+                onLongClick = onLongClick,
+            )
+            MediaLayoutMode.GRID -> RemoteFileGridItem(
+                file = file,
+                settings = settings,
+                thumbnailUri = thumbnailUri,
+                shouldMarkLastPlayedMedia = shouldMarkLastPlayedMedia,
+                isRecentlyPlayed = isRecentlyPlayed,
+                hasBeenPlayed = hasBeenPlayed,
+                isSelected = isSelected,
+                onClick = onClick,
+                onLongClick = onLongClick,
+            )
+        }
     }
 }
 
@@ -976,7 +980,3 @@ private fun formatFileSize(bytes: Long): String {
     val gb = mb / 1024.0
     return "%.2f GB".format(gb)
 }
-
-private fun cloudLcm(a: Int, b: Int): Int = abs(a * b) / cloudGcd(a, b)
-
-private fun cloudGcd(a: Int, b: Int): Int = if (b == 0) a else cloudGcd(b, a % b)
