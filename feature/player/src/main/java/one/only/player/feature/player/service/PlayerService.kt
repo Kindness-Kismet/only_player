@@ -402,43 +402,10 @@ class PlayerService : MediaSessionService() {
 
                 val resumePositionMs = metadata.positionMs?.takeIf { playerPreferences.resume == Resume.YES }
                 if (metadata.isApproximateSeekEnabled) {
-                    serviceScope.launch(Dispatchers.IO) {
-                        val seekMap = preciseSeekCoordinator.awaitSeekMapForStartup(mediaItem)
-                        val resumePosition = resumePositionMs?.takeIf(preciseSeekCoordinator::shouldUsePreciseStartupResume)
-                        if (seekMap == null && resumePosition != null) {
-                            Logger.info(TAG, "Resume deferred precise-seek media=${mediaItem.mediaId.toPrivateMediaLogSummary()} position=$resumePosition")
-                            preciseSeekCoordinator.deferStartupResume(
-                                mediaId = mediaItem.mediaId,
-                                positionMs = resumePosition,
-                            )
-                            return@launch
-                        }
-
-                        withContext(Dispatchers.Main) {
-                            val player = mediaSession?.player as? ExoPlayer ?: return@withContext
-                            val currentItem = player.currentMediaItem ?: return@withContext
-                            if (currentItem.mediaId != mediaItem.mediaId) return@withContext
-                            val currentIndex = player.currentMediaItemIndex
-                            val currentPosition = resumePosition
-                                ?: player.currentPosition.takeIf { it != C.TIME_UNSET }
-                                ?: 0L
-                            val updatedMediaItem = currentItem.copy(
-                                positionMs = currentPosition,
-                                isApproximateSeekEnabled = false,
-                            )
-                            preciseSeekCoordinator.markPrecise(mediaItem.mediaId)
-                            val shouldPlayWhenReady = player.playWhenReady
-                            player.addMediaSource(currentIndex + 1, createMediaSource(updatedMediaItem))
-                            player.seekTo(currentIndex + 1, currentPosition)
-                            player.removeMediaItem(currentIndex)
-                            player.prepare()
-                            player.playWhenReady = shouldPlayWhenReady
-                            applySeekParameters(player)
-                            resumePosition?.let {
-                                Logger.info(TAG, "Resume cached precise-seek media=${mediaItem.mediaId.toPrivateMediaLogSummary()} position=$it")
-                            }
-                        }
-                    }
+                    preciseSeekCoordinator.prepareStartup(
+                        mediaItem = mediaItem,
+                        resumePositionMs = resumePositionMs,
+                    )
                     return
                 }
 
@@ -746,7 +713,7 @@ class PlayerService : MediaSessionService() {
                 player.currentMediaItemIndex,
                 updatedMediaItem,
             )
-            preciseSeekCoordinator.continueDeferredStartupResume(updatedMediaItem)
+            preciseSeekCoordinator.onFirstFrameRendered(updatedMediaItem)
             (player as? ExoPlayer)?.let {
                 applySeekParameters(it)
                 videoEffectsCoordinator.markFirstFrameRendered(

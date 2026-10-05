@@ -7,7 +7,6 @@ import android.os.Bundle
 import androidx.core.net.toFile
 import androidx.media3.common.C
 import androidx.media3.common.MediaItem
-import androidx.media3.common.Player
 import androidx.media3.exoplayer.ExoPlayer
 import androidx.media3.extractor.SeekMap
 import androidx.media3.session.SessionError
@@ -31,7 +30,6 @@ import one.only.player.feature.player.engine.media3.MkvCuesParser
 import one.only.player.feature.player.engine.media3.buildSeekMapFromCues
 import one.only.player.feature.player.extensions.copy
 import one.only.player.feature.player.extensions.isApproximateSeekEnabled
-import one.only.player.feature.player.extensions.positionMs
 import one.only.player.feature.player.service.CustomCommands
 
 internal class PreciseSeekCoordinator(
@@ -63,17 +61,13 @@ internal class PreciseSeekCoordinator(
     }
 
     fun resetForMediaItem(mediaId: String?) {
-        pendingPromotionJob?.cancel()
-        pendingPromotionJob = null
+        cancelPendingPromotion()
         requestId++
-        pendingStartupResumeToken = null
-        pendingStartupResumePositionMs = null
         preciseSeekMediaIds.retainAll(setOfNotNull(mediaId))
     }
 
     fun release() {
-        pendingPromotionJob?.cancel()
-        pendingPromotionJob = null
+        cancelPendingPromotion()
         requestId++
         cueParseJobs.clear()
     }
@@ -88,23 +82,43 @@ internal class PreciseSeekCoordinator(
         }
     }
 
-    fun restoreCachedSeekMapForStartup(mediaItem: MediaItem): SeekMap? {
-        val seekMap = restoreCachedSeekMap(mediaItem) ?: return null
-        seekMapCache[mediaItem.mediaId] = seekMap
-        return seekMap
+    fun prepareStartup(
+        mediaItem: MediaItem,
+        resumePositionMs: Long?,
+    ) {
+        val mediaId = mediaItem.mediaId
+        val resumePosition = resumePositionMs?.takeIf { it >= STARTUP_PRECISE_RESUME_THRESHOLD_MS }
+        // 加入播放列表时已用缓存索引创建了可跳转的媒体源，无需重建
+        if (mediaId in preciseSeekMediaIds) {
+            resumePosition?.let { currentPlayerProvider()?.seekTo(it) }
+            return
+        }
+        // 时长未知时无法构建索引，保持快速起播，等首帧补齐时长后再准备
+        if (mediaItem.mediaMetadata.durationMs == null) {
+            resumePosition?.let { deferStartupResume(mediaId, it) }
+            return
+        }
+
+        pendingPromotionJob?.cancel()
+        pendingPromotionJob = scope.launch {
+            val seekMap = withContext(Dispatchers.IO) { scheduleCueCache(mediaItem).await() }
+            if (seekMap == null && resumePosition != null) {
+                deferStartupResume(mediaId, resumePosition)
+                return@launch
+            }
+
+            val player = currentPlayerProvider() ?: return@launch
+            val currentItem = player.currentMediaItem ?: return@launch
+            if (currentItem.mediaId != mediaId) return@launch
+            val position = resumePosition ?: player.currentPosition.takeIf { it != C.TIME_UNSET } ?: 0L
+            replaceWithPreciseSource(player, currentItem, position, seekMap)
+            resumePosition?.let {
+                Logger.info(TAG, "Resume cached precise-seek media=${mediaLogSummary(mediaId)} position=$it")
+            }
+        }
     }
 
-    suspend fun awaitSeekMapForStartup(mediaItem: MediaItem): SeekMap? {
-        val seekMap = scheduleCueCache(mediaItem).await() ?: return null
-        seekMapCache[mediaItem.mediaId] = seekMap
-        return seekMap
-    }
-
-    fun markPrecise(mediaId: String) {
-        preciseSeekMediaIds.add(mediaId)
-    }
-
-    fun scheduleCueCache(mediaItem: MediaItem): Deferred<SeekMap?> {
+    private fun scheduleCueCache(mediaItem: MediaItem): Deferred<SeekMap?> {
         val mediaId = mediaItem.mediaId
         seekMapCache[mediaId]?.let { return CompletableDeferred(it) }
         cueParseJobs[mediaId]?.let { return it }
@@ -115,8 +129,8 @@ internal class PreciseSeekCoordinator(
             return CompletableDeferred(restoredSeekMap)
         }
 
-        val durationMs = mediaItem.mediaMetadata.durationMs
-        if (durationMs == null) return CompletableDeferred(null)
+        // 必须用具名参数：CompletableDeferred(null) 会匹配 parent 重载，得到永不完成的 Deferred
+        val durationMs = mediaItem.mediaMetadata.durationMs ?: return CompletableDeferred(value = null)
         val uri = Uri.parse(mediaId)
 
         val parseJob = scope.async(Dispatchers.IO) {
@@ -146,72 +160,35 @@ internal class PreciseSeekCoordinator(
         return parseJob
     }
 
-    fun shouldUsePreciseStartupResume(positionMs: Long): Boolean = positionMs >= STARTUP_PRECISE_RESUME_THRESHOLD_MS
-
-    fun deferStartupResume(
-        mediaId: String,
-        positionMs: Long,
-    ) {
-        pendingStartupResumeToken = mediaId
-        pendingStartupResumePositionMs = positionMs
-    }
-
-    fun continueDeferredStartupResume(currentMediaItem: MediaItem) {
-        val player = currentPlayerProvider() ?: return
+    fun onFirstFrameRendered(currentMediaItem: MediaItem) {
         val mediaId = currentMediaItem.mediaId
-        if (pendingStartupResumeToken != mediaId) return
-        if (!currentMediaItem.mediaMetadata.isApproximateSeekEnabled) {
+        if (!currentMediaItem.mediaMetadata.isApproximateSeekEnabled || mediaId in preciseSeekMediaIds) {
             clearPendingStartupResume()
             return
         }
 
-        val targetPosition = pendingStartupResumePositionMs ?: currentMediaItem.mediaMetadata.positionMs ?: return
-        if (targetPosition < STARTUP_PRECISE_RESUME_THRESHOLD_MS) {
-            clearPendingStartupResume()
-            return
-        }
-        if (player.currentPosition >= targetPosition - 1_000L) {
-            clearPendingStartupResume()
+        val resumePosition = pendingStartupResumePositionMs?.takeIf { pendingStartupResumeToken == mediaId }
+        clearPendingStartupResume()
+        if (resumePosition == null) {
+            // 首帧补齐时长后提前解析索引，首次跳转无需等待
+            scheduleCueCache(currentMediaItem)
             return
         }
 
+        val player = currentPlayerProvider() ?: return
+        if (player.currentPosition >= resumePosition - 1_000L) return
         pendingPromotionJob?.cancel()
-        pendingPromotionJob = scope.launch(Dispatchers.IO) {
-            val seekMap = seekMapCache[mediaId]
-                ?: restoreCachedSeekMap(currentMediaItem)
-                ?: scheduleCueCache(currentMediaItem).await()
-                ?: return@launch
-
-            seekMapCache[mediaId] = seekMap
-            withContext(Dispatchers.Main) {
-                val currentPlayer = currentPlayerProvider() ?: return@withContext
-                val current = currentPlayer.currentMediaItem ?: return@withContext
-                if (current.mediaId != mediaId) return@withContext
-                if (pendingStartupResumeToken != mediaId) return@withContext
-                clearPendingStartupResume()
-                Logger.info(TAG, "Resume deferred precise-seek media=${mediaLogSummary(mediaId)} position=$targetPosition")
-                promoteCurrentItemToPreciseSeek(targetPosition)
-            }
+        pendingPromotionJob = scope.launch {
+            Logger.info(TAG, "Continue deferred resume media=${mediaLogSummary(mediaId)} position=$resumePosition")
+            promoteCurrentItemToPreciseSeek(resumePosition)
         }
-    }
-
-    fun seekWithinCurrentItem(
-        player: Player,
-        targetPositionMs: Long,
-    ) {
-        val currentItem = player.currentMediaItem ?: return
-        if (currentItem.mediaMetadata.isApproximateSeekEnabled) {
-            val nextRequestId = ++requestId
-            scope.launch { promoteCurrentItemToPreciseSeek(targetPositionMs, nextRequestId) }
-            return
-        }
-        requestId++
-        player.seekTo(targetPositionMs)
     }
 
     suspend fun requestSeekForCurrentItem(targetPositionMs: Long): SessionResult {
         val player = currentPlayerProvider() ?: return SessionResult(SessionError.ERROR_BAD_VALUE)
         val currentItem = player.currentMediaItem ?: return SessionResult(SessionError.ERROR_BAD_VALUE)
+        // 用户跳转优先于启动阶段尚未完成的升级和恢复进度
+        cancelPendingPromotion()
         val maxPosition = currentItem.mediaMetadata.durationMs
             ?.takeIf { it > 0L }
             ?: player.duration.takeIf { it != C.TIME_UNSET && it > 0L }
@@ -254,45 +231,45 @@ internal class PreciseSeekCoordinator(
         return promoteCurrentItemToPreciseSeek(targetPosition)
     }
 
-    suspend fun promoteCurrentItemToPreciseSeek(
-        targetPositionMs: Long,
-        currentRequestId: Long = ++requestId,
-    ): SessionResult {
-        val player = currentPlayerProvider() ?: return SessionResult(SessionError.ERROR_BAD_VALUE)
-        val initialItem = player.currentMediaItem ?: return SessionResult(SessionError.ERROR_BAD_VALUE)
+    private suspend fun promoteCurrentItemToPreciseSeek(targetPositionMs: Long): SessionResult {
+        val currentRequestId = ++requestId
+        val initialPlayer = currentPlayerProvider() ?: return SessionResult(SessionError.ERROR_BAD_VALUE)
+        val initialItem = initialPlayer.currentMediaItem ?: return SessionResult(SessionError.ERROR_BAD_VALUE)
         val maxPosition = initialItem.mediaMetadata.durationMs
             ?.takeIf { it > 0L }
-            ?: player.duration.takeIf { it != C.TIME_UNSET && it > 0L }
+            ?: initialPlayer.duration.takeIf { it != C.TIME_UNSET && it > 0L }
         val targetPosition = maxPosition?.let { targetPositionMs.coerceIn(0L, it) } ?: targetPositionMs.coerceAtLeast(0L)
 
         if (!initialItem.mediaMetadata.isApproximateSeekEnabled || initialItem.mediaId in preciseSeekMediaIds) {
             Logger.info(TAG, "Precise seek direct media=${mediaLogSummary(initialItem.mediaId)} target=$targetPosition")
-            player.seekTo(targetPosition)
+            initialPlayer.seekTo(targetPosition)
             return SessionResult(SessionResult.RESULT_SUCCESS)
         }
 
-        val seekMap = seekMapCache[initialItem.mediaId]
-            ?: restoreCachedSeekMap(initialItem)
-            ?: run {
-                scheduleCueCache(initialItem)
-                null
-            }
-        if (seekMap == null && shouldUseFastSeek(initialItem) && player.isCurrentMediaItemSeekable) {
+        val cachedSeekMap = seekMapCache[initialItem.mediaId] ?: restoreCachedSeekMap(initialItem)
+        if (cachedSeekMap == null && shouldUseFastSeek(initialItem) && initialPlayer.isCurrentMediaItemSeekable) {
             Logger.info(TAG, "Fast seek without cached cues media=${mediaLogSummary(initialItem.mediaId)} target=$targetPosition")
-            player.seekTo(targetPosition)
+            scheduleCueCache(initialItem)
+            initialPlayer.seekTo(targetPosition)
             scope.launch {
                 val playbackStateUri = resolvePlaybackStateUri(initialItem)
                 updatePlaybackPosition(playbackStateUri, targetPosition)
             }
             return SessionResult(SessionResult.RESULT_SUCCESS)
         }
+
+        // 索引未就绪时等待解析完成；期间有更新的请求或切换了媒体，本次请求作废
+        val seekMap = cachedSeekMap ?: run {
+            Logger.info(TAG, "Precise seek awaiting cues media=${mediaLogSummary(initialItem.mediaId)} target=$targetPosition")
+            scheduleCueCache(initialItem).await()
+        }
         if (currentRequestId != requestId) {
             return SessionResult(SessionError.ERROR_BAD_VALUE)
         }
 
+        val player = currentPlayerProvider() ?: return SessionResult(SessionError.ERROR_BAD_VALUE)
         val currentItem = player.currentMediaItem ?: return SessionResult(SessionError.ERROR_BAD_VALUE)
-        val currentIndex = player.currentMediaItemIndex
-        if (currentItem.mediaId != initialItem.mediaId || currentIndex !in 0 until player.mediaItemCount) {
+        if (currentItem.mediaId != initialItem.mediaId) {
             return SessionResult(SessionError.ERROR_BAD_VALUE)
         }
         if (!currentItem.mediaMetadata.isApproximateSeekEnabled || currentItem.mediaId in preciseSeekMediaIds) {
@@ -300,33 +277,55 @@ internal class PreciseSeekCoordinator(
             player.seekTo(targetPosition)
             return SessionResult(SessionResult.RESULT_SUCCESS)
         }
-        if (seekMap == null) {
-            Logger.info(TAG, "Precise seek postponed media=${mediaLogSummary(currentItem.mediaId)} target=$targetPosition")
-            player.seekTo(targetPosition)
-            return SessionResult(SessionResult.RESULT_SUCCESS)
-        }
-        seekMapCache[currentItem.mediaId] = seekMap
 
-        val updatedMediaItem = currentItem.copy(
-            positionMs = targetPosition,
-            isApproximateSeekEnabled = false,
-        )
-        preciseSeekMediaIds.add(currentItem.mediaId)
-        val shouldPlayWhenReady = player.playWhenReady
         Logger.info(
             TAG,
-            "Promote current item to precise seek media=${mediaLogSummary(currentItem.mediaId)} target=$targetPosition hasCachedSeekMap=true",
+            "Promote current item to precise seek media=${mediaLogSummary(currentItem.mediaId)} target=$targetPosition hasCachedSeekMap=${seekMap != null}",
         )
-        player.addMediaSource(currentIndex + 1, createMediaSource(updatedMediaItem))
-        player.seekTo(currentIndex + 1, targetPosition)
-        player.removeMediaItem(currentIndex)
-        player.prepare()
-        player.playWhenReady = shouldPlayWhenReady
+        replaceWithPreciseSource(player, currentItem, targetPosition, seekMap)
         scope.launch {
             val playbackStateUri = resolvePlaybackStateUri(currentItem)
             updatePlaybackPosition(playbackStateUri, targetPosition)
         }
         return SessionResult(SessionResult.RESULT_SUCCESS)
+    }
+
+    // seekMap 为空时改用常规媒体源，由播放器自行加载 Cues
+    private fun replaceWithPreciseSource(
+        player: ExoPlayer,
+        currentItem: MediaItem,
+        positionMs: Long,
+        seekMap: SeekMap?,
+    ) {
+        val mediaId = currentItem.mediaId
+        val currentIndex = player.currentMediaItemIndex
+        seekMap?.let { seekMapCache[mediaId] = it }
+        preciseSeekMediaIds.add(mediaId)
+        val updatedMediaItem = currentItem.copy(
+            positionMs = positionMs,
+            isApproximateSeekEnabled = false,
+        )
+        val shouldPlayWhenReady = player.playWhenReady
+        player.addMediaSource(currentIndex + 1, createMediaSource(updatedMediaItem))
+        player.seekTo(currentIndex + 1, positionMs)
+        player.removeMediaItem(currentIndex)
+        player.prepare()
+        player.playWhenReady = shouldPlayWhenReady
+    }
+
+    private fun deferStartupResume(
+        mediaId: String,
+        positionMs: Long,
+    ) {
+        Logger.info(TAG, "Resume deferred precise-seek media=${mediaLogSummary(mediaId)} position=$positionMs")
+        pendingStartupResumeToken = mediaId
+        pendingStartupResumePositionMs = positionMs
+    }
+
+    private fun cancelPendingPromotion() {
+        pendingPromotionJob?.cancel()
+        pendingPromotionJob = null
+        clearPendingStartupResume()
     }
 
     private fun clearPendingStartupResume() {
