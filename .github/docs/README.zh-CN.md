@@ -39,6 +39,7 @@ Only Player 是 Android 本地视频播放器，基于 Kotlin、Jetpack Compose�
 - [贡献规范](#-贡献规范)
 - [许可证](#-许可证)
 - [致谢](#-致谢)
+- [支持项目](#-支持项目)
 
 <br>
 
@@ -277,3 +278,25 @@ Only Player 使用 [GNU GPL v3 许可证](../../LICENSE)。第三方组件仍遵
 <sub>[↑ 回到导航](#导航)</sub>
 
 Only Player 延续自 [Next Player](https://github.com/anilbeesetti/nextplayer)。感谢原项目及所有上游贡献者提供的基础能力与持续维护。
+
+<br>
+
+---
+
+## 💜 支持项目
+
+<sub>[↑ 回到导航](#导航)</sub>
+
+如果 Only Player 对你有帮助，欢迎通过爱发电支持项目开发和日常模型调用费用。捐赠完全自愿，不会影响任何功能使用。
+
+<div align="center">
+
+<a href="https://github.com/KiritoXDone">
+  <img src="https://avatars.githubusercontent.com/u/58523182?v=4&amp;s=192" width="96" height="96" alt="KiritoXDone">
+</a>
+
+**[KiritoXDone](https://github.com/KiritoXDone)**
+
+**[通过爱发电支持](https://afdian.com/a/KiritoXD)**
+
+</div>
