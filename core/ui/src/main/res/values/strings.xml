@@ -417,6 +417,8 @@
     <string name="libraries">Libraries</string>
     <string name="project_repository">Project repository</string>
     <string name="telegram_group">Telegram group</string>
+    <string name="support_on_afdian">Support on Afdian</string>
+    <string name="support_on_afdian_description">Optional support for ongoing development and maintenance</string>
     <string name="app_logs">App logs</string>
     <string name="app_logs_description">View, share, save, and clear logs stored in the app private directory</string>
     <string name="share_logs">Share</string>

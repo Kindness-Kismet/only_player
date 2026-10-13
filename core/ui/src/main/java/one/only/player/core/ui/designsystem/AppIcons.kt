@@ -68,6 +68,7 @@ object AppIcons {
     val Menu: ImageVector get() = MingCuteMenu
     val MoreVert: ImageVector get() = MingCuteMoreVert
     val Movie: ImageVector get() = MingCuteMovie
+    val OpenInNew: ImageVector get() = MingCuteArrowRightUp
     val Pan: ImageVector get() = MingCutePan
     val Pause: ImageVector get() = MingCutePause
     val Pinch: ImageVector get() = MingCuteFingerLove
@@ -99,6 +100,7 @@ object AppIcons {
     val Speed: ImageVector get() = MingCuteSpeed
     val Style: ImageVector get() = MingCuteLayer
     val Subtitle: ImageVector get() = MingCuteCaption
+    val Support: ImageVector get() = MingCuteHeart
     val SurroundSound: ImageVector get() = MingCuteSurroundSound
     val SwipeHorizontal: ImageVector get() = MingCuteSwipeHorizontal
     val Tap: ImageVector get() = MingCuteFingerPress
