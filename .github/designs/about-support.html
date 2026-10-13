@@ -1,0 +1,330 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <meta name="color-scheme" content="light dark">
+    <title>关于页 · 爱发电入口设计</title>
+    <style>
+        :root {
+            color-scheme: light;
+            font-family: "Microsoft YaHei", "PingFang SC", system-ui, sans-serif;
+            color: #282530;
+            background: #f5f4f7;
+            --sheet: #fff;
+            --muted: #726d7c;
+            --line: #e4e0eb;
+            --accent: #7651c9;
+            --soft: #eee7fa;
+        }
+        * { box-sizing: border-box; }
+        body { margin: 0; }
+        button, a, input { -webkit-tap-highlight-color: transparent; }
+        button, select { font: inherit; }
+        button, a { touch-action: manipulation; }
+        button { cursor: pointer; }
+        a { color: inherit; text-decoration: none; }
+        button:focus-visible, a:focus-visible, select:focus-visible, .scroller:focus-visible {
+            outline: 3px solid #9270d8;
+            outline-offset: 3px;
+        }
+        .symbols { position: absolute; width: 0; height: 0; overflow: hidden; }
+        .icon { width: 24px; height: 24px; flex: 0 0 auto; fill: none; stroke: currentColor; stroke-width: 2; stroke-linecap: round; stroke-linejoin: round; }
+        .brand { fill: currentColor; stroke: none; }
+        .workspace { max-width: 1200px; padding: 44px 40px 36px; margin: auto; }
+        .eyebrow { color: var(--accent); font-size: 12px; font-weight: 700; letter-spacing: 2px; }
+        .intro { display: flex; align-items: end; justify-content: space-between; gap: 28px; margin: 12px 0 28px; }
+        h1 { font-size: 30px; font-weight: 650; letter-spacing: -1px; margin: 0 0 10px; }
+        .intro p { margin: 0; font-size: 14px; color: var(--muted); line-height: 1.8; }
+        .review-tag { border: 1px solid var(--line); border-radius: 999px; padding: 7px 12px; font-size: 12px; white-space: nowrap; color: var(--muted); }
+        .toolbar { display: flex; align-items: center; flex-wrap: wrap; gap: 12px 22px; padding: 14px 18px; background: var(--sheet); border: 1px solid var(--line); border-radius: 16px; }
+        .control { display: flex; align-items: center; gap: 10px; }
+        .control-label { color: var(--muted); font-size: 12px; }
+        .segmented { display: flex; padding: 3px; background: #f1eef5; border-radius: 10px; }
+        .segmented button { border: 0; background: none; color: #746b82; padding: 7px 13px; font-size: 12px; border-radius: 8px; }
+        .segmented button[aria-pressed="true"] { background: white; color: #5934a2; box-shadow: 0 1px 4px #31204012; }
+        select { background: var(--sheet); color: inherit; border: 1px solid var(--line); border-radius: 8px; padding: 6px 9px; font-size: 12px; }
+        .toolbar-hint { margin-left: auto; color: var(--muted); font-size: 12px; }
+        .comparison { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 40px; margin: 26px auto 0; max-width: 900px; }
+        .comparison.single { grid-template-columns: minmax(0, 1fr); max-width: 420px; }
+        .pane[hidden] { display: none; }
+        .pane-heading { display: flex; align-items: center; justify-content: space-between; height: 24px; margin: 0 auto 12px; width: min(100%, var(--phone-width, 390px)); }
+        .pane-heading h2 { margin: 0; font-size: 14px; font-weight: 600; }
+        .pane-heading span { font-size: 11px; color: var(--muted); }
+        .pane-heading .recommended { color: var(--accent); background: var(--soft); border-radius: 6px; padding: 4px 8px; }
+        .phone {
+            --ink: #23222a;
+            --summary: #5b5569;
+            --card: #f0edf5;
+            --button: #ffffff91;
+            --button-border: #ffffffc9;
+            --support-ink: #60419b;
+            --switch-track: #d7d4df;
+            --glow-a: #ffe5ef;
+            --glow-b: #d6dcff;
+            --glow-c: #e6cced;
+            position: relative;
+            width: min(100%, var(--phone-width, 390px));
+            height: 820px;
+            margin: auto;
+            isolation: isolate;
+            overflow: hidden;
+            border-radius: 32px;
+            border: 1px solid #d4cddd;
+            background: #f6f1fa;
+            color: var(--ink);
+            box-shadow: 0 14px 40px #3723450a, 0 2px 5px #37234508;
+        }
+        .phone.dark {
+            color-scheme: dark;
+            --ink: #f0ebf8;
+            --summary: #c0b5d1;
+            --card: #27232f;
+            --button: #ece0ff14;
+            --button-border: #e0cdff36;
+            --support-ink: #e0c9ff;
+            --switch-track: #494153;
+            --glow-a: #452952;
+            --glow-b: #233b72;
+            --glow-c: #422a68;
+            background: #17131e;
+            border-color: #494052;
+        }
+        .ambient {
+            position: absolute;
+            inset: -16%;
+            z-index: -1;
+            pointer-events: none;
+            background:
+                radial-gradient(ellipse at 22% 58%, var(--glow-a), transparent 62%),
+                radial-gradient(ellipse at 94% 77%, var(--glow-b), transparent 68%),
+                radial-gradient(ellipse at 12% 5%, var(--glow-c), transparent 55%);
+            animation: drift 18s ease-in-out infinite alternate;
+        }
+        @keyframes drift { to { transform: translate(3%, -3%) scale(1.08); } }
+        .status-bar { height: 28px; display: flex; align-items: end; justify-content: space-between; padding: 0 25px; font-size: 11px; font-weight: 600; }
+        .status-icons { display: flex; align-items: center; gap: 5px; }
+        .status-icons .icon { width: 13px; height: 13px; }
+        .topbar { position: relative; height: 56px; display: flex; align-items: center; padding: 0 12px; }
+        .topbar strong { position: absolute; left: 50%; transform: translateX(-50%); font-size: 18px; font-weight: 650; }
+        .icon-button { display: inline-flex; align-items: center; justify-content: center; width: 40px; height: 40px; border: 0; border-radius: 50%; background: transparent; color: inherit; }
+        .icon-button:hover { background: #86759818; }
+        .topbar .icon { width: 26px; height: 26px; }
+        .scroller { height: calc(100% - 108px); overflow: auto; scrollbar-width: none; overscroll-behavior: contain; }
+        .scroller::-webkit-scrollbar { display: none; }
+        .page-content { padding: 50px 16px 24px; }
+        .hero { display: flex; align-items: center; flex-direction: column; padding-bottom: 24px; }
+        .app-icon { display: flex; align-items: center; justify-content: center; width: 88px; height: 88px; background: white; border-radius: 24px; }
+        .app-icon img { width: 74px; height: 74px; border-radius: 19px; }
+        .app-name { margin: 12px 0 5px; font-size: 28px; line-height: 35px; font-weight: 700; letter-spacing: -.6px; }
+        .version { margin: 0; color: var(--summary); font-size: 14px; line-height: 20px; }
+        .quick-links { display: flex; gap: 8px; margin-top: 16px; }
+        .support { display: flex; flex-direction: column; align-items: center; margin-top: 12px; }
+        .support-link { display: inline-flex; min-height: 40px; align-items: center; gap: 8px; border: 1px solid var(--button-border); border-radius: 20px; padding: 8px 16px; color: var(--support-ink); background: var(--button); font-size: 14px; font-weight: 600; transition: background .2s, transform .2s; }
+        .support-link:hover { background: var(--card); transform: translateY(-1px); }
+        .support-link .icon { width: 18px; height: 18px; stroke-width: 1.8; }
+        .support-link .external { width: 14px; height: 14px; opacity: .75; }
+        .support-caption { margin: 8px 0 0; color: var(--summary); font-size: 11px; line-height: 16px; }
+        .proposed .page-content { padding-top: 32px; }
+        .proposed .hero { padding-bottom: 12px; }
+        .preference-group { background: var(--card); border-radius: 18px; margin-top: 12px; overflow: hidden; }
+        .preference { width: 100%; display: flex; align-items: center; gap: 16px; padding: 16px; min-height: 76px; background: none; border: 0; color: inherit; text-align: left; }
+        button.preference:hover { background: #88739d0d; }
+        .preference-copy { flex: 1; min-width: 0; }
+        .preference-title { display: block; font-size: 16px; font-weight: 600; line-height: 22px; }
+        .preference-summary { display: block; color: var(--summary); font-size: 14px; line-height: 20px; margin-top: 2px; overflow-wrap: anywhere; }
+        .chevron { width: 18px; height: 18px; color: var(--summary); }
+        .switch-track { display: flex; align-items: center; width: 46px; height: 28px; border-radius: 16px; padding: 4px; flex-shrink: 0; background: var(--switch-track); }
+        .switch-track::after { content: ""; display: block; width: 20px; height: 20px; border-radius: 50%; background: white; transition: transform .15s; box-shadow: 0 1px 3px #0001; }
+        [aria-checked="true"] .switch-track { background: #8160c4; }
+        [aria-checked="true"] .switch-track::after { transform: translateX(18px); }
+        .gesture-area { height: 24px; display: flex; justify-content: center; align-items: center; }
+        .gesture-area::after { content: ""; width: 100px; height: 4px; background: var(--ink); opacity: .55; border-radius: 4px; }
+        .notes { display: grid; grid-template-columns: repeat(3, 1fr); gap: 24px; margin: 32px 0 22px; padding-top: 24px; border-top: 1px solid var(--line); }
+        .note-number { display: inline-flex; width: 24px; height: 24px; align-items: center; justify-content: center; border-radius: 7px; background: var(--soft); color: var(--accent); font-size: 11px; font-weight: 600; margin-right: 8px; }
+        .notes h3 { margin: 0 0 9px; font-size: 13px; font-weight: 600; }
+        .notes p { color: var(--muted); font-size: 12px; line-height: 1.85; margin: 0; }
+        .footnote { font-size: 11px; color: var(--muted); line-height: 1.8; margin: 0; }
+        .toast { position: fixed; z-index: 5; left: 50%; bottom: 24px; transform: translateX(-50%); border-radius: 12px; background: #30273e; color: white; padding: 12px 20px; font-size: 13px; max-width: calc(100vw - 32px); box-shadow: 0 6px 24px #20102c25; }
+        .toast:empty { display: none; }
+        @media (max-width: 920px) {
+            .workspace { padding: 28px 20px; }
+            .comparison { gap: 20px; }
+            .toolbar-hint { width: 100%; margin-left: 0; }
+        }
+        @media (max-width: 720px) {
+            .intro { align-items: start; }
+            h1 { font-size: 24px; }
+            .review-tag { display: none; }
+            .comparison { grid-template-columns: minmax(0, 1fr); gap: 28px; }
+            .notes { grid-template-columns: 1fr; gap: 18px; }
+            .toolbar { gap: 12px; }
+            .control { gap: 8px; }
+            .workspace { padding: 24px 12px; }
+        }
+        @media (prefers-reduced-motion: reduce) {
+            *, *::before, *::after { animation: none !important; transition: none !important; }
+        }
+    </style>
+</head>
+<body>
+    <svg class="symbols" xmlns="http://www.w3.org/2000/svg" aria-hidden="true">
+        <defs>
+            <!-- 现有图标从应用资源提取，预览保持同一套造型。 -->
+            <symbol id="libraries" viewBox="0 0 24 24"><path d="M12 19.88V19m-.01 0V6a2 2 0 0 0-2-2H4a1 1 0 0 0-1 1v13a1 1 0 0 0 1 1zm.02 0H20a1 1 0 0 0 1-1V5a1 1 0 0 0-1-1h-5.99a2 2 0 0 0-2 2z" fill="none" stroke="currentColor"/></symbol>
+            <symbol id="architecture" viewBox="0 0 24 24"><path d="M9 3v2m6-2v2M9 19v2m6-2v2M3 15h2M3 9h2m14 6h2m-2-6h2m-4 10H7a2 2 0 0 1-2-2V7a2 2 0 0 1 2-2h10a2 2 0 0 1 2 2v10a2 2 0 0 1-2 2Zm-3-4h-4a1 1 0 0 1-1-1v-4a1 1 0 0 1 1-1h4a1 1 0 0 1 1 1v4a1 1 0 0 1-1 1Z" fill="none" stroke="currentColor"/></symbol>
+            <symbol id="logs" viewBox="0 0 24 24"><path d="M6 13H3m18 0h-3M7 9C6 9 4.5 8 4 7m3 11c-1.5 0-2 2-2 3m12-3c1.5 0 2 2 2 3M17 9c1 0 2.5-1 3-2m-8 13.88v-8m-6 .62c0-1.688.446-3.246 1.2-4.5h9.6c.754 1.254 1.2 2.812 1.2 4.5 0 4.142-2.686 7.5-6 7.5s-6-3.358-6-7.5ZM8.535 6h6.93A4 4 0 0 0 12 4c-1.48 0-2.773.804-3.465 2Z" fill="none" stroke="currentColor"/></symbol>
+            <symbol id="update" viewBox="0 0 24 24"><path d="M3.811 8.264A9 9 0 0 1 14.33 3.307a9 9 0 0 1 6.672 8.622c0 .08-.088.126-.154.082l-2.678-1.804c-.091-.062-.03-.205.078-.181L20 10.41m.189 5.327c-1.789 3.932-6.208 6.112-10.519 4.956a9 9 0 0 1-6.672-8.622c0-.08.088-.126.154-.082l2.678 1.805c.091.061.03.204-.078.18L4 13.59" fill="none" stroke="currentColor"/></symbol>
+            <symbol id="channel" viewBox="0 0 24 24"><path d="M16.5001 11.5355L20.0356 8.00001L16.5001 4.46448M8 8.00001H20M7.50013 19.5355L3.9646 16L7.50013 12.4645M4 16H16" fill="none" stroke="currentColor"/></symbol>
+            <symbol id="github" viewBox="0 0 24 24"><path d="M12,0.3C5.37,0.3 0,5.67 0,12.3C0,17.6 3.44,22.09 8.21,23.68C8.81,23.79 9.03,23.42 9.03,23.1C9.03,22.82 9.02,22.06 9.02,21.06C5.68,21.78 4.98,19.45 4.98,19.45C4.43,18.06 3.64,17.69 3.64,17.69C2.55,16.95 3.72,16.96 3.72,16.96C4.93,17.05 5.57,18.2 5.57,18.2C6.64,20.04 8.39,19.51 9.07,19.2C9.18,18.42 9.49,17.89 9.83,17.59C7.17,17.29 4.37,16.26 4.37,11.66C4.37,10.35 4.84,9.28 5.61,8.44C5.49,8.13 5.07,6.91 5.73,5.26C5.73,5.26 6.74,4.94 9.03,6.49C9.99,6.22 11.01,6.09 12.02,6.08C13.03,6.09 14.05,6.22 15.01,6.49C17.3,4.94 18.31,5.26 18.31,5.26C18.97,6.91 18.55,8.13 18.43,8.44C19.2,9.28 19.67,10.35 19.67,11.66C19.67,16.27 16.86,17.28 14.19,17.58C14.62,17.95 15,18.68 15,19.8C15,21.41 14.99,22.7 14.99,23.1C14.99,23.42 15.21,23.8 15.82,23.68C20.58,22.09 24.02,17.6 24.02,12.3C24,5.67 18.63,0.3 12,0.3Z"/></symbol>
+            <symbol id="telegram" viewBox="0 0 24 24"><path d="M21.94,4.16C22.26,2.67 20.82,1.42 19.45,2.01L2.67,9.26C1.12,9.93 1.21,12.16 2.81,12.69L6.28,13.84L8.06,19.61C8.45,20.87 10.04,21.26 10.96,20.31L13.41,17.78L17.05,20.51C18.19,21.36 19.82,20.72 20.12,19.33L21.94,4.16ZM7.03,12.25L17.84,5.63C18.3,5.35 18.78,5.97 18.38,6.33L9.45,14.45L9.09,18.3L7.75,13.92L7.03,12.25Z"/></symbol>
+            <symbol id="heart" viewBox="0 0 24 24"><path d="M20.8 4.6a5.5 5.5 0 0 0-7.8 0L12 5.7l-1.1-1.1a5.5 5.5 0 0 0-7.8 7.8L12 21l8.8-8.6a5.5 5.5 0 0 0 0-7.8Z"/></symbol>
+            <symbol id="external" viewBox="0 0 24 24"><path d="M8 16 19 5M9 5h10v10"/></symbol>
+            <symbol id="chevron" viewBox="0 0 24 24"><path d="m9 5 7 7-7 7"/></symbol>
+            <symbol id="back" viewBox="0 0 24 24"><circle cx="12" cy="12" r="9"/><path d="m12 8-4 4 4 4m-4-4h9"/></symbol>
+            <symbol id="wifi" viewBox="0 0 24 24"><path d="M3 8a15 15 0 0 1 18 0M6 12a10 10 0 0 1 12 0m-9 4a5 5 0 0 1 6 0m-3 4h.01"/></symbol>
+            <symbol id="battery" viewBox="0 0 24 24"><rect x="2" y="6" width="18" height="12" rx="3"/><path d="M23 10v4M5 9h12v6H5Z"/></symbol>
+        </defs>
+    </svg>
+    <main class="workspace">
+        <div class="eyebrow">关于页 · 布局预览</div>
+        <header class="intro">
+            <div>
+                <h1>把支持入口，放在认识应用的地方。</h1>
+                <p>延续现有流光背景、居中应用信息与圆角分组，让爱发电自然融入关于页。</p>
+            </div>
+            <span class="review-tag">网页设计稿 · 待确认</span>
+        </header>
+        <div class="toolbar" aria-label="预览设置">
+            <div class="control">
+                <span class="control-label" id="theme-label">外观</span>
+                <div class="segmented" role="group" aria-labelledby="theme-label">
+                    <button type="button" data-theme="light" aria-pressed="true">浅色</button>
+                    <button type="button" data-theme="dark" aria-pressed="false">深色</button>
+                </div>
+            </div>
+            <div class="control">
+                <span class="control-label" id="view-label">视图</span>
+                <div class="segmented" role="group" aria-labelledby="view-label">
+                    <button type="button" data-view="compare" aria-pressed="true">前后对照</button>
+                    <button type="button" data-view="proposal" aria-pressed="false">只看方案</button>
+                </div>
+            </div>
+            <div class="control">
+                <label class="control-label" for="width">宽度</label>
+                <select id="width"><option value="390">常规 · 390</option><option value="360">紧凑 · 360</option><option value="320">窄屏 · 320</option></select>
+            </div>
+            <span class="toolbar-hint">页面内可滚动，爱发电入口可直接打开。</span>
+        </div>
+        <section class="comparison" aria-label="布局对照">
+            <article class="pane" id="baseline-pane">
+                <div class="pane-heading"><h2>现有布局</h2><span>按当前页面源码还原</span></div>
+                <div class="phone" id="baseline"></div>
+            </article>
+            <article class="pane">
+                <div class="pane-heading"><h2>加入支持入口</h2><span class="recommended">推荐方案</span></div>
+                <div class="phone proposed" id="proposal"></div>
+            </article>
+        </section>
+        <section class="notes" aria-label="设计说明">
+            <div><h3><span class="note-number">01</span>归入应用信息区</h3><p>三个快捷图标下方增加“爱发电支持”文字按钮。图标、名称、版本、项目入口与支持入口形成完整的一组。</p></div>
+            <div><h3><span class="note-number">02</span>用留白容纳新入口</h3><p>顶部留白由 50 调整为 32，信息区底部留白由 24 调整为 12。按钮保留清晰的文字与点击范围，视觉重点仍是应用本身。</p></div>
+            <div><h3><span class="note-number">03</span>沿用现有信息分组</h3><p>设备信息与日志在前，更新设置在后。支持入口跟随主题变色，点击直接前往爱发电，不增加中间弹窗。</p></div>
+        </section>
+        <p class="footnote">网页用于确认布局；流光为近似效果，应用图标与现有入口图标取自项目资源。版本使用当前项目值，设备信息为展示示例。只有外部链接会实际跳转，其他控件仅演示交互。</p>
+    </main>
+    <div class="toast" role="status" aria-live="polite"></div>
+    <template id="page-template">
+        <div class="ambient"></div>
+        <div class="status-bar" aria-hidden="true"><span>10:13</span><span class="status-icons"><svg class="icon"><use href="#wifi"/></svg><span>100%</span><svg class="icon"><use href="#battery"/></svg></span></div>
+        <header class="topbar"><button class="icon-button" type="button" aria-label="返回" data-demo="这里展示关于页，返回操作仅作示意。"><svg class="icon" aria-hidden="true"><use href="#back"/></svg></button><strong>关于</strong></header>
+        <div class="scroller" tabindex="0" aria-label="关于页内容，可上下滚动">
+            <div class="page-content">
+                <section class="hero" aria-label="应用信息">
+                    <div class="app-icon"><img src="data:image/png;base64,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" alt="应用图标" width="74" height="74"></div>
+                    <h2 class="app-name">Only Player</h2>
+                    <p class="version">1.0.209 (210)</p>
+                    <nav class="quick-links" aria-label="项目入口">
+                        <button class="icon-button" type="button" aria-label="开源库" title="开源库" data-demo="应用内会打开开源库列表。"><svg class="icon" aria-hidden="true"><use href="#libraries"/></svg></button>
+                        <a class="icon-button" href="https://github.com/Kindness-Kismet/only_player" target="_blank" rel="noopener noreferrer" aria-label="项目仓库（新窗口）" title="项目仓库"><svg class="icon brand" aria-hidden="true"><use href="#github"/></svg></a>
+                        <a class="icon-button" href="https://t.me/MaterialDesign3" target="_blank" rel="noopener noreferrer" aria-label="交流群（新窗口）" title="交流群"><svg class="icon brand" aria-hidden="true"><use href="#telegram"/></svg></a>
+                    </nav>
+                </section>
+                <section class="preference-group" aria-label="设备与日志">
+                    <div class="preference"><svg class="icon" aria-hidden="true"><use href="#architecture"/></svg><div class="preference-copy"><span class="preference-title">架构</span><span class="preference-summary">arm64-v8a</span></div></div>
+                    <div class="preference"><svg class="icon" aria-hidden="true"><use href="#update"/></svg><div class="preference-copy"><span class="preference-title">安卓版本</span><span class="preference-summary">15 (API 35)</span></div></div>
+                    <button class="preference" type="button" data-demo="应用内会打开日志页面。"><svg class="icon" aria-hidden="true"><use href="#logs"/></svg><span class="preference-copy"><span class="preference-title">应用日志</span><span class="preference-summary">查看、分享、保存并清空存储在应用私有目录中的日志</span></span><svg class="icon chevron" aria-hidden="true"><use href="#chevron"/></svg></button>
+                </section>
+                <section class="preference-group" aria-label="更新设置">
+                    <button class="preference" type="button" data-demo="预览不会请求更新服务。"><svg class="icon" aria-hidden="true"><use href="#update"/></svg><span class="preference-copy"><span class="preference-title">检查更新</span><span class="preference-summary">点按检查最新版本</span></span><svg class="icon chevron" aria-hidden="true"><use href="#chevron"/></svg></button>
+                    <button class="preference" type="button" data-demo="应用内可选择稳定版或测试版更新通道。"><svg class="icon" aria-hidden="true"><use href="#channel"/></svg><span class="preference-copy"><span class="preference-title">更新通道</span><span class="preference-summary">稳定版</span></span><svg class="icon chevron" aria-hidden="true"><use href="#chevron"/></svg></button>
+                    <button class="preference" type="button" role="switch" aria-checked="false" aria-label="启动时自动检查更新"><span class="preference-copy"><span class="preference-title">启动时自动检查</span><span class="preference-summary">启动应用时自动检查更新</span></span><span class="switch-track" aria-hidden="true"></span></button>
+                </section>
+            </div>
+        </div>
+        <div class="gesture-area" aria-hidden="true"></div>
+    </template>
+    <template id="support-template">
+        <div class="support">
+            <a class="support-link" href="https://afdian.com/a/KiritoXD" target="_blank" rel="noopener noreferrer" aria-label="通过爱发电支持项目（新窗口）">
+                <svg class="icon" aria-hidden="true"><use href="#heart"/></svg>
+                <span>爱发电支持</span>
+                <svg class="icon external" aria-hidden="true"><use href="#external"/></svg>
+            </a>
+            <p class="support-caption">自愿支持，帮助持续开发与维护</p>
+        </div>
+    </template>
+    <script>
+        const pageTemplate = document.querySelector('#page-template');
+        document.querySelectorAll('.phone').forEach(phone => {
+            phone.append(pageTemplate.content.cloneNode(true));
+        });
+        document.querySelector('#proposal .hero').append(
+            document.querySelector('#support-template').content.cloneNode(true),
+        );
+
+        document.querySelectorAll('[data-theme]').forEach(button => {
+            button.addEventListener('click', () => {
+                document.querySelectorAll('[data-theme]').forEach(option => {
+                    option.setAttribute('aria-pressed', String(option === button));
+                });
+                document.querySelectorAll('.phone').forEach(phone => {
+                    phone.classList.toggle('dark', button.dataset.theme === 'dark');
+                });
+            });
+        });
+
+        document.querySelectorAll('[data-view]').forEach(button => {
+            button.addEventListener('click', () => {
+                const isProposalOnly = button.dataset.view === 'proposal';
+                document.querySelector('#baseline-pane').hidden = isProposalOnly;
+                document.querySelector('.comparison').classList.toggle('single', isProposalOnly);
+                document.querySelectorAll('[data-view]').forEach(option => {
+                    option.setAttribute('aria-pressed', String(option === button));
+                });
+            });
+        });
+
+        document.querySelector('#width').addEventListener('change', event => {
+            document.documentElement.style.setProperty('--phone-width', `${event.target.value}px`);
+        });
+
+        let toastTimeout;
+        document.querySelectorAll('[data-demo]').forEach(button => {
+            button.addEventListener('click', () => {
+                const toast = document.querySelector('.toast');
+                clearTimeout(toastTimeout);
+                toast.textContent = button.dataset.demo;
+                toastTimeout = setTimeout(() => { toast.textContent = ''; }, 2800);
+            });
+        });
+
+        document.querySelectorAll('[role="switch"]').forEach(button => {
+            button.addEventListener('click', () => {
+                const isChecked = button.getAttribute('aria-checked') === 'true';
+                button.setAttribute('aria-checked', String(!isChecked));
+            });
+        });
+    </script>
+</body>
+</html>
