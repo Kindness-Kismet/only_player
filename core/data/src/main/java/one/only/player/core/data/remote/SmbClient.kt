@@ -324,7 +324,6 @@ class SmbClient @Inject constructor(
     companion object {
         const val DEFAULT_PORT = 445
         const val BROWSE_TIMEOUT_SECONDS = 30L
-        const val FILE_TIMEOUT_SECONDS = 15L
         private const val DIRECTORY_CACHE_TTL_MS = 30_000L
         private const val BROWSE_SESSION_IDLE_TTL_MS = 60_000L
         private const val MAX_DIRECTORY_CACHE_SIZE = 32
@@ -348,12 +347,7 @@ class SmbClient @Inject constructor(
             .withWriteBufferSize(8 * 1024 * 1024)
             .build()
 
-        fun buildFileConfig(): SmbConfig = buildConfig(FILE_TIMEOUT_SECONDS)
-
-        private fun buildConfig(timeoutSeconds: Long): SmbConfig = SmbConfig.builder()
-            .withTimeout(timeoutSeconds, TimeUnit.SECONDS)
-            .withSoTimeout(timeoutSeconds, TimeUnit.SECONDS)
-            .build()
+        fun buildFileConfig(): SmbConfig = buildBrowseConfig()
 
         fun extractShareName(serverPath: String): String {
             val normalized = serverPath.normalizeSmbPath()
