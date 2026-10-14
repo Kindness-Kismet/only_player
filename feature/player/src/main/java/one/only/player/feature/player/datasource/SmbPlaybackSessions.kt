@@ -1,5 +1,6 @@
 package one.only.player.feature.player.datasource
 
+import com.hierynomus.mssmb2.SMB2Dialect
 import com.hierynomus.smbj.SMBClient
 import com.hierynomus.smbj.SmbConfig
 import com.hierynomus.smbj.auth.AuthenticationContext
@@ -63,9 +64,21 @@ class SmbPlaybackSessions : Closeable {
     private fun connect(key: Key): ConnectedShare {
         val config = SmbConfig.builder()
             .withTimeout(TIMEOUT_SECONDS, TimeUnit.SECONDS)
-            .withSoTimeout(TIMEOUT_SECONDS, TimeUnit.SECONDS)
-            // 输入流还会预取下一块；2 MiB 兼顾吞吐与多流同时读取时的堆占用。
-            .withReadBufferSize(READ_BUFFER_BYTES)
+            .withSoTimeout(SOCKET_TIMEOUT_SECONDS, TimeUnit.SECONDS)
+            .withDialects(
+                SMB2Dialect.SMB_3_1_1,
+                SMB2Dialect.SMB_3_0_2,
+                SMB2Dialect.SMB_3_0,
+                SMB2Dialect.SMB_2_1,
+                SMB2Dialect.SMB_2_0_2,
+            )
+            .withDfsEnabled(false)
+            .withMultiProtocolNegotiate(true)
+            .withSigningRequired(false)
+            .withEncryptData(false)
+            // 与 Next Player 的 SmbClient 配置一致。
+            .withReadBufferSize(SMB_BUFFER_BYTES)
+            .withWriteBufferSize(SMB_BUFFER_BYTES)
             .build()
         val client = SMBClient(config)
         var connection: Connection? = null
@@ -136,7 +149,8 @@ class SmbPlaybackSessions : Closeable {
     companion object {
         private const val TAG = "SmbPlaybackSessions"
         private const val TIMEOUT_SECONDS = 30L
-        private const val READ_BUFFER_BYTES = 2 * 1024 * 1024
+        private const val SOCKET_TIMEOUT_SECONDS = 35L
+        private const val SMB_BUFFER_BYTES = 8 * 1024 * 1024
 
         private fun authenticationContext(username: String, password: String): AuthenticationContext {
             if (username.isBlank()) return AuthenticationContext.anonymous()

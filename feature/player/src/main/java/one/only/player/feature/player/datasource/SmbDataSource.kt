@@ -8,7 +8,6 @@ import androidx.media3.datasource.BaseDataSource
 import androidx.media3.datasource.DataSource
 import androidx.media3.datasource.DataSpec
 import com.hierynomus.msdtyp.AccessMask
-import com.hierynomus.msfscc.FileAttributes
 import com.hierynomus.mssmb2.SMB2CreateDisposition
 import com.hierynomus.mssmb2.SMB2ShareAccess
 import java.io.IOException
@@ -49,10 +48,10 @@ class SmbDataSource private constructor(
             smbFile = acquired.share.openFile(
                 filePath,
                 EnumSet.of(AccessMask.GENERIC_READ),
-                EnumSet.of(FileAttributes.FILE_ATTRIBUTE_NORMAL),
-                SMB2ShareAccess.ALL,
+                null,
+                EnumSet.of(SMB2ShareAccess.FILE_SHARE_READ),
                 SMB2CreateDisposition.FILE_OPEN,
-                EnumSet.noneOf(com.hierynomus.mssmb2.SMB2CreateOptions::class.java),
+                null,
             )
 
             val fileSize = smbFile!!.fileInformation.standardInformation.endOfFile
@@ -60,11 +59,7 @@ class SmbDataSource private constructor(
                 throw IOException("SMB position ${dataSpec.position} is outside file size $fileSize")
             }
 
-            // 走输入流而非逐次随机读：它整块读取并异步预取下一块，随机读会让每次 read 都多一个网络往返
-            val stream = smbFile!!.inputStream
-            // skip 只调整读取偏移，不产生额外请求
-            stream.skip(dataSpec.position)
-            inputStream = stream
+            inputStream = smbFile!!.bufferedPlaybackStream(dataSpec.position)
 
             val availableBytes = fileSize - dataSpec.position
             bytesRemaining = if (dataSpec.length == C.LENGTH_UNSET.toLong()) {
@@ -118,12 +113,9 @@ class SmbDataSource private constructor(
 
     private fun closeResources() {
         try {
-            inputStream?.close()
-        } catch (_: Exception) {
-            lease?.invalidate()
-        }
-        try {
-            smbFile?.close()
+            // 流接管文件句柄；open 失败、尚未创建流时仍需单独关闭文件。
+            val stream = inputStream
+            if (stream != null) stream.close() else smbFile?.close()
         } catch (_: Exception) {
             lease?.invalidate()
         }
