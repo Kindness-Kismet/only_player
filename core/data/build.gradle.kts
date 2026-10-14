@@ -40,6 +40,7 @@ dependencies {
     implementation(libs.commons.net)
     implementation(libs.okhttp)
     implementation(libs.smbj)
+    implementation(libs.smbj.rpc)
 
     // Hilt 依赖
     implementation(libs.hilt.android)
