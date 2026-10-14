@@ -50,6 +50,7 @@ data class PlayerPreferences(
     val brightnessGestureSensitivity: Float = DEFAULT_BRIGHTNESS_GESTURE_SENSITIVITY,
 
     // 播放器界面
+    val isAmbienceModeEnabled: Boolean = false,
     val controllerAutoHidePreset: ControllerAutoHidePreset = ControllerAutoHidePreset.CUSTOM,
     val controllerAutoHideTimeout: Int = DEFAULT_CONTROLLER_AUTO_HIDE_TIMEOUT,
     val shouldDimVideoWhenControlsVisible: Boolean = true,

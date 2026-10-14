@@ -406,6 +406,8 @@
     <string name="libraries">函式庫</string>
     <string name="project_repository">專案倉庫</string>
     <string name="telegram_group">Telegram 群組</string>
+    <string name="support_on_afdian">愛發電支持</string>
+    <string name="support_on_afdian_description">自願支持，協助持續開發與維護</string>
     <string name="app_logs">應用程式日誌</string>
     <string name="app_logs_description">查看、分享、儲存並清空儲存在應用程式私有目錄中的日誌</string>
     <string name="share_logs">分享</string>

@@ -39,6 +39,7 @@ Browse videos by folder, resume playback, use gesture controls, and render ASS s
 - [Contribution Guidelines](#-contribution-guidelines)
 - [License](#-license)
 - [Acknowledgements](#-acknowledgements)
+- [Support the Project](#-support-the-project)
 
 <br>
 
@@ -277,3 +278,25 @@ Only Player is licensed under [GNU GPL v3](LICENSE). Third-party components rema
 <sub>[↑ Back to Navigation](#navigation)</sub>
 
 Only Player continues from [Next Player](https://github.com/anilbeesetti/nextplayer). Thanks to the original project and all upstream contributors for the foundation and continued maintenance.
+
+<br>
+
+---
+
+## 💜 Support the Project
+
+<sub>[↑ Back to Navigation](#navigation)</sub>
+
+If Only Player is useful to you, you can support development and day-to-day model usage costs through Afdian. Donations are entirely optional and do not affect access to any features.
+
+<div align="center">
+
+<a href="https://github.com/KiritoXDone">
+  <img src="https://avatars.githubusercontent.com/u/58523182?v=4&amp;s=192" width="96" height="96" alt="KiritoXDone">
+</a>
+
+**[KiritoXDone](https://github.com/KiritoXDone)**
+
+**[Support on Afdian](https://afdian.com/a/KiritoXD)**
+
+</div>
