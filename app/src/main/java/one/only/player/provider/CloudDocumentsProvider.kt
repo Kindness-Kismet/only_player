@@ -14,7 +14,6 @@ import android.system.ErrnoException
 import android.system.OsConstants
 import android.webkit.MimeTypeMap
 import com.hierynomus.msdtyp.AccessMask
-import com.hierynomus.msfscc.FileAttributes
 import com.hierynomus.mssmb2.SMB2CreateDisposition
 import com.hierynomus.mssmb2.SMB2ShareAccess
 import com.hierynomus.smbj.SMBClient
@@ -418,10 +417,10 @@ class CloudDocumentsProvider : DocumentsProvider() {
             file = share.openFile(
                 sharePath.relativePath,
                 EnumSet.of(AccessMask.GENERIC_READ),
-                EnumSet.of(FileAttributes.FILE_ATTRIBUTE_NORMAL),
-                SMB2ShareAccess.ALL,
+                null,
+                EnumSet.of(SMB2ShareAccess.FILE_SHARE_READ),
                 SMB2CreateDisposition.FILE_OPEN,
-                EnumSet.noneOf(com.hierynomus.mssmb2.SMB2CreateOptions::class.java),
+                null,
             )
             val fileSize = file.getFileInformation().standardInformation.endOfFile
             return openProxyDocument(signal) { onReleased ->
