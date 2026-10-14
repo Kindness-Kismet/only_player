@@ -1,5 +1,7 @@
-- Apply the first seek when opening a video from another app
+- Remember the ambience mode setting between playback sessions and app restarts
+- Add an Afdian support link to the About page
 
 ---
 
-- 修复从其他应用打开视频后首次拖动进度未生效的问题
+- 记住氛围模式开关状态，退出播放或重启应用后仍保留
+- 添加关于页的爱发电支持入口
