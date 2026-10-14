@@ -66,6 +66,7 @@ class VideoThumbnailDecoder(
             "application/webm",
         )
         private val mediaInfoSemaphore = Semaphore(1)
+        private val cloudMediaInfoSemaphore = Semaphore(2)
     }
 
     // 内嵌封面表达作者意图，优先级高于抽帧。
@@ -78,7 +79,11 @@ class VideoThumbnailDecoder(
             val mediaInfoSource = when {
                 metadata is ContentMetadata -> {
                     val uri = metadata.uri.toAndroidUri()
-                    retriever.setDataSource(options.context, uri)
+                    if (isCloudDocumentSource()) {
+                        retriever.setDataSource(metadata.assetFileDescriptor.parcelFileDescriptor)
+                    } else {
+                        retriever.setDataSource(options.context, uri)
+                    }
                     "contentUri=$uri"
                 }
                 source.fileSystem === FileSystem.SYSTEM -> {
@@ -132,6 +137,9 @@ class VideoThumbnailDecoder(
     }
 
     private fun getContentUriSize(metadata: ContentMetadata): Long? {
+        if (isCloudDocumentSource()) {
+            metadata.assetFileDescriptor.length.takeIf { it > 0L }?.let { return it }
+        }
         val uri = metadata.uri.toAndroidUri()
         return try {
             options.context.contentResolver.query(
@@ -222,7 +230,7 @@ class VideoThumbnailDecoder(
 
     private fun cloudDocumentCacheKeySuffix(): String {
         if (!isCloudDocumentSource()) return ""
-        return ":cloudPlatformMp4Frames=1"
+        return ":cloudDescriptorFrames=2"
     }
 
     private fun primaryCandidateTimeMs(duration: Long): Long = strategy.primaryTimeMs(duration)
@@ -254,31 +262,31 @@ class VideoThumbnailDecoder(
         logThumbnail { "diskCache miss strategy=${strategy.logName} key=$key" }
 
         val shouldUseRequestedFrame = strategy is ThumbnailStrategy.FrameAtTime
+        val shouldUseCloudRetriever = isCloudDocumentSource() && !mimeType.isMpegTsMimeType()
         val shouldSkipArtwork = shouldUseRequestedFrame || shouldSkipEmbeddedArtwork()
-        var mpegTsProgramMapPidFix = if (mimeType.isMpegTsMimeType()) {
-            detectMpegTsProgramMapPidFix()
-        } else {
-            null
-        }
-        val shouldPreferMediaInfo = shouldSkipArtwork || mpegTsProgramMapPidFix != null
-        var hasTriedPatchedMpegTsThumbnail = false
-        tryLoadEmbeddedArtwork(shouldSkipArtwork)?.scaleToFit()?.let { artworkBitmap ->
-            logThumbnail { "embeddedArtwork ok strategy=${strategy.logName} key=$key" }
-            val bitmap = writeToDiskCache(artworkBitmap)
-            return DecodeResult(
-                image = bitmap.toDrawable(options.context.resources).asImage(),
-                isSampled = true,
-            )
-        }
-
-        if (isCloudDocumentSource() && mimeType.isMp4MimeType()) {
-            tryLoadPlatformThumbnail()?.scaleToFit()?.let { rawBitmap ->
+        if (shouldUseCloudRetriever) {
+            tryLoadPlatformThumbnail(shouldSkipArtwork)?.scaleToFit()?.let { rawBitmap ->
                 val bitmap = writeToDiskCache(rawBitmap)
                 return DecodeResult(
                     image = bitmap.toDrawable(options.context.resources).asImage(),
                     isSampled = true,
                 )
             }
+        }
+        var mpegTsProgramMapPidFix = if (mimeType.isMpegTsMimeType()) {
+            detectMpegTsProgramMapPidFix()
+        } else {
+            null
+        }
+        val shouldPreferMediaInfo = isCloudDocumentSource() || shouldSkipArtwork || mpegTsProgramMapPidFix != null
+        var hasTriedPatchedMpegTsThumbnail = false
+        tryLoadEmbeddedArtwork(shouldSkipArtwork || shouldUseCloudRetriever)?.scaleToFit()?.let { artworkBitmap ->
+            logThumbnail { "embeddedArtwork ok strategy=${strategy.logName} key=$key" }
+            val bitmap = writeToDiskCache(artworkBitmap)
+            return DecodeResult(
+                image = bitmap.toDrawable(options.context.resources).asImage(),
+                isSampled = true,
+            )
         }
 
         if (shouldPreferMediaInfo) {
@@ -324,28 +332,60 @@ class VideoThumbnailDecoder(
         throw IllegalStateException("Failed to get video thumbnail for key=$key")
     }
 
-    // 云端 MP4 优先读取关键帧，避免精确抽帧长时间占用串行队列。
-    private fun tryLoadPlatformThumbnail(): Bitmap? {
+    // 复用 Coil 的描述符；普通列表取缩小后的关键帧，章节预览保留指定时间。
+    private fun tryLoadPlatformThumbnail(shouldSkipArtwork: Boolean): Bitmap? {
         val metadata = source.metadata as? ContentMetadata ?: return null
-        val uri = metadata.uri.toAndroidUri()
         val retriever = MediaMetadataRetriever()
         val start = System.currentTimeMillis()
         return try {
-            retriever.setDataSource(options.context, uri)
+            retriever.setDataSource(metadata.assetFileDescriptor.fileDescriptor)
+            if (!shouldSkipArtwork) {
+                retriever.embeddedPicture?.let { data ->
+                    val bounds = BitmapFactory.Options().apply { inJustDecodeBounds = true }
+                    BitmapFactory.decodeByteArray(data, 0, data.size, bounds)
+                    BitmapFactory.decodeByteArray(
+                        data,
+                        0,
+                        data.size,
+                        BitmapFactory.Options().apply {
+                            inSampleSize = calculateInSampleSize(bounds.outWidth, bounds.outHeight)
+                        },
+                    )?.let { return it }
+                }
+            }
             val duration = retriever.extractMetadata(MediaMetadataRetriever.METADATA_KEY_DURATION)
                 ?.toLongOrNull()
                 ?: 0L
-            val timeUs = primaryCandidateTimeMs(duration).coerceAtLeast(0L) * 1_000L
-            retriever.getFrameAtTime(timeUs, MediaMetadataRetriever.OPTION_CLOSEST_SYNC).also { frame ->
-                logThumbnail {
-                    "platformThumbnail ${System.currentTimeMillis() - start}ms timeUs=$timeUs result=${frame != null} key=$diskCacheKey"
+            fun frameAt(timeMs: Long): Bitmap? = retriever.getScaledFrameAtTime(
+                timeMs.coerceAtLeast(0L) * 1_000L,
+                if (strategy is ThumbnailStrategy.FrameAtTime) {
+                    MediaMetadataRetriever.OPTION_CLOSEST
+                } else {
+                    MediaMetadataRetriever.OPTION_CLOSEST_SYNC
+                },
+                MAX_THUMBNAIL_SIZE,
+                MAX_THUMBNAIL_SIZE,
+            )
+            val frame = if (strategy is ThumbnailStrategy.Hybrid) {
+                val firstFrame = frameAt(0L)
+                if (firstFrame == null || isSolidColor(firstFrame)) {
+                    firstFrame?.recycle()
+                    frameAt(primaryCandidateTimeMs(duration))
+                } else {
+                    firstFrame
                 }
+            } else {
+                frameAt(primaryCandidateTimeMs(duration))
             }
+            logThumbnail {
+                "platformThumbnail ${System.currentTimeMillis() - start}ms result=${frame != null} key=$diskCacheKey"
+            }
+            frame
         } catch (e: Exception) {
             logThumbnail { "platformThumbnail fail ${System.currentTimeMillis() - start}ms key=$diskCacheKey err=${e.message}" }
             null
         } finally {
-            retriever.release()
+            runCatching { retriever.release() }
         }
     }
 
@@ -355,7 +395,8 @@ class VideoThumbnailDecoder(
     ): DecodeResult? {
         val key = diskCacheKey
         val mediaInfoStart = System.currentTimeMillis()
-        mediaInfoSemaphore.withPermit {
+        val semaphore = if (isCloudDocumentSource()) cloudMediaInfoSemaphore else mediaInfoSemaphore
+        semaphore.withPermit {
             if (mpegTsProgramMapPidFix != null) {
                 getThumbnailFromPatchedMpegTsRetriever(mpegTsProgramMapPidFix)
                     ?: getThumbnailFromMediaInfo(shouldRejectNearBlack = true)
@@ -449,10 +490,11 @@ class VideoThumbnailDecoder(
         val metadata = source.metadata
         return try {
             when {
-                metadata is ContentMetadata -> options.context.contentResolver.openFileDescriptor(
-                    metadata.uri.toAndroidUri(),
-                    "r",
-                )
+                metadata is ContentMetadata -> if (isCloudDocumentSource()) {
+                    ParcelFileDescriptor.dup(metadata.assetFileDescriptor.fileDescriptor)
+                } else {
+                    options.context.contentResolver.openFileDescriptor(metadata.uri.toAndroidUri(), "r")
+                }
                 source.fileSystem === FileSystem.SYSTEM -> ParcelFileDescriptor.open(
                     source.file().toFile(),
                     ParcelFileDescriptor.MODE_READ_ONLY,
@@ -475,10 +517,18 @@ class VideoThumbnailDecoder(
         val mediaInfo = try {
             when {
                 metadata is ContentMetadata -> {
-                    MediaInfoBuilder().from(
-                        context = options.context,
-                        uri = metadata.uri.toAndroidUri(),
-                    ).build()
+                    if (isCloudDocumentSource()) {
+                        // Nextlib's descriptor overload uses pipe:, which cannot seek.
+                        // Keep Coil's descriptor alive and open it as a seekable file instead.
+                        MediaInfoBuilder().from(
+                            filePath = "/proc/self/fd/${metadata.assetFileDescriptor.parcelFileDescriptor.fd}",
+                        ).build()
+                    } else {
+                        MediaInfoBuilder().from(
+                            context = options.context,
+                            uri = metadata.uri.toAndroidUri(),
+                        ).build()
+                    }
                 }
                 source.fileSystem === FileSystem.SYSTEM -> {
                     MediaInfoBuilder().from(
@@ -577,7 +627,11 @@ class VideoThumbnailDecoder(
             when {
                 metadata is ContentMetadata -> {
                     val uri = metadata.uri.toAndroidUri()
-                    retriever.setDataSource(options.context, uri)
+                    if (isCloudDocumentSource()) {
+                        retriever.setDataSource(metadata.assetFileDescriptor.parcelFileDescriptor)
+                    } else {
+                        retriever.setDataSource(options.context, uri)
+                    }
                     "contentUri=$uri"
                 }
                 source.fileSystem === FileSystem.SYSTEM -> {
@@ -937,12 +991,6 @@ private fun String?.isMpegTsMimeType(): Boolean = when (this?.lowercase()) {
     "video/mp2ts" -> true
     "video/mpeg2ts" -> true
     "video/vnd.dlna.mpeg-tts" -> true
-    else -> false
-}
-
-private fun String?.isMp4MimeType(): Boolean = when (this?.lowercase()) {
-    "application/mp4" -> true
-    "video/mp4" -> true
     else -> false
 }
 
