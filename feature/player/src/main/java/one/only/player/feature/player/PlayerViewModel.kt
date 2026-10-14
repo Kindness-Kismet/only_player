@@ -3,7 +3,6 @@ package one.only.player.feature.player
 import android.graphics.Bitmap
 import android.net.Uri
 import androidx.compose.runtime.Stable
-import androidx.lifecycle.SavedStateHandle
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import androidx.media3.common.MediaItem
@@ -89,7 +88,6 @@ private data class AmbienceFrame(
 @HiltViewModel
 @OptIn(ExperimentalCoroutinesApi::class)
 class PlayerViewModel @Inject constructor(
-    private val savedStateHandle: SavedStateHandle,
     private val mediaRepository: MediaRepository,
     private val playbackMarkRepository: PlaybackMarkRepository,
     private val preferencesRepository: PreferencesRepository,
@@ -102,7 +100,6 @@ class PlayerViewModel @Inject constructor(
 
     private companion object {
         const val TAG = "PlayerViewModel"
-        const val AMBIENCE_MODE_ENABLED_KEY = "ambience_mode_enabled"
     }
 
     var shouldPlayWhenReady: Boolean = true
@@ -113,7 +110,6 @@ class PlayerViewModel @Inject constructor(
             applicationPreferences = preferencesRepository.applicationPreferences.value,
             shouldPreventScreenshots = preferencesRepository.applicationPreferences.value.shouldPreventScreenshots,
             shouldHideInRecents = preferencesRepository.applicationPreferences.value.shouldHideInRecents,
-            isAmbienceModeEnabled = savedStateHandle[AMBIENCE_MODE_ENABLED_KEY] ?: false,
         ),
     )
     val uiState = internalUiState.asStateFlow()
@@ -154,6 +150,7 @@ class PlayerViewModel @Inject constructor(
     init {
         viewModelScope.launch {
             preferencesRepository.playerPreferences.collect { prefs ->
+                if (!prefs.isAmbienceModeEnabled) ambienceFrame = null
                 internalUiState.update { it.copy(playerPreferences = prefs) }
                 if (internalOnlineSubtitleSearch.value.preferences != prefs.onlineSubtitleSearchPreferences) {
                     subtitleSearchJob?.cancel()
@@ -198,9 +195,9 @@ class PlayerViewModel @Inject constructor(
     }
 
     fun updateAmbienceModeEnabled(isEnabled: Boolean) {
-        if (!isEnabled) ambienceFrame = null
-        savedStateHandle[AMBIENCE_MODE_ENABLED_KEY] = isEnabled
-        internalUiState.update { it.copy(isAmbienceModeEnabled = isEnabled) }
+        viewModelScope.launch {
+            preferencesRepository.updatePlayerPreferences { it.copy(isAmbienceModeEnabled = isEnabled) }
+        }
     }
 
     fun ambienceFrameFor(mediaKey: String?): Bitmap? = ambienceFrame
@@ -586,7 +583,6 @@ data class PlayerUiState(
     val applicationPreferences: ApplicationPreferences = ApplicationPreferences(),
     val shouldPreventScreenshots: Boolean = false,
     val shouldHideInRecents: Boolean = false,
-    val isAmbienceModeEnabled: Boolean = false,
     val externalSubtitleFontSource: ExternalSubtitleFontSource? = null,
 )
 

@@ -328,7 +328,6 @@ open class PlayerActivity : AppCompatActivity() {
                     player = player,
                     viewModel = viewModel,
                     playerPreferences = uiState.playerPreferences ?: return@OnlyPlayerTheme,
-                    isAmbienceModeEnabled = uiState.isAmbienceModeEnabled,
                     externalSubtitleFontSource = uiState.externalSubtitleFontSource,
                     onSelectSubtitleClick = {
                         lifecycleScope.launch {

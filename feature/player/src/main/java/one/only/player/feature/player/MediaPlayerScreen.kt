@@ -229,7 +229,6 @@ internal fun MediaPlayerScreen(
     player: Player?,
     viewModel: PlayerViewModel,
     playerPreferences: PlayerPreferences,
-    isAmbienceModeEnabled: Boolean,
     externalSubtitleFontSource: ExternalSubtitleFontSource?,
     modifier: Modifier = Modifier,
     onSelectSubtitleClick: () -> Unit,
@@ -247,6 +246,7 @@ internal fun MediaPlayerScreen(
         isVolumeBoostEnabled = playerPreferences.isVolumeBoostEnabled,
     )
     player ?: return
+    val isAmbienceModeEnabled = playerPreferences.isAmbienceModeEnabled
     val playbackMarks by viewModel.playbackMarks.collectAsStateWithLifecycle()
     val onlineSubtitleSearch by viewModel.onlineSubtitleSearch.collectAsStateWithLifecycle()
     val metadataState = rememberMetadataState(player)
