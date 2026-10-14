@@ -17,3 +17,6 @@
 -dontwarn org.ietf.jgss.GSSManager
 -dontwarn org.ietf.jgss.GSSName
 -dontwarn org.ietf.jgss.Oid
+
+# Match Next Player: smbj-rpc references this desktop-only exception type.
+-dontwarn java.rmi.UnmarshalException
