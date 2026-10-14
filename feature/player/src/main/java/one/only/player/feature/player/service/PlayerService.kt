@@ -28,7 +28,6 @@ import androidx.media3.datasource.DataSource
 import androidx.media3.datasource.DataSpec
 import androidx.media3.datasource.DefaultDataSource
 import androidx.media3.datasource.okhttp.OkHttpDataSource
-import androidx.media3.exoplayer.DefaultLoadControl
 import androidx.media3.exoplayer.ExoPlaybackException
 import androidx.media3.exoplayer.ExoPlayer
 import androidx.media3.exoplayer.SeekParameters
@@ -68,6 +67,7 @@ import java.io.File
 import java.io.InputStream
 import javax.inject.Inject
 import kotlinx.coroutines.CancellationException
+import kotlinx.coroutines.CoroutineDispatcher
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.Job
@@ -82,8 +82,11 @@ import kotlinx.coroutines.guava.future
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.supervisorScope
 import kotlinx.coroutines.withContext
+import one.only.player.core.common.Dispatcher
+import one.only.player.core.common.DispatcherType
 import one.only.player.core.common.Logger
 import one.only.player.core.common.audio.DolbyAudioCapabilities
+import one.only.player.core.common.di.ApplicationScope
 import one.only.player.core.common.extensions.deleteFiles
 import one.only.player.core.common.extensions.getFilenameFromUri
 import one.only.player.core.common.extensions.getPath
@@ -110,6 +113,7 @@ import one.only.player.core.ui.R as coreUiR
 import one.only.player.feature.player.PlayerActivity
 import one.only.player.feature.player.datasource.FtpDataSource
 import one.only.player.feature.player.datasource.SmbDataSource
+import one.only.player.feature.player.datasource.SmbPlaybackSessions
 import one.only.player.feature.player.engine.media3.SeekMapInjectingExtractor
 import one.only.player.feature.player.extensions.addAdditionalSubtitleConfiguration
 import one.only.player.feature.player.extensions.addedSubtitleIds
@@ -185,12 +189,6 @@ class PlayerService : MediaSessionService() {
         // 拖动预览只求快：落到最近关键帧，避免逐帧解码追不上手指
         private val PREVIEW_SEEK_PARAMETERS = SeekParameters.CLOSEST_SYNC
         private val REMOTE_SOURCE_URI_SCHEMES = setOf("smb", "ftp")
-
-        // Media3 只对 file、content 等本地 scheme 用小缓冲，smb、ftp 会分到 125 MB 视频缓冲，
-        // 播放高码率视频时超出堆上限就会 OOM，所以按可用堆重新计算上限
-        private const val TARGET_BUFFER_HEAP_FRACTION = 6
-        private const val MIN_TARGET_BUFFER_BYTES = 16L * 1024 * 1024
-        private const val MAX_TARGET_BUFFER_BYTES = 64L * 1024 * 1024
     }
 
     @Inject
@@ -210,6 +208,16 @@ class PlayerService : MediaSessionService() {
 
     @Inject
     lateinit var smbClient: SmbClient
+
+    @Inject
+    @ApplicationScope
+    lateinit var applicationScope: CoroutineScope
+
+    @Inject
+    @Dispatcher(DispatcherType.IO)
+    lateinit var ioDispatcher: CoroutineDispatcher
+
+    private val smbPlaybackSessions = SmbPlaybackSessions()
 
     @Inject
     lateinit var ftpClient: FtpClient
@@ -1661,15 +1669,6 @@ class PlayerService : MediaSessionService() {
         ThemeConfig.ON -> true
     }
 
-    private fun createLoadControl(): DefaultLoadControl = DefaultLoadControl.Builder()
-        .setTargetBufferBytes(targetBufferBytes())
-        .build()
-
-    // 缓冲上限取可用堆的六分之一，并限制在 16 MB 到 64 MB 之间
-    private fun targetBufferBytes(): Int = (Runtime.getRuntime().maxMemory() / TARGET_BUFFER_HEAP_FRACTION)
-        .coerceIn(MIN_TARGET_BUFFER_BYTES, MAX_TARGET_BUFFER_BYTES)
-        .toInt()
-
     private fun createPlayer(
         decoderPriority: DecoderPriority,
         assHandler: AssHandler,
@@ -1707,7 +1706,7 @@ class PlayerService : MediaSessionService() {
             .setMediaSourceFactory(sessionMediaSourceFactory)
             .setRenderersFactory(renderersFactory.withAssSupport(assHandler))
             .setTrackSelector(trackSelector)
-            .setLoadControl(createLoadControl())
+            .setLoadControl(PlaybackLoadControl())
             .setSeekParameters(EXACT_SEEK_PARAMETERS)
             .setAudioAttributes(
                 preferences.toPlaybackAudioAttributes(),
@@ -1885,6 +1884,7 @@ class PlayerService : MediaSessionService() {
             release()
             mediaSession = null
         }
+        applicationScope.launch(ioDispatcher) { smbPlaybackSessions.close() }
         subtitleCacheDir.deleteFiles()
         mediaParserRetried.clear()
         softwareDecoderRetried.clear()
@@ -2140,7 +2140,7 @@ class PlayerService : MediaSessionService() {
         if (uri?.scheme == "smb") {
             val username = requestHeaders["_smb_username"].orEmpty()
             val password = requestHeaders["_smb_password"].orEmpty()
-            return SmbDataSource.Factory(username, password)
+            return SmbDataSource.Factory(smbPlaybackSessions, username, password)
         }
         if (uri?.scheme == "ftp") {
             val username = requestHeaders["_ftp_username"].orEmpty()

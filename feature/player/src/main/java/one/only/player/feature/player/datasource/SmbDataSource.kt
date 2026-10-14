@@ -11,28 +11,19 @@ import com.hierynomus.msdtyp.AccessMask
 import com.hierynomus.msfscc.FileAttributes
 import com.hierynomus.mssmb2.SMB2CreateDisposition
 import com.hierynomus.mssmb2.SMB2ShareAccess
-import com.hierynomus.smbj.SMBClient
-import com.hierynomus.smbj.SmbConfig
-import com.hierynomus.smbj.auth.AuthenticationContext
-import com.hierynomus.smbj.connection.Connection
-import com.hierynomus.smbj.session.Session
-import com.hierynomus.smbj.share.DiskShare
 import java.io.IOException
 import java.io.InputStream
 import java.util.EnumSet
-import java.util.concurrent.TimeUnit
 
 // 通过 smbj 读取 SMB 共享文件的 Media3 DataSource 实现
 @OptIn(UnstableApi::class)
 class SmbDataSource private constructor(
+    private val sessions: SmbPlaybackSessions,
     private val username: String,
     private val password: String,
 ) : BaseDataSource(true) {
 
-    private var client: SMBClient? = null
-    private var connection: Connection? = null
-    private var session: Session? = null
-    private var share: DiskShare? = null
+    private var lease: SmbPlaybackSessions.Lease? = null
     private var smbFile: com.hierynomus.smbj.share.File? = null
     private var inputStream: InputStream? = null
     private var uri: Uri? = null
@@ -51,22 +42,11 @@ class SmbDataSource private constructor(
         val shareName = pathSegments.first()
         val filePath = pathSegments.drop(1).joinToString("\\")
 
-        val config = SmbConfig.builder()
-            .withTimeout(TIMEOUT_SECONDS, TimeUnit.SECONDS)
-            .withSoTimeout(TIMEOUT_SECONDS, TimeUnit.SECONDS)
-            .build()
-
-        val smbClient = SMBClient(config)
-        client = smbClient
-
         try {
-            connection = smbClient.connect(host, port)
-            val authContext = toAuthenticationContext(username, password)
-            session = connection!!.authenticate(authContext)
-            val diskShare = session!!.connectShare(shareName) as DiskShare
-            share = diskShare
+            val acquired = sessions.acquire(host, port, shareName, username, password)
+            lease = acquired
 
-            smbFile = diskShare.openFile(
+            smbFile = acquired.share.openFile(
                 filePath,
                 EnumSet.of(AccessMask.GENERIC_READ),
                 EnumSet.of(FileAttributes.FILE_ATTRIBUTE_NORMAL),
@@ -97,6 +77,7 @@ class SmbDataSource private constructor(
             hasStartedTransfer = true
             return bytesRemaining
         } catch (exception: Exception) {
+            lease?.invalidate()
             closeResources()
             throw if (exception is IOException) exception else IOException("Failed to open SMB file", exception)
         }
@@ -111,7 +92,11 @@ class SmbDataSource private constructor(
         // smbj 在连接断开或被关闭时抛 RuntimeException，Media3 只会重试 IOException
         val bytesRead = try {
             stream.read(buffer, offset, bytesToRead)
+        } catch (exception: IOException) {
+            lease?.invalidate()
+            throw exception
         } catch (exception: RuntimeException) {
+            lease?.invalidate()
             throw IOException("Failed to read SMB file", exception)
         }
         if (bytesRead == -1) return C.RESULT_END_OF_INPUT
@@ -135,56 +120,30 @@ class SmbDataSource private constructor(
         try {
             inputStream?.close()
         } catch (_: Exception) {
+            lease?.invalidate()
         }
         try {
             smbFile?.close()
         } catch (_: Exception) {
+            lease?.invalidate()
         }
-        try {
-            share?.close()
-        } catch (_: Exception) {
-        }
-        try {
-            session?.close()
-        } catch (_: Exception) {
-        }
-        try {
-            connection?.close()
-        } catch (_: Exception) {
-        }
-        try {
-            client?.close()
-        } catch (_: Exception) {
-        }
+        lease?.close()
         smbFile = null
         inputStream = null
-        share = null
-        session = null
-        connection = null
-        client = null
+        lease = null
         uri = null
         bytesRemaining = 0
     }
 
     class Factory(
+        private val sessions: SmbPlaybackSessions,
         private val username: String,
         private val password: String,
     ) : DataSource.Factory {
-        override fun createDataSource(): SmbDataSource = SmbDataSource(username, password)
+        override fun createDataSource(): SmbDataSource = SmbDataSource(sessions, username, password)
     }
 
     companion object {
         private const val DEFAULT_PORT = 445
-        private const val TIMEOUT_SECONDS = 30L
-
-        private fun toAuthenticationContext(username: String, password: String): AuthenticationContext {
-            if (username.isBlank()) return AuthenticationContext.anonymous()
-
-            val domain = username.substringBefore('\\', missingDelimiterValue = "")
-                .substringBefore('/', missingDelimiterValue = "")
-            val account = username.substringAfterLast('\\').substringAfterLast('/')
-
-            return AuthenticationContext(account, password.toCharArray(), domain)
-        }
     }
 }
