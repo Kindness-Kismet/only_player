@@ -75,7 +75,6 @@ class VideoThumbnailDecoder(
             "application/webm",
         )
         private val mediaInfoSemaphore = Semaphore(1)
-        private val cloudMediaInfoSemaphore = Semaphore(2)
     }
 
     // 内嵌封面表达作者意图，优先级高于抽帧。
@@ -399,19 +398,20 @@ class VideoThumbnailDecoder(
     ): DecodeResult? {
         val key = diskCacheKey
         val mediaInfoStart = System.currentTimeMillis()
-        val semaphore = if (isCloudDocumentSource()) cloudMediaInfoSemaphore else mediaInfoSemaphore
-        semaphore.withPermit {
-            if (mpegTsProgramMapPidFix != null) {
-                getThumbnailFromPatchedMpegTsRetriever(mpegTsProgramMapPidFix)
-                    ?: getThumbnailFromMediaInfo(shouldRejectNearBlack = true)
-                    ?: getThumbnailFromRetriever(shouldRejectNearBlack = true)
-            } else if (shouldRejectNearBlack) {
-                getThumbnailFromMediaInfo(shouldRejectNearBlack = true)
-                    ?: getThumbnailFromRetriever(shouldRejectNearBlack = true)
-            } else {
-                getThumbnailFromMediaInfo(shouldRejectNearBlack = false)
-            }
-        }?.scaleToFit()?.let { rawBitmap ->
+        fun decodeFrame(): Bitmap? = if (mpegTsProgramMapPidFix != null) {
+            getThumbnailFromPatchedMpegTsRetriever(mpegTsProgramMapPidFix)
+                ?: getThumbnailFromMediaInfo(shouldRejectNearBlack = true)
+                ?: getThumbnailFromRetriever(shouldRejectNearBlack = true)
+        } else if (shouldRejectNearBlack) {
+            getThumbnailFromMediaInfo(shouldRejectNearBlack = true)
+                ?: getThumbnailFromRetriever(shouldRejectNearBlack = true)
+        } else {
+            getThumbnailFromMediaInfo(shouldRejectNearBlack = false)
+        }
+
+        // 云端并发由请求调度器统一限制，本地解码仍串行。
+        val frame = if (isCloudDocumentSource()) decodeFrame() else mediaInfoSemaphore.withPermit { decodeFrame() }
+        frame?.scaleToFit()?.let { rawBitmap ->
             logThumbnail { "mediaInfo ok ${System.currentTimeMillis() - mediaInfoStart}ms strategy=${strategy.logName} key=$key" }
             val bitmap = writeToDiskCache(rawBitmap)
             return DecodeResult(

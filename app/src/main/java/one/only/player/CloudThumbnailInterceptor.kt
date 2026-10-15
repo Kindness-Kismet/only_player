@@ -6,8 +6,6 @@ import coil3.intercept.Interceptor
 import coil3.request.ImageResult
 import coil3.toAndroidUri
 import kotlinx.coroutines.CoroutineDispatcher
-import kotlinx.coroutines.sync.Semaphore
-import kotlinx.coroutines.sync.withPermit
 import kotlinx.coroutines.withContext
 import one.only.player.feature.player.ui.ChapterThumbnailPositionMsExtra
 
@@ -15,9 +13,8 @@ internal class CloudThumbnailInterceptor(
     private val diskCache: DiskCache,
     private val thumbnailStrategy: () -> ThumbnailStrategy,
     private val ioDispatcher: CoroutineDispatcher,
+    private val scheduler: CloudThumbnailScheduler,
 ) : Interceptor {
-
-    private val semaphore = Semaphore(2)
 
     override suspend fun intercept(chain: Interceptor.Chain): ImageResult {
         val request = chain.request
@@ -52,8 +49,8 @@ internal class CloudThumbnailInterceptor(
                 }
             }
 
-            // 限制整个取图流程；离开屏幕后取消的排队请求不会再打开远程文件。
-            semaphore.withPermit { chain.proceed() }
+            val serverKey = "${uri.lastPathSegment?.substringBefore('|')}#${uri.getQueryParameter("remoteKey").orEmpty()}"
+            scheduler.load(serverKey) { chain.proceed() }
         }
     }
 }

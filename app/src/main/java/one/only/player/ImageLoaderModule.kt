@@ -45,7 +45,7 @@ object ImageLoaderModule {
             .build()
         return ImageLoader.Builder(context)
             .components {
-                add(CloudThumbnailInterceptor(diskCache, thumbnailStrategy, ioDispatcher))
+                add(CloudThumbnailInterceptor(diskCache, thumbnailStrategy, ioDispatcher, CloudThumbnailScheduler(context)))
                 add(VideoThumbnailDecoder.Factory(thumbnailStrategy))
             }
             .diskCachePolicy(CachePolicy.ENABLED)
