@@ -27,6 +27,7 @@ import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.derivedStateOf
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
@@ -524,8 +525,7 @@ private fun CloudRemoteMediaView(
     onToggleFileSelection: (RemoteFile) -> Unit,
     onLongClickFile: (RemoteFile) -> Unit,
 ) {
-    val folders = files.filter(RemoteFile::isDirectory)
-    val videos = files.filterNot(RemoteFile::isDirectory)
+    val (folders, videos) = remember(files) { files.partition(RemoteFile::isDirectory) }
     val layouts = remember(settings, directoryPath) { settings.resolveMediaLayouts(directoryPath) }
     val displaySettings = remember(settings, directoryPath) {
         settings.withQuickSettings(null, settings.resolveQuickSettings(directoryPath))
@@ -606,11 +606,18 @@ private fun CloudRemoteMediaView(
                 val isRecentlyPlayed = file.path == mostRecentFilePath
                 val hasBeenPlayed = playbackInfo != null && playbackInfo.playbackPosition > 0
                 val isSelected = file.path in selectedFilePaths
+                val canLoadThumbnail by remember(lazyGridState, file.path) {
+                    derivedStateOf {
+                        !lazyGridState.isScrollInProgress &&
+                            lazyGridState.layoutInfo.visibleItemsInfo.any { it.key == file.path }
+                    }
+                }
                 RemoteFileItem(
                     file = file,
                     layoutMode = if (file.isDirectory) layouts.folders.layout.mode else layouts.videos.layout.mode,
                     settings = displaySettings,
                     thumbnailUri = if (displaySettings.shouldShowThumbnailField) buildFileThumbnailUri(file) else null,
+                    canLoadThumbnail = canLoadThumbnail,
                     shouldMarkLastPlayedMedia = shouldMarkLastPlayedMedia,
                     isRecentlyPlayed = isRecentlyPlayed,
                     hasBeenPlayed = hasBeenPlayed,
@@ -658,6 +665,7 @@ private fun RemoteFileItem(
     settings: CloudQuickSettings,
     thumbnailUri: Uri?,
     shouldMarkLastPlayedMedia: Boolean,
+    canLoadThumbnail: Boolean = false,
     isRecentlyPlayed: Boolean = false,
     hasBeenPlayed: Boolean = false,
     isSelected: Boolean = false,
@@ -670,6 +678,7 @@ private fun RemoteFileItem(
                 file = file,
                 settings = settings,
                 thumbnailUri = thumbnailUri,
+                canLoadThumbnail = canLoadThumbnail,
                 shouldMarkLastPlayedMedia = shouldMarkLastPlayedMedia,
                 isRecentlyPlayed = isRecentlyPlayed,
                 hasBeenPlayed = hasBeenPlayed,
@@ -681,6 +690,7 @@ private fun RemoteFileItem(
                 file = file,
                 settings = settings,
                 thumbnailUri = thumbnailUri,
+                canLoadThumbnail = canLoadThumbnail,
                 shouldMarkLastPlayedMedia = shouldMarkLastPlayedMedia,
                 isRecentlyPlayed = isRecentlyPlayed,
                 hasBeenPlayed = hasBeenPlayed,
@@ -697,6 +707,7 @@ private fun RemoteFileListItem(
     file: RemoteFile,
     settings: CloudQuickSettings,
     thumbnailUri: Uri?,
+    canLoadThumbnail: Boolean,
     shouldMarkLastPlayedMedia: Boolean,
     isRecentlyPlayed: Boolean,
     hasBeenPlayed: Boolean,
@@ -723,6 +734,7 @@ private fun RemoteFileListItem(
                     file = file,
                     thumbnailUri = thumbnailUri,
                     shouldShowThumbnail = settings.shouldShowThumbnailField,
+                    canLoadThumbnail = canLoadThumbnail,
                     modifier = Modifier.width(libraryListThumbWidth()),
                 )
             }
@@ -779,6 +791,7 @@ private fun RemoteFileGridItem(
     file: RemoteFile,
     settings: CloudQuickSettings,
     thumbnailUri: Uri?,
+    canLoadThumbnail: Boolean,
     shouldMarkLastPlayedMedia: Boolean,
     isRecentlyPlayed: Boolean,
     hasBeenPlayed: Boolean,
@@ -812,6 +825,7 @@ private fun RemoteFileGridItem(
                         file = file,
                         thumbnailUri = thumbnailUri,
                         shouldShowThumbnail = settings.shouldShowThumbnailField,
+                        canLoadThumbnail = canLoadThumbnail,
                     )
                 }
                 Text(
@@ -839,10 +853,20 @@ private fun RemoteThumbnailView(
     file: RemoteFile,
     thumbnailUri: Uri?,
     shouldShowThumbnail: Boolean,
+    canLoadThumbnail: Boolean,
     modifier: Modifier = Modifier,
 ) {
     val context = LocalContext.current
     val cacheKey = thumbnailUri?.let(file::remoteThumbnailCacheKey)
+    var hasLoadedThumbnail by remember(cacheKey) { mutableStateOf(false) }
+    val request = remember(context, thumbnailUri, cacheKey) {
+        ImageRequest.Builder(context)
+            .data(thumbnailUri)
+            .memoryCacheKey(cacheKey)
+            .diskCacheKey(cacheKey)
+            .crossfade(true)
+            .build()
+    }
     Box(
         modifier = modifier
             .clip(RoundedCornerShape(8.dp))
@@ -850,26 +874,27 @@ private fun RemoteThumbnailView(
             .testTag("remote_thumbnail_${thumbnailUri?.scheme ?: "none"}")
             .aspectRatio(16f / 10f),
     ) {
-        MiuixIcon(
-            imageVector = AppIcons.Video,
-            contentDescription = null,
-            tint = MiuixTheme.colorScheme.onSurfaceContainerVariant,
-            modifier = Modifier
-                .align(Alignment.Center)
-                .fillMaxSize(0.5f),
-        )
-        if (shouldShowThumbnail && thumbnailUri != null) {
-            AsyncImage(
-                model = ImageRequest.Builder(context)
-                    .data(thumbnailUri)
-                    .memoryCacheKey(cacheKey)
-                    .diskCacheKey(cacheKey)
-                    .crossfade(true)
-                    .build(),
+        if (!shouldShowThumbnail) {
+            MiuixIcon(
+                imageVector = AppIcons.Video,
                 contentDescription = null,
+                tint = MiuixTheme.colorScheme.onSurfaceContainerVariant,
+                modifier = Modifier
+                    .align(Alignment.Center)
+                    .fillMaxSize(0.5f),
+            )
+        }
+        // 滚动时保留已加载的图片，未完成的请求只在条目可见且停止滚动时执行。
+        if (shouldShowThumbnail && thumbnailUri != null && (canLoadThumbnail || hasLoadedThumbnail)) {
+            AsyncImage(
+                model = request,
+                contentDescription = null,
+                onSuccess = { hasLoadedThumbnail = true },
                 alignment = Alignment.Center,
                 contentScale = ContentScale.Crop,
-                modifier = Modifier.fillMaxSize(),
+                modifier = Modifier
+                    .fillMaxSize()
+                    .testTag(if (hasLoadedThumbnail) "remote_thumbnail_loaded" else "remote_thumbnail_loading"),
             )
         }
     }

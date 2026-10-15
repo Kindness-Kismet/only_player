@@ -1,6 +1,7 @@
 package one.only.player.core.data.remote
 
 import com.hierynomus.msfscc.FileAttributes
+import com.hierynomus.mssmb2.SMB2Dialect
 import com.hierynomus.smbj.SMBClient
 import com.hierynomus.smbj.SmbConfig
 import com.hierynomus.smbj.auth.AuthenticationContext
@@ -9,12 +10,16 @@ import java.util.concurrent.TimeUnit
 import javax.inject.Inject
 import javax.inject.Singleton
 import kotlinx.coroutines.CancellationException
+import kotlinx.coroutines.CoroutineDispatcher
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.sync.Mutex
 import kotlinx.coroutines.sync.withLock
+import kotlinx.coroutines.withContext
+import one.only.player.core.common.Dispatcher
+import one.only.player.core.common.DispatcherType
 import one.only.player.core.common.di.ApplicationScope
 import one.only.player.core.model.RemoteFile
 import one.only.player.core.model.RemoteServer
@@ -23,6 +28,7 @@ import one.only.player.core.model.ServerProtocol
 @Singleton
 class SmbClient @Inject constructor(
     @ApplicationScope private val applicationScope: CoroutineScope,
+    @Dispatcher(DispatcherType.IO) private val ioDispatcher: CoroutineDispatcher,
 ) {
 
     private val browseMutex = Mutex()
@@ -34,18 +40,20 @@ class SmbClient @Inject constructor(
         server: RemoteServer,
         directoryPath: String,
         forceRefresh: Boolean = false,
-    ): Result<List<RemoteFile>> = try {
-        Result.success(
-            listDirectoryInternal(
-                server = server,
-                directoryPath = directoryPath,
-                forceRefresh = forceRefresh,
-            ),
-        )
-    } catch (exception: CancellationException) {
-        throw exception
-    } catch (throwable: Throwable) {
-        Result.failure(throwable)
+    ): Result<List<RemoteFile>> = withContext(ioDispatcher) {
+        try {
+            Result.success(
+                listDirectoryInternal(
+                    server = server,
+                    directoryPath = directoryPath,
+                    forceRefresh = forceRefresh,
+                ),
+            )
+        } catch (exception: CancellationException) {
+            throw exception
+        } catch (throwable: Throwable) {
+            Result.failure(throwable)
+        }
     }
 
     private suspend fun listDirectoryInternal(
@@ -79,15 +87,7 @@ class SmbClient @Inject constructor(
             if (cachedFiles != null) {
                 cachedFiles
             } else {
-                val files = if (target.isShareEnumeration) {
-                    closeBrowseSession()
-                    enumerateShares(server, buildBrowseConfig())
-                } else {
-                    listShareDirectory(
-                        server = server,
-                        target = target,
-                    )
-                }
+                val files = listShareDirectory(server, target)
                 cacheDirectory(cacheKey, files)
                 files
             }
@@ -117,16 +117,18 @@ class SmbClient @Inject constructor(
         val sessionKey = BrowseSessionKey(
             host = server.host,
             port = server.port ?: DEFAULT_PORT,
-            shareName = target.shareName,
             authFingerprint = server.toAuthFingerprint(),
         )
-        val share = getBrowseSession(
+        val session = getBrowseSession(
             sessionKey = sessionKey,
             authContext = server.toSmbAuthContext(),
-        ).share
+        ).session
+        if (target.isShareEnumeration) return SmbShareEnumerator.listShares(session).sortedBy { it.name }
 
         val files = mutableListOf<RemoteFile>()
-        val listing = share.list(target.relativePath)
+        val listing = (session.connectShare(target.shareName) as DiskShare).use { share ->
+            share.list(target.relativePath)
+        }
 
         for (info in listing) {
             val name = info.fileName
@@ -167,18 +169,15 @@ class SmbClient @Inject constructor(
         val client = SMBClient(buildBrowseConfig())
         var connection: com.hierynomus.smbj.connection.Connection? = null
         var session: com.hierynomus.smbj.session.Session? = null
-        var share: DiskShare? = null
 
         try {
             connection = client.connect(sessionKey.host, sessionKey.port)
             session = connection.authenticate(authContext)
-            share = session.connectShare(sessionKey.shareName) as DiskShare
             return BrowseSession(
                 key = sessionKey,
                 client = client,
                 connection = connection,
                 session = session,
-                share = share,
                 lastUsedAtMillis = System.currentTimeMillis(),
             ).also {
                 browseSession = it
@@ -189,7 +188,6 @@ class SmbClient @Inject constructor(
                 client = client,
                 connection = connection,
                 session = session,
-                share = share,
             )
             throw exception
         }
@@ -207,14 +205,13 @@ class SmbClient @Inject constructor(
             client = session.client,
             connection = session.connection,
             session = session.session,
-            share = session.share,
         )
         browseSession = null
     }
 
     private fun scheduleBrowseSessionClose(session: BrowseSession) {
         closeBrowseSessionJob?.cancel()
-        closeBrowseSessionJob = applicationScope.launch {
+        closeBrowseSessionJob = applicationScope.launch(ioDispatcher) {
             delay(BROWSE_SESSION_IDLE_TTL_MS)
             browseMutex.withLock {
                 if (browseSession === session && !session.isFresh()) {
@@ -229,9 +226,7 @@ class SmbClient @Inject constructor(
         client: SMBClient,
         connection: com.hierynomus.smbj.connection.Connection?,
         session: com.hierynomus.smbj.session.Session?,
-        share: DiskShare?,
     ) {
-        runCatching { share?.close() }
         runCatching { session?.close() }
         runCatching { connection?.close() }
         runCatching { client.close() }
@@ -294,7 +289,6 @@ class SmbClient @Inject constructor(
     private data class BrowseSessionKey(
         val host: String,
         val port: Int,
-        val shareName: String,
         val authFingerprint: String,
     )
 
@@ -303,10 +297,9 @@ class SmbClient @Inject constructor(
         val client: SMBClient,
         val connection: com.hierynomus.smbj.connection.Connection,
         val session: com.hierynomus.smbj.session.Session,
-        val share: DiskShare,
         var lastUsedAtMillis: Long,
     ) {
-        fun isFresh(): Boolean = System.currentTimeMillis() - lastUsedAtMillis <= BROWSE_SESSION_IDLE_TTL_MS
+        fun isFresh(): Boolean = connection.isConnected && System.currentTimeMillis() - lastUsedAtMillis <= BROWSE_SESSION_IDLE_TTL_MS
 
         fun touch() {
             lastUsedAtMillis = System.currentTimeMillis()
@@ -330,44 +323,31 @@ class SmbClient @Inject constructor(
 
     companion object {
         const val DEFAULT_PORT = 445
-        const val BROWSE_TIMEOUT_SECONDS = 6L
-        const val FILE_TIMEOUT_SECONDS = 15L
+        const val BROWSE_TIMEOUT_SECONDS = 30L
         private const val DIRECTORY_CACHE_TTL_MS = 30_000L
         private const val BROWSE_SESSION_IDLE_TTL_MS = 60_000L
         private const val MAX_DIRECTORY_CACHE_SIZE = 32
 
-        fun buildBrowseConfig(): SmbConfig = buildConfig(BROWSE_TIMEOUT_SECONDS)
-
-        fun buildFileConfig(): SmbConfig = buildConfig(FILE_TIMEOUT_SECONDS)
-
-        private fun buildConfig(timeoutSeconds: Long): SmbConfig = SmbConfig.builder()
-            .withTimeout(timeoutSeconds, TimeUnit.SECONDS)
-            .withSoTimeout(timeoutSeconds, TimeUnit.SECONDS)
+        // Same connection configuration as Next Player SmbClient (896154b).
+        fun buildBrowseConfig(): SmbConfig = SmbConfig.builder()
+            .withTimeout(BROWSE_TIMEOUT_SECONDS, TimeUnit.SECONDS)
+            .withSoTimeout(35, TimeUnit.SECONDS)
+            .withDialects(
+                SMB2Dialect.SMB_3_1_1,
+                SMB2Dialect.SMB_3_0_2,
+                SMB2Dialect.SMB_3_0,
+                SMB2Dialect.SMB_2_1,
+                SMB2Dialect.SMB_2_0_2,
+            )
+            .withDfsEnabled(false)
+            .withMultiProtocolNegotiate(true)
+            .withSigningRequired(false)
+            .withEncryptData(false)
+            .withReadBufferSize(8 * 1024 * 1024)
+            .withWriteBufferSize(8 * 1024 * 1024)
             .build()
 
-        private fun enumerateShares(
-            server: RemoteServer,
-            config: SmbConfig,
-        ): List<RemoteFile> {
-            val auth = server.toSmbAuthContext()
-            val shares = SmbShareEnumerator.listShares(
-                host = server.host,
-                port = server.port ?: DEFAULT_PORT,
-                auth = auth,
-                config = config,
-            )
-            return shares
-                .filter { it.isDisk && !it.isHidden }
-                .map { share ->
-                    RemoteFile(
-                        name = share.name,
-                        path = "/${share.name}/",
-                        isDirectory = true,
-                        size = 0,
-                    )
-                }
-                .sortedBy { it.name }
-        }
+        fun buildFileConfig(): SmbConfig = buildBrowseConfig()
 
         fun extractShareName(serverPath: String): String {
             val normalized = serverPath.normalizeSmbPath()
