@@ -39,6 +39,16 @@ import one.only.player.core.media.container.toMpegTsPidHex
 import one.only.player.feature.player.ui.ChapterThumbnailPositionMsExtra
 
 private const val MPEG_TS_PACKET_SIZE_BYTES = 188
+private const val THUMBNAIL_CACHE_VERSION = 7
+
+internal fun videoThumbnailDiskCacheKey(
+    sourceCacheKey: String,
+    strategy: ThumbnailStrategy,
+    isCloudDocument: Boolean,
+): String {
+    val cloudSuffix = if (isCloudDocument) ":cloudDescriptorFrames=2" else ""
+    return "$sourceCacheKey#thumbnail=v$THUMBNAIL_CACHE_VERSION:${strategy.cacheKey}$cloudSuffix"
+}
 
 class VideoThumbnailDecoder(
     private val source: ImageSource,
@@ -51,7 +61,6 @@ class VideoThumbnailDecoder(
     companion object {
         // 缩略图最大尺寸，避免 4K 全分辨率 Bitmap 占用过多内存
         private const val MAX_THUMBNAIL_SIZE = 512
-        private const val THUMBNAIL_CACHE_VERSION = 7
         private const val LARGE_CONTAINER_ARTWORK_LIMIT_BYTES = 256L * 1024L * 1024L
         private const val MIN_MPEG_TS_THUMBNAIL_SCORE = 80f
         private const val GOOD_MPEG_TS_THUMBNAIL_SCORE = 120f
@@ -226,12 +235,7 @@ class VideoThumbnailDecoder(
         }
 
     private val diskCacheKey: String
-        get() = "$sourceCacheKey#thumbnail=v$THUMBNAIL_CACHE_VERSION:${strategy.cacheKey}${cloudDocumentCacheKeySuffix()}"
-
-    private fun cloudDocumentCacheKeySuffix(): String {
-        if (!isCloudDocumentSource()) return ""
-        return ":cloudDescriptorFrames=2"
-    }
+        get() = videoThumbnailDiskCacheKey(sourceCacheKey, strategy, isCloudDocumentSource())
 
     private fun primaryCandidateTimeMs(duration: Long): Long = strategy.primaryTimeMs(duration)
 
