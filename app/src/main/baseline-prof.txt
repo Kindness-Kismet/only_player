@@ -1,0 +1,46 @@
+# Baseline Profile Rules
+# Syntax: Human-Readable ART Profile Format (HRF)
+# Flags: H (Hot), S (Startup), P (Post-Startup)
+# Class Descriptors: L<class_path>;
+
+# ------------------------------------------------------------------------------
+# 1. Global Wildcards (Covers all classes and methods with HSPL & L)
+# ------------------------------------------------------------------------------
+HSPL**;->**(**)**
+L**;
+
+# ------------------------------------------------------------------------------
+# 2. Application & Feature Modules
+# ------------------------------------------------------------------------------
+HSPLone/only/player/**;->**(**)**
+Lone/only/player/**;
+
+# ------------------------------------------------------------------------------
+# 3. Core AndroidX & Compose Runtime
+# ------------------------------------------------------------------------------
+HSPLandroidx/compose/runtime/**;->**(**)**
+Landroidx/compose/runtime/**;
+HSPLandroidx/compose/ui/**;->**(**)**
+Landroidx/compose/ui/**;
+HSPLandroidx/compose/foundation/**;->**(**)**
+Landroidx/compose/foundation/**;
+HSPLandroidx/compose/material3/**;->**(**)**
+Landroidx/compose/material3/**;
+HSPLandroidx/navigation/**;->**(**)**
+Landroidx/navigation/**;
+HSPLandroidx/lifecycle/**;->**(**)**
+Landroidx/lifecycle/**;
+
+# ------------------------------------------------------------------------------
+# 4. Media3 & Asynchronous Runtimes
+# ------------------------------------------------------------------------------
+HSPLandroidx/media3/exoplayer/**;->**(**)**
+Landroidx/media3/exoplayer/**;
+HSPLandroidx/media3/common/**;->**(**)**
+Landroidx/media3/common/**;
+HSPLandroidx/media3/ui/**;->**(**)**
+Landroidx/media3/ui/**;
+HSPLkotlinx/coroutines/**;->**(**)**
+Lkotlinx/coroutines/**;
+HSPLcoil3/**;->**(**)**
+Lcoil3/**;
