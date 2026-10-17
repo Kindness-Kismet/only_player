@@ -97,7 +97,7 @@ private fun ScanFolderPreferencesContent(
                 PaddingValues(horizontal = 16.dp),
             verticalArrangement = Arrangement.spacedBy(CardItemGap),
         ) {
-            itemsIndexed(scanFolders) { index, folderPath ->
+            itemsIndexed(scanFolders, key = { _, folderPath -> folderPath.value }) { index, folderPath ->
                 PreferenceItem(
                     modifier = Modifier.testTag("item_settings_scan_folder_$index"),
                     title = folderPath.name,

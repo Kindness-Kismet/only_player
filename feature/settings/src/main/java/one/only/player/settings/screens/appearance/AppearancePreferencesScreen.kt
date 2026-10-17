@@ -235,7 +235,7 @@ private fun AppearancePreferencesContent(
                         text = stringResource(id = R.string.app_language),
                         onDismissClick = { onEvent(AppearancePreferencesEvent.ShowDialog(null)) },
                     ) {
-                        itemsIndexed(languageLabels) { index, label ->
+                        itemsIndexed(languageLabels, key = { index, _ -> languageTags[index] }) { index, label ->
                             RadioTextButton(
                                 modifier = Modifier.testTag("option_settings_appearance_language_$index"),
                                 text = label,
@@ -254,7 +254,7 @@ private fun AppearancePreferencesContent(
                         text = stringResource(id = R.string.theme_mode),
                         onDismissClick = { onEvent(AppearancePreferencesEvent.ShowDialog(null)) },
                     ) {
-                        items(themeConfigs) { themeConfig ->
+                        items(themeConfigs, key = { it.name }) { themeConfig ->
                             RadioTextButton(
                                 modifier = Modifier.testTag(
                                     "option_settings_appearance_theme_${themeConfig.name.lowercase()}",
