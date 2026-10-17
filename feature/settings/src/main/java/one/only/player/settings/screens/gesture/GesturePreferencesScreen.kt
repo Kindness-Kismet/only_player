@@ -275,7 +275,7 @@ private fun GesturePreferencesContent(
                         text = stringResource(id = R.string.double_tap),
                         onDismissClick = { onEvent(GesturePreferencesUiEvent.ShowDialog(null)) },
                     ) {
-                        items(DoubleTapGesture.entries.toTypedArray()) {
+                        items(DoubleTapGesture.entries.toTypedArray(), key = { it.name }) {
                             RadioTextButton(
                                 modifier = Modifier.testTag("option_settings_gesture_double_tap_${it.name.lowercase()}"),
                                 text = it.name(),

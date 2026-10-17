@@ -221,7 +221,7 @@ private fun AudioPreferencesContent(
                         text = stringResource(id = R.string.preferred_audio_lang),
                         onDismissClick = { onEvent(AudioPreferencesUiEvent.ShowDialog(null)) },
                     ) {
-                        items(languages) {
+                        items(languages, key = { it.second }) {
                             RadioTextButton(
                                 modifier = Modifier.testTag("option_settings_audio_language_${it.second.ifBlank { "none" }}"),
                                 text = it.first,

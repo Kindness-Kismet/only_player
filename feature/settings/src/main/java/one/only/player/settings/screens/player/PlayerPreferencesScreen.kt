@@ -278,7 +278,7 @@ private fun PlayerPreferencesContent(
                         text = stringResource(id = R.string.player_screen_orientation),
                         onDismissClick = { onEvent(PlayerPreferencesUiEvent.ShowDialog(null)) },
                     ) {
-                        items(ScreenOrientation.entries.toTypedArray()) {
+                        items(ScreenOrientation.entries.toTypedArray(), key = { it.name }) {
                             RadioTextButton(
                                 modifier = Modifier.testTag("option_settings_player_screen_orientation_${it.name.lowercase()}"),
                                 text = it.name(),
@@ -297,7 +297,7 @@ private fun PlayerPreferencesContent(
                         text = stringResource(id = R.string.pip_mode),
                         onDismissClick = { onEvent(PlayerPreferencesUiEvent.ShowDialog(null)) },
                     ) {
-                        items(PictureInPictureMode.entries.toTypedArray()) {
+                        items(PictureInPictureMode.entries.toTypedArray(), key = { it.name }) {
                             RadioTextButton(
                                 modifier = Modifier.testTag("option_settings_player_pip_mode_${it.name.lowercase()}"),
                                 text = it.displayName(),
@@ -344,7 +344,7 @@ private fun ControllerAutoHideDialog(
                 contentPadding = PaddingValues(vertical = 8.dp),
                 modifier = Modifier.selectableGroup(),
             ) {
-                items(ControllerAutoHidePreset.entries.toTypedArray()) {
+                items(ControllerAutoHidePreset.entries.toTypedArray(), key = { it.name }) {
                     RadioTextButton(
                         modifier = Modifier.testTag("option_settings_player_controller_timeout_${it.name.lowercase()}"),
                         text = it.description(preferences),
