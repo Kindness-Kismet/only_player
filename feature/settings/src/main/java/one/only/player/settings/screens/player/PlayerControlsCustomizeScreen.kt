@@ -152,7 +152,7 @@ fun PlayerControlsCustomizeScreen(
                 text = control.label(),
                 onDismissClick = { activeDialog = null },
             ) {
-                items(PlayerControlSlot.entries) { slot ->
+                items(PlayerControlSlot.entries, key = { it.name }) { slot ->
                     RadioTextButton(
                         modifier = Modifier.testTag(
                             "option_settings_customize_slot_${control.id}_${slot.name.lowercase()}",
@@ -172,7 +172,7 @@ fun PlayerControlsCustomizeScreen(
             text = stringResource(R.string.customize_controls_preview_layout),
             onDismissClick = { activeDialog = null },
         ) {
-            items(ControlsPreviewLayout.entries) { layout ->
+            items(ControlsPreviewLayout.entries, key = { it.name }) { layout ->
                 RadioTextButton(
                     modifier = Modifier.testTag("option_settings_customize_preview_${layout.name.lowercase()}"),
                     text = layout.label(),

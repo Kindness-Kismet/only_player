@@ -205,7 +205,7 @@ private fun UpdateSection(
                     text = stringResource(R.string.update_channel),
                     onDismissClick = { onEvent(AboutPreferencesUiEvent.ShowDialog(null)) },
                 ) {
-                    items(updateChannels) { channel ->
+                    items(updateChannels, key = { it.name }) { channel ->
                         RadioTextButton(
                             modifier = Modifier.testTag(
                                 "option_settings_about_update_channel_${channel.name.lowercase()}",

@@ -108,7 +108,7 @@ private fun FolderPreferencesContent(
                         PaddingValues(horizontal = 16.dp),
                     verticalArrangement = Arrangement.spacedBy(CardItemGap),
                 ) {
-                    itemsIndexed(uiState.foldersDataState.value) { index, folder ->
+                    itemsIndexed(uiState.foldersDataState.value, key = { _, folder -> folder.path }) { index, folder ->
                         val title = remember(folder.path, storageRootLabels) {
                             storageRootLabels.storageRootLabelOf(folder.path) ?: folder.name
                         }

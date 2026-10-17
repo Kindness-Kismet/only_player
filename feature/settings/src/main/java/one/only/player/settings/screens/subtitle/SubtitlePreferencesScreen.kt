@@ -267,7 +267,7 @@ private fun SubtitlePreferencesContent(
                         text = stringResource(R.string.online_subtitle_default_language),
                         onDismissClick = { onEvent(SubtitlePreferencesUiEvent.ShowDialog(null)) },
                     ) {
-                        items(OnlineSubtitleLanguageFilter.entries) { language ->
+                        items(OnlineSubtitleLanguageFilter.entries, key = { it.name }) { language ->
                             RadioTextButton(
                                 modifier = Modifier.testTag("option_settings_online_subtitle_language_${language.name.lowercase()}"),
                                 text = language.label(),
@@ -285,7 +285,7 @@ private fun SubtitlePreferencesContent(
                         text = stringResource(id = R.string.preferred_subtitle_lang),
                         onDismissClick = { onEvent(SubtitlePreferencesUiEvent.ShowDialog(null)) },
                     ) {
-                        items(languages) {
+                        items(languages, key = { it.second }) {
                             RadioTextButton(
                                 modifier = Modifier.testTag("option_settings_subtitle_language_${it.second.ifBlank { "none" }}"),
                                 text = it.first,
@@ -304,7 +304,7 @@ private fun SubtitlePreferencesContent(
                         text = stringResource(id = R.string.subtitle_font),
                         onDismissClick = { onEvent(SubtitlePreferencesUiEvent.ShowDialog(null)) },
                     ) {
-                        items(Font.entries.toTypedArray()) {
+                        items(Font.entries.toTypedArray(), key = { it.name }) {
                             RadioTextButton(
                                 modifier = Modifier.testTag("option_settings_subtitle_font_${it.name.lowercase()}"),
                                 text = it.name(),
@@ -323,7 +323,7 @@ private fun SubtitlePreferencesContent(
                         text = stringResource(id = R.string.subtitle_text_encoding),
                         onDismissClick = { onEvent(SubtitlePreferencesUiEvent.ShowDialog(null)) },
                     ) {
-                        items(charsetResource) {
+                        items(charsetResource, key = { it }) {
                             val currentCharset = it.substringAfterLast("(", "").removeSuffix(")")
                             if (currentCharset.isEmpty() || Charset.isSupported(currentCharset)) {
                                 RadioTextButton(

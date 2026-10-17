@@ -132,7 +132,7 @@ private fun DecoderPreferencesContent(
                         text = stringResource(id = R.string.decoder_priority),
                         onDismissClick = { onEvent(DecoderPreferencesUiEvent.ShowDialog(null)) },
                     ) {
-                        items(DecoderPriority.entries.toTypedArray()) {
+                        items(DecoderPriority.entries.toTypedArray(), key = { it.name }) {
                             RadioTextButton(
                                 modifier = Modifier.testTag("option_settings_decoder_priority_${it.name.lowercase()}"),
                                 text = it.name(),
