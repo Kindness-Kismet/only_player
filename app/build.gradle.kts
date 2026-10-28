@@ -118,6 +118,8 @@ dependencies {
     implementation(libs.androidx.compose.ui.tooling.preview)
     implementation(libs.androidx.compose.material3)
     implementation(libs.androidx.navigation.compose)
+    // 至少使用 navigationevent 1.2.0，保证预测返回手势进度正常传递。
+    implementation(libs.androidx.navigationevent.compose)
     implementation(libs.androidx.lifecycle.runtime.ktx)
     implementation(libs.androidx.lifecycle.runtimeCompose)
 
@@ -143,14 +145,4 @@ dependencies {
     debugImplementation(libs.androidx.media3.session)
     debugImplementation(libs.kotlinx.coroutines.android)
     debugImplementation(libs.kotlinx.coroutines.guava)
-}
-
-// navigationevent 1.1.2 会丢失预测返回手势进度，固定到已修复的 1.2，正式版发布后移除。
-configurations.all {
-    resolutionStrategy {
-        force("androidx.navigationevent:navigationevent:1.2.0-rc01")
-        force("androidx.navigationevent:navigationevent-android:1.2.0-rc01")
-        force("androidx.navigationevent:navigationevent-compose:1.2.0-rc01")
-        force("androidx.navigationevent:navigationevent-compose-android:1.2.0-rc01")
-    }
 }
