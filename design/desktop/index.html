@@ -6,7 +6,10 @@
         <meta name="color-scheme" content="light dark" />
         <meta name="description" content="Only Player 桌面版控件风格方案，支持浅色、深色和交互预览。" />
         <title>Only Player · 桌面控件方案</title>
-        <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 40 40'%3E%3Crect width='40' height='40' rx='12' fill='%233482ff'/%3E%3Cpath d='M15 11l14 9-14 9z' fill='white'/%3E%3C/svg%3E" />
+        <link
+            rel="icon"
+            href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 40 40'%3E%3Crect width='40' height='40' rx='12' fill='%233482ff'/%3E%3Cpath d='M15 11l14 9-14 9z' fill='white'/%3E%3C/svg%3E"
+        />
         <link rel="stylesheet" href="styles.css" />
         <script src="icons.js" defer></script>
         <script src="catalog.js" defer></script>
@@ -18,44 +21,162 @@
         <a class="skip-link" href="#content">跳到预览内容</a>
         <div class="app-shell">
             <aside class="sidebar" id="sidebar" aria-label="控件分类">
-                <a class="brand" href="#gallery" data-route="gallery" data-testid="brand-home" aria-label="返回控件图鉴">
+                <a
+                    class="brand"
+                    href="#gallery"
+                    data-route="gallery"
+                    data-testid="brand-home"
+                    aria-label="返回控件图鉴"
+                >
                     <span class="brand-mark" data-icon="play" aria-hidden="true"></span>
                     <span class="brand-copy"><strong>Only Player</strong><small>桌面设计实验室</small></span>
                 </a>
                 <div class="catalog-search">
                     <span data-icon="search" aria-hidden="true"></span>
-                    <input id="catalog-search" type="search" placeholder="搜索控件…" aria-label="搜索控件" data-testid="catalog-search" autocomplete="off" />
+                    <input
+                        id="catalog-search"
+                        type="search"
+                        placeholder="搜索控件…"
+                        aria-label="搜索控件"
+                        data-testid="catalog-search"
+                        autocomplete="off"
+                    />
                     <kbd aria-hidden="true">/</kbd>
                 </div>
                 <div class="sidebar-label">控件图鉴</div>
                 <nav class="category-nav" id="category-nav" aria-label="控件分类导航"></nav>
                 <div class="sidebar-label sidebar-second-label">组合起来看看</div>
                 <nav class="scene-nav" aria-label="页面场景">
-                    <button type="button" data-scene="library" data-testid="nav-library"><span data-icon="folder" aria-hidden="true"></span>媒体库<span class="nav-arrow" data-icon="expandMore" aria-hidden="true"></span></button>
-                    <button type="button" data-scene="player" data-testid="nav-player"><span data-icon="player" aria-hidden="true"></span>播放器<span class="nav-arrow" data-icon="expandMore" aria-hidden="true"></span></button>
-                    <button type="button" data-scene="settings" data-testid="nav-settings"><span data-icon="settings" aria-hidden="true"></span>设置页面<span class="nav-arrow" data-icon="expandMore" aria-hidden="true"></span></button>
+                    <button type="button" data-scene="library" data-testid="nav-library">
+                        <span data-icon="folder" aria-hidden="true"></span>媒体库<span
+                            class="nav-arrow"
+                            data-icon="expandMore"
+                            aria-hidden="true"
+                        ></span>
+                    </button>
+                    <button type="button" data-scene="player" data-testid="nav-player">
+                        <span data-icon="player" aria-hidden="true"></span>播放器<span
+                            class="nav-arrow"
+                            data-icon="expandMore"
+                            aria-hidden="true"
+                        ></span>
+                    </button>
+                    <button type="button" data-scene="settings" data-testid="nav-settings">
+                        <span data-icon="settings" aria-hidden="true"></span>设置页面<span
+                            class="nav-arrow"
+                            data-icon="expandMore"
+                            aria-hidden="true"
+                        ></span>
+                    </button>
                 </nav>
                 <div class="sidebar-bottom">
-                    <button class="source-note" type="button" data-route="spec" data-testid="source-baseline"><span class="status-dot"></span><span>源码基线 <strong>0.9.4</strong><small>复用基础，补齐桌面交互</small></span><span data-icon="info" aria-hidden="true"></span></button>
+                    <button class="source-note" type="button" data-route="spec" data-testid="source-baseline">
+                        <span class="status-dot"></span
+                        ><span>源码基线 <strong>0.9.4</strong><small>复用基础，补齐桌面交互</small></span
+                        ><span data-icon="info" aria-hidden="true"></span>
+                    </button>
                 </div>
             </aside>
-            <button class="sidebar-scrim" type="button" data-action="close-sidebar" aria-label="收起分类导航" data-testid="sidebar-scrim" tabindex="-1" hidden></button>
+            <button
+                class="sidebar-scrim"
+                type="button"
+                data-action="close-sidebar"
+                aria-label="收起分类导航"
+                data-testid="sidebar-scrim"
+                tabindex="-1"
+                hidden
+            ></button>
             <div class="workspace">
                 <header class="topbar">
-                    <button class="icon-button mobile-menu" type="button" data-action="sidebar" aria-label="打开分类导航" aria-expanded="false" aria-controls="sidebar" data-testid="open-sidebar"><span data-icon="menu" aria-hidden="true"></span></button>
+                    <button
+                        class="icon-button mobile-menu"
+                        type="button"
+                        data-action="sidebar"
+                        aria-label="打开分类导航"
+                        aria-expanded="false"
+                        aria-controls="sidebar"
+                        data-testid="open-sidebar"
+                    >
+                        <span data-icon="menu" aria-hidden="true"></span>
+                    </button>
                     <nav class="route-tabs" role="tablist" aria-label="方案区域">
-                        <button type="button" role="tab" id="tab-gallery" data-route="gallery" data-testid="tab-gallery" aria-selected="true" aria-controls="content">控件图鉴</button>
-                        <button type="button" role="tab" id="tab-scenes" data-route="scenes" data-testid="tab-scenes" aria-selected="false" aria-controls="content" tabindex="-1">页面预览</button>
-                        <button type="button" role="tab" id="tab-spec" data-route="spec" data-testid="tab-spec" aria-selected="false" aria-controls="content" tabindex="-1">设计说明</button>
+                        <button
+                            type="button"
+                            role="tab"
+                            id="tab-gallery"
+                            data-route="gallery"
+                            data-testid="tab-gallery"
+                            aria-selected="true"
+                            aria-controls="content"
+                        >
+                            控件图鉴
+                        </button>
+                        <button
+                            type="button"
+                            role="tab"
+                            id="tab-scenes"
+                            data-route="scenes"
+                            data-testid="tab-scenes"
+                            aria-selected="false"
+                            aria-controls="content"
+                            tabindex="-1"
+                        >
+                            页面预览
+                        </button>
+                        <button
+                            type="button"
+                            role="tab"
+                            id="tab-spec"
+                            data-route="spec"
+                            data-testid="tab-spec"
+                            aria-selected="false"
+                            aria-controls="content"
+                            tabindex="-1"
+                        >
+                            设计说明
+                        </button>
                     </nav>
                     <div class="topbar-actions">
                         <div class="density-control" aria-label="控件密度">
-                            <button type="button" data-density="comfortable" data-testid="density-comfortable" aria-pressed="true">舒展</button>
-                            <button type="button" data-density="compact" data-testid="density-compact" aria-pressed="false">紧凑</button>
+                            <button
+                                type="button"
+                                data-density="comfortable"
+                                data-testid="density-comfortable"
+                                aria-pressed="true"
+                            >
+                                舒展
+                            </button>
+                            <button
+                                type="button"
+                                data-density="compact"
+                                data-testid="density-compact"
+                                aria-pressed="false"
+                            >
+                                紧凑
+                            </button>
                         </div>
                         <span class="toolbar-divider" aria-hidden="true"></span>
-                        <button class="theme-button" type="button" id="theme-button" data-action="theme" aria-label="切换为深色模式" aria-pressed="false" data-testid="theme-toggle"><span data-icon="darkMode" aria-hidden="true"></span><span id="theme-label">浅色</span></button>
-                        <button class="icon-button reset-button" type="button" data-action="reset" data-tooltip="重置演示状态" aria-label="重置演示状态" data-testid="reset-demos"><span data-icon="replay" aria-hidden="true"></span></button>
+                        <button
+                            class="theme-button"
+                            type="button"
+                            id="theme-button"
+                            data-action="theme"
+                            aria-label="切换为深色模式"
+                            aria-pressed="false"
+                            data-testid="theme-toggle"
+                        >
+                            <span data-icon="darkMode" aria-hidden="true"></span><span id="theme-label">浅色</span>
+                        </button>
+                        <button
+                            class="icon-button reset-button"
+                            type="button"
+                            data-action="reset"
+                            data-tooltip="重置演示状态"
+                            aria-label="重置演示状态"
+                            data-testid="reset-demos"
+                        >
+                            <span data-icon="replay" aria-hidden="true"></span>
+                        </button>
                     </div>
                 </header>
                 <main class="content" id="content" role="tabpanel" aria-labelledby="tab-gallery" tabindex="-1"></main>

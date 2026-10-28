@@ -16,6 +16,6 @@ python -m http.server 8765 --bind 127.0.0.1 --directory design/desktop
 - 顶部可切换浅色、深色及舒展、紧凑两种密度；设计说明中可体验其他主色。
 - 按斜杠聚焦控件搜索；菜单使用方向键，关闭浮层使用退出键；播放器场景使用空格播放或暂停。
 
-详细研究记录见 [PLAN.md](PLAN.md)。实际媒体、扫描和播放均为演示；原生窗口操作、精确弹簧动画、系统材质与播放内核需在桌面应用阶段验证。
+详细研究记录见 [PLAN.md](PLAN.md)，原版差异和修正结果见 [AUDIT.md](AUDIT.md)。实际媒体、扫描和播放均为演示；原生窗口操作、精确弹簧动画、系统材质与播放内核需在桌面应用阶段验证。
 
 图标路径取自项目现有 MingCute 图标封装，原始图标来自 [MingCute](https://github.com/mingcute-design/mingcute-icons)。组件风格参考 [miuix 0.9.4](https://github.com/compose-miuix-ui/miuix/tree/v0.9.4)，上游采用 Apache-2.0 许可，项目采用现有仓库许可。
