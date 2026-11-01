@@ -48,7 +48,6 @@ import one.only.player.core.common.hasManageExternalStorageAccess
 import one.only.player.core.common.storagePermission
 import one.only.player.core.media.services.MediaService
 import one.only.player.core.media.sync.MediaSynchronizer
-import one.only.player.core.model.NavigationBarLabelMode
 import one.only.player.core.model.NavigationBarStyle
 import one.only.player.core.model.ThemeConfig
 import one.only.player.core.ui.R as UiR
@@ -205,7 +204,6 @@ class MainActivity : AppCompatActivity() {
                     ) {
                         MainAppContent(
                             navigationBarStyle = preferences?.navigationBarStyle ?: NavigationBarStyle.STANDARD,
-                            navigationBarLabelMode = preferences?.navigationBarLabelMode ?: NavigationBarLabelMode.ICON_AND_TEXT,
                             shouldBlurNavigationBar = preferences?.shouldBlurNavigationBar != false,
                             shouldShowCloudTab = preferences?.shouldShowCloudTab != false,
                             onMediaAccessAvailable = synchronizer::startSync,
@@ -336,7 +334,6 @@ class MainActivity : AppCompatActivity() {
     @Composable
     private fun MainAppContent(
         navigationBarStyle: NavigationBarStyle,
-        navigationBarLabelMode: NavigationBarLabelMode,
         shouldBlurNavigationBar: Boolean,
         shouldShowCloudTab: Boolean,
         onMediaAccessAvailable: () -> Unit,
@@ -437,7 +434,6 @@ class MainActivity : AppCompatActivity() {
                             RootScaffold(
                                 rootNavigationState = rootNavigationState,
                                 navigationBarStyle = navigationBarStyle,
-                                navigationBarLabelMode = navigationBarLabelMode,
                                 shouldBlurNavigationBar = shouldBlurNavigationBar,
                                 shouldShowBottomBar = false,
                             ) { destination ->
@@ -478,7 +474,6 @@ class MainActivity : AppCompatActivity() {
                     currentRoot = rootNavigationState.selectedDestination,
                     destinations = rootDestinations,
                     navigationBarStyle = navigationBarStyle,
-                    navigationBarLabelMode = navigationBarLabelMode,
                     floatingBlurBackdrop = floatingBlurBackdrop,
                     onTabSelected = { destination ->
                         if (destination != rootNavigationState.selectedDestination) {
