@@ -25,6 +25,8 @@ import androidx.compose.ui.unit.dp
 import androidx.hilt.lifecycle.viewmodel.compose.hiltViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import one.only.player.core.common.PredictiveBackSupport
+import one.only.player.core.model.NavigationBarLabelMode
+import one.only.player.core.model.NavigationBarStyle
 import one.only.player.core.model.ThemeConfig
 import one.only.player.core.ui.R
 import one.only.player.core.ui.components.AppScaffold
@@ -87,7 +89,8 @@ private fun AppearancePreferencesContent(
     val preferences = uiState.preferences
     val appLanguages = remember { LocalesHelper.appSupportedLocales }
     val shouldShowPredictiveBack = Build.VERSION.SDK_INT >= Build.VERSION_CODES.UPSIDE_DOWN_CAKE
-    val shouldShowNavigationBarBlur = Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU
+    val shouldShowNavigationBarBlur = Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU &&
+        preferences.navigationBarStyle.canBlurBackground
     val shouldShowTopBarBlur = Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU
 
     // 语言下拉：首项为系统默认，其后为受支持语言
@@ -181,16 +184,26 @@ private fun AppearancePreferencesContent(
                         onEvent(AppearancePreferencesEvent.ToggleNavigateHomeOnTitleLongPress)
                     },
                 )
-                SwitchPreference(
-                    modifier = Modifier.testTag("switch_settings_appearance_floating_navigation_bar"),
-                    title = stringResource(id = R.string.floating_navigation_bar),
-                    summary = stringResource(id = R.string.floating_navigation_bar_description),
+                ArrowPreference(
+                    modifier = Modifier.testTag("item_settings_appearance_navigation_bar_style"),
+                    title = stringResource(id = R.string.navigation_bar_style),
+                    summary = preferences.navigationBarStyle.name(),
                     startAction = { PrefIcon(AppIcons.SmartButton) },
-                    checked = preferences.shouldUseFloatingNavigationBar,
-                    onCheckedChange = {
-                        onEvent(AppearancePreferencesEvent.ToggleUseFloatingNavigationBar)
+                    onClick = {
+                        onEvent(AppearancePreferencesEvent.ShowDialog(AppearancePreferenceDialog.NavigationBarStyle))
                     },
                 )
+                if (preferences.navigationBarStyle == NavigationBarStyle.MIUIX) {
+                    ArrowPreference(
+                        modifier = Modifier.testTag("item_settings_appearance_navigation_bar_label_mode"),
+                        title = stringResource(id = R.string.navigation_bar_label_mode),
+                        summary = preferences.navigationBarLabelMode.name(),
+                        startAction = { PrefIcon(AppIcons.Title) },
+                        onClick = {
+                            onEvent(AppearancePreferencesEvent.ShowDialog(AppearancePreferenceDialog.NavigationBarLabelMode))
+                        },
+                    )
+                }
                 if (shouldShowTopBarBlur) {
                     SwitchPreference(
                         modifier = Modifier.testTag("switch_settings_appearance_top_bar_blur"),
@@ -205,13 +218,13 @@ private fun AppearancePreferencesContent(
                 }
                 if (shouldShowNavigationBarBlur) {
                     SwitchPreference(
-                        modifier = Modifier.testTag("switch_settings_appearance_floating_navigation_bar_blur"),
+                        modifier = Modifier.testTag("switch_settings_appearance_navigation_bar_blur"),
                         title = stringResource(id = R.string.floating_navigation_bar_blur),
                         summary = stringResource(id = R.string.floating_navigation_bar_blur_description),
                         startAction = { PrefIcon(AppIcons.BlurOn) },
-                        checked = preferences.shouldBlurFloatingNavigationBar,
+                        checked = preferences.shouldBlurNavigationBar,
                         onCheckedChange = {
-                            onEvent(AppearancePreferencesEvent.ToggleBlurFloatingNavigationBar)
+                            onEvent(AppearancePreferencesEvent.ToggleBlurNavigationBar)
                         },
                     )
                 }
@@ -230,6 +243,44 @@ private fun AppearancePreferencesContent(
 
         uiState.showDialog?.let { showDialog ->
             when (showDialog) {
+                AppearancePreferenceDialog.NavigationBarStyle -> {
+                    OptionsDialog(
+                        text = stringResource(id = R.string.navigation_bar_style),
+                        onDismissClick = { onEvent(AppearancePreferencesEvent.ShowDialog(null)) },
+                    ) {
+                        items(NavigationBarStyle.entries) { style ->
+                            RadioTextButton(
+                                modifier = Modifier.testTag("option_settings_navigation_bar_style_${style.name.lowercase()}"),
+                                text = style.name(),
+                                isSelected = style == preferences.navigationBarStyle,
+                                onClick = {
+                                    onEvent(AppearancePreferencesEvent.UpdateNavigationBarStyle(style))
+                                    onEvent(AppearancePreferencesEvent.ShowDialog(null))
+                                },
+                            )
+                        }
+                    }
+                }
+
+                AppearancePreferenceDialog.NavigationBarLabelMode -> {
+                    OptionsDialog(
+                        text = stringResource(id = R.string.navigation_bar_label_mode),
+                        onDismissClick = { onEvent(AppearancePreferencesEvent.ShowDialog(null)) },
+                    ) {
+                        items(NavigationBarLabelMode.entries) { mode ->
+                            RadioTextButton(
+                                modifier = Modifier.testTag("option_settings_navigation_bar_label_${mode.name.lowercase()}"),
+                                text = mode.name(),
+                                isSelected = mode == preferences.navigationBarLabelMode,
+                                onClick = {
+                                    onEvent(AppearancePreferencesEvent.UpdateNavigationBarLabelMode(mode))
+                                    onEvent(AppearancePreferencesEvent.ShowDialog(null))
+                                },
+                            )
+                        }
+                    }
+                }
+
                 AppearancePreferenceDialog.AppLanguage -> {
                     OptionsDialog(
                         text = stringResource(id = R.string.app_language),

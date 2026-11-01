@@ -12,8 +12,10 @@ data class ApplicationPreferences(
     val themeConfig: ThemeConfig = ThemeConfig.SYSTEM,
     val shouldUseDynamicColors: Boolean = true,
     val shouldNavigateHomeOnTitleLongPress: Boolean = false,
-    val shouldUseFloatingNavigationBar: Boolean = false,
-    val shouldBlurFloatingNavigationBar: Boolean = true,
+    val navigationBarStyle: NavigationBarStyle = NavigationBarStyle.STANDARD,
+    val navigationBarLabelMode: NavigationBarLabelMode = NavigationBarLabelMode.ICON_AND_TEXT,
+    @SerialName("shouldBlurFloatingNavigationBar")
+    val shouldBlurNavigationBar: Boolean = true,
     val shouldBlurTopBar: Boolean = true,
     val shouldEnablePredictiveBack: Boolean = false,
     val shouldPreventScreenshots: Boolean = false,

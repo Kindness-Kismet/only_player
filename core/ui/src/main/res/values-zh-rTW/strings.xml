@@ -629,8 +629,14 @@
     <string name="search_settings">搜尋設定…</string>
     <string name="home_title_long_press_to_root">長按標題回到首頁</string>
     <string name="home_title_long_press_to_root_description">長按標題列可直接返回根目錄</string>
-    <string name="floating_navigation_bar">懸浮導覽列</string>
-    <string name="floating_navigation_bar_description">使用圓角懸浮底部導覽列</string>
+    <string name="navigation_bar_style">底欄樣式</string>
+    <string name="navigation_bar_style_standard">標準</string>
+    <string name="navigation_bar_style_floating">懸浮</string>
+    <string name="navigation_bar_style_miuix">Miuix 原生（固定底部）</string>
+    <string name="navigation_bar_label_mode">導覽項目顯示方式</string>
+    <string name="navigation_bar_label_icon_and_text">圖示和文字始終顯示</string>
+    <string name="navigation_bar_label_icon_only">只顯示圖示</string>
+    <string name="navigation_bar_label_selected">僅選取項目顯示文字</string>
     <string name="top_bar_blur">頂欄模糊</string>
     <string name="top_bar_blur_description">為頂部標題列啟用背景模糊和半透明效果</string>
     <string name="floating_navigation_bar_blur">底欄模糊</string>

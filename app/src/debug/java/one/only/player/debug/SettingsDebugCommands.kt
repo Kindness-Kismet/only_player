@@ -15,6 +15,8 @@ import one.only.player.core.model.ControllerAutoHidePreset
 import one.only.player.core.model.DecoderPriority
 import one.only.player.core.model.DoubleTapGesture
 import one.only.player.core.model.Font
+import one.only.player.core.model.NavigationBarLabelMode
+import one.only.player.core.model.NavigationBarStyle
 import one.only.player.core.model.PictureInPictureMode
 import one.only.player.core.model.PlayerControl
 import one.only.player.core.model.PlayerControlSlot
@@ -103,14 +105,19 @@ internal suspend fun DebugCommandEntryPoint.setSetting(
         "appearance.title_long_press_home" -> updateApplicationBoolean(value) { preferences, isEnabled ->
             preferences.copy(shouldNavigateHomeOnTitleLongPress = isEnabled)
         }
-        "appearance.floating_navigation_bar" -> updateApplicationBoolean(value) { preferences, isEnabled ->
-            preferences.copy(shouldUseFloatingNavigationBar = isEnabled)
+        "appearance.navigation_bar_style" -> {
+            val style = enumValue<NavigationBarStyle>(value.requiredString(EXTRA_VALUE))
+            preferencesRepository().updateApplicationPreferences { it.copy(navigationBarStyle = style) }
+        }
+        "appearance.navigation_bar_label_mode" -> {
+            val mode = enumValue<NavigationBarLabelMode>(value.requiredString(EXTRA_VALUE))
+            preferencesRepository().updateApplicationPreferences { it.copy(navigationBarLabelMode = mode) }
         }
         "appearance.top_bar_blur" -> updateApplicationBoolean(value) { preferences, isEnabled ->
             preferences.copy(shouldBlurTopBar = isEnabled)
         }
-        "appearance.floating_navigation_bar_blur" -> updateApplicationBoolean(value) { preferences, isEnabled ->
-            preferences.copy(shouldBlurFloatingNavigationBar = isEnabled)
+        "appearance.navigation_bar_blur" -> updateApplicationBoolean(value) { preferences, isEnabled ->
+            preferences.copy(shouldBlurNavigationBar = isEnabled)
         }
         "appearance.predictive_back" -> updateApplicationBoolean(value) { preferences, isEnabled ->
             preferences.copy(shouldEnablePredictiveBack = isEnabled)
@@ -361,9 +368,8 @@ internal suspend fun DebugCommandEntryPoint.toggleSetting(target: String?) {
     when (target) {
         "appearance.dynamic_colors" -> toggleApplication { it.copy(shouldUseDynamicColors = !it.shouldUseDynamicColors) }
         "appearance.title_long_press_home" -> toggleApplication { it.copy(shouldNavigateHomeOnTitleLongPress = !it.shouldNavigateHomeOnTitleLongPress) }
-        "appearance.floating_navigation_bar" -> toggleApplication { it.copy(shouldUseFloatingNavigationBar = !it.shouldUseFloatingNavigationBar) }
         "appearance.top_bar_blur" -> toggleApplication { it.copy(shouldBlurTopBar = !it.shouldBlurTopBar) }
-        "appearance.floating_navigation_bar_blur" -> toggleApplication { it.copy(shouldBlurFloatingNavigationBar = !it.shouldBlurFloatingNavigationBar) }
+        "appearance.navigation_bar_blur" -> toggleApplication { it.copy(shouldBlurNavigationBar = !it.shouldBlurNavigationBar) }
         "appearance.predictive_back" -> toggleApplication { it.copy(shouldEnablePredictiveBack = !it.shouldEnablePredictiveBack) }
         "appearance.show_cloud_tab" -> toggleApplication { it.copy(shouldShowCloudTab = !it.shouldShowCloudTab) }
         "media.mark_last_played" -> toggleApplication { it.copy(shouldMarkLastPlayedMedia = !it.shouldMarkLastPlayedMedia) }
