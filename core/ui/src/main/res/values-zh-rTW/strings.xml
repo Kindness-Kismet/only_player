@@ -632,11 +632,7 @@
     <string name="navigation_bar_style">底欄樣式</string>
     <string name="navigation_bar_style_standard">標準</string>
     <string name="navigation_bar_style_floating">懸浮</string>
-    <string name="navigation_bar_style_miuix">Miuix 原生（固定底部）</string>
-    <string name="navigation_bar_label_mode">導覽項目顯示方式</string>
-    <string name="navigation_bar_label_icon_and_text">圖示和文字始終顯示</string>
-    <string name="navigation_bar_label_icon_only">只顯示圖示</string>
-    <string name="navigation_bar_label_selected">僅選取項目顯示文字</string>
+    <string name="navigation_bar_style_miuix">Miuix 原生（懸浮）</string>
     <string name="top_bar_blur">頂欄模糊</string>
     <string name="top_bar_blur_description">為頂部標題列啟用背景模糊和半透明效果</string>
     <string name="floating_navigation_bar_blur">底欄模糊</string>

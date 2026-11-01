@@ -25,7 +25,6 @@ import androidx.compose.ui.unit.dp
 import androidx.hilt.lifecycle.viewmodel.compose.hiltViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import one.only.player.core.common.PredictiveBackSupport
-import one.only.player.core.model.NavigationBarLabelMode
 import one.only.player.core.model.NavigationBarStyle
 import one.only.player.core.model.ThemeConfig
 import one.only.player.core.ui.R
@@ -193,17 +192,6 @@ private fun AppearancePreferencesContent(
                         onEvent(AppearancePreferencesEvent.ShowDialog(AppearancePreferenceDialog.NavigationBarStyle))
                     },
                 )
-                if (preferences.navigationBarStyle == NavigationBarStyle.MIUIX) {
-                    ArrowPreference(
-                        modifier = Modifier.testTag("item_settings_appearance_navigation_bar_label_mode"),
-                        title = stringResource(id = R.string.navigation_bar_label_mode),
-                        summary = preferences.navigationBarLabelMode.name(),
-                        startAction = { PrefIcon(AppIcons.Title) },
-                        onClick = {
-                            onEvent(AppearancePreferencesEvent.ShowDialog(AppearancePreferenceDialog.NavigationBarLabelMode))
-                        },
-                    )
-                }
                 if (shouldShowTopBarBlur) {
                     SwitchPreference(
                         modifier = Modifier.testTag("switch_settings_appearance_top_bar_blur"),
@@ -255,25 +243,6 @@ private fun AppearancePreferencesContent(
                                 isSelected = style == preferences.navigationBarStyle,
                                 onClick = {
                                     onEvent(AppearancePreferencesEvent.UpdateNavigationBarStyle(style))
-                                    onEvent(AppearancePreferencesEvent.ShowDialog(null))
-                                },
-                            )
-                        }
-                    }
-                }
-
-                AppearancePreferenceDialog.NavigationBarLabelMode -> {
-                    OptionsDialog(
-                        text = stringResource(id = R.string.navigation_bar_label_mode),
-                        onDismissClick = { onEvent(AppearancePreferencesEvent.ShowDialog(null)) },
-                    ) {
-                        items(NavigationBarLabelMode.entries) { mode ->
-                            RadioTextButton(
-                                modifier = Modifier.testTag("option_settings_navigation_bar_label_${mode.name.lowercase()}"),
-                                text = mode.name(),
-                                isSelected = mode == preferences.navigationBarLabelMode,
-                                onClick = {
-                                    onEvent(AppearancePreferencesEvent.UpdateNavigationBarLabelMode(mode))
                                     onEvent(AppearancePreferencesEvent.ShowDialog(null))
                                 },
                             )

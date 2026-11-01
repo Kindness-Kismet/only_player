@@ -13,7 +13,6 @@ data class ApplicationPreferences(
     val shouldUseDynamicColors: Boolean = true,
     val shouldNavigateHomeOnTitleLongPress: Boolean = false,
     val navigationBarStyle: NavigationBarStyle = NavigationBarStyle.STANDARD,
-    val navigationBarLabelMode: NavigationBarLabelMode = NavigationBarLabelMode.ICON_AND_TEXT,
     @SerialName("shouldBlurFloatingNavigationBar")
     val shouldBlurNavigationBar: Boolean = true,
     val shouldBlurTopBar: Boolean = true,

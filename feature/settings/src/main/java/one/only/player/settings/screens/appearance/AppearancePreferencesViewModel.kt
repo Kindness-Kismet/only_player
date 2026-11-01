@@ -16,7 +16,6 @@ import one.only.player.core.common.AppThemeMode
 import one.only.player.core.common.AppThemeModeManager
 import one.only.player.core.data.repository.PreferencesRepository
 import one.only.player.core.model.ApplicationPreferences
-import one.only.player.core.model.NavigationBarLabelMode
 import one.only.player.core.model.NavigationBarStyle
 import one.only.player.core.model.ThemeConfig
 
@@ -49,7 +48,6 @@ class AppearancePreferencesViewModel @Inject constructor(
             AppearancePreferencesEvent.ToggleUseDynamicColors -> toggleUseDynamicColors()
             AppearancePreferencesEvent.ToggleNavigateHomeOnTitleLongPress -> toggleNavigateHomeOnTitleLongPress()
             is AppearancePreferencesEvent.UpdateNavigationBarStyle -> updateNavigationBarStyle(event.style)
-            is AppearancePreferencesEvent.UpdateNavigationBarLabelMode -> updateNavigationBarLabelMode(event.mode)
             AppearancePreferencesEvent.ToggleBlurNavigationBar -> toggleBlurNavigationBar()
             AppearancePreferencesEvent.ToggleBlurTopBar -> toggleBlurTopBar()
             AppearancePreferencesEvent.ToggleShowCloudTab -> toggleShowCloudTab()
@@ -112,14 +110,6 @@ class AppearancePreferencesViewModel @Inject constructor(
         }
     }
 
-    private fun updateNavigationBarLabelMode(mode: NavigationBarLabelMode) {
-        viewModelScope.launch {
-            preferencesRepository.updateApplicationPreferences {
-                it.copy(navigationBarLabelMode = mode)
-            }
-        }
-    }
-
     private fun toggleBlurNavigationBar() {
         viewModelScope.launch {
             preferencesRepository.updateApplicationPreferences {
@@ -178,7 +168,6 @@ sealed interface AppearancePreferencesEvent {
     data object ToggleUseDynamicColors : AppearancePreferencesEvent
     data object ToggleNavigateHomeOnTitleLongPress : AppearancePreferencesEvent
     data class UpdateNavigationBarStyle(val style: NavigationBarStyle) : AppearancePreferencesEvent
-    data class UpdateNavigationBarLabelMode(val mode: NavigationBarLabelMode) : AppearancePreferencesEvent
     data object ToggleBlurNavigationBar : AppearancePreferencesEvent
     data object ToggleBlurTopBar : AppearancePreferencesEvent
     data object ToggleShowCloudTab : AppearancePreferencesEvent
@@ -192,5 +181,4 @@ sealed interface AppearancePreferenceDialog {
     data object Theme : AppearancePreferenceDialog
     data object AppLanguage : AppearancePreferenceDialog
     data object NavigationBarStyle : AppearancePreferenceDialog
-    data object NavigationBarLabelMode : AppearancePreferenceDialog
 }

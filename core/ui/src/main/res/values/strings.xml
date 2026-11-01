@@ -643,11 +643,7 @@
     <string name="navigation_bar_style">Navigation bar style</string>
     <string name="navigation_bar_style_standard">Standard</string>
     <string name="navigation_bar_style_floating">Floating</string>
-    <string name="navigation_bar_style_miuix">Miuix native (fixed)</string>
-    <string name="navigation_bar_label_mode">Navigation item display</string>
-    <string name="navigation_bar_label_icon_and_text">Icons and text</string>
-    <string name="navigation_bar_label_icon_only">Icons only</string>
-    <string name="navigation_bar_label_selected">Text on selected item only</string>
+    <string name="navigation_bar_style_miuix">Miuix native (floating)</string>
     <string name="top_bar_blur">Top bar blur</string>
     <string name="top_bar_blur_description">Apply blur and translucency to the top bar</string>
     <string name="floating_navigation_bar_blur">Navigation bar blur</string>

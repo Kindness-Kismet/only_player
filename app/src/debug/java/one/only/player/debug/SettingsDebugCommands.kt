@@ -15,7 +15,6 @@ import one.only.player.core.model.ControllerAutoHidePreset
 import one.only.player.core.model.DecoderPriority
 import one.only.player.core.model.DoubleTapGesture
 import one.only.player.core.model.Font
-import one.only.player.core.model.NavigationBarLabelMode
 import one.only.player.core.model.NavigationBarStyle
 import one.only.player.core.model.PictureInPictureMode
 import one.only.player.core.model.PlayerControl
@@ -108,10 +107,6 @@ internal suspend fun DebugCommandEntryPoint.setSetting(
         "appearance.navigation_bar_style" -> {
             val style = enumValue<NavigationBarStyle>(value.requiredString(EXTRA_VALUE))
             preferencesRepository().updateApplicationPreferences { it.copy(navigationBarStyle = style) }
-        }
-        "appearance.navigation_bar_label_mode" -> {
-            val mode = enumValue<NavigationBarLabelMode>(value.requiredString(EXTRA_VALUE))
-            preferencesRepository().updateApplicationPreferences { it.copy(navigationBarLabelMode = mode) }
         }
         "appearance.top_bar_blur" -> updateApplicationBoolean(value) { preferences, isEnabled ->
             preferences.copy(shouldBlurTopBar = isEnabled)
