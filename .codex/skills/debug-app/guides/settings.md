@@ -14,9 +14,10 @@
 | `settings.set` | `appearance.language` | 设置应用语言，空字符串为系统默认 |
 | `settings.set` | `appearance.dynamic_colors` | 设置动态取色开关 |
 | `settings.set` | `appearance.title_long_press_home` | 设置首页标题长按回根目录 |
-| `settings.set` | `appearance.floating_navigation_bar` | 设置悬浮导航栏开关 |
+| `settings.set` | `appearance.navigation_bar_style` | 设置底栏样式：`STANDARD`（标准）/`FLOATING`（悬浮）/`MIUIX`（Miuix 原生） |
+| `settings.set` | `appearance.navigation_bar_label_mode` | 设置原生底栏显示方式：`ICON_AND_TEXT`/`ICON_ONLY`/`ICON_WITH_SELECTED_LABEL`；只在 `MIUIX` 样式下生效 |
 | `settings.set` | `appearance.top_bar_blur` | 设置顶部标题栏模糊开关 |
-| `settings.set` | `appearance.floating_navigation_bar_blur` | 设置悬浮导航栏模糊开关 |
+| `settings.set` | `appearance.navigation_bar_blur` | 设置底栏模糊开关；仅标准、悬浮样式生效，需 Android 13 及以上；切换到原生样式时保留设置 |
 | `settings.set` | `appearance.predictive_back` | 设置预测性返回手势开关，重启应用后生效 |
 | `settings.set` | `appearance.show_cloud_tab` | 设置底部导航是否显示云端入口；关闭后 `page.open cloud` 无效 |
 | `settings.set` | `media.mark_last_played` | 设置标记最近播放媒体 |

@@ -7,8 +7,10 @@ import java.io.InputStream
 import java.io.OutputStream
 import kotlinx.serialization.SerializationException
 import kotlinx.serialization.json.Json
-import kotlinx.serialization.json.jsonObject
+import kotlinx.serialization.json.JsonObject
+import kotlinx.serialization.json.JsonPrimitive
 import one.only.player.core.model.ApplicationPreferences
+import one.only.player.core.model.NavigationBarStyle
 
 object ApplicationPreferencesSerializer : Serializer<ApplicationPreferences> {
 
@@ -40,22 +42,27 @@ object ApplicationPreferencesSerializer : Serializer<ApplicationPreferences> {
         decode = ::decode,
     )
 
-    private fun decode(serializedPreferences: String): ApplicationPreferences {
-        if (serializedPreferences.containsLegacyApplicationPreferences()) {
+    private fun decode(serializedPreferences: String): ApplicationPreferences = try {
+        val root = jsonFormat.parseToJsonElement(serializedPreferences) as? JsonObject
+            ?: throw SerializationException("Expected application preferences object")
+        if (root.keys.any(legacyKeys::contains)) {
             throw CorruptionException(
                 message = "Cannot read datastore",
                 cause = IllegalStateException("Legacy application preferences format is unsupported"),
             )
         }
-
-        return try {
-            jsonFormat.decodeFromString(
-                deserializer = ApplicationPreferences.serializer(),
-                string = serializedPreferences,
-            ).withCanonicalLayoutPaths()
-        } catch (exception: SerializationException) {
-            throw CorruptionException("Cannot read datastore", exception)
+        // 旧版悬浮开关迁移为样式枚举，已有的新样式优先。
+        val migratedRoot = if ("navigationBarStyle" !in root && root["shouldUseFloatingNavigationBar"] == JsonPrimitive(true)) {
+            JsonObject(root + ("navigationBarStyle" to JsonPrimitive(NavigationBarStyle.FLOATING.name)))
+        } else {
+            root
         }
+        jsonFormat.decodeFromJsonElement(
+            deserializer = ApplicationPreferences.serializer(),
+            element = migratedRoot,
+        ).withCanonicalLayoutPaths()
+    } catch (exception: SerializationException) {
+        throw CorruptionException("Cannot read datastore", exception)
     }
 
     @Suppress("BlockingMethodInNonBlockingContext")
@@ -66,10 +73,5 @@ object ApplicationPreferencesSerializer : Serializer<ApplicationPreferences> {
                 value = t,
             ).encodeToByteArray(),
         )
-    }
-
-    private fun String.containsLegacyApplicationPreferences(): Boolean {
-        val root = runCatching { jsonFormat.parseToJsonElement(this).jsonObject }.getOrNull() ?: return false
-        return root.keys.any(legacyKeys::contains)
     }
 }

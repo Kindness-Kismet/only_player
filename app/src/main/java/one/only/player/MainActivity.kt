@@ -48,6 +48,8 @@ import one.only.player.core.common.hasManageExternalStorageAccess
 import one.only.player.core.common.storagePermission
 import one.only.player.core.media.services.MediaService
 import one.only.player.core.media.sync.MediaSynchronizer
+import one.only.player.core.model.NavigationBarLabelMode
+import one.only.player.core.model.NavigationBarStyle
 import one.only.player.core.model.ThemeConfig
 import one.only.player.core.ui.R as UiR
 import one.only.player.core.ui.components.AppDialog
@@ -108,7 +110,6 @@ import top.yukonga.miuix.kmp.basic.ButtonDefaults
 import top.yukonga.miuix.kmp.basic.Surface
 import top.yukonga.miuix.kmp.basic.Text
 import top.yukonga.miuix.kmp.basic.TextButton
-import top.yukonga.miuix.kmp.blur.isRuntimeShaderSupported
 import top.yukonga.miuix.kmp.blur.layerBackdrop
 import top.yukonga.miuix.kmp.theme.MiuixTheme
 
@@ -203,8 +204,9 @@ class MainActivity : AppCompatActivity() {
                         color = MiuixTheme.colorScheme.surface,
                     ) {
                         MainAppContent(
-                            shouldUseFloatingNavigationBar = preferences?.shouldUseFloatingNavigationBar == true,
-                            shouldBlurFloatingNavigationBar = preferences?.shouldBlurFloatingNavigationBar != false,
+                            navigationBarStyle = preferences?.navigationBarStyle ?: NavigationBarStyle.STANDARD,
+                            navigationBarLabelMode = preferences?.navigationBarLabelMode ?: NavigationBarLabelMode.ICON_AND_TEXT,
+                            shouldBlurNavigationBar = preferences?.shouldBlurNavigationBar != false,
                             shouldShowCloudTab = preferences?.shouldShowCloudTab != false,
                             onMediaAccessAvailable = synchronizer::startSync,
                         )
@@ -333,8 +335,9 @@ class MainActivity : AppCompatActivity() {
     @OptIn(ExperimentalComposeUiApi::class)
     @Composable
     private fun MainAppContent(
-        shouldUseFloatingNavigationBar: Boolean,
-        shouldBlurFloatingNavigationBar: Boolean,
+        navigationBarStyle: NavigationBarStyle,
+        navigationBarLabelMode: NavigationBarLabelMode,
+        shouldBlurNavigationBar: Boolean,
         shouldShowCloudTab: Boolean,
         onMediaAccessAvailable: () -> Unit,
     ) {
@@ -361,10 +364,13 @@ class MainActivity : AppCompatActivity() {
         }
 
         val surfaceColor = MiuixTheme.colorScheme.surface
-        val shouldBlurNavigationBar = shouldBlurFloatingNavigationBar && isRuntimeShaderSupported()
+        val floatingBlurBackdrop = rememberRootBlurBackdrop(
+            navigationBarStyle = navigationBarStyle,
+            shouldBlurNavigationBar = shouldBlurNavigationBar,
+        )
         NavigationBarColorEffect(
             activity = this@MainActivity,
-            color = if (shouldBlurNavigationBar) Color.Transparent else surfaceColor,
+            color = if (floatingBlurBackdrop != null) Color.Transparent else surfaceColor,
             shouldUseDarkIcons = surfaceColor.luminance() > 0.5f,
         )
 
@@ -384,10 +390,7 @@ class MainActivity : AppCompatActivity() {
         val mainNavController = rememberNavController()
         val rootDestinations = rememberVisibleRootDestinations(shouldShowCloudTab = shouldShowCloudTab)
         val rootNavigationState = rememberRootNavigationState(destinations = rootDestinations)
-        val bottomBarPadding = rememberRootBottomBarPadding(shouldUseFloatingNavigationBar)
-        val floatingBlurBackdrop = rememberRootBlurBackdrop(
-            shouldBlurNavigationBar = shouldBlurFloatingNavigationBar,
-        )
+        val bottomBarPadding = rememberRootBottomBarPadding(navigationBarStyle)
         LaunchedEffect(mainNavController, rootNavigationState, pendingDebugPageRoute) {
             val pageRoute = pendingDebugPageRoute ?: return@LaunchedEffect
             navigateToDebugPage(
@@ -433,8 +436,9 @@ class MainActivity : AppCompatActivity() {
                         composable<RootPagerRoute> {
                             RootScaffold(
                                 rootNavigationState = rootNavigationState,
-                                shouldUseFloatingNavigationBar = shouldUseFloatingNavigationBar,
-                                shouldBlurFloatingNavigationBar = shouldBlurFloatingNavigationBar,
+                                navigationBarStyle = navigationBarStyle,
+                                navigationBarLabelMode = navigationBarLabelMode,
+                                shouldBlurNavigationBar = shouldBlurNavigationBar,
                                 shouldShowBottomBar = false,
                             ) { destination ->
                                 when (destination) {
@@ -473,7 +477,8 @@ class MainActivity : AppCompatActivity() {
                 RootBottomBar(
                     currentRoot = rootNavigationState.selectedDestination,
                     destinations = rootDestinations,
-                    shouldUseFloatingNavigationBar = shouldUseFloatingNavigationBar,
+                    navigationBarStyle = navigationBarStyle,
+                    navigationBarLabelMode = navigationBarLabelMode,
                     floatingBlurBackdrop = floatingBlurBackdrop,
                     onTabSelected = { destination ->
                         if (destination != rootNavigationState.selectedDestination) {
