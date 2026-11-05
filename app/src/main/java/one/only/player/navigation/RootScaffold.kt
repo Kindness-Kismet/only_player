@@ -82,7 +82,6 @@ fun RootScaffold(
     modifier: Modifier = Modifier,
     navigationBarStyle: NavigationBarStyle = NavigationBarStyle.STANDARD,
     shouldBlurNavigationBar: Boolean = true,
-    shouldShowBottomBar: Boolean = true,
     content: @Composable (RootDestination) -> Unit,
 ) {
     val destinations = rootNavigationState.destinations
@@ -93,21 +92,6 @@ fun RootScaffold(
     LaunchedEffect(destinations) {
         rootNavigationState.clampToDestinations()
     }
-    if (!shouldShowBottomBar) {
-        Box(modifier = modifier.fillMaxSize()) {
-            HorizontalPager(
-                modifier = Modifier.fillMaxSize(),
-                state = rootNavigationState.pagerState,
-                // 首帧只组合首页，优先显示已缓存的媒体内容。
-                beyondViewportPageCount = 0,
-                key = { page -> destinations[page] },
-            ) { page ->
-                content(destinations[page])
-            }
-        }
-        return
-    }
-
     val bottomBarPadding = rememberRootBottomBarPadding(navigationBarStyle)
     val floatingBlurBackdrop = rememberRootBlurBackdrop(
         navigationBarStyle = navigationBarStyle,

@@ -3,10 +3,10 @@ package one.only.player.feature.videopicker.navigation
 import androidx.navigation.NavController
 import androidx.navigation.NavGraphBuilder
 import androidx.navigation.NavOptions
-import androidx.navigation.compose.composable
 import kotlinx.serialization.Serializable
 import one.only.player.core.model.PlayerPreferences
 import one.only.player.core.model.Video
+import one.only.player.core.ui.navigation.miuixComposable
 import one.only.player.feature.videopicker.screens.history.HistoryRoute as HistoryScreenRoute
 
 @Serializable
@@ -20,7 +20,7 @@ fun NavGraphBuilder.historyScreen(
     onNavigateUp: () -> Unit,
     onPlayVideo: (video: Video, playerPreferences: PlayerPreferences) -> Unit,
 ) {
-    composable<HistoryRoute> {
+    miuixComposable<HistoryRoute> {
         HistoryScreenRoute(
             onNavigateUp = onNavigateUp,
             onPlayVideo = onPlayVideo,

@@ -43,6 +43,7 @@ dependencies {
     implementation(libs.androidx.compose.ui.tooling.preview)
     implementation(libs.androidx.compose.material3)
     implementation(libs.androidx.navigation.compose)
+    implementation(libs.androidx.navigationevent.compose)
     implementation(libs.androidx.lifecycle.runtime.ktx)
     implementation(libs.androidx.lifecycle.runtimeCompose)
 
@@ -51,6 +52,7 @@ dependencies {
     api(libs.miuix.icons)
     api(libs.miuix.preference)
     api(libs.miuix.blur)
+    implementation(libs.miuix.nav)
 
     implementation(libs.androidx.hilt.navigation.compose)
     debugImplementation(libs.androidx.compose.ui.tooling)

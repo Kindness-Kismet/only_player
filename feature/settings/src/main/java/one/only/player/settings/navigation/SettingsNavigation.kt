@@ -3,8 +3,8 @@ package one.only.player.settings.navigation
 import androidx.navigation.NavController
 import androidx.navigation.NavGraphBuilder
 import androidx.navigation.NavOptions
-import androidx.navigation.compose.composable
 import androidx.navigation.navOptions
+import one.only.player.core.ui.navigation.miuixComposable
 import one.only.player.settings.Setting
 import one.only.player.settings.SettingsScreen
 
@@ -15,7 +15,7 @@ fun NavController.navigateToSettings(navOptions: NavOptions? = navOptions { laun
 }
 
 fun NavGraphBuilder.settingsScreen(onNavigateUp: (() -> Unit)? = null, onItemClick: (Setting) -> Unit) {
-    composable(route = settingsNavigationRoute) {
+    miuixComposable(route = settingsNavigationRoute) {
         SettingsScreen(onNavigateUp = onNavigateUp, onItemClick = onItemClick)
     }
 }

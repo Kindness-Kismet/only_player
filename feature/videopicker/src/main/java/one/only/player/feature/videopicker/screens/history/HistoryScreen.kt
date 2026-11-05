@@ -1,7 +1,6 @@
 package one.only.player.feature.videopicker.screens.history
 
 import android.text.format.DateUtils
-import androidx.activity.compose.BackHandler
 import androidx.compose.animation.AnimatedContent
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
@@ -42,6 +41,7 @@ import one.only.player.core.ui.designsystem.AppIcons
 import one.only.player.core.ui.extensions.copy
 import one.only.player.core.ui.extensions.subtractBottomPadding
 import one.only.player.core.ui.extensions.withBottomFallback
+import one.only.player.core.ui.navigation.MiuixBackHandler
 import one.only.player.feature.videopicker.composables.LibraryEntryItem
 import one.only.player.feature.videopicker.composables.MediaItemContentPadding
 import one.only.player.feature.videopicker.composables.MediaMessageState
@@ -88,7 +88,7 @@ internal fun HistoryScreen(
         }
     }
 
-    BackHandler(enabled = isSearchActive) {
+    MiuixBackHandler(enabled = isSearchActive) {
         isSearchActive = false
         onEvent(HistoryUiEvent.UpdateSearchQuery(""))
     }

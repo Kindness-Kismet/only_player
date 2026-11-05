@@ -3,8 +3,8 @@ package one.only.player.settings.navigation
 import androidx.navigation.NavController
 import androidx.navigation.NavGraphBuilder
 import androidx.navigation.NavOptions
-import androidx.navigation.compose.composable
 import androidx.navigation.navOptions
+import one.only.player.core.ui.navigation.miuixComposable
 import one.only.player.settings.screens.player.PlayerControlsCustomizeScreen
 import one.only.player.settings.screens.player.PlayerPreferencesScreen
 
@@ -23,7 +23,7 @@ fun NavGraphBuilder.playerPreferencesScreen(
     onNavigateUp: () -> Unit,
     onCustomizeControlsClick: () -> Unit,
 ) {
-    composable(route = playerPreferencesNavigationRoute) {
+    miuixComposable(route = playerPreferencesNavigationRoute) {
         PlayerPreferencesScreen(
             onNavigateUp = onNavigateUp,
             onCustomizeControlsClick = onCustomizeControlsClick,
@@ -32,7 +32,7 @@ fun NavGraphBuilder.playerPreferencesScreen(
 }
 
 fun NavGraphBuilder.playerControlsCustomizeScreen(onNavigateUp: () -> Unit) {
-    composable(route = playerControlsCustomizeNavigationRoute) {
+    miuixComposable(route = playerControlsCustomizeNavigationRoute) {
         PlayerControlsCustomizeScreen(onNavigateUp = onNavigateUp)
     }
 }

@@ -9,7 +9,6 @@ import androidx.activity.enableEdgeToEdge
 import androidx.activity.viewModels
 import androidx.appcompat.app.AppCompatActivity
 import androidx.compose.foundation.isSystemInDarkTheme
-import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.CompositionLocalProvider
@@ -18,7 +17,6 @@ import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
-import androidx.compose.ui.Alignment
 import androidx.compose.ui.ExperimentalComposeUiApi
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
@@ -35,9 +33,6 @@ import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.lifecycle.lifecycleScope
 import androidx.lifecycle.repeatOnLifecycle
 import androidx.navigation.NavHostController
-import androidx.navigation.compose.NavHost
-import androidx.navigation.compose.composable
-import androidx.navigation.compose.rememberNavController
 import dagger.hilt.android.AndroidEntryPoint
 import javax.inject.Inject
 import kotlinx.coroutines.launch
@@ -55,7 +50,9 @@ import one.only.player.core.ui.components.AppDialog
 import one.only.player.core.ui.components.AppUpdateDialog
 import one.only.player.core.ui.components.LocalTopBarBlur
 import one.only.player.core.ui.composables.rememberRuntimePermissionState
-import one.only.player.core.ui.extensions.LocalRootBottomBarPadding
+import one.only.player.core.ui.navigation.MiuixNavHost
+import one.only.player.core.ui.navigation.miuixComposable
+import one.only.player.core.ui.navigation.rememberMiuixNavController
 import one.only.player.core.ui.theme.OnlyPlayerTheme
 import one.only.player.crash.StartupRecovery
 import one.only.player.crash.StartupStage
@@ -72,7 +69,6 @@ import one.only.player.navigation.DebugPageRoute
 import one.only.player.navigation.FavoritesRootPage
 import one.only.player.navigation.MediaRootPage
 import one.only.player.navigation.NavigationBarColorEffect
-import one.only.player.navigation.RootBottomBar
 import one.only.player.navigation.RootDestination
 import one.only.player.navigation.RootNavigationState
 import one.only.player.navigation.RootPagerRoute
@@ -80,14 +76,6 @@ import one.only.player.navigation.RootScaffold
 import one.only.player.navigation.SettingsRootPage
 import one.only.player.navigation.cloudDetailNavGraph
 import one.only.player.navigation.mediaDetailNavGraph
-import one.only.player.navigation.pageEnterTransition
-import one.only.player.navigation.pageExitTransition
-import one.only.player.navigation.pagePopEnterTransition
-import one.only.player.navigation.pagePopExitTransition
-import one.only.player.navigation.pagePredictivePopEnterTransition
-import one.only.player.navigation.pagePredictivePopExitTransition
-import one.only.player.navigation.rememberRootBlurBackdrop
-import one.only.player.navigation.rememberRootBottomBarPadding
 import one.only.player.navigation.rememberRootNavigationState
 import one.only.player.navigation.rememberVisibleRootDestinations
 import one.only.player.navigation.settingsDetailNavGraph
@@ -109,7 +97,7 @@ import top.yukonga.miuix.kmp.basic.ButtonDefaults
 import top.yukonga.miuix.kmp.basic.Surface
 import top.yukonga.miuix.kmp.basic.Text
 import top.yukonga.miuix.kmp.basic.TextButton
-import top.yukonga.miuix.kmp.blur.layerBackdrop
+import top.yukonga.miuix.kmp.blur.isRuntimeShaderSupported
 import top.yukonga.miuix.kmp.theme.MiuixTheme
 
 @AndroidEntryPoint
@@ -206,6 +194,7 @@ class MainActivity : AppCompatActivity() {
                             navigationBarStyle = preferences?.navigationBarStyle ?: NavigationBarStyle.STANDARD,
                             shouldBlurNavigationBar = preferences?.shouldBlurNavigationBar != false,
                             shouldShowCloudTab = preferences?.shouldShowCloudTab != false,
+                            shouldEnablePredictiveBack = persistedStartupPreferences.shouldEnablePredictiveBack,
                             onMediaAccessAvailable = synchronizer::startSync,
                         )
                     }
@@ -336,6 +325,7 @@ class MainActivity : AppCompatActivity() {
         navigationBarStyle: NavigationBarStyle,
         shouldBlurNavigationBar: Boolean,
         shouldShowCloudTab: Boolean,
+        shouldEnablePredictiveBack: Boolean,
         onMediaAccessAvailable: () -> Unit,
     ) {
         val storagePermissionState = rememberRuntimePermissionState(permission = storagePermission)
@@ -361,13 +351,10 @@ class MainActivity : AppCompatActivity() {
         }
 
         val surfaceColor = MiuixTheme.colorScheme.surface
-        val floatingBlurBackdrop = rememberRootBlurBackdrop(
-            navigationBarStyle = navigationBarStyle,
-            shouldBlurNavigationBar = shouldBlurNavigationBar,
-        )
+        val shouldUseTransparentNavigationBar = navigationBarStyle.canBlurBackground && shouldBlurNavigationBar && isRuntimeShaderSupported()
         NavigationBarColorEffect(
             activity = this@MainActivity,
-            color = if (floatingBlurBackdrop != null) Color.Transparent else surfaceColor,
+            color = if (shouldUseTransparentNavigationBar) Color.Transparent else surfaceColor,
             shouldUseDarkIcons = surfaceColor.luminance() > 0.5f,
         )
 
@@ -384,10 +371,9 @@ class MainActivity : AppCompatActivity() {
             StartupUpdateDialog(viewModel = viewModel)
         }
 
-        val mainNavController = rememberNavController()
+        val mainNavController = rememberMiuixNavController()
         val rootDestinations = rememberVisibleRootDestinations(shouldShowCloudTab = shouldShowCloudTab)
         val rootNavigationState = rememberRootNavigationState(destinations = rootDestinations)
-        val bottomBarPadding = rememberRootBottomBarPadding(navigationBarStyle)
         LaunchedEffect(mainNavController, rootNavigationState, pendingDebugPageRoute) {
             val pageRoute = pendingDebugPageRoute ?: return@LaunchedEffect
             navigateToDebugPage(
@@ -411,86 +397,49 @@ class MainActivity : AppCompatActivity() {
                 },
             color = MiuixTheme.colorScheme.surface,
         ) {
-            Box(modifier = Modifier.fillMaxSize()) {
-                CompositionLocalProvider(LocalRootBottomBarPadding provides bottomBarPadding) {
-                    NavHost(
-                        modifier = Modifier
-                            .fillMaxSize()
-                            .then(if (floatingBlurBackdrop != null) Modifier.layerBackdrop(floatingBlurBackdrop) else Modifier),
-                        navController = mainNavController,
-                        startDestination = RootPagerRoute,
-                        enterTransition = { pageEnterTransition() },
-                        exitTransition = { pageExitTransition() },
-                        popEnterTransition = { pagePopEnterTransition() },
-                        popExitTransition = { pagePopExitTransition() },
-                        predictivePopEnterTransition = { swipeEdge ->
-                            pagePredictivePopEnterTransition(swipeEdge)
-                        },
-                        predictivePopExitTransition = { swipeEdge ->
-                            pagePredictivePopExitTransition(swipeEdge)
-                        },
-                    ) {
-                        composable<RootPagerRoute> {
-                            RootScaffold(
-                                rootNavigationState = rootNavigationState,
-                                navigationBarStyle = navigationBarStyle,
-                                shouldBlurNavigationBar = shouldBlurNavigationBar,
-                                shouldShowBottomBar = false,
-                            ) { destination ->
-                                when (destination) {
-                                    RootDestination.HOME -> MediaRootPage(
-                                        context = this@MainActivity,
-                                        navController = mainNavController,
-                                        onRootSelected = { target ->
-                                            mainNavController.popBackStack(RootPagerRoute, inclusive = false)
-                                            rootNavigationState.animateTo(target)
-                                        },
-                                    )
-                                    RootDestination.CLOUD -> CloudRootPage(navController = mainNavController)
-                                    RootDestination.FAVORITES -> FavoritesRootPage(
-                                        context = this@MainActivity,
-                                        navController = mainNavController,
-                                    )
-                                    RootDestination.SETTINGS -> SettingsRootPage(navController = mainNavController)
-                                }
-                            }
+            MiuixNavHost(
+                modifier = Modifier.fillMaxSize(),
+                navController = mainNavController,
+                startDestination = RootPagerRoute,
+                shouldEnablePredictiveBack = shouldEnablePredictiveBack,
+            ) {
+                miuixComposable<RootPagerRoute> {
+                    RootScaffold(
+                        rootNavigationState = rootNavigationState,
+                        navigationBarStyle = navigationBarStyle,
+                        shouldBlurNavigationBar = shouldBlurNavigationBar,
+                    ) { destination ->
+                        when (destination) {
+                            RootDestination.HOME -> MediaRootPage(
+                                context = this@MainActivity,
+                                navController = mainNavController,
+                                onRootSelected = { target ->
+                                    mainNavController.popBackStack(RootPagerRoute, inclusive = false)
+                                    rootNavigationState.animateTo(target)
+                                },
+                            )
+                            RootDestination.CLOUD -> CloudRootPage(navController = mainNavController)
+                            RootDestination.FAVORITES -> FavoritesRootPage(
+                                context = this@MainActivity,
+                                navController = mainNavController,
+                            )
+                            RootDestination.SETTINGS -> SettingsRootPage(navController = mainNavController)
                         }
-                        mediaDetailNavGraph(
-                            context = this@MainActivity,
-                            navController = mainNavController,
-                            onRootSelected = { destination ->
-                                rootNavigationState.jumpTo(destination)
-                                mainNavController.popBackStack(RootPagerRoute, inclusive = false)
-                            },
-                        )
-                        cloudDetailNavGraph(
-                            context = this@MainActivity,
-                            navController = mainNavController,
-                        )
-                        settingsDetailNavGraph(navController = mainNavController)
                     }
                 }
-                RootBottomBar(
-                    currentRoot = rootNavigationState.selectedDestination,
-                    destinations = rootDestinations,
-                    navigationBarStyle = navigationBarStyle,
-                    floatingBlurBackdrop = floatingBlurBackdrop,
-                    onTabSelected = { destination ->
-                        if (destination != rootNavigationState.selectedDestination) {
-                            if (mainNavController.currentDestination?.hasRoute(
-                                    route = RootPagerRoute::class.qualifiedName!!,
-                                    arguments = null,
-                                ) == true
-                            ) {
-                                rootNavigationState.animateTo(destination)
-                            } else {
-                                rootNavigationState.jumpTo(destination)
-                                mainNavController.popBackStack(RootPagerRoute, inclusive = false)
-                            }
-                        }
+                mediaDetailNavGraph(
+                    context = this@MainActivity,
+                    navController = mainNavController,
+                    onRootSelected = { destination ->
+                        rootNavigationState.jumpTo(destination)
+                        mainNavController.popBackStack(RootPagerRoute, inclusive = false)
                     },
-                    modifier = Modifier.align(Alignment.BottomCenter),
                 )
+                cloudDetailNavGraph(
+                    context = this@MainActivity,
+                    navController = mainNavController,
+                )
+                settingsDetailNavGraph(navController = mainNavController)
             }
         }
     }

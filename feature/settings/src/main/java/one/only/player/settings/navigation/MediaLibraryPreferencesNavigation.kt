@@ -3,8 +3,8 @@ package one.only.player.settings.navigation
 import androidx.navigation.NavController
 import androidx.navigation.NavGraphBuilder
 import androidx.navigation.NavOptions
-import androidx.navigation.compose.composable
 import androidx.navigation.navOptions
+import one.only.player.core.ui.navigation.miuixComposable
 import one.only.player.settings.screens.medialibrary.FolderPreferencesScreen
 import one.only.player.settings.screens.medialibrary.MediaLibraryPreferencesScreen
 import one.only.player.settings.screens.medialibrary.ScanFolderPreferencesScreen
@@ -31,7 +31,7 @@ fun NavGraphBuilder.mediaLibraryPreferencesScreen(
     onScanFolderSettingClick: () -> Unit,
     onThumbnailSettingClick: () -> Unit,
 ) {
-    composable(route = mediaLibraryPreferencesNavigationRoute) {
+    miuixComposable(route = mediaLibraryPreferencesNavigationRoute) {
         MediaLibraryPreferencesScreen(
             onNavigateUp = onNavigateUp,
             onFolderSettingClick = onFolderSettingClick,
@@ -42,13 +42,13 @@ fun NavGraphBuilder.mediaLibraryPreferencesScreen(
 }
 
 fun NavGraphBuilder.folderPreferencesScreen(onNavigateUp: () -> Unit) {
-    composable(route = folderPreferencesNavigationRoute) {
+    miuixComposable(route = folderPreferencesNavigationRoute) {
         FolderPreferencesScreen(onNavigateUp = onNavigateUp)
     }
 }
 
 fun NavGraphBuilder.scanFolderPreferencesScreen(onNavigateUp: () -> Unit) {
-    composable(route = scanFolderPreferencesNavigationRoute) {
+    miuixComposable(route = scanFolderPreferencesNavigationRoute) {
         ScanFolderPreferencesScreen(onNavigateUp = onNavigateUp)
     }
 }

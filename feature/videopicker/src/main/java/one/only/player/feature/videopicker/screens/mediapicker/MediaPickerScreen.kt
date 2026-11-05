@@ -2,7 +2,6 @@ package one.only.player.feature.videopicker.screens.mediapicker
 
 import android.net.Uri
 import android.widget.Toast
-import androidx.activity.compose.BackHandler
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.gestures.detectTapGestures as detectGestures
@@ -80,6 +79,7 @@ import one.only.player.core.ui.composables.rememberRuntimePermissionState
 import one.only.player.core.ui.designsystem.AppIcons
 import one.only.player.core.ui.extensions.copy
 import one.only.player.core.ui.extensions.withBottomFallback
+import one.only.player.core.ui.navigation.MiuixBackHandler
 import one.only.player.core.ui.preview.DayNightPreview
 import one.only.player.core.ui.preview.VideoPickerPreviewParameterProvider
 import one.only.player.core.ui.theme.OnlyPlayerTheme
@@ -729,19 +729,19 @@ internal fun MediaPickerScreen(
         }
     }
 
-    BackHandler(enabled = selectionManager.isInSelectionMode) {
+    MiuixBackHandler(enabled = selectionManager.isInSelectionMode) {
         selectionManager.exitSelectionMode()
     }
 
-    BackHandler(enabled = shouldShowPathPanel) {
+    MiuixBackHandler(enabled = shouldShowPathPanel) {
         shouldShowPathPanel = false
     }
 
-    BackHandler(enabled = isMoveMode && uiState.isMovingSelection) {
+    MiuixBackHandler(enabled = isMoveMode && uiState.isMovingSelection) {
         shouldShowMoveProgressDialog = true
     }
 
-    BackHandler(
+    MiuixBackHandler(
         enabled = isMoveMode && uiState.folderPath == null && !uiState.isMovingSelection,
     ) {
         onEvent(MediaPickerUiEvent.CancelMoveSelection)

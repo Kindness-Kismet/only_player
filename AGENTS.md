@@ -289,6 +289,9 @@ File(path.value).delete()
 
 ## Git Workflow
 
+- `.gitignore` 默认忽略，源码、资源和脚本按指定目录与文件类型放行，关键配置按文件放行；同类文件不逐个列举，不整目录放行所有文件。
+- 新增文件类型或用途目录时同步维护白名单；本地方案、记录、配置和构建产物不入库，不使用 `git add -f` 绕过规则。
+- 提交前执行 `git ls-files --cached --ignored --exclude-standard` 必须无输出，并检查新增内容不含本机绝对路径、私人账号或凭据。
 - 创建提交、修改提交信息或整理提交历史前，必须阅读并遵守 [commit 技能](.codex/skills/commit/SKILL.md)，提交信息格式以该技能为准。
 - 创建、说明或合并 Pull Request 前，必须阅读并遵守 [pr 技能](.codex/skills/pr/SKILL.md)。功能 PR 打向 `dev`，只有晋升正式版时才把 `dev` 打向 `main`。
 - 任务每完成一部分就对该部分改动发起 commit，不要等全部做完再一次性提交

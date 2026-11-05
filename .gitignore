@@ -1,88 +1,111 @@
-# Gradle files
-.gradle/
+# 默认忽略；目录规则只允许继续遍历，文件按用途和类型放行。
+*
+
+# 仓库配置与公开文档
+!/.editorconfig
+!/.gitignore
+!/AGENTS.md
+!/CLAUDE.md
+!/LICENSE
+!/README.md
+!/build.gradle.kts
+!/settings.gradle.kts
+!/gradle.properties
+!/gradlew
+!/gradlew.bat
+!/renovate.json
+
+# Gradle 工具链
+!/gradle/
+!/gradle/libs.versions.toml
+!/gradle/wrapper/
+!/gradle/wrapper/gradle-wrapper.jar
+!/gradle/wrapper/gradle-wrapper.properties
+
+# 构建脚本
+!/scripts/
+!/scripts/**/
+!/scripts/**/*.py
+
+# 应用模块
+!/app/
+!/app/.gitignore
+!/app/build.gradle.kts
+!/app/*.pro
+!/app/src/
+!/app/src/**/
+!/app/src/**/*.kt
+!/app/src/*/AndroidManifest.xml
+!/app/src/*/res/**/*.xml
+!/app/src/*/res/**/*.png
+!/app/src/main/ic_launcher-playstore.png
+
+# 核心模块
+!/core/
+!/core/*/
+!/core/*/.gitignore
+!/core/*/build.gradle.kts
+!/core/*/*.pro
+!/core/*/src/
+!/core/*/src/**/
+!/core/*/src/**/*.kt
+!/core/*/src/*/AndroidManifest.xml
+!/core/*/src/*/res/**/*.xml
+!/core/*/src/*/res/**/*.png
+!/core/ui/src/main/ic_launcher-playstore.png
+
+# 功能模块
+!/feature/
+!/feature/*/
+!/feature/*/.gitignore
+!/feature/*/build.gradle.kts
+!/feature/*/*.pro
+!/feature/*/src/
+!/feature/*/src/**/
+!/feature/*/src/**/*.kt
+!/feature/*/src/*/AndroidManifest.xml
+!/feature/*/src/*/res/**/*.xml
+!/feature/*/src/*/res/**/*.png
+
+# Room schema
+!/core/database/schemas/
+!/core/database/schemas/**/
+!/core/database/schemas/**/*.json
+
+# GitHub 工作流与公开资料
+!/.github/
+!/.github/CHANGELOG.md
+!/.github/ISSUE_TEMPLATE/
+!/.github/ISSUE_TEMPLATE/*.md
+!/.github/workflows/
+!/.github/workflows/*.yaml
+!/.github/designs/
+!/.github/designs/about-support.html
+!/.github/docs/
+!/.github/docs/README.zh-CN.md
+
+# 共享技能
+!/.codex/
+!/.codex/skills/
+!/.codex/skills/**/
+!/.codex/skills/*/SKILL.md
+!/.codex/skills/*/guides/**/*.md
+!/.codex/skills/*/scripts/**/*.sh
+!/.claude/
+!/.claude/skills/
+!/.claude/skills/**/
+!/.claude/skills/*/SKILL.md
+!/.claude/skills/*/guides/**/*.md
+!/.claude/skills/*/scripts/**/*.sh
+
+# 放行目录中的生成物和本地文件仍须忽略。
 build/
-
-# Local configuration file (sdk path, etc)
-local.properties
-
-# Log/OS Files
-*.log
-
-# Android Studio generated files and folders
-captures/
-.externalNativeBuild/
-.cxx/
-*.apk
-output.json
-
-# IntelliJ
-*.iml
-*.code-workspace
+.gradle/
+.kotlin/
+__pycache__/
 .idea/
-misc.xml
-deploymentTargetDropDown.xml
-render.experimental.xml
-
-# Keystore files
+.env*
+local.properties
 *.jks
-
-# Google Services (e.g. APIs or Firebase)
+*.keystore
 google-services.json
-
-# Android Profiling
-*.hprof
-
-# Python bytecode
-**/__pycache__/
-*.py[cod]
-
-# ffmpeg
-nextlib/ffmpeg/build
-nextlib/ffmpeg/output
-nextlib/ffmpeg/sources
-
-vendor/
-.bundle/
-.kotlin
-# Codex local files
-.codex/**
-!.codex/skills/
-!.codex/skills/**
-codex/
-codex.*
-
-# Gemini local files
-.gemini/
-.gemini/**
-.gemini*
-
-# Claude local files
-.claude/**
-!.claude/skills/
-!.claude/skills/**
-*/**/CLAUDE.md
-
-# Local audit artifacts
-audit/
-audit/**
-
-# Root-level temporary screenshots and xml files
-/*.png
-/*.jpg
-/*.jpeg
-/*.webp
-/*.gif
-/*.bmp
-/*.svg
-/*.avif
-/*.xml
-
-# Local docs
-docs/
-**/docs/
-
-# Local git worktrees
-.worktrees/
-
-# Local pi settings
-.pi/
