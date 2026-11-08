@@ -3,7 +3,6 @@ package one.only.player.feature.player.service.seek
 import android.content.ContentResolver
 import android.content.Context
 import android.net.Uri
-import android.os.Bundle
 import androidx.core.net.toFile
 import androidx.media3.common.C
 import androidx.media3.common.MediaItem
@@ -30,7 +29,6 @@ import one.only.player.feature.player.engine.media3.MkvCuesParser
 import one.only.player.feature.player.engine.media3.buildSeekMapFromCues
 import one.only.player.feature.player.extensions.copy
 import one.only.player.feature.player.extensions.isApproximateSeekEnabled
-import one.only.player.feature.player.service.CustomCommands
 
 internal class PreciseSeekCoordinator(
     private val context: Context,
@@ -194,7 +192,7 @@ internal class PreciseSeekCoordinator(
             ?: player.duration.takeIf { it != C.TIME_UNSET && it > 0L }
         val targetPosition = maxPosition?.let { targetPositionMs.coerceIn(0L, it) } ?: targetPositionMs.coerceAtLeast(0L)
 
-        if (!currentItem.mediaMetadata.isApproximateSeekEnabled) {
+        if (!currentItem.mediaMetadata.isApproximateSeekEnabled || currentItem.mediaId in preciseSeekMediaIds) {
             Logger.info(TAG, "Precise seek direct media=${mediaLogSummary(currentItem.mediaId)} target=$targetPosition")
             player.seekTo(targetPosition)
             return SessionResult(SessionResult.RESULT_SUCCESS)
@@ -202,18 +200,8 @@ internal class PreciseSeekCoordinator(
 
         val startPosition = player.currentPosition.takeIf { it != C.TIME_UNSET } ?: 0L
         val startDelta = kotlin.math.abs(targetPosition - startPosition)
-        if (startDelta < FAST_SEEK_MIN_DELTA_MS) {
-            Logger.info(
-                TAG,
-                "Skip precise promotion media=${mediaLogSummary(currentItem.mediaId)} target=$targetPosition start=$startPosition",
-            )
-            return SessionResult(
-                SessionResult.RESULT_SUCCESS,
-                Bundle().apply { putBoolean(CustomCommands.SEEK_WAS_APPLIED_KEY, false) },
-            )
-        }
-
-        if (shouldUseFastSeek(currentItem) && player.isCurrentMediaItemSeekable) {
+        // 小跨度只跳过媒体源升级，明确的跳转目标仍须应用。
+        if (player.isCurrentMediaItemSeekable && (startDelta < FAST_SEEK_MIN_DELTA_MS || shouldUseFastSeek(currentItem))) {
             Logger.info(TAG, "Fast seek media=${mediaLogSummary(currentItem.mediaId)} start=$startPosition target=$targetPosition")
             scheduleCueCache(currentItem)
             player.seekTo(targetPosition)

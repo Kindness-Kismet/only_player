@@ -2,7 +2,6 @@ package one.only.player.feature.videopicker.screens.cloud
 
 import android.net.Uri
 import android.provider.DocumentsContract
-import androidx.activity.compose.BackHandler
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
@@ -79,6 +78,7 @@ import one.only.player.core.ui.extensions.copy
 import one.only.player.core.ui.extensions.plus
 import one.only.player.core.ui.extensions.subtractBottomPadding
 import one.only.player.core.ui.extensions.withBottomFallback
+import one.only.player.core.ui.navigation.MiuixBackHandler
 import one.only.player.feature.videopicker.composables.FolderGridThumbnail
 import one.only.player.feature.videopicker.composables.FolderThumbnail
 import one.only.player.feature.videopicker.composables.LocalNetworkPermissionMissingScreen
@@ -242,13 +242,8 @@ internal fun CloudBrowseScreen(
         restoredDirectoryPath = uiState.currentPath
     }
 
-    // 出错时直接允许返回上级页面，不再反复重试 PROPFIND
-    BackHandler(enabled = isInSelectionMode) {
+    MiuixBackHandler(enabled = isInSelectionMode) {
         clearSelection()
-    }
-
-    BackHandler(enabled = !isInSelectionMode && !uiState.isAtRoot && !uiState.isError) {
-        onNavigateUp()
     }
 
     val scrollBehavior = MiuixScrollBehavior()

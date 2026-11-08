@@ -2,7 +2,6 @@ package one.only.player.feature.videopicker.screens.search
 
 import android.net.Uri
 import android.widget.Toast
-import androidx.activity.compose.BackHandler
 import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.animation.fadeIn
 import androidx.compose.animation.fadeOut
@@ -62,6 +61,7 @@ import one.only.player.core.ui.extensions.copy
 import one.only.player.core.ui.extensions.plus
 import one.only.player.core.ui.extensions.subtractBottomPadding
 import one.only.player.core.ui.extensions.withBottomFallback
+import one.only.player.core.ui.navigation.MiuixBackHandler
 import one.only.player.core.ui.theme.OnlyPlayerTheme
 import one.only.player.feature.videopicker.composables.AddToPlaylistDialog
 import one.only.player.feature.videopicker.composables.FolderItem
@@ -301,7 +301,7 @@ internal fun SearchScreen(
         }
     }
 
-    BackHandler(enabled = selectionManager.isInSelectionMode) {
+    MiuixBackHandler(enabled = selectionManager.isInSelectionMode) {
         selectionManager.exitSelectionMode()
     }
 

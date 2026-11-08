@@ -3,7 +3,6 @@ package one.only.player.feature.videopicker.screens.favorites
 import android.net.Uri
 import android.provider.DocumentsContract
 import android.widget.Toast
-import androidx.activity.compose.BackHandler
 import androidx.compose.animation.AnimatedContent
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.PaddingValues
@@ -52,6 +51,7 @@ import one.only.player.core.ui.designsystem.AppIcons
 import one.only.player.core.ui.extensions.copy
 import one.only.player.core.ui.extensions.subtractBottomPadding
 import one.only.player.core.ui.extensions.withBottomFallback
+import one.only.player.core.ui.navigation.MiuixBackHandler
 import one.only.player.feature.videopicker.composables.FolderThumbnail
 import one.only.player.feature.videopicker.composables.LibraryEntryItem
 import one.only.player.feature.videopicker.composables.LibraryIconThumb
@@ -133,7 +133,7 @@ internal fun FavoritesScreen(
         }
     }
 
-    BackHandler(enabled = uiState.currentParentId != null) {
+    MiuixBackHandler(enabled = uiState.currentParentId != null) {
         onEvent(FavoritesUiEvent.NavigateParent)
     }
 

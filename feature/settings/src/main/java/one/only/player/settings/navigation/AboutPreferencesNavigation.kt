@@ -3,8 +3,8 @@ package one.only.player.settings.navigation
 import androidx.navigation.NavController
 import androidx.navigation.NavGraphBuilder
 import androidx.navigation.NavOptions
-import androidx.navigation.compose.composable
 import androidx.navigation.navOptions
+import one.only.player.core.ui.navigation.miuixComposable
 import one.only.player.settings.screens.about.AboutPreferencesScreen
 import one.only.player.settings.screens.about.LibrariesScreen
 import one.only.player.settings.screens.about.LogsScreen
@@ -30,7 +30,7 @@ fun NavGraphBuilder.aboutPreferencesScreen(
     onLogsClick: () -> Unit,
     onNavigateUp: () -> Unit,
 ) {
-    composable(route = aboutPreferencesNavigationRoute) {
+    miuixComposable(route = aboutPreferencesNavigationRoute) {
         AboutPreferencesScreen(
             onLibrariesClick = onLibrariesClick,
             onLogsClick = onLogsClick,
@@ -42,7 +42,7 @@ fun NavGraphBuilder.aboutPreferencesScreen(
 fun NavGraphBuilder.librariesScreen(
     onNavigateUp: () -> Unit,
 ) {
-    composable(route = librariesNavigationRoute) {
+    miuixComposable(route = librariesNavigationRoute) {
         LibrariesScreen(
             onNavigateUp = onNavigateUp,
         )
@@ -52,7 +52,7 @@ fun NavGraphBuilder.librariesScreen(
 fun NavGraphBuilder.logsScreen(
     onNavigateUp: () -> Unit,
 ) {
-    composable(route = logsNavigationRoute) {
+    miuixComposable(route = logsNavigationRoute) {
         LogsScreen(
             onNavigateUp = onNavigateUp,
         )

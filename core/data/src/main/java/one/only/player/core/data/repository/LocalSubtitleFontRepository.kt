@@ -199,6 +199,7 @@ class LocalSubtitleFontRepository @Inject constructor(
                     absolutePath = fontFile.absolutePath,
                 )
             },
+            revision = (sourceInternal.value?.revision ?: 0L) + 1L,
         )
     }
 

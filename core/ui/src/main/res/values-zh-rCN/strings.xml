@@ -635,8 +635,10 @@
     <string name="search_settings">搜索设置…</string>
     <string name="home_title_long_press_to_root">长按标题回到首页</string>
     <string name="home_title_long_press_to_root_description">长按标题栏可直接返回根目录</string>
-    <string name="floating_navigation_bar">悬浮导航栏</string>
-    <string name="floating_navigation_bar_description">使用圆角悬浮底部导航栏</string>
+    <string name="navigation_bar_style">底栏样式</string>
+    <string name="navigation_bar_style_standard">标准</string>
+    <string name="navigation_bar_style_floating">悬浮</string>
+    <string name="navigation_bar_style_miuix">Miuix 原生（悬浮）</string>
     <string name="top_bar_blur">顶栏模糊</string>
     <string name="top_bar_blur_description">为顶部标题栏启用背景模糊和半透明效果</string>
     <string name="floating_navigation_bar_blur">底栏模糊</string>

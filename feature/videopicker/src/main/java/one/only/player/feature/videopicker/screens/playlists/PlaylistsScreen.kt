@@ -1,7 +1,6 @@
 package one.only.player.feature.videopicker.screens.playlists
 
 import android.net.Uri
-import androidx.activity.compose.BackHandler
 import androidx.compose.animation.AnimatedContent
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
@@ -45,6 +44,7 @@ import one.only.player.core.ui.designsystem.AppIcons
 import one.only.player.core.ui.extensions.copy
 import one.only.player.core.ui.extensions.subtractBottomPadding
 import one.only.player.core.ui.extensions.withBottomFallback
+import one.only.player.core.ui.navigation.MiuixBackHandler
 import one.only.player.feature.videopicker.composables.CreatePlaylistDialog
 import one.only.player.feature.videopicker.composables.FolderThumbnail
 import one.only.player.feature.videopicker.composables.LibraryEntryItem
@@ -104,11 +104,11 @@ internal fun PlaylistsScreen(
         }
     }
 
-    BackHandler(enabled = isDetail || isSearchActive) {
+    MiuixBackHandler(enabled = isDetail || isSearchActive) {
         if (isSearchActive) {
             isSearchActive = false
             onEvent(PlaylistsUiEvent.UpdateSearchQuery(""))
-            return@BackHandler
+            return@MiuixBackHandler
         }
         onEvent(PlaylistsUiEvent.NavigateParent)
     }

@@ -219,16 +219,26 @@ private suspend fun MediaController.awaitSettledSeek(
 ): Boolean {
     val startedAtMs = SystemClock.elapsedRealtime()
     while (SystemClock.elapsedRealtime() - startedAtMs < SEEK_SETTLE_TIMEOUT_MS) {
+        playerError?.let { error("Seek failed: ${it.errorCodeName} (${it.errorCode}): ${it.message}") }
         val position = currentPosition.safeTime()
         val duration = duration.safeTime().takeIf { it > 0L }
         val targetPosition = duration?.let { targetPositionMs.coerceIn(0L, it) } ?: targetPositionMs.coerceAtLeast(0L)
-        val isPositionReady = if (isApproximateSeekEnabled) {
+        val requestedDistance = kotlin.math.abs(targetPosition - startPositionMs)
+        val remainingDistance = kotlin.math.abs(position - targetPosition)
+        // 短距离跳转的容差必须小于请求距离，避免原地未跳转被判为落稳。
+        val exactTolerance = if (requestedDistance == 0L) SEEK_SETTLE_TOLERANCE_MS else minOf(SEEK_SETTLE_TOLERANCE_MS, requestedDistance / 2)
+        val isExactPositionReady = remainingDistance <= exactTolerance
+        val isApproximatePositionReady = isApproximateSeekEnabled &&
             kotlin.math.abs(position - startPositionMs) > SEEK_SETTLE_TOLERANCE_MS &&
-                kotlin.math.abs(position - targetPosition) <= APPROXIMATE_SEEK_SETTLE_TOLERANCE_MS
-        } else {
-            kotlin.math.abs(position - targetPosition) <= SEEK_SETTLE_TOLERANCE_MS
+            remainingDistance < requestedDistance &&
+            remainingDistance <= APPROXIMATE_SEEK_SETTLE_TOLERANCE_MS
+        val isPositionReady = isExactPositionReady || isApproximatePositionReady
+        val hasSettled = when (playbackState) {
+            Player.STATE_READY -> isPositionReady
+            Player.STATE_ENDED -> duration != null && duration - targetPosition <= exactTolerance && isExactPositionReady
+            else -> false
         }
-        if (isPositionReady && playbackState != Player.STATE_BUFFERING) return true
+        if (hasSettled) return true
         delay(SEEK_SETTLE_POLL_INTERVAL_MS)
     }
     return false

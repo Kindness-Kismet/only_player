@@ -15,6 +15,7 @@ import androidx.media3.exoplayer.video.MediaCodecVideoRenderer
 import androidx.media3.exoplayer.video.PlaybackVideoGraphWrapper
 import androidx.media3.exoplayer.video.VideoFrameReleaseControl
 import androidx.media3.exoplayer.video.VideoRendererEventListener
+import androidx.media3.exoplayer.video.VideoSink
 import one.only.player.core.common.Logger
 import one.only.player.feature.player.service.effects.isDolbyVisionVideoFormat
 
@@ -34,6 +35,17 @@ internal class VideoEffectsRenderer(
     ): Int {
         if (format.isDolbyVisionVideoFormat()) return RendererCapabilities.create(C.FORMAT_UNSUPPORTED_TYPE)
         return super.supportsFormat(mediaCodecSelector, format)
+    }
+
+    override fun changeVideoSinkInputStream(
+        videoSink: VideoSink,
+        inputType: Int,
+        format: Format,
+        firstFrameReleaseInstruction: Int,
+    ) {
+        super.changeVideoSinkInputStream(videoSink, inputType, format, firstFrameReleaseInstruction)
+        // 效果管线可能不重发尺寸事件，此处已应用解码裁剪、旋转和像素比例。
+        eventDispatcher.videoSizeChanged(VideoSize(format.width, format.height, format.pixelWidthHeightRatio))
     }
 
     override fun onDisabled() {

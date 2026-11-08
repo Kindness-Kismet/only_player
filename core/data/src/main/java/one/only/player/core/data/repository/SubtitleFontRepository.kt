@@ -20,6 +20,7 @@ data class ExternalSubtitleFontState(
 
 data class ExternalSubtitleFontSource(
     val fonts: List<ExternalSubtitleFontFile>,
+    val revision: Long = 0L,
 ) {
     val absolutePath: String?
         get() = fonts.firstOrNull()?.absolutePath

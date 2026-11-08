@@ -3,8 +3,8 @@ package one.only.player.settings.navigation
 import androidx.navigation.NavController
 import androidx.navigation.NavGraphBuilder
 import androidx.navigation.NavOptions
-import androidx.navigation.compose.composable
 import androidx.navigation.navOptions
+import one.only.player.core.ui.navigation.miuixComposable
 import one.only.player.settings.screens.subtitle.SubtitlePreferencesScreen
 
 const val subtitlePreferencesNavigationRoute = "subtitle_preferences_route"
@@ -14,7 +14,7 @@ fun NavController.navigateToSubtitlePreferences(navOptions: NavOptions? = navOpt
 }
 
 fun NavGraphBuilder.subtitlePreferencesScreen(onNavigateUp: () -> Unit) {
-    composable(route = subtitlePreferencesNavigationRoute) {
+    miuixComposable(route = subtitlePreferencesNavigationRoute) {
         SubtitlePreferencesScreen(onNavigateUp = onNavigateUp)
     }
 }

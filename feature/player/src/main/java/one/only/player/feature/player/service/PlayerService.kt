@@ -37,14 +37,15 @@ import androidx.media3.exoplayer.source.DefaultMediaSourceFactory
 import androidx.media3.exoplayer.source.MediaSource
 import androidx.media3.exoplayer.trackselection.DefaultTrackSelector
 import androidx.media3.exoplayer.upstream.LoadErrorHandlingPolicy
-import androidx.media3.extractor.DefaultExtractorsFactory
 import androidx.media3.extractor.Extractor
 import androidx.media3.extractor.ExtractorInput
 import androidx.media3.extractor.ExtractorOutput
 import androidx.media3.extractor.ExtractorsFactory
 import androidx.media3.extractor.PositionHolder
+import androidx.media3.extractor.SeekMap
 import androidx.media3.extractor.mkv.MatroskaExtractor
 import androidx.media3.extractor.mp4.Mp4Extractor
+import androidx.media3.extractor.text.DefaultSubtitleParserFactory
 import androidx.media3.extractor.text.SubtitleParser
 import androidx.media3.extractor.ts.TsExtractor
 import androidx.media3.session.CommandButton
@@ -57,13 +58,10 @@ import androidx.media3.session.SessionResult
 import coil3.ImageLoader
 import com.google.common.util.concurrent.ListenableFuture
 import dagger.hilt.android.AndroidEntryPoint
+import io.github.anilbeesetti.nextlib.media3ext.ffdecoder.FfmpegSubtitleExtractorsFactory
+import io.github.anilbeesetti.nextlib.media3ext.ffdecoder.withFfmpegSubtitles
 import io.github.anilbeesetti.nextlib.media3ext.renderer.subtitleDelayMilliseconds
 import io.github.anilbeesetti.nextlib.media3ext.renderer.subtitleSpeed
-import io.github.peerless2012.ass.media.AssHandler
-import io.github.peerless2012.ass.media.kt.withAssSupport
-import io.github.peerless2012.ass.media.parser.AssSubtitleParserFactory
-import io.github.peerless2012.ass.media.type.AssRenderType
-import java.io.File
 import java.io.InputStream
 import javax.inject.Inject
 import kotlinx.coroutines.CancellationException
@@ -94,7 +92,6 @@ import one.only.player.core.common.extensions.subtitleCacheDir
 import one.only.player.core.data.remote.FtpClient
 import one.only.player.core.data.remote.SmbClient
 import one.only.player.core.data.remote.WebDavClient
-import one.only.player.core.data.repository.ExternalSubtitleFontSource
 import one.only.player.core.data.repository.MediaRepository
 import one.only.player.core.data.repository.PreferencesRepository
 import one.only.player.core.data.repository.SubtitleFontRepository
@@ -114,7 +111,6 @@ import one.only.player.feature.player.PlayerActivity
 import one.only.player.feature.player.datasource.FtpDataSource
 import one.only.player.feature.player.datasource.SmbDataSource
 import one.only.player.feature.player.datasource.SmbPlaybackSessions
-import one.only.player.feature.player.engine.media3.SeekMapInjectingExtractor
 import one.only.player.feature.player.extensions.addAdditionalSubtitleConfiguration
 import one.only.player.feature.player.extensions.addedSubtitleIds
 import one.only.player.feature.player.extensions.audioTrackIndex
@@ -167,8 +163,7 @@ import one.only.player.feature.player.service.seek.PreciseSeekCoordinator
 import one.only.player.feature.player.service.subtitle.ExternalSubtitleLoader
 import one.only.player.feature.player.service.subtitle.SubtitleCalibrationCoordinator
 import one.only.player.feature.player.service.subtitle.SubtitleTrackSelector
-import one.only.player.feature.player.subtitle.AssHandlerRegistry
-import one.only.player.feature.player.subtitle.NormalizingAssMatroskaExtractor
+import one.only.player.feature.player.subtitle.NormalizingSubtitleExtractorsFactory
 import one.only.player.feature.player.subtitle.OnlineSubtitleRepository
 
 @OptIn(UnstableApi::class)
@@ -188,7 +183,6 @@ class PlayerService : MediaSessionService() {
 
         // 拖动预览只求快：落到最近关键帧，避免逐帧解码追不上手指
         private val PREVIEW_SEEK_PARAMETERS = SeekParameters.CLOSEST_SYNC
-        private val REMOTE_SOURCE_URI_SCHEMES = setOf("smb", "ftp")
     }
 
     @Inject
@@ -289,16 +283,12 @@ class PlayerService : MediaSessionService() {
     private var isPendingExternalSubAutoSelect = false
     private var pendingRememberedSubtitleSelection: PendingSubtitleSelection? = null
     private var pendingExternalSubtitleSelection: ExternalSubtitleSelection? = null
-    private var assHandler: AssHandler? = null
     private var activeDecoderPriority: DecoderPriority = DecoderPriority.AUTOMATIC
     private var hasPausedAtEndOfQueue = false
     private var customPictureInPictureOverlay: CustomPictureInPictureOverlay? = null
-    private lateinit var fastStartMediaSourceFactory: DefaultMediaSourceFactory
-    private lateinit var preciseSeekMediaSourceFactory: DefaultMediaSourceFactory
     private var sessionLoadErrorHandlingPolicy: LoadErrorHandlingPolicy? = null
     private var sessionDrmSessionManagerProvider: DrmSessionManagerProvider? = null
     private lateinit var sessionMediaSourceFactory: MediaSource.Factory
-    private lateinit var assSubtitleParserFactory: AssSubtitleParserFactory
     private val preciseSeekCoordinator by lazy {
         PreciseSeekCoordinator(
             context = applicationContext,
@@ -811,7 +801,6 @@ class PlayerService : MediaSessionService() {
         val subtitleSpeed = failedPlayer.playerSpecificSubtitleSpeed
         val retryPlayer = createPlayer(
             decoderPriority = DecoderPriority.PREFER_APP,
-            assHandler = assHandler ?: return false,
         )
         Logger.debug(TAG, "Retrying playback with software decoder: ${mediaId.toPrivateMediaLogSummary()}")
 
@@ -877,7 +866,6 @@ class PlayerService : MediaSessionService() {
             Logger.info(TAG, "Switch decoder to ${decoderPriority.logName()} without active media items")
             val nextPlayer = createPlayer(
                 decoderPriority = decoderPriority,
-                assHandler = assHandler ?: return,
             )
             audioEffectsCoordinator.releaseLoudnessEnhancer()
             currentPlayer.removeListener(playbackStateListener)
@@ -901,7 +889,6 @@ class PlayerService : MediaSessionService() {
         val currentDecoderPriority = activeDecoderPriority
         val nextPlayer = createPlayer(
             decoderPriority = decoderPriority,
-            assHandler = assHandler ?: return,
         )
         Logger.info(
             TAG,
@@ -1026,16 +1013,14 @@ class PlayerService : MediaSessionService() {
                     item
                 }
                 val extractorsFactory = if (sourceFix.tsProgramMapPidFix != null) {
-                    MpegTsExtractorsFactory(assSubtitleParserFactory)
+                    MpegTsExtractorsFactory()
                 } else {
                     LenientExtractorsFactory()
                 }
-                val mediaSourceFactory = DefaultMediaSourceFactory(
+                val mediaSourceFactory = createMediaSourceFactory(
                     dataSourceFactory,
-                    extractorsFactory,
-                ).setSubtitleParserFactory(assSubtitleParserFactory)
-                sessionLoadErrorHandlingPolicy?.let(mediaSourceFactory::setLoadErrorHandlingPolicy)
-                sessionDrmSessionManagerProvider?.let(mediaSourceFactory::setDrmSessionManagerProvider)
+                    NormalizingSubtitleExtractorsFactory(extractorsFactory),
+                )
                 val mediaSource = mediaSourceFactory.createMediaSource(retryItem)
 
                 currentPlayer.removeMediaItem(index)
@@ -1071,51 +1056,24 @@ class PlayerService : MediaSessionService() {
     )
 
     private fun createPlaybackExtractorsFactory(
-        assSubtitleParserFactory: AssSubtitleParserFactory,
-        assHandler: AssHandler,
         shouldUseFastStart: Boolean,
-    ): ExtractorsFactory {
-        val baseFactory = DefaultExtractorsFactory()
-        return ExtractorsFactory {
-            val extractors = baseFactory.createExtractors()
-            for (i in extractors.indices) {
-                if (extractors[i] is MatroskaExtractor) {
-                    extractors[i] = NormalizingAssMatroskaExtractor(
-                        assSubtitleParserFactory,
-                        assHandler,
-                    ).also { extractor ->
-                        if (shouldUseFastStart) {
-                            disableSeekForCues(extractor)
-                        }
-                    }
-                }
-            }
-            extractors
-        }
-    }
+        seekMap: SeekMap? = null,
+    ): ExtractorsFactory = NormalizingSubtitleExtractorsFactory(
+        delegate = FfmpegSubtitleExtractorsFactory(
+            matroskaFlags = if (shouldUseFastStart || seekMap != null) MatroskaExtractor.FLAG_DISABLE_SEEK_FOR_CUES else 0,
+        ),
+        seekMap = seekMap,
+    )
 
     private fun createMediaSourceFactory(
-        assSubtitleParserFactory: AssSubtitleParserFactory,
-        assHandler: AssHandler,
-        shouldUseFastStart: Boolean,
-    ): DefaultMediaSourceFactory = DefaultMediaSourceFactory(
-        DefaultDataSource.Factory(applicationContext),
-        createPlaybackExtractorsFactory(
-            assSubtitleParserFactory = assSubtitleParserFactory,
-            assHandler = assHandler,
-            shouldUseFastStart = shouldUseFastStart,
-        ),
-    ).setSubtitleParserFactory(assSubtitleParserFactory)
-
-    private fun disableSeekForCues(extractor: MatroskaExtractor) {
-        try {
-            val field = MatroskaExtractor::class.java.getDeclaredField("seekForCuesEnabled")
-            field.isAccessible = true
-            field.set(extractor, false)
-        } catch (e: Exception) {
-            Logger.error(TAG, "disableSeekForCues failed", e)
+        dataSourceFactory: DataSource.Factory,
+        extractorsFactory: ExtractorsFactory,
+    ): MediaSource.Factory = DefaultMediaSourceFactory(dataSourceFactory, extractorsFactory)
+        .withFfmpegSubtitles(dataSourceFactory)
+        .apply {
+            sessionLoadErrorHandlingPolicy?.let(::setLoadErrorHandlingPolicy)
+            sessionDrmSessionManagerProvider?.let(::setDrmSessionManagerProvider)
         }
-    }
 
     // 扫描 MP4 顶层 atom，检测连续出现的 moov box
     private fun detectDuplicateMoov(uri: Uri): SkipRegion? {
@@ -1271,17 +1229,27 @@ class PlayerService : MediaSessionService() {
 
     // 容错 ExtractorsFactory，Mp4 使用 LenientMp4Extractor，其余回退到默认实现
     private class LenientExtractorsFactory : ExtractorsFactory {
+        private val delegate = FfmpegSubtitleExtractorsFactory()
+
+        override fun setSubtitleParserFactory(factory: SubtitleParser.Factory) = apply {
+            delegate.setSubtitleParserFactory(factory)
+        }
+
         override fun createExtractors(): Array<Extractor> {
-            val defaults = DefaultExtractorsFactory().createExtractors()
+            val defaults = delegate.createExtractors()
             return Array(defaults.size + 1) { i ->
                 if (i == 0) LenientMp4Extractor() else defaults[i - 1]
             }
         }
     }
 
-    private class MpegTsExtractorsFactory(
-        private val subtitleParserFactory: SubtitleParser.Factory,
-    ) : ExtractorsFactory {
+    private class MpegTsExtractorsFactory : ExtractorsFactory {
+        private var subtitleParserFactory: SubtitleParser.Factory = DefaultSubtitleParserFactory()
+
+        override fun setSubtitleParserFactory(factory: SubtitleParser.Factory) = apply {
+            subtitleParserFactory = factory
+        }
+
         override fun createExtractors(): Array<Extractor> = arrayOf(TsExtractor(subtitleParserFactory))
     }
 
@@ -1671,7 +1639,6 @@ class PlayerService : MediaSessionService() {
 
     private fun createPlayer(
         decoderPriority: DecoderPriority,
-        assHandler: AssHandler,
     ): ExoPlayer {
         activeDecoderPriority = decoderPriority
         videoEffectsCoordinator.setDecoderPriority(decoderPriority)
@@ -1704,7 +1671,7 @@ class PlayerService : MediaSessionService() {
 
         return ExoPlayer.Builder(applicationContext)
             .setMediaSourceFactory(sessionMediaSourceFactory)
-            .setRenderersFactory(renderersFactory.withAssSupport(assHandler))
+            .setRenderersFactory(renderersFactory)
             .setTrackSelector(trackSelector)
             .setLoadControl(PlaybackLoadControl())
             .setSeekParameters(EXACT_SEEK_PARAMETERS)
@@ -1715,7 +1682,6 @@ class PlayerService : MediaSessionService() {
             .setHandleAudioBecomingNoisy(preferences.shouldPauseOnHeadsetDisconnect)
             .build()
             .also {
-                assHandler.init(it)
                 applySeekParameters(it)
                 it.addListener(playbackStateListener)
                 it.addAnalyticsListener(startupAnalyticsListener)
@@ -1793,26 +1759,14 @@ class PlayerService : MediaSessionService() {
                     mediaSession?.player?.updatePauseAtEndOfMediaItems(preferences)
                 }
         }
-        val assHandler = AssHandler(renderType = resolveAssRenderType())
-        this.assHandler = assHandler
-        AssHandlerRegistry.register(assHandler)
         serviceScope.launch {
+            var previousSource = subtitleFontRepository.source.value
             subtitleFontRepository.source.collect { source ->
-                assHandler.syncExternalSubtitleFonts(source)
+                if (source == previousSource) return@collect
+                previousSource = source
+                refreshExternalSubtitleFonts()
             }
         }
-        val assSubtitleParserFactory = AssSubtitleParserFactory(assHandler)
-        this.assSubtitleParserFactory = assSubtitleParserFactory
-        fastStartMediaSourceFactory = createMediaSourceFactory(
-            assSubtitleParserFactory = assSubtitleParserFactory,
-            assHandler = assHandler,
-            shouldUseFastStart = true,
-        )
-        preciseSeekMediaSourceFactory = createMediaSourceFactory(
-            assSubtitleParserFactory = assSubtitleParserFactory,
-            assHandler = assHandler,
-            shouldUseFastStart = false,
-        )
         sessionMediaSourceFactory = object : MediaSource.Factory {
             override fun setDrmSessionManagerProvider(drmSessionManagerProvider: DrmSessionManagerProvider): MediaSource.Factory {
                 sessionDrmSessionManagerProvider = drmSessionManagerProvider
@@ -1824,14 +1778,13 @@ class PlayerService : MediaSessionService() {
                 return this
             }
 
-            override fun getSupportedTypes(): IntArray = fastStartMediaSourceFactory.supportedTypes
+            override fun getSupportedTypes(): IntArray = DefaultMediaSourceFactory(applicationContext).supportedTypes
 
             override fun createMediaSource(mediaItem: MediaItem): MediaSource = this@PlayerService.createMediaSource(mediaItem)
         }
 
         val player = createPlayer(
             decoderPriority = playerPreferences.decoderPriority,
-            assHandler = assHandler,
         )
 
         try {
@@ -1874,8 +1827,6 @@ class PlayerService : MediaSessionService() {
         customPictureInPictureOverlay = null
         audioEffectsCoordinator.releaseLoudnessEnhancer()
         preciseSeekCoordinator.release()
-        assHandler?.let(AssHandlerRegistry::unregister)
-        assHandler = null
         mediaSession?.run {
             player.clearMediaItems()
             player.stop()
@@ -2086,51 +2037,16 @@ class PlayerService : MediaSessionService() {
     private fun createMediaSource(mediaItem: MediaItem): MediaSource {
         val requestHeaders = mediaItem.mediaMetadata.requestHeaders
         val uri = mediaItem.localConfiguration?.uri
-        val isRemoteSource = uri?.scheme in REMOTE_SOURCE_URI_SCHEMES || requestHeaders.isNotEmpty()
         val dataSourceFactory = createDataSourceFactory(uri, requestHeaders)
         val cachedSeekMap = preciseSeekCoordinator.cachedSeekMap(mediaItem.mediaId)
         val shouldUseFastStart = mediaItem.mediaMetadata.isApproximateSeekEnabled && mediaItem.mediaId !in preciseSeekCoordinator
-        if (cachedSeekMap != null && !shouldUseFastStart) {
-            // 使用预解析的 SeekMap 注入到 extractor，跳过慢速 Cues 加载
-            val factory = DefaultMediaSourceFactory(
-                dataSourceFactory,
-                createSeekMapInjectedExtractorsFactory(cachedSeekMap),
-            ).setSubtitleParserFactory(assSubtitleParserFactory)
-            sessionLoadErrorHandlingPolicy?.let(factory::setLoadErrorHandlingPolicy)
-            sessionDrmSessionManagerProvider?.let(factory::setDrmSessionManagerProvider)
-            return factory.createMediaSource(mediaItem)
-        }
-
-        val currentAssHandler = assHandler
-        if (!isRemoteSource && currentAssHandler == null) {
-            return if (shouldUseFastStart) {
-                fastStartMediaSourceFactory.createMediaSource(mediaItem)
-            } else {
-                preciseSeekMediaSourceFactory.createMediaSource(mediaItem)
-            }
-        }
-
-        if (currentAssHandler != null) {
-            val mediaSourceFactory = DefaultMediaSourceFactory(
-                dataSourceFactory,
-                createPlaybackExtractorsFactory(
-                    assSubtitleParserFactory = assSubtitleParserFactory,
-                    assHandler = currentAssHandler,
-                    shouldUseFastStart = shouldUseFastStart,
-                ),
-            ).setSubtitleParserFactory(assSubtitleParserFactory)
-            sessionLoadErrorHandlingPolicy?.let(mediaSourceFactory::setLoadErrorHandlingPolicy)
-            sessionDrmSessionManagerProvider?.let(mediaSourceFactory::setDrmSessionManagerProvider)
-            return mediaSourceFactory.createMediaSource(mediaItem)
-        }
-
-        return DefaultMediaSourceFactory(dataSourceFactory)
-            .apply {
-                sessionLoadErrorHandlingPolicy?.let(::setLoadErrorHandlingPolicy)
-                sessionDrmSessionManagerProvider?.let(::setDrmSessionManagerProvider)
-            }
-            .setSubtitleParserFactory(assSubtitleParserFactory)
-            .createMediaSource(mediaItem)
+        return createMediaSourceFactory(
+            dataSourceFactory = dataSourceFactory,
+            extractorsFactory = createPlaybackExtractorsFactory(
+                shouldUseFastStart = shouldUseFastStart,
+                seekMap = cachedSeekMap.takeUnless { shouldUseFastStart },
+            ),
+        ).createMediaSource(mediaItem)
     }
 
     private fun createDataSourceFactory(
@@ -2140,12 +2056,15 @@ class PlayerService : MediaSessionService() {
         if (uri?.scheme == "smb") {
             val username = requestHeaders["_smb_username"].orEmpty()
             val password = requestHeaders["_smb_password"].orEmpty()
-            return SmbDataSource.Factory(smbPlaybackSessions, username, password)
+            return DefaultDataSource.Factory(
+                applicationContext,
+                SmbDataSource.Factory(smbPlaybackSessions, username, password),
+            )
         }
         if (uri?.scheme == "ftp") {
             val username = requestHeaders["_ftp_username"].orEmpty()
             val password = requestHeaders["_ftp_password"].orEmpty()
-            return FtpDataSource.Factory(username, password)
+            return DefaultDataSource.Factory(applicationContext, FtpDataSource.Factory(username, password))
         }
 
         val httpHeaders = requestHeaders.filterKeys { !it.startsWith("_") }
@@ -2156,22 +2075,6 @@ class PlayerService : MediaSessionService() {
         val httpFactory = OkHttpDataSource.Factory(webDavClient.playbackClient)
             .setDefaultRequestProperties(httpHeaders)
         return DefaultDataSource.Factory(applicationContext, httpFactory)
-    }
-
-    // 创建注入了预解析 SeekMap 的 ExtractorsFactory
-    private fun createSeekMapInjectedExtractorsFactory(
-        seekMap: androidx.media3.extractor.SeekMap,
-    ): ExtractorsFactory = ExtractorsFactory {
-        val baseFactory = DefaultExtractorsFactory()
-        val extractors = baseFactory.createExtractors()
-        for (i in extractors.indices) {
-            if (extractors[i] is MatroskaExtractor) {
-                val assExtractor = NormalizingAssMatroskaExtractor(assSubtitleParserFactory, assHandler!!)
-                disableSeekForCues(assExtractor)
-                extractors[i] = SeekMapInjectingExtractor(assExtractor, seekMap)
-            }
-        }
-        extractors
     }
 
     // 在主线程播放列表中按 mediaId 查找对应的 Player、索引和 MediaItem
@@ -2390,19 +2293,40 @@ class PlayerService : MediaSessionService() {
         )
     }
 
-    private fun AssHandler.syncExternalSubtitleFonts(source: ExternalSubtitleFontSource?) {
-        source?.fonts.orEmpty().forEach { font ->
-            val file = File(font.absolutePath)
-            if (!file.exists() || !file.isFile) return@forEach
-            runCatching {
-                addFont(font.displayName, file.readBytes())
-            }.onFailure { throwable ->
-                Logger.error(TAG, "Failed to register external subtitle font: ${font.displayName}", throwable)
+    private fun refreshExternalSubtitleFonts() {
+        val player = mediaSession?.player ?: return
+        val mediaItem = player.currentMediaItem ?: return
+        val tracks = subtitleTrackSelector.supportedTextTracks(player.currentTracks)
+        val selectedIndex = tracks.indexOfFirst { group ->
+            (0 until group.length).any { index ->
+                val format = group.getTrackFormat(index)
+                group.isTrackSelected(index) &&
+                    (format.sampleMimeType == MimeTypes.TEXT_SSA || format.codecs == MimeTypes.TEXT_SSA)
             }
         }
-    }
+        if (selectedIndex < 0) return
 
-    private fun resolveAssRenderType(): AssRenderType = AssRenderType.OVERLAY_CANVAS
+        val index = player.currentMediaItemIndex
+        val position = player.currentPosition
+        val shouldPlayWhenReady = player.playWhenReady
+        val refreshedItem = mediaItem.copy(
+            positionMs = position,
+            subtitleTrackIndex = selectedIndex,
+            subtitleDelayMilliseconds = player.playerSpecificSubtitleDelayMilliseconds,
+            subtitleSpeed = player.playerSpecificSubtitleSpeed,
+        )
+        // 原生字幕解码器只在创建时加载字体，重建当前源并保留播放位置和选轨。
+        player.addMediaItem(index + 1, refreshedItem)
+        player.seekTo(index + 1, position)
+        player.playWhenReady = shouldPlayWhenReady
+        player.removeMediaItem(index)
+        pendingRememberedSubtitleSelection = PendingSubtitleSelection(
+            mediaId = mediaItem.mediaId,
+            subtitleTrackIndex = selectedIndex,
+            canFallbackToBest = false,
+        )
+        isMediaItemReady = true
+    }
 }
 
 private fun readFully(stream: InputStream, buffer: ByteArray): Boolean {

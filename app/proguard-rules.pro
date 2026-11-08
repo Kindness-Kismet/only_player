@@ -4,6 +4,20 @@
 
 -dontobfuscate
 
+# 保留 Matroska 章节发布和 WebM 描述字幕适配需要访问的字段。
+-keepclassmembers class androidx.media3.extractor.mkv.MatroskaExtractor {
+    private androidx.media3.extractor.mkv.EbmlReader reader;
+    private android.util.SparseArray tracks;
+}
+-keep class androidx.media3.extractor.mkv.DefaultEbmlReader {
+    private androidx.media3.extractor.mkv.EbmlProcessor processor;
+}
+-keep class androidx.media3.extractor.mkv.MatroskaExtractor$Track {
+    androidx.media3.common.Format format;
+    public androidx.media3.extractor.TrackOutput output;
+    boolean waitingForDtsAnalysis;
+}
+
 -dontwarn javax.el.BeanELResolver
 -dontwarn javax.el.ELContext
 -dontwarn javax.el.ELResolver

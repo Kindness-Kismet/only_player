@@ -4,8 +4,8 @@ import android.net.Uri
 import androidx.navigation.NavController
 import androidx.navigation.NavGraphBuilder
 import androidx.navigation.NavOptions
-import androidx.navigation.compose.composable
 import kotlinx.serialization.Serializable
+import one.only.player.core.ui.navigation.miuixComposable
 import one.only.player.feature.videopicker.screens.favorites.FavoritesRoute as FavoritesScreenRoute
 
 @Serializable
@@ -22,7 +22,7 @@ fun NavGraphBuilder.favoritesScreen(
     onOpenRemoteDirectory: (Long, String) -> Unit,
     onPlayRemoteVideo: (Uri, Map<String, String>, Uri?, List<Uri>, List<String>) -> Unit,
 ) {
-    composable<FavoritesRoute> {
+    miuixComposable<FavoritesRoute> {
         FavoritesScreenRoute(
             onNavigateUp = onNavigateUp,
             onPlayLocalVideo = onPlayLocalVideo,
