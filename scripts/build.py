@@ -181,7 +181,7 @@ def build_type_name(build_type: str) -> str:
 
 
 def assemble_task(build_type: str) -> str:
-    return "assemble" + "".join(part.capitalize() for part in build_type.split("-"))
+    return "assemble" + build_type[0].upper() + build_type[1:]
 
 
 def apk_source_names(abi: str, build_type: str) -> list[str]:
