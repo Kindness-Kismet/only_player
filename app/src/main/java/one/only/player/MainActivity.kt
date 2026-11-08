@@ -16,6 +16,7 @@ import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.rememberUpdatedState
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.ExperimentalComposeUiApi
 import androidx.compose.ui.Modifier
@@ -373,7 +374,10 @@ class MainActivity : AppCompatActivity() {
 
         val mainNavController = rememberMiuixNavController()
         val rootDestinations = rememberVisibleRootDestinations(shouldShowCloudTab = shouldShowCloudTab)
-        val rootNavigationState = rememberRootNavigationState(destinations = rootDestinations)
+        // 返回栈会保留页面内容，捕获 State 以便根页即时响应外观设置。
+        val rootNavigationState by rememberUpdatedState(rememberRootNavigationState(destinations = rootDestinations))
+        val rootNavigationBarStyle by rememberUpdatedState(navigationBarStyle)
+        val shouldBlurRootNavigationBar by rememberUpdatedState(shouldBlurNavigationBar)
         LaunchedEffect(mainNavController, rootNavigationState, pendingDebugPageRoute) {
             val pageRoute = pendingDebugPageRoute ?: return@LaunchedEffect
             navigateToDebugPage(
@@ -406,8 +410,8 @@ class MainActivity : AppCompatActivity() {
                 miuixComposable<RootPagerRoute> {
                     RootScaffold(
                         rootNavigationState = rootNavigationState,
-                        navigationBarStyle = navigationBarStyle,
-                        shouldBlurNavigationBar = shouldBlurNavigationBar,
+                        navigationBarStyle = rootNavigationBarStyle,
+                        shouldBlurNavigationBar = shouldBlurRootNavigationBar,
                     ) { destination ->
                         when (destination) {
                             RootDestination.HOME -> MediaRootPage(
