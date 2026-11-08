@@ -22,7 +22,19 @@ internal class MatroskaCompatibilityExtractor(
         processorField.set(
             reader,
             object : EbmlProcessor by processor {
+                private var isDescriptionsTrack = false
+
+                override fun startMasterElement(
+                    id: Int,
+                    contentPosition: Long,
+                    contentSize: Long,
+                ) {
+                    if (id == ID_TRACK_ENTRY) isDescriptionsTrack = false
+                    processor.startMasterElement(id, contentPosition, contentSize)
+                }
+
                 override fun stringElement(id: Int, value: String) {
+                    if (id == ID_CODEC_ID) isDescriptionsTrack = value == WEBM_DESCRIPTIONS_CODEC_ID
                     val codecId = if (id == ID_CODEC_ID && value == WEBM_DESCRIPTIONS_CODEC_ID) {
                         WEBM_CAPTIONS_CODEC_ID
                     } else {
@@ -32,6 +44,10 @@ internal class MatroskaCompatibilityExtractor(
                 }
 
                 override fun endMasterElement(id: Int) {
+                    // WebM descriptions 声明为 metadata，建轨前改为字幕才能触发 cues 转码。
+                    if (id == ID_TRACK_ENTRY && isDescriptionsTrack) {
+                        processor.integerElement(ID_TRACK_TYPE, MATROSKA_SUBTITLE_TRACK_TYPE)
+                    }
                     processor.endMasterElement(id)
                     if (id == ID_EDITION_ENTRY) publishChapterFormats()
                 }
@@ -52,8 +68,11 @@ internal class MatroskaCompatibilityExtractor(
     }
 
     companion object {
+        private const val ID_TRACK_ENTRY = 0xAE
+        private const val ID_TRACK_TYPE = 0x83
         private const val ID_CODEC_ID = 0x86
         private const val ID_EDITION_ENTRY = 0x45B9
+        private const val MATROSKA_SUBTITLE_TRACK_TYPE = 17L
         private const val WEBM_DESCRIPTIONS_CODEC_ID = "D_WEBVTT/DESCRIPTIONS"
         private const val WEBM_CAPTIONS_CODEC_ID = "D_WEBVTT/CAPTIONS"
 

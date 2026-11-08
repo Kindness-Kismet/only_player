@@ -283,15 +283,36 @@ private fun String.normalizeAssInlineFonts(): String = ASS_INLINE_FONT_REGEX.rep
 
 private fun String.widenLatinSpaces(): String = buildString(length) {
     var isInOverrideBlock = false
+    var isDrawing = false
+    var overrideStart = 0
     for (index in this@widenLatinSpaces.indices) {
         val char = this@widenLatinSpaces[index]
         when (char) {
-            '{' -> isInOverrideBlock = true
-            '}' -> isInOverrideBlock = false
+            '{' -> {
+                isInOverrideBlock = true
+                overrideStart = index + 1
+            }
+            '}' -> {
+                if (isInOverrideBlock) {
+                    ASS_DRAWING_MODE_REGEX.findAll(this@widenLatinSpaces.substring(overrideStart, index))
+                        .lastOrNull()
+                        ?.groupValues
+                        ?.get(1)
+                        ?.toIntOrNull()
+                        ?.let { mode -> isDrawing = mode > 0 }
+                }
+                isInOverrideBlock = false
+            }
         }
-        if (char == ' ' && !isInOverrideBlock && hasLatinNeighbor(index)) {
+        // 绘图坐标保持原样，已添加的薄空格不重复扩展。
+        if (char == ' ' &&
+            !isInOverrideBlock &&
+            !isDrawing &&
+            this@widenLatinSpaces.getOrNull(index + 1) != ASS_LATIN_THIN_SPACE &&
+            hasLatinNeighbor(index)
+        ) {
             append(' ')
-            append(' ')
+            append(ASS_LATIN_THIN_SPACE)
         } else {
             append(char)
         }
@@ -341,6 +362,7 @@ fun Bundle.getParcelableUriArray(key: String): ArrayList<Uri>? = BundleCompat.ge
 
 private const val SUBTITLE_CONFIG_TAG = "SubtitleConfig"
 private const val ASS_ANDROID_FALLBACK_FONT = "Roboto"
+private const val ASS_LATIN_THIN_SPACE = '\u2009'
 private const val DEFAULT_SAMI_CUE_DURATION_MS = 3_000L
 private val SAMI_SYNC_REGEX = Regex(
     """<SYNC\s+Start\s*=\s*["']?(\d+)["']?\s*>""",
@@ -361,6 +383,7 @@ private enum class AssSection {
 }
 
 private val ASS_INLINE_FONT_REGEX = Regex("\\\\fn([^\\\\}]+)")
+private val ASS_DRAWING_MODE_REGEX = Regex("""\\p\s*([+-]?\d+)""")
 
 private val NETWORK_URI_SCHEMES = setOf("http", "https", "ftp")
 
