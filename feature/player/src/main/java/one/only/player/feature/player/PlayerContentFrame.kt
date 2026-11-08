@@ -15,13 +15,13 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.clipToBounds
 import androidx.compose.ui.geometry.Size
 import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.layout.boundsInWindow
 import androidx.compose.ui.layout.onGloballyPositioned
 import androidx.compose.ui.platform.LocalDensity
 import androidx.media3.common.C
-import androidx.media3.common.MimeTypes
 import androidx.media3.common.Player
 import androidx.media3.common.util.UnstableApi
 import androidx.media3.ui.compose.PlayerSurface
@@ -41,6 +41,7 @@ import one.only.player.feature.player.state.TapGestureState
 import one.only.player.feature.player.state.VideoZoomAndContentScaleState
 import one.only.player.feature.player.state.VolumeAndBrightnessGestureState
 import one.only.player.feature.player.state.rememberTracksState
+import one.only.player.feature.player.subtitle.isNativeSubtitle
 import one.only.player.feature.player.ui.ChapterSwipeDirection
 import one.only.player.feature.player.ui.PlayerGestures
 import one.only.player.feature.player.ui.ShutterView
@@ -81,12 +82,10 @@ fun PlayerContentFrame(
     val presentationState = rememberPresentationState(player)
     val density = LocalDensity.current
     val textTracksState = rememberTracksState(player = player, trackType = C.TRACK_TYPE_TEXT)
-    val isAssSubtitleSelected = textTracksState.tracks.any { track ->
-        track.isSelected &&
-            (0 until track.mediaTrackGroup.length).any { index ->
-                val format = track.mediaTrackGroup.getFormat(index)
-                format.sampleMimeType == MimeTypes.TEXT_SSA || format.codecs == MimeTypes.TEXT_SSA
-            }
+    val hasNativeSubtitle = textTracksState.tracks.any { track ->
+        (0 until track.mediaTrackGroup.length).any { index ->
+            track.isTrackSelected(index) && track.mediaTrackGroup.getFormat(index).isNativeSubtitle()
+        }
     }
     var lastLoggedSurfaceLayout by remember { mutableStateOf("") }
     val surfaceType = if (shouldUseTextureView) SURFACE_TYPE_TEXTURE_VIEW else SURFACE_TYPE_SURFACE_VIEW
@@ -96,7 +95,7 @@ fun PlayerContentFrame(
 
     key(surfaceRefreshKey, surfaceType) {
         BoxWithConstraints(
-            modifier = modifier.fillMaxSize(),
+            modifier = modifier.fillMaxSize().clipToBounds(),
             contentAlignment = Alignment.Center,
         ) {
             val containerWidth = constraints.maxWidth.toFloat().coerceAtLeast(1f)
@@ -119,9 +118,15 @@ fun PlayerContentFrame(
             }
             val surfaceWidthDp = with(density) { videoWidth.toDp() }
             val surfaceHeightDp = with(density) { videoHeight.toDp() }
-            val contentSurfaceWidthDp = with(density) { contentVideoWidth.toDp() }
-            val contentSurfaceHeightDp = with(density) { contentVideoHeight.toDp() }
             val mirrorScaleX = if (isVideoMirrored) -1f else 1f
+            val videoContentModifier = Modifier
+                .requiredSize(surfaceWidthDp, surfaceHeightDp)
+                .graphicsLayer {
+                    scaleX = baseScaleX * videoZoomAndContentScaleState.zoom * mirrorScaleX
+                    scaleY = baseScaleY * videoZoomAndContentScaleState.zoom
+                    translationX = videoZoomAndContentScaleState.offset.x
+                    translationY = videoZoomAndContentScaleState.offset.y
+                }
             LaunchedEffect(
                 containerWidth,
                 containerHeight,
@@ -143,14 +148,7 @@ fun PlayerContentFrame(
                 PlayerSurface(
                     player = player,
                     surfaceType = surfaceType,
-                    modifier = Modifier
-                        .requiredSize(surfaceWidthDp, surfaceHeightDp)
-                        .graphicsLayer {
-                            scaleX = baseScaleX * videoZoomAndContentScaleState.zoom * mirrorScaleX
-                            scaleY = baseScaleY * videoZoomAndContentScaleState.zoom
-                            translationX = videoZoomAndContentScaleState.offset.x
-                            translationY = videoZoomAndContentScaleState.offset.y
-                        }
+                    modifier = videoContentModifier
                         .onGloballyPositioned {
                             val bounds = it.boundsInWindow()
                             val rect = Rect(
@@ -173,14 +171,8 @@ fun PlayerContentFrame(
             }
 
             if (!presentationState.coverSurface) {
-                val subtitleModifier = if (isAssSubtitleSelected) {
-                    val subtitleScale = min(fillX, fillY)
-                    Modifier
-                        .requiredSize(contentSurfaceWidthDp, contentSurfaceHeightDp)
-                        .graphicsLayer {
-                            scaleX = subtitleScale
-                            scaleY = subtitleScale
-                        }
+                val subtitleModifier = if (hasNativeSubtitle) {
+                    videoContentModifier
                 } else {
                     val subtitleWidthDp = with(density) { min(containerWidth, contentVideoWidth * baseScaleX).toDp() }
                     val subtitleHeightDp = with(density) { min(containerHeight, contentVideoHeight * baseScaleY).toDp() }

@@ -14,8 +14,8 @@ import androidx.media3.common.util.UnstableApi
 @UnstableApi
 @Composable
 fun rememberCuesState(player: Player): CuesState {
-    val cuesState = remember { CuesState(player) }
-    LaunchedEffect(player) { cuesState.observe() }
+    val cuesState = remember(player) { CuesState(player) }
+    LaunchedEffect(cuesState) { cuesState.observe() }
     return cuesState
 }
 

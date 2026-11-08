@@ -19,21 +19,14 @@ import androidx.annotation.OptIn
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.Stable
-import androidx.compose.runtime.collectAsState
-import androidx.compose.runtime.getValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.viewinterop.AndroidView
 import androidx.core.content.ContextCompat.getSystemService
-import androidx.media3.common.C
-import androidx.media3.common.MimeTypes
 import androidx.media3.common.Player
 import androidx.media3.common.text.Cue
 import androidx.media3.common.util.UnstableApi
 import androidx.media3.ui.CaptionStyleCompat
 import androidx.media3.ui.SubtitleView
-import io.github.peerless2012.ass.media.AssHandler
-import io.github.peerless2012.ass.media.kt.withAssSupport
-import io.github.peerless2012.ass.media.widget.AssSubtitleView as AssMediaSubtitleView
 import one.only.player.core.data.repository.ExternalSubtitleFontSource
 import one.only.player.core.model.Font
 import one.only.player.core.model.PlayerPreferences
@@ -41,8 +34,6 @@ import one.only.player.core.model.SubtitleColor
 import one.only.player.core.model.SubtitleEdgeStyle
 import one.only.player.feature.player.extensions.toTypeface
 import one.only.player.feature.player.state.rememberCuesState
-import one.only.player.feature.player.state.rememberTracksState
-import one.only.player.feature.player.subtitle.AssHandlerRegistry
 import one.only.player.feature.player.subtitle.SubtitleFontPolicy
 import one.only.player.feature.player.subtitle.decideSubtitleFontPolicy
 
@@ -55,20 +46,8 @@ fun SubtitleView(
     configuration: SubtitleConfiguration,
 ) {
     val cuesState = rememberCuesState(player)
-    val assHandler by AssHandlerRegistry.handler.collectAsState()
-    val textTracksState = rememberTracksState(player = player, trackType = C.TRACK_TYPE_TEXT)
-    val isAssSubtitleSelected = textTracksState.tracks.any { track ->
-        track.isSelected &&
-            (0 until track.mediaTrackGroup.length).any { index ->
-                val format = track.mediaTrackGroup.getFormat(index)
-                format.sampleMimeType == MimeTypes.TEXT_SSA || format.codecs == MimeTypes.TEXT_SSA
-            }
-    }
-
     val subtitleFontPolicy = decideSubtitleFontPolicy(
-        isAssSubtitleSelected = isAssSubtitleSelected,
         shouldUseSystemCaptionStyle = configuration.shouldUseSystemCaptionStyle,
-        hasExternalFont = configuration.externalSubtitleFontSource != null,
     )
 
     AndroidView(
@@ -80,7 +59,7 @@ fun SubtitleView(
         },
         update = { container ->
             val subtitleView = container.subtitleView
-            val shouldUseTextSubtitleStyle = !isAssSubtitleSelected && cuesState.cues.canUseTextSubtitleStyle()
+            val shouldUseTextSubtitleStyle = cuesState.cues.canUseTextSubtitleStyle()
             val shouldUseAdvancedTextSubtitle = shouldUseTextSubtitleStyle &&
                 subtitleFontPolicy == SubtitleFontPolicy.ExternalOrFallback &&
                 configuration.shouldUseAdvancedEdgeStyle()
@@ -105,28 +84,18 @@ fun SubtitleView(
                 subtitleView.applyDefaultSubtitleStyle()
             }
 
-            if (isAssSubtitleSelected) {
-                assHandler?.let { handler ->
-                    subtitleView.syncAssSupport(handler)
-                    handler.render?.setFontScale(configuration.subtitleScale)
-                } ?: subtitleView.clearAssSupport()
-                subtitleView.setCues(emptyList())
-                container.advancedSubtitleView.visibility = View.GONE
-            } else {
-                subtitleView.clearAssSupport()
-                subtitleView.setCues(
-                    cuesState.cues
-                        .takeUnless { shouldUseAdvancedTextSubtitle }
-                        .orEmpty()
-                        .withBitmapCueScale(configuration.subtitleScale),
-                )
-                container.applyAdvancedSubtitle(
-                    cues = cuesState.cues,
-                    configuration = configuration,
-                    isVisible = shouldUseAdvancedTextSubtitle,
-                    isInPictureInPictureMode = isInPictureInPictureMode,
-                )
-            }
+            subtitleView.setCues(
+                cuesState.cues
+                    .takeUnless { shouldUseAdvancedTextSubtitle }
+                    .orEmpty()
+                    .withBitmapCueScale(configuration.subtitleScale),
+            )
+            container.applyAdvancedSubtitle(
+                cues = cuesState.cues,
+                configuration = configuration,
+                isVisible = shouldUseAdvancedTextSubtitle,
+                isInPictureInPictureMode = isInPictureInPictureMode,
+            )
         },
     )
 }
@@ -255,29 +224,12 @@ private fun SubtitleContainer.applyAdvancedSubtitle(
     advancedSubtitleView.invalidate()
 }
 
-@OptIn(UnstableApi::class)
-private fun SubtitleView.syncAssSupport(handler: AssHandler) {
-    val assSupportView = findAssSupportView()
-    val currentHandler = assSupportView?.tag as? AssHandler
-    if (currentHandler === handler) return
-
-    assSupportView?.let(::removeView)
-    this.withAssSupport(handler)
-    findAssSupportView()?.tag = handler
-}
-
-private fun SubtitleView.clearAssSupport() {
-    findAssSupportView()?.let(::removeView)
-}
-
 private fun SubtitleView.applySubtitleStyle(
     configuration: SubtitleConfiguration,
     subtitleFontPolicy: SubtitleFontPolicy,
 ) {
     when (subtitleFontPolicy) {
-        SubtitleFontPolicy.Ass,
-        SubtitleFontPolicy.SystemCaptionStyle,
-        -> applyDefaultSubtitleStyle()
+        SubtitleFontPolicy.SystemCaptionStyle -> applyDefaultSubtitleStyle()
 
         SubtitleFontPolicy.ExternalOrFallback -> {
             val baseTypeface = configuration.resolveTypeface()
@@ -315,9 +267,7 @@ private fun SubtitleView.applySubtitlePosition(
 ) {
     val bottomPaddingFraction = when (subtitleFontPolicy) {
         SubtitleFontPolicy.ExternalOrFallback -> configuration.bottomPaddingFraction
-        SubtitleFontPolicy.Ass,
-        SubtitleFontPolicy.SystemCaptionStyle,
-        -> SubtitleView.DEFAULT_BOTTOM_PADDING_FRACTION
+        SubtitleFontPolicy.SystemCaptionStyle -> SubtitleView.DEFAULT_BOTTOM_PADDING_FRACTION
     }
     setBottomPaddingFraction(bottomPaddingFraction)
 }
@@ -355,29 +305,27 @@ private fun List<Cue>.withBitmapCueScale(scale: Float): List<Cue> {
     return map { cue -> if (cue.bitmap == null) cue else cue.scaledBitmapCue(scale) }
 }
 
-/**
- * Scales a bitmap cue (e.g. PGS) around its anchor center so the subtitle
- * grows or shrinks in place instead of drifting towards a corner.
- */
+// 位图字幕按同一比例缩放，按锚点限制位置以保持在画布内。
 private fun Cue.scaledBitmapCue(scale: Float): Cue {
     val builder = buildUpon()
+    var bitmapScale = scale
+    if (size != Cue.DIMEN_UNSET) bitmapScale = minOf(bitmapScale, 1f / size)
+    if (bitmapHeight != Cue.DIMEN_UNSET) bitmapScale = minOf(bitmapScale, 1f / bitmapHeight)
 
     if (size != Cue.DIMEN_UNSET) {
-        val scaledSize = (size * scale).coerceAtMost(1f)
+        val scaledSize = (size * bitmapScale).coerceAtMost(1f)
         builder.setSize(scaledSize)
         if (position != Cue.DIMEN_UNSET) {
-            val centeredPosition = position + size * (1f - scale) * positionAnchor.toAnchorCenteringFraction()
-            builder.setPosition(centeredPosition.coerceIn(0f, (1f - scaledSize).coerceAtLeast(0f)))
+            builder.setPosition(position.scaleBitmapAnchor(size, scaledSize, positionAnchor))
         }
     }
 
     if (bitmapHeight != Cue.DIMEN_UNSET) {
-        val scaledBitmapHeight = (bitmapHeight * scale).coerceAtMost(1f)
+        val scaledBitmapHeight = (bitmapHeight * bitmapScale).coerceAtMost(1f)
         builder.setBitmapHeight(scaledBitmapHeight)
         if (line != Cue.DIMEN_UNSET && lineType == Cue.LINE_TYPE_FRACTION) {
-            val centeredLine = line + bitmapHeight * (1f - scale) * lineAnchor.toAnchorCenteringFraction()
             builder.setLine(
-                centeredLine.coerceIn(0f, (1f - scaledBitmapHeight).coerceAtLeast(0f)),
+                line.scaleBitmapAnchor(bitmapHeight, scaledBitmapHeight, lineAnchor),
                 Cue.LINE_TYPE_FRACTION,
             )
         }
@@ -386,11 +334,22 @@ private fun Cue.scaledBitmapCue(scale: Float): Cue {
     return builder.build()
 }
 
-// Media3's SubtitlePainter treats ANCHOR_TYPE_UNSET like ANCHOR_TYPE_START when drawing bitmap cues.
-private fun Int.toAnchorCenteringFraction(): Float = when (this) {
-    Cue.ANCHOR_TYPE_MIDDLE -> 0f
-    Cue.ANCHOR_TYPE_END -> -0.5f
-    else -> 0.5f
+private fun Float.scaleBitmapAnchor(
+    originalSize: Float,
+    scaledSize: Float,
+    anchor: Int,
+): Float {
+    // Media3 绘制位图时将未指定的锚点视为起点。
+    val anchorFraction = when (anchor) {
+        Cue.ANCHOR_TYPE_MIDDLE -> 0.5f
+        Cue.ANCHOR_TYPE_END -> 1f
+        else -> 0f
+    }
+    val centeredPosition = this + (originalSize - scaledSize) * (0.5f - anchorFraction)
+    return centeredPosition.coerceIn(
+        scaledSize * anchorFraction,
+        1f - scaledSize * (1f - anchorFraction),
+    )
 }
 
 private fun List<Cue>.canUseTextSubtitleStyle(): Boolean = size == 1 && first().isDefaultTextCue()
@@ -422,7 +381,3 @@ private fun CharSequence.withBackground(shouldShowBackground: Boolean): CharSequ
 private fun SubtitleEdgeStyle.hasOutline(): Boolean = this == SubtitleEdgeStyle.OUTLINE || this == SubtitleEdgeStyle.OUTLINE_AND_DROP_SHADOW
 
 private fun SubtitleEdgeStyle.hasShadow(): Boolean = this == SubtitleEdgeStyle.DROP_SHADOW || this == SubtitleEdgeStyle.OUTLINE_AND_DROP_SHADOW
-
-private fun SubtitleView.findAssSupportView(): AssMediaSubtitleView? = (0 until childCount).firstNotNullOfOrNull { index ->
-    getChildAt(index) as? AssMediaSubtitleView
-}
