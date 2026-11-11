@@ -36,7 +36,6 @@ import one.only.player.core.ui.components.AppDialogHost
 import one.only.player.core.ui.components.AppScaffold
 import one.only.player.core.ui.components.AppTopAppBar
 import one.only.player.core.ui.components.ClickablePreferenceItem
-import one.only.player.core.ui.components.ListSectionTitle
 import one.only.player.core.ui.components.PageContentTopPadding
 import one.only.player.core.ui.components.PreferenceGroup
 import one.only.player.core.ui.components.PreferenceSwitch
@@ -177,7 +176,6 @@ private fun SubtitlePreferencesContent(
                 )
             }
 
-            ListSectionTitle(text = stringResource(R.string.online_subtitle_search_settings))
             PreferenceGroup {
                 ClickablePreferenceItem(
                     modifier = Modifier.testTag("item_settings_online_subtitle_language"),

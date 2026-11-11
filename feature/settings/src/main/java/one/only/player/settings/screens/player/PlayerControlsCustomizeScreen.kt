@@ -218,55 +218,45 @@ private fun ArrangementSection(
     onSlotClick: (PlayerControl) -> Unit,
     onShift: (PlayerControl, Int) -> Unit,
 ) {
-    Column(verticalArrangement = Arrangement.spacedBy(6.dp)) {
-        MiuixText(
-            text = slot.sectionTitle(controls.size),
-            style = MiuixTheme.textStyles.subtitle,
-            color = MiuixTheme.colorScheme.onSurfaceVariantSummary,
-            modifier = Modifier
-                .padding(start = 4.dp)
-                .testTag("text_settings_customize_section_${slot.name.lowercase()}"),
-        )
-        PreferenceGroup(
-            modifier = Modifier.testTag("group_settings_customize_${slot.name.lowercase()}"),
-        ) {
-            if (controls.isEmpty()) {
-                PreferenceItem(
-                    modifier = Modifier.testTag("item_settings_customize_${slot.name.lowercase()}_empty"),
-                    title = stringResource(R.string.customize_controls_empty),
-                    isEnabled = false,
-                )
-            }
-            controls.forEachIndexed { index, control ->
-                PreferenceItem(
-                    modifier = Modifier.testTag("item_settings_customize_${slot.name.lowercase()}_${control.id}"),
-                    title = control.label(),
-                    icon = control.icon(),
-                    isEnabled = true,
-                    onClick = { onSlotClick(control) },
-                    trailingContent = {
-                        // 未显示区没有顺序，不给排序按钮
-                        if (slot != PlayerControlSlot.HIDDEN) {
-                            ShiftButton(
-                                control = control,
-                                icon = AppIcons.ArrowUpward,
-                                labelRes = R.string.customize_controls_move_up,
-                                testTag = "btn_customize_up_${control.id}",
-                                isEnabled = index > 0,
-                                onClick = { onShift(control, -1) },
-                            )
-                            ShiftButton(
-                                control = control,
-                                icon = AppIcons.ArrowDownward,
-                                labelRes = R.string.customize_controls_move_down,
-                                testTag = "btn_customize_down_${control.id}",
-                                isEnabled = index < controls.lastIndex,
-                                onClick = { onShift(control, 1) },
-                            )
-                        }
-                    },
-                )
-            }
+    PreferenceGroup(
+        modifier = Modifier.testTag("group_settings_customize_${slot.name.lowercase()}"),
+    ) {
+        if (controls.isEmpty()) {
+            PreferenceItem(
+                modifier = Modifier.testTag("item_settings_customize_${slot.name.lowercase()}_empty"),
+                title = stringResource(R.string.customize_controls_empty),
+                isEnabled = false,
+            )
+        }
+        controls.forEachIndexed { index, control ->
+            PreferenceItem(
+                modifier = Modifier.testTag("item_settings_customize_${slot.name.lowercase()}_${control.id}"),
+                title = control.label(),
+                icon = control.icon(),
+                isEnabled = true,
+                onClick = { onSlotClick(control) },
+                trailingContent = {
+                    // 未显示区没有顺序，不给排序按钮
+                    if (slot != PlayerControlSlot.HIDDEN) {
+                        ShiftButton(
+                            control = control,
+                            icon = AppIcons.ArrowUpward,
+                            labelRes = R.string.customize_controls_move_up,
+                            testTag = "btn_customize_up_${control.id}",
+                            isEnabled = index > 0,
+                            onClick = { onShift(control, -1) },
+                        )
+                        ShiftButton(
+                            control = control,
+                            icon = AppIcons.ArrowDownward,
+                            labelRes = R.string.customize_controls_move_down,
+                            testTag = "btn_customize_down_${control.id}",
+                            isEnabled = index < controls.lastIndex,
+                            onClick = { onShift(control, 1) },
+                        )
+                    }
+                },
+            )
         }
     }
 }
@@ -294,14 +284,6 @@ private fun ShiftButton(
             modifier = Modifier.size(20.dp),
         )
     }
-}
-
-@Composable
-private fun PlayerControlSlot.sectionTitle(count: Int): String = when (this) {
-    PlayerControlSlot.TOP_RIGHT -> "${stringResource(R.string.customize_controls_top_right)}  $count"
-    PlayerControlSlot.BOTTOM_RIGHT -> "${stringResource(R.string.customize_controls_bottom_right)}  $count"
-    PlayerControlSlot.MENU -> "${stringResource(R.string.customize_controls_menu)}  $count"
-    PlayerControlSlot.HIDDEN -> "${stringResource(R.string.customize_controls_hidden)}  $count"
 }
 
 @Composable
