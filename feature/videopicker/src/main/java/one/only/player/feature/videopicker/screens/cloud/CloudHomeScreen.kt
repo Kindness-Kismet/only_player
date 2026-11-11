@@ -32,6 +32,9 @@ import androidx.compose.ui.input.nestedscroll.nestedScroll
 import androidx.compose.ui.platform.LocalLayoutDirection
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.res.stringResource
+import androidx.compose.ui.semantics.Role
+import androidx.compose.ui.semantics.semantics
+import androidx.compose.ui.semantics.testTagsAsResourceId
 import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.text.input.PasswordVisualTransformation
 import androidx.compose.ui.unit.dp
@@ -42,6 +45,7 @@ import one.only.player.core.model.RemoteServer
 import one.only.player.core.model.ServerProtocol
 import one.only.player.core.ui.R
 import one.only.player.core.ui.components.AppDialog
+import one.only.player.core.ui.components.AppDialogHost
 import one.only.player.core.ui.components.AppScaffold
 import one.only.player.core.ui.components.AppTopAppBar
 import one.only.player.core.ui.components.CancelButton
@@ -53,18 +57,23 @@ import one.only.player.core.ui.extensions.withBottomFallback
 import one.only.player.feature.videopicker.composables.MediaMessageState
 import one.only.player.feature.videopicker.composables.RequestLocalNetworkPermissionIfNeeded
 import one.only.player.feature.videopicker.composables.rememberLocalNetworkPermissionState
+import top.yukonga.miuix.kmp.basic.BasicComponent
 import top.yukonga.miuix.kmp.basic.ButtonDefaults
 import top.yukonga.miuix.kmp.basic.Card
-import top.yukonga.miuix.kmp.basic.DropdownEntry
+import top.yukonga.miuix.kmp.basic.DropdownArrowEndAction
+import top.yukonga.miuix.kmp.basic.DropdownImpl
 import top.yukonga.miuix.kmp.basic.DropdownItem
 import top.yukonga.miuix.kmp.basic.Icon
 import top.yukonga.miuix.kmp.basic.IconButton
+import top.yukonga.miuix.kmp.basic.ListPopupColumn
 import top.yukonga.miuix.kmp.basic.MiuixScrollBehavior
+import top.yukonga.miuix.kmp.basic.PopupPositionProvider
 import top.yukonga.miuix.kmp.basic.Text
 import top.yukonga.miuix.kmp.basic.TextButton
 import top.yukonga.miuix.kmp.basic.TextField
-import top.yukonga.miuix.kmp.menu.WindowDropdownMenu
+import top.yukonga.miuix.kmp.squircle.squircleClip
 import top.yukonga.miuix.kmp.theme.MiuixTheme
+import top.yukonga.miuix.kmp.window.WindowListPopup
 
 @Composable
 fun CloudHomeRoute(
@@ -165,7 +174,7 @@ internal fun CloudHomeScreen(
         }
     }
 
-    if (shouldShowAddDialog) {
+    AppDialogHost(dialog = Unit.takeIf { shouldShowAddDialog }) {
         AddEditServerDialog(
             server = null,
             onDismiss = { shouldShowAddDialog = false },
@@ -176,7 +185,7 @@ internal fun CloudHomeScreen(
         )
     }
 
-    editingServer?.let { server ->
+    AppDialogHost(dialog = editingServer) { server ->
         AddEditServerDialog(
             server = server,
             onDismiss = { editingServer = null },
@@ -308,17 +317,8 @@ private fun AddEditServerDialog(
     var isProxyEnabled by rememberSaveable { mutableStateOf(server?.isProxyEnabled ?: false) }
     var proxyHost by rememberSaveable { mutableStateOf(server?.proxyHost ?: "") }
     var proxyPort by rememberSaveable { mutableStateOf(server?.proxyPort?.toString() ?: "") }
-    val protocolItems = remember(protocol) {
-        ServerProtocol.entries.map { item ->
-            DropdownItem(
-                text = item.name,
-                selected = item == protocol,
-                onClick = { protocol = item },
-            )
-        }
-    }
-
     AppDialog(
+        modifier = Modifier.testTag("dialog_cloud_server"),
         onDismissRequest = onDismiss,
         title = stringResource(
             if (isEditing) R.string.edit_server else R.string.add_server,
@@ -330,19 +330,14 @@ private fun AddEditServerDialog(
                     .fillMaxWidth(),
                 verticalArrangement = Arrangement.spacedBy(8.dp),
             ) {
-                WindowDropdownMenu(
-                    entries = listOf(DropdownEntry(items = protocolItems)),
-                    title = stringResource(R.string.server_protocol),
-                    summary = protocol.name,
-                    modifier = Modifier.fillMaxWidth(),
-                )
+                ServerProtocolPreference(protocol = protocol, onSelect = { protocol = it })
 
                 TextField(
                     value = name,
                     onValueChange = { name = it },
                     label = stringResource(R.string.server_name),
                     singleLine = true,
-                    modifier = Modifier.fillMaxWidth(),
+                    modifier = Modifier.fillMaxWidth().testTag("input_cloud_server_name"),
                 )
                 Row(horizontalArrangement = Arrangement.spacedBy(12.dp)) {
                     TextField(
@@ -350,7 +345,7 @@ private fun AddEditServerDialog(
                         onValueChange = { host = it },
                         label = stringResource(R.string.server_host),
                         singleLine = true,
-                        modifier = Modifier.weight(1f),
+                        modifier = Modifier.weight(1f).testTag("input_cloud_server_host"),
                     )
                     TextField(
                         value = port,
@@ -358,7 +353,7 @@ private fun AddEditServerDialog(
                         label = stringResource(R.string.server_port),
                         singleLine = true,
                         keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
-                        modifier = Modifier.width(140.dp),
+                        modifier = Modifier.width(140.dp).testTag("input_cloud_server_port"),
                     )
                 }
                 TextField(
@@ -366,7 +361,7 @@ private fun AddEditServerDialog(
                     onValueChange = { path = it },
                     label = stringResource(R.string.server_path),
                     singleLine = true,
-                    modifier = Modifier.fillMaxWidth(),
+                    modifier = Modifier.fillMaxWidth().testTag("input_cloud_server_path"),
                 )
                 Row(horizontalArrangement = Arrangement.spacedBy(12.dp)) {
                     TextField(
@@ -374,7 +369,7 @@ private fun AddEditServerDialog(
                         onValueChange = { username = it },
                         label = stringResource(R.string.server_username),
                         singleLine = true,
-                        modifier = Modifier.weight(1f),
+                        modifier = Modifier.weight(1f).testTag("input_cloud_server_username"),
                     )
                     TextField(
                         value = password,
@@ -382,11 +377,12 @@ private fun AddEditServerDialog(
                         label = stringResource(R.string.server_password),
                         singleLine = true,
                         visualTransformation = PasswordVisualTransformation(),
-                        modifier = Modifier.weight(1f),
+                        modifier = Modifier.weight(1f).testTag("input_cloud_server_password"),
                     )
                 }
 
                 PreferenceSwitch(
+                    modifier = Modifier.squircleClip(16.dp).testTag("switch_cloud_server_proxy"),
                     title = stringResource(R.string.proxy_settings),
                     isChecked = isProxyEnabled,
                     onClick = { isProxyEnabled = !isProxyEnabled },
@@ -398,7 +394,7 @@ private fun AddEditServerDialog(
                             onValueChange = { proxyHost = it },
                             label = stringResource(R.string.proxy_host),
                             singleLine = true,
-                            modifier = Modifier.weight(1f),
+                            modifier = Modifier.weight(1f).testTag("input_cloud_server_proxy_host"),
                         )
                         TextField(
                             value = proxyPort,
@@ -406,7 +402,7 @@ private fun AddEditServerDialog(
                             label = stringResource(R.string.proxy_port),
                             singleLine = true,
                             keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
-                            modifier = Modifier.width(140.dp),
+                            modifier = Modifier.width(140.dp).testTag("input_cloud_server_proxy_port"),
                         )
                     }
                 }
@@ -437,5 +433,55 @@ private fun AddEditServerDialog(
             )
         },
         dismissButton = { CancelButton(onClick = onDismiss) },
+    )
+}
+
+@Composable
+private fun ServerProtocolPreference(
+    protocol: ServerProtocol,
+    onSelect: (ServerProtocol) -> Unit,
+) {
+    var isExpanded by remember { mutableStateOf(false) }
+    var isHeld by remember { mutableStateOf(false) }
+    BasicComponent(
+        title = stringResource(R.string.server_protocol),
+        summary = protocol.name,
+        modifier = Modifier.squircleClip(16.dp).testTag("item_cloud_server_protocol"),
+        role = Role.DropdownList,
+        holdDownState = isHeld,
+        onClick = {
+            isExpanded = !isExpanded
+            if (isExpanded) isHeld = true
+        },
+        endActions = {
+            DropdownArrowEndAction(MiuixTheme.colorScheme.onSurfaceVariantActions)
+            WindowListPopup(
+                show = isExpanded,
+                alignment = PopupPositionProvider.Align.End,
+                popupModifier = Modifier.semantics { testTagsAsResourceId = true },
+                onDismissRequest = { isExpanded = false },
+                onDismissFinished = { isHeld = false },
+            ) {
+                ListPopupColumn {
+                    ServerProtocol.entries.forEachIndexed { index, item ->
+                        Box(
+                            modifier = Modifier.fillMaxWidth().squircleClip(16.dp).testTag("option_cloud_server_protocol_${item.name.lowercase()}"),
+                            propagateMinConstraints = true,
+                        ) {
+                            DropdownImpl(
+                                item = DropdownItem(text = item.name),
+                                optionSize = ServerProtocol.entries.size,
+                                index = index,
+                                isSelected = protocol == item,
+                                onSelectedIndexChange = {
+                                    onSelect(item)
+                                    isExpanded = false
+                                },
+                            )
+                        }
+                    }
+                }
+            }
+        },
     )
 }
