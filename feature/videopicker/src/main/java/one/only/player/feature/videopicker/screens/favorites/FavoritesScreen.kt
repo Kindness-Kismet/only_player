@@ -149,6 +149,7 @@ internal fun FavoritesScreen(
                         placeholder = stringResource(R.string.search_favorites),
                         searchFieldTestTag = "input_favorites_search",
                         clearButtonTestTag = "btn_favorites_search_clear",
+                        isActive = isSearchActive,
                         onQueryChange = { onEvent(FavoritesUiEvent.UpdateSearchQuery(it)) },
                         onClose = {
                             isSearchActive = false
