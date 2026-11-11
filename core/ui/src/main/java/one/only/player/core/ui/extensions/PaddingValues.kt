@@ -47,9 +47,18 @@ fun PaddingValues.subtractBottomPadding(padding: Dp): PaddingValues = copy(
 @OptIn(ExperimentalLayoutApi::class)
 fun PaddingValues.withBottomFallback(): PaddingValues {
     val bottomPadding = calculateBottomPadding()
-    val navigationBarBottomPadding = WindowInsets.navigationBars.asPaddingValues().calculateBottomPadding()
+    val navigationBarPadding = WindowInsets.navigationBars.asPaddingValues()
+    val navigationBarBottomPadding = navigationBarPadding.calculateBottomPadding()
     val rootBottomBarPadding = LocalRootBottomBarPadding.current.calculateBottomPadding()
-    val pageBottomPadding = if (WindowInsets.areNavigationBarsVisible || rootBottomBarPadding > 0.dp) {
+    // 隐藏导航条的系统模块可能保留可见标记，留白以实际占位为准。
+    val hasNavigationBarSpace = WindowInsets.areNavigationBarsVisible &&
+        maxOf(
+            navigationBarBottomPadding,
+            navigationBarPadding.calculateTopPadding(),
+            navigationBarPadding.calculateStartPadding(LocalLayoutDirection.current),
+            navigationBarPadding.calculateEndPadding(LocalLayoutDirection.current),
+        ) > 0.dp
+    val pageBottomPadding = if (hasNavigationBarSpace || rootBottomBarPadding > 0.dp) {
         PageBottomPadding
     } else {
         PageBottomPaddingWithoutBars
