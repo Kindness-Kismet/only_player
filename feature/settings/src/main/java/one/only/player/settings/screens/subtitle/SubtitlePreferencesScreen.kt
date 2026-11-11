@@ -32,6 +32,7 @@ import one.only.player.core.model.Font
 import one.only.player.core.model.OnlineSubtitleLanguageFilter
 import one.only.player.core.model.OnlineSubtitleProvider
 import one.only.player.core.ui.R
+import one.only.player.core.ui.components.AppDialogHost
 import one.only.player.core.ui.components.AppScaffold
 import one.only.player.core.ui.components.AppTopAppBar
 import one.only.player.core.ui.components.ClickablePreferenceItem
@@ -260,7 +261,7 @@ private fun SubtitlePreferencesContent(
             )
         }
 
-        uiState.showDialog?.let { showDialog ->
+        AppDialogHost(dialog = uiState.showDialog) { showDialog ->
             when (showDialog) {
                 SubtitlePreferenceDialog.OnlineSubtitleLanguageDialog -> {
                     OptionsDialog(

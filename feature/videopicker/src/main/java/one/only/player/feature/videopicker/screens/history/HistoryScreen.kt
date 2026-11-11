@@ -41,7 +41,6 @@ import one.only.player.core.ui.designsystem.AppIcons
 import one.only.player.core.ui.extensions.copy
 import one.only.player.core.ui.extensions.subtractBottomPadding
 import one.only.player.core.ui.extensions.withBottomFallback
-import one.only.player.core.ui.navigation.MiuixBackHandler
 import one.only.player.feature.videopicker.composables.LibraryEntryItem
 import one.only.player.feature.videopicker.composables.MediaItemContentPadding
 import one.only.player.feature.videopicker.composables.MediaMessageState
@@ -88,11 +87,6 @@ internal fun HistoryScreen(
         }
     }
 
-    MiuixBackHandler(enabled = isSearchActive) {
-        isSearchActive = false
-        onEvent(HistoryUiEvent.UpdateSearchQuery(""))
-    }
-
     AppScaffold(
         topBar = {
             AnimatedContent(
@@ -105,6 +99,7 @@ internal fun HistoryScreen(
                         placeholder = stringResource(R.string.search_watch_history),
                         searchFieldTestTag = "input_history_search",
                         clearButtonTestTag = "btn_history_search_clear",
+                        isActive = isSearchActive,
                         onQueryChange = { onEvent(HistoryUiEvent.UpdateSearchQuery(it)) },
                         onClose = {
                             isSearchActive = false

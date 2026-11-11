@@ -1,17 +1,11 @@
-- Add a Miuix-style floating bottom bar and apply appearance changes immediately
-- Use Miuix page transitions with predictive back gestures for consistent navigation
-- Improve ASS/SSA and PGS/VobSub/DVB subtitle rendering, keeping subtitles aligned with video scaling, cropping, mirroring, and rotation
-- Render subtitle styling and animations with embedded and imported fonts
-- Improve WebM subtitle compatibility, including description tracks
-- Fix playback jumps shorter than two seconds being ignored
-- Improve UTF-8 subtitle encoding detection to prevent incorrect character decoding
+- Unify settings dialogs with rounded press feedback, aligned buttons, and smooth closing transitions
+- Keep search controls on one row with separate clear and close buttons, and dismiss the keyboard before closing search
+- Fix system back navigation from audio and subtitle settings opened while search is active
+- Round press feedback for protocol choices and proxy settings in server dialogs
 
 ---
 
-- 新增 Miuix 风格悬浮底栏，让外观设置即时生效
-- 采用 Miuix 页面转场和预测性返回手势，让页面切换体验更统一
-- 改进 ASS/SSA 和 PGS/VobSub/DVB 字幕渲染，让字幕随视频缩放、裁剪、镜像和旋转保持对齐
-- 支持字幕样式与动画，兼容内嵌字体和导入字体
-- 改善 WebM 字幕兼容性，支持正确显示描述字幕轨道
-- 修复小于两秒的播放跳转被忽略的问题
-- 改善 UTF-8 字幕编码识别，避免错误解码造成乱码
+- 统一设置对话框样式，提供圆角按压反馈、整齐的按钮布局和连贯的关闭动画
+- 将搜索控件放在同一行，分别提供清空和关闭按钮，返回时先收起键盘再关闭搜索
+- 修复搜索开启时进入音频、字幕设置后，系统返回无法回到上级页面的问题
+- 为服务器对话框中的协议选项和代理设置提供圆角按压反馈

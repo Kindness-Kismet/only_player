@@ -104,12 +104,7 @@ internal fun PlaylistsScreen(
         }
     }
 
-    MiuixBackHandler(enabled = isDetail || isSearchActive) {
-        if (isSearchActive) {
-            isSearchActive = false
-            onEvent(PlaylistsUiEvent.UpdateSearchQuery(""))
-            return@MiuixBackHandler
-        }
+    MiuixBackHandler(enabled = isDetail && !isSearchActive) {
         onEvent(PlaylistsUiEvent.NavigateParent)
     }
 
@@ -127,6 +122,7 @@ internal fun PlaylistsScreen(
                         ),
                         searchFieldTestTag = "input_playlists_search",
                         clearButtonTestTag = "btn_playlists_search_clear",
+                        isActive = isSearchActive,
                         onQueryChange = { onEvent(PlaylistsUiEvent.UpdateSearchQuery(it)) },
                         onClose = {
                             isSearchActive = false

@@ -29,6 +29,7 @@ import one.only.player.core.model.controlsIn
 import one.only.player.core.model.slotOf
 import one.only.player.core.ui.R
 import one.only.player.core.ui.components.AppDialog
+import one.only.player.core.ui.components.AppDialogHost
 import one.only.player.core.ui.components.AppScaffold
 import one.only.player.core.ui.components.AppTopAppBar
 import one.only.player.core.ui.components.CancelButton
@@ -142,71 +143,71 @@ fun PlayerControlsCustomizeScreen(
         }
     }
 
-    when (val dialog = activeDialog) {
-        null -> Unit
+    AppDialogHost(dialog = activeDialog) { dialog ->
+        when (dialog) {
+            is CustomizeDialog.SlotPicker -> {
+                val control = dialog.control
+                val selectedSlot = arrangement.slotOf(control)
+                OptionsDialog(
+                    text = control.label(),
+                    onDismissClick = { activeDialog = null },
+                ) {
+                    items(PlayerControlSlot.entries) { slot ->
+                        RadioTextButton(
+                            modifier = Modifier.testTag(
+                                "option_settings_customize_slot_${control.id}_${slot.name.lowercase()}",
+                            ),
+                            text = slot.label(),
+                            isSelected = slot == selectedSlot,
+                            onClick = {
+                                viewModel.onEvent(PlayerPreferencesUiEvent.MoveControl(control, slot))
+                                activeDialog = null
+                            },
+                        )
+                    }
+                }
+            }
 
-        is CustomizeDialog.SlotPicker -> {
-            val control = dialog.control
-            val selectedSlot = arrangement.slotOf(control)
-            OptionsDialog(
-                text = control.label(),
+            CustomizeDialog.PreviewPicker -> OptionsDialog(
+                text = stringResource(R.string.customize_controls_preview_layout),
                 onDismissClick = { activeDialog = null },
             ) {
-                items(PlayerControlSlot.entries) { slot ->
+                items(ControlsPreviewLayout.entries) { layout ->
                     RadioTextButton(
-                        modifier = Modifier.testTag(
-                            "option_settings_customize_slot_${control.id}_${slot.name.lowercase()}",
-                        ),
-                        text = slot.label(),
-                        isSelected = slot == selectedSlot,
+                        modifier = Modifier.testTag("option_settings_customize_preview_${layout.name.lowercase()}"),
+                        text = layout.label(),
+                        isSelected = layout == previewLayout,
                         onClick = {
-                            viewModel.onEvent(PlayerPreferencesUiEvent.MoveControl(control, slot))
+                            previewLayout = layout
                             activeDialog = null
                         },
                     )
                 }
             }
-        }
 
-        CustomizeDialog.PreviewPicker -> OptionsDialog(
-            text = stringResource(R.string.customize_controls_preview_layout),
-            onDismissClick = { activeDialog = null },
-        ) {
-            items(ControlsPreviewLayout.entries) { layout ->
-                RadioTextButton(
-                    modifier = Modifier.testTag("option_settings_customize_preview_${layout.name.lowercase()}"),
-                    text = layout.label(),
-                    isSelected = layout == previewLayout,
-                    onClick = {
-                        previewLayout = layout
-                        activeDialog = null
-                    },
-                )
-            }
+            CustomizeDialog.ResetConfirm -> AppDialog(
+                onDismissRequest = { activeDialog = null },
+                title = stringResource(R.string.customize_controls_reset),
+                confirmButton = {
+                    TextButton(
+                        text = stringResource(R.string.reset),
+                        modifier = Modifier.testTag("btn_confirm_settings_customize_reset"),
+                        colors = ButtonDefaults.textButtonColorsPrimary(),
+                        onClick = {
+                            viewModel.onEvent(PlayerPreferencesUiEvent.ResetControlsArrangement)
+                            activeDialog = null
+                        },
+                    )
+                },
+                dismissButton = { CancelButton(onClick = { activeDialog = null }) },
+                content = {
+                    MiuixText(
+                        text = stringResource(R.string.customize_controls_reset_confirmation),
+                        style = MiuixTheme.textStyles.body1,
+                    )
+                },
+            )
         }
-
-        CustomizeDialog.ResetConfirm -> AppDialog(
-            onDismissRequest = { activeDialog = null },
-            title = stringResource(R.string.customize_controls_reset),
-            confirmButton = {
-                TextButton(
-                    text = stringResource(R.string.reset),
-                    modifier = Modifier.testTag("btn_confirm_settings_customize_reset"),
-                    colors = ButtonDefaults.textButtonColorsPrimary(),
-                    onClick = {
-                        viewModel.onEvent(PlayerPreferencesUiEvent.ResetControlsArrangement)
-                        activeDialog = null
-                    },
-                )
-            },
-            dismissButton = { CancelButton(onClick = { activeDialog = null }) },
-            content = {
-                MiuixText(
-                    text = stringResource(R.string.customize_controls_reset_confirmation),
-                    style = MiuixTheme.textStyles.body1,
-                )
-            },
-        )
     }
 }
 

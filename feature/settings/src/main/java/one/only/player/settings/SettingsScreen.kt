@@ -2,6 +2,14 @@ package one.only.player.settings
 
 import android.os.Build
 import androidx.compose.animation.AnimatedContent
+import androidx.compose.animation.SizeTransform
+import androidx.compose.animation.core.FastOutSlowInEasing
+import androidx.compose.animation.core.tween
+import androidx.compose.animation.fadeIn
+import androidx.compose.animation.fadeOut
+import androidx.compose.animation.slideInVertically
+import androidx.compose.animation.slideOutVertically
+import androidx.compose.animation.togetherWith
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.fillMaxSize
@@ -10,6 +18,7 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
@@ -21,6 +30,7 @@ import androidx.compose.ui.input.nestedscroll.nestedScroll
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.unit.dp
+import kotlinx.coroutines.delay
 import one.only.player.core.ui.R
 import one.only.player.core.ui.components.AppScaffold
 import one.only.player.core.ui.components.AppTopAppBar
@@ -42,6 +52,12 @@ fun SettingsScreen(
 ) {
     var isSearchActive by rememberSaveable { mutableStateOf(false) }
     var searchQuery by rememberSaveable { mutableStateOf("") }
+    LaunchedEffect(isSearchActive) {
+        if (!isSearchActive) {
+            delay(300)
+            searchQuery = ""
+        }
+    }
     val scrollBehavior = MiuixScrollBehavior()
     // API 33 以下模糊效果不可用，相关开关不进搜索索引
     val shouldIndexBlurSettings = Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU
@@ -85,6 +101,11 @@ fun SettingsScreen(
         topBar = {
             AnimatedContent(
                 targetState = isSearchActive,
+                transitionSpec = {
+                    (fadeIn(tween(180, 60)) + slideInVertically(tween(300, easing = FastOutSlowInEasing)) { it / 12 })
+                        .togetherWith(fadeOut(tween(120)) + slideOutVertically(tween(300, easing = FastOutSlowInEasing)) { -it / 12 })
+                        .using(SizeTransform { _, _ -> tween(300, easing = FastOutSlowInEasing) })
+                },
                 label = "settings_top_bar",
             ) { isSearching ->
                 if (isSearching) {
@@ -93,11 +114,9 @@ fun SettingsScreen(
                         placeholder = stringResource(R.string.search_settings),
                         searchFieldTestTag = "settings_search_field",
                         clearButtonTestTag = "btn_settings_search_clear",
+                        isActive = isSearchActive,
                         onQueryChange = { searchQuery = it },
-                        onClose = {
-                            isSearchActive = false
-                            searchQuery = ""
-                        },
+                        onClose = { isSearchActive = false },
                     )
                 } else {
                     AppTopAppBar(

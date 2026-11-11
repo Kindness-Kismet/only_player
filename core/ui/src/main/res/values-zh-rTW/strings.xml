@@ -681,4 +681,6 @@
     <string name="layout_independent_config">獨立設定</string>
     <string name="quick_settings_edit_global">正在修改全域預設設定</string>
     <string name="quick_settings_parent_override">目前目錄仍繼承上級的獨立設定</string>
+    <string name="clear_search">清空搜尋</string>
+    <string name="close_search">關閉搜尋</string>
 </resources>
