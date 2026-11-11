@@ -48,6 +48,7 @@ import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import one.only.player.core.common.extensions.appIcon
 import one.only.player.core.model.UpdateChannel
 import one.only.player.core.ui.R
+import one.only.player.core.ui.components.AppDialogHost
 import one.only.player.core.ui.components.AppScaffold
 import one.only.player.core.ui.components.AppUpdateDialog
 import one.only.player.core.ui.components.ClickablePreferenceItem
@@ -194,7 +195,7 @@ private fun UpdateSection(
         )
     }
 
-    uiState.showDialog?.let { dialog ->
+    AppDialogHost(dialog = uiState.showDialog) { dialog ->
         when (dialog) {
             is AboutPreferenceDialog.Update -> AppUpdateDialog(
                 info = dialog.info,

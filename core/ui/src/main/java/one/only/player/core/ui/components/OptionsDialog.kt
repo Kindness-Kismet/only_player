@@ -1,12 +1,13 @@
 package one.only.player.core.ui.components
 
-import androidx.compose.foundation.layout.PaddingValues
+import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.LazyListScope
 import androidx.compose.foundation.selection.selectableGroup
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.unit.dp
+import top.yukonga.miuix.kmp.basic.Card
 
 @Composable
 fun OptionsDialog(
@@ -20,13 +21,15 @@ fun OptionsDialog(
         onDismissRequest = onDismissClick,
         title = title,
         content = {
-            LazyColumn(
-                contentPadding = PaddingValues(vertical = 8.dp),
-                modifier = Modifier.selectableGroup(),
-                content = options,
-            )
+            Card(modifier = Modifier.fillMaxWidth()) {
+                LazyColumn(
+                    modifier = Modifier
+                        .heightIn(max = AppDialogDefaults.contentMaxHeight)
+                        .selectableGroup(),
+                    content = options,
+                )
+            }
         },
-        dismissButton = { CancelButton(onClick = onDismissClick) },
-        confirmButton = null,
+        confirmButton = { DoneButton(onClick = onDismissClick) },
     )
 }

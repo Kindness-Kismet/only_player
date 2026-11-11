@@ -3,22 +3,26 @@ package one.only.player.core.ui.components
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.ExperimentalLayoutApi
 import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.WindowInsets
 import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.isImeVisible
 import androidx.compose.foundation.layout.padding
-import androidx.compose.foundation.layout.widthIn
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.ExperimentalComposeUiApi
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.platform.LocalConfiguration
+import androidx.compose.ui.platform.LocalSoftwareKeyboardController
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.semantics.testTagsAsResourceId
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
+import one.only.player.core.ui.navigation.MiuixBackHandler
 import top.yukonga.miuix.kmp.window.WindowDialog
 
-@OptIn(ExperimentalComposeUiApi::class)
+@OptIn(ExperimentalComposeUiApi::class, ExperimentalLayoutApi::class)
 @Composable
 fun AppDialog(
     onDismissRequest: () -> Unit,
@@ -29,29 +33,40 @@ fun AppDialog(
     dismissButton: @Composable (() -> Unit)? = null,
     additionalButton: @Composable (() -> Unit)? = null,
 ) {
-    val configuration = LocalConfiguration.current
+    val dialogState = LocalAppDialogState.current
+    val keyboard = LocalSoftwareKeyboardController.current
+    val isShown = dialogState?.isShown ?: true
 
-    WindowDialog(
-        show = true,
-        modifier = modifier
-            .semantics { testTagsAsResourceId = true }
-            .widthIn(max = configuration.screenWidthDp.dp - AppDialogDefaults.dialogMargin * 2),
-        title = title,
-        onDismissRequest = onDismissRequest,
-    ) {
-        Column {
-            Column(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .weight(1f, fill = false),
-            ) {
-                content()
+    LaunchedEffect(isShown) {
+        if (!isShown) keyboard?.hide()
+    }
+
+    MiuixInteractions {
+        WindowDialog(
+            show = isShown,
+            modifier = modifier
+                .semantics { testTagsAsResourceId = true },
+            title = title,
+            onDismissRequest = onDismissRequest,
+            onDismissFinished = dialogState?.onDismissFinished,
+        ) {
+            Column {
+                Column(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .weight(1f, fill = false),
+                ) {
+                    content()
+                }
+                DialogButtonRow(
+                    confirmButton = confirmButton,
+                    dismissButton = dismissButton,
+                    additionalButton = additionalButton,
+                )
             }
-            DialogButtonRow(
-                confirmButton = confirmButton,
-                dismissButton = dismissButton,
-                additionalButton = additionalButton,
-            )
+            MiuixBackHandler(enabled = isShown && WindowInsets.isImeVisible) {
+                keyboard?.hide()
+            }
         }
     }
 }
@@ -100,6 +115,5 @@ private fun DialogButtonRow(
 }
 
 object AppDialogDefaults {
-    val dialogMargin: Dp = 16.dp
     val contentMaxHeight: Dp = 420.dp
 }

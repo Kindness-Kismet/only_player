@@ -2,14 +2,15 @@ package one.only.player.settings.screens.player
 
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
-import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.selection.selectableGroup
+import androidx.compose.foundation.text.KeyboardActions
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.runtime.Composable
@@ -22,6 +23,7 @@ import androidx.compose.ui.input.nestedscroll.nestedScroll
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.res.stringResource
+import androidx.compose.ui.text.input.ImeAction
 import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.unit.dp
 import androidx.hilt.lifecycle.viewmodel.compose.hiltViewModel
@@ -34,10 +36,13 @@ import one.only.player.core.model.PlayerPreferences
 import one.only.player.core.model.ScreenOrientation
 import one.only.player.core.ui.R
 import one.only.player.core.ui.components.AppDialog
+import one.only.player.core.ui.components.AppDialogDefaults
+import one.only.player.core.ui.components.AppDialogHost
 import one.only.player.core.ui.components.AppScaffold
 import one.only.player.core.ui.components.AppTopAppBar
 import one.only.player.core.ui.components.CancelButton
 import one.only.player.core.ui.components.ClickablePreferenceItem
+import one.only.player.core.ui.components.DoneButton
 import one.only.player.core.ui.components.PageContentTopPadding
 import one.only.player.core.ui.components.PreferenceGroup
 import one.only.player.core.ui.components.PreferenceSlider
@@ -53,6 +58,7 @@ import one.only.player.settings.composables.OptionsDialog
 import one.only.player.settings.extensions.isEnabled
 import one.only.player.settings.extensions.name
 import top.yukonga.miuix.kmp.basic.ButtonDefaults
+import top.yukonga.miuix.kmp.basic.Card
 import top.yukonga.miuix.kmp.basic.Icon as MiuixIcon
 import top.yukonga.miuix.kmp.basic.IconButton as MiuixIconButton
 import top.yukonga.miuix.kmp.basic.MiuixScrollBehavior
@@ -256,7 +262,7 @@ private fun PlayerPreferencesContent(
             }
         }
 
-        uiState.showDialog?.let { showDialog ->
+        AppDialogHost(dialog = uiState.showDialog) { showDialog ->
             when (showDialog) {
                 PlayerPreferenceDialog.ControllerAutoHideDialog -> {
                     ControllerAutoHideDialog(
@@ -335,46 +341,46 @@ private fun ControllerAutoHideDialog(
         mutableStateOf(preferences.controllerAutoHideTimeout.coerceAtLeast(1).toString())
     }
     val seconds = value.toIntOrNull()?.coerceAtLeast(1)
+    val confirm: () -> Unit = { seconds?.let(onCustomConfirm) }
 
     AppDialog(
         onDismissRequest = onDismiss,
         title = stringResource(id = R.string.controller_timeout_select),
         content = {
-            LazyColumn(
-                contentPadding = PaddingValues(vertical = 8.dp),
-                modifier = Modifier.selectableGroup(),
-            ) {
-                items(ControllerAutoHidePreset.entries.toTypedArray()) {
-                    RadioTextButton(
-                        modifier = Modifier.testTag("option_settings_player_controller_timeout_${it.name.lowercase()}"),
-                        text = it.description(preferences),
-                        isSelected = when (it) {
-                            ControllerAutoHidePreset.CUSTOM -> isCustomSelected
-                            else -> !isCustomSelected && it == preferences.controllerAutoHidePreset
-                        },
-                        onClick = {
-                            if (it == ControllerAutoHidePreset.CUSTOM) {
-                                isCustomSelected = true
-                            } else {
-                                onPresetSelected(it)
-                            }
-                        },
-                    )
+            Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
+                Card(modifier = Modifier.fillMaxWidth()) {
+                    LazyColumn(
+                        modifier = Modifier.heightIn(max = AppDialogDefaults.contentMaxHeight).selectableGroup(),
+                    ) {
+                        items(ControllerAutoHidePreset.entries.toTypedArray()) {
+                            RadioTextButton(
+                                modifier = Modifier.testTag("option_settings_player_controller_timeout_${it.name.lowercase()}"),
+                                text = it.description(preferences),
+                                isSelected = when (it) {
+                                    ControllerAutoHidePreset.CUSTOM -> isCustomSelected
+                                    else -> !isCustomSelected && it == preferences.controllerAutoHidePreset
+                                },
+                                onClick = {
+                                    if (it == ControllerAutoHidePreset.CUSTOM) {
+                                        isCustomSelected = true
+                                    } else {
+                                        onPresetSelected(it)
+                                    }
+                                },
+                            )
+                        }
+                    }
                 }
                 if (isCustomSelected) {
-                    item {
-                        TextField(
-                            value = value,
-                            onValueChange = { input -> value = input.filter(Char::isDigit) },
-                            modifier = Modifier
-                                .fillMaxWidth()
-                                .padding(horizontal = 12.dp, vertical = 8.dp)
-                                .testTag("input_settings_player_controller_timeout_custom"),
-                            singleLine = true,
-                            label = stringResource(R.string.enter_seconds),
-                            keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
-                        )
-                    }
+                    TextField(
+                        value = value,
+                        onValueChange = { input -> value = input.filter(Char::isDigit) },
+                        modifier = Modifier.fillMaxWidth().testTag("input_settings_player_controller_timeout_custom"),
+                        singleLine = true,
+                        label = stringResource(R.string.enter_seconds),
+                        keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number, imeAction = ImeAction.Done),
+                        keyboardActions = KeyboardActions(onDone = { confirm() }),
+                    )
                 }
             }
         },
@@ -385,11 +391,13 @@ private fun ControllerAutoHideDialog(
                     modifier = Modifier.testTag("btn_settings_player_controller_timeout_custom_confirm"),
                     enabled = seconds != null,
                     colors = ButtonDefaults.textButtonColorsPrimary(),
-                    onClick = { seconds?.let(onCustomConfirm) },
+                    onClick = confirm,
                 )
+            } else {
+                DoneButton(onClick = onDismiss)
             }
         },
-        dismissButton = { CancelButton(onClick = onDismiss) },
+        dismissButton = if (isCustomSelected) ({ CancelButton(onClick = onDismiss) }) else null,
     )
 }
 

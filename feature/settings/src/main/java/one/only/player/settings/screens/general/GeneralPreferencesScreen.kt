@@ -24,6 +24,7 @@ import androidx.hilt.lifecycle.viewmodel.compose.hiltViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import one.only.player.core.ui.R
 import one.only.player.core.ui.components.AppDialog
+import one.only.player.core.ui.components.AppDialogHost
 import one.only.player.core.ui.components.AppScaffold
 import one.only.player.core.ui.components.AppTopAppBar
 import one.only.player.core.ui.components.CancelButton
@@ -194,7 +195,7 @@ private fun GeneralPreferencesContent(
             }
         }
 
-        uiState.showDialog?.let { dialog ->
+        AppDialogHost(dialog = uiState.showDialog) { dialog ->
             when (dialog) {
                 GeneralPreferencesDialog.ClearVideoCacheDialog -> {
                     AppDialog(
