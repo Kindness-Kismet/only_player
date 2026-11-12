@@ -159,7 +159,7 @@ private fun MiuixEntryContent(
                     transitionScope.relativeDepth == 0f &&
                     navigator.backStack.value.lastOrNull() == entry
                 ) {
-                    navigator.completeTransitions()
+                    navigator.completeBackStackTransitions()
                 }
             }
     }
