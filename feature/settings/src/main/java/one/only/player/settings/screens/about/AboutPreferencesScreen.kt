@@ -3,19 +3,26 @@ package one.only.player.settings.screens.about
 import android.content.Context
 import android.os.Build
 import android.widget.Toast
-import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
-import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.ColumnScope
 import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.WindowInsets
+import androidx.compose.foundation.layout.WindowInsetsSides
+import androidx.compose.foundation.layout.asPaddingValues
 import androidx.compose.foundation.layout.defaultMinSize
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.only
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.safeDrawing
 import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.layout.windowInsetsPadding
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.RoundedCornerShape
@@ -27,7 +34,6 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
-import androidx.compose.ui.graphics.asImageBitmap
 import androidx.compose.ui.graphics.luminance
 import androidx.compose.ui.graphics.painter.Painter
 import androidx.compose.ui.graphics.vector.ImageVector
@@ -42,32 +48,40 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
-import androidx.core.content.pm.PackageInfoCompat
 import androidx.hilt.lifecycle.viewmodel.compose.hiltViewModel
+import androidx.lifecycle.Lifecycle
+import androidx.lifecycle.compose.LocalLifecycleOwner
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
-import one.only.player.core.common.extensions.appIcon
+import androidx.lifecycle.compose.currentStateAsState
 import one.only.player.core.model.UpdateChannel
 import one.only.player.core.ui.R
 import one.only.player.core.ui.components.AppDialogHost
-import one.only.player.core.ui.components.AppScaffold
 import one.only.player.core.ui.components.AppUpdateDialog
 import one.only.player.core.ui.components.ClickablePreferenceItem
-import one.only.player.core.ui.components.LocalTopBarBackdrop
 import one.only.player.core.ui.components.PreferenceGroup
 import one.only.player.core.ui.components.PreferenceItem
 import one.only.player.core.ui.components.PreferenceSwitch
 import one.only.player.core.ui.components.RadioTextButton
-import one.only.player.core.ui.components.SettingsGroupGap
-import one.only.player.core.ui.components.surfaceBlur
 import one.only.player.core.ui.designsystem.AppIcons
 import one.only.player.core.ui.extensions.withBottomFallback
 import one.only.player.settings.composables.OptionsDialog
 import one.only.player.settings.extensions.name
 import one.only.player.settings.screens.about.effect.FlowLightBackground
+import top.yukonga.miuix.kmp.basic.BasicComponent
+import top.yukonga.miuix.kmp.basic.CardDefaults
+import top.yukonga.miuix.kmp.basic.DropdownArrowEndAction
 import top.yukonga.miuix.kmp.basic.Icon as MiuixIcon
 import top.yukonga.miuix.kmp.basic.IconButton as MiuixIconButton
-import top.yukonga.miuix.kmp.basic.SmallTopAppBar as MiuixSmallTopAppBar
 import top.yukonga.miuix.kmp.basic.Text as MiuixText
+import top.yukonga.miuix.kmp.blur.BlendColorEntry
+import top.yukonga.miuix.kmp.blur.BlurBlendMode
+import top.yukonga.miuix.kmp.blur.BlurColors
+import top.yukonga.miuix.kmp.blur.LayerBackdrop
+import top.yukonga.miuix.kmp.blur.isRuntimeShaderSupported
+import top.yukonga.miuix.kmp.blur.layerBackdrop
+import top.yukonga.miuix.kmp.blur.rememberLayerBackdrop
+import top.yukonga.miuix.kmp.blur.textureBlur
+import top.yukonga.miuix.kmp.squircle.squircleClip
 import top.yukonga.miuix.kmp.theme.MiuixTheme
 
 @Composable
@@ -80,89 +94,143 @@ fun AboutPreferencesScreen(
     val uiState by viewModel.uiState.collectAsStateWithLifecycle()
     val context = LocalContext.current
     val currentVersionName = remember { context.versionName() }
+    val isDarkTheme = MiuixTheme.colorScheme.surface.luminance() < 0.5f
+    val backdrop = if (isRuntimeShaderSupported()) rememberLayerBackdrop() else null
+    val lifecycleState by LocalLifecycleOwner.current.lifecycle.currentStateAsState()
+    val contentPadding = WindowInsets.safeDrawing.asPaddingValues().withBottomFallback()
 
-    FlowLightBackground(modifier = Modifier.fillMaxSize()) {
-        AppScaffold(
-            containerColor = Color.Transparent,
-            topBar = {
-                // 小标题固定顶栏，透明底透出流光背景
-                MiuixSmallTopAppBar(
-                    title = stringResource(id = R.string.about_name),
-                    modifier = Modifier.surfaceBlur(LocalTopBarBackdrop.current),
-                    color = Color.Transparent,
-                    navigationIcon = {
-                        MiuixIconButton(
-                            onClick = onNavigateUp,
-                            modifier = Modifier
-                                .padding(start = 12.dp)
-                                .testTag("button_about_back"),
-                        ) {
-                            MiuixIcon(
-                                imageVector = AppIcons.ArrowBack,
-                                contentDescription = stringResource(id = R.string.navigate_up),
-                                tint = MiuixTheme.colorScheme.onBackground,
-                            )
-                        }
-                    },
-                )
-            },
-        ) { innerPadding ->
-            Column(
-                modifier = Modifier
-                    .fillMaxSize()
-                    .verticalScroll(rememberScrollState())
-                    .padding(innerPadding.withBottomFallback())
-                    // 应用信息与支持入口共用顶部留白
-                    .padding(top = 32.dp)
-                    .padding(horizontal = 16.dp),
-                verticalArrangement = Arrangement.spacedBy(SettingsGroupGap),
-                horizontalAlignment = Alignment.CenterHorizontally,
+    FlowLightBackground(
+        modifier = Modifier.fillMaxSize(),
+        isAnimated = lifecycleState.isAtLeast(Lifecycle.State.RESUMED),
+        isDarkTheme = isDarkTheme,
+        backgroundModifier = if (backdrop != null) Modifier.layerBackdrop(backdrop) else Modifier,
+    ) {
+        Column(
+            modifier = Modifier
+                .fillMaxSize()
+                .verticalScroll(rememberScrollState())
+                .padding(contentPadding)
+                .padding(top = AboutLayoutDefaults.ContentTopPadding)
+                .padding(horizontal = AboutLayoutDefaults.ContentHorizontalPadding),
+            horizontalAlignment = Alignment.CenterHorizontally,
+        ) {
+            AboutHero(
+                onLibrariesClick = onLibrariesClick,
+                versionName = currentVersionName,
+                isDarkTheme = isDarkTheme,
+                backdrop = backdrop,
+            )
+            Spacer(Modifier.height(AboutLayoutDefaults.InformationSectionSpacing))
+            AboutPanel(
+                backdrop = backdrop,
+                isDarkTheme = isDarkTheme,
+                modifier = Modifier.testTag("about_device_panel"),
             ) {
-                AboutHero(onLibrariesClick = onLibrariesClick)
-                PreferenceGroup {
-                    PreferenceItem(
-                        title = stringResource(R.string.architecture),
-                        description = rememberPrimaryArchitecture(),
-                        icon = AppIcons.Decoder,
-                        isEnabled = true,
-                    )
-                    PreferenceItem(
-                        title = stringResource(R.string.android_version),
-                        description = rememberAndroidVersion(),
-                        icon = AppIcons.Update,
-                        isEnabled = true,
-                    )
-                    ClickablePreferenceItem(
-                        modifier = Modifier.testTag("item_settings_about_logs"),
-                        title = stringResource(R.string.app_logs),
-                        description = stringResource(R.string.app_logs_description),
-                        icon = AppIcons.BugReport,
-                        onClick = onLogsClick,
-                    )
-                }
-                UpdateSection(
-                    uiState = uiState,
-                    currentVersionName = currentVersionName,
-                    onEvent = viewModel::onEvent,
+                PreferenceItem(
+                    title = stringResource(R.string.architecture),
+                    description = rememberPrimaryArchitecture(),
+                    icon = AppIcons.Decoder,
+                    isEnabled = true,
+                )
+                PreferenceItem(
+                    title = stringResource(R.string.android_version),
+                    description = rememberAndroidVersion(),
+                    icon = AppIcons.Update,
+                    isEnabled = true,
+                )
+                ClickablePreferenceItem(
+                    modifier = Modifier.testTag("item_settings_about_logs"),
+                    title = stringResource(R.string.app_logs),
+                    icon = AppIcons.BugReport,
+                    onClick = onLogsClick,
                 )
             }
+            Spacer(Modifier.height(AboutLayoutDefaults.CardSpacing))
+            UpdateSection(
+                uiState = uiState,
+                currentVersionName = currentVersionName,
+                onEvent = viewModel::onEvent,
+                backdrop = backdrop,
+                isDarkTheme = isDarkTheme,
+            )
+        }
+        MiuixIconButton(
+            onClick = onNavigateUp,
+            modifier = Modifier
+                .align(Alignment.TopStart)
+                .windowInsetsPadding(WindowInsets.safeDrawing.only(WindowInsetsSides.Top + WindowInsetsSides.Horizontal))
+                .padding(AboutLayoutDefaults.BackButtonInset)
+                .size(AboutLayoutDefaults.BackButtonSize)
+                .testTag("button_about_back"),
+        ) {
+            MiuixIcon(
+                imageVector = AppIcons.ArrowBack,
+                contentDescription = stringResource(R.string.navigate_up),
+                modifier = Modifier.size(24.dp),
+                tint = MiuixTheme.colorScheme.onBackground,
+            )
         }
     }
 }
+
+@Composable
+private fun AboutPanel(
+    backdrop: LayerBackdrop?,
+    isDarkTheme: Boolean,
+    modifier: Modifier = Modifier,
+    content: @Composable ColumnScope.() -> Unit,
+) {
+    val blendColors = if (isDarkTheme) AboutPanelDark else AboutPanelLight
+    val panelModifier = if (backdrop != null) {
+        Modifier.textureBlur(
+            backdrop = backdrop,
+            shape = RoundedCornerShape(16.dp),
+            blurRadius = 60f,
+            colors = BlurColors(blendColors = blendColors),
+        )
+    } else {
+        Modifier
+    }
+    PreferenceGroup(
+        modifier = modifier.then(panelModifier),
+        colors = CardDefaults.defaultColors(
+            if (backdrop != null) Color.Transparent else MiuixTheme.colorScheme.surfaceContainer,
+            Color.Transparent,
+        ),
+        content = content,
+    )
+}
+
+private val AboutPanelLight = listOf(
+    BlendColorEntry(Color(0x340034F9), BlurBlendMode.Overlay),
+    BlendColorEntry(Color(0xB3FFFFFF), BlurBlendMode.HardLight),
+)
+
+private val AboutPanelDark = listOf(
+    BlendColorEntry(Color(0x4DA9A9A9), BlurBlendMode.Luminosity),
+    BlendColorEntry(Color(0x1A9C9C9C), BlurBlendMode.PlusDarker),
+)
 
 @Composable
 private fun UpdateSection(
     uiState: AboutPreferencesUiState,
     currentVersionName: String,
     onEvent: (AboutPreferencesUiEvent) -> Unit,
+    backdrop: LayerBackdrop?,
+    isDarkTheme: Boolean,
 ) {
     val updateChannels = remember { UpdateChannel.entries }
 
-    PreferenceGroup {
+    AboutPanel(
+        backdrop = backdrop,
+        isDarkTheme = isDarkTheme,
+        modifier = Modifier.testTag("about_update_panel"),
+    ) {
         ClickablePreferenceItem(
             modifier = Modifier.testTag("item_settings_about_check_updates"),
             title = stringResource(R.string.check_for_updates),
-            description = updateStatusText(uiState.updateState),
+            description = if (uiState.updateState == UpdateState.Idle) null else updateStatusText(uiState.updateState),
+            isEnabled = uiState.updateState != UpdateState.Checking,
             icon = AppIcons.Update,
             onClick = {
                 when (val state = uiState.updateState) {
@@ -177,11 +245,22 @@ private fun UpdateSection(
                 }
             },
         )
-        ClickablePreferenceItem(
-            modifier = Modifier.testTag("item_settings_about_update_channel"),
+        BasicComponent(
+            modifier = Modifier.squircleClip(16.dp).testTag("item_settings_about_update_channel"),
             title = stringResource(R.string.update_channel),
-            description = uiState.updateChannel.name(),
-            icon = AppIcons.Transfer,
+            summary = uiState.updateChannel.name(),
+            startAction = {
+                MiuixIcon(
+                    imageVector = AppIcons.Transfer,
+                    contentDescription = null,
+                    modifier = Modifier.padding(end = 12.dp).size(24.dp),
+                    tint = MiuixTheme.colorScheme.onSurface,
+                )
+            },
+            endActions = {
+                DropdownArrowEndAction(actionColor = MiuixTheme.colorScheme.onSurfaceVariantActions)
+            },
+            holdDownState = uiState.showDialog == AboutPreferenceDialog.UpdateChannel,
             onClick = {
                 onEvent(AboutPreferencesUiEvent.ShowDialog(AboutPreferenceDialog.UpdateChannel))
             },
@@ -189,7 +268,6 @@ private fun UpdateSection(
         PreferenceSwitch(
             modifier = Modifier.testTag("switch_settings_about_check_updates_on_startup"),
             title = stringResource(R.string.check_updates_on_startup),
-            description = stringResource(R.string.check_updates_on_startup_desc),
             isChecked = uiState.shouldCheckForUpdatesOnStartup,
             onClick = { onEvent(AboutPreferencesUiEvent.ToggleCheckOnStartup) },
         )
@@ -236,50 +314,32 @@ private fun updateStatusText(state: UpdateState): String = when (state) {
 @Composable
 private fun AboutHero(
     onLibrariesClick: () -> Unit,
+    versionName: String,
+    isDarkTheme: Boolean,
+    backdrop: LayerBackdrop?,
 ) {
     val context = LocalContext.current
     val uriHandler = LocalUriHandler.current
-    val appVersion = remember { context.appVersion() }
-    val appIcon = remember { context.appIcon()?.asImageBitmap() }
 
     Column(
         modifier = Modifier
             .fillMaxWidth()
-            .padding(bottom = 12.dp),
+            .testTag("about_information"),
         horizontalAlignment = Alignment.CenterHorizontally,
     ) {
-        Box(
-            modifier = Modifier
-                .size(88.dp)
-                .clip(RoundedCornerShape(24.dp))
-                .background(Color.White),
-            contentAlignment = Alignment.Center,
-        ) {
-            appIcon?.let { icon ->
-                Image(
-                    bitmap = icon,
-                    contentDescription = stringResource(id = R.string.app_name),
-                    modifier = Modifier.size(74.dp),
-                )
-            }
-        }
-        MiuixText(
-            modifier = Modifier.padding(top = 12.dp, bottom = 5.dp),
-            text = stringResource(id = R.string.app_name),
-            color = MiuixTheme.colorScheme.onBackground,
-            fontWeight = FontWeight.Bold,
-            fontSize = 28.sp,
-            textAlign = TextAlign.Center,
-        )
-        MiuixText(
-            text = appVersion,
-            color = MiuixTheme.colorScheme.onSurfaceVariantSummary,
-            fontSize = 14.sp,
-            textAlign = TextAlign.Center,
+        AboutHeader(
+            foreground = painterResource(R.drawable.ic_launcher_foreground),
+            appName = stringResource(R.string.app_name),
+            versionName = versionName,
+            isDarkTheme = isDarkTheme,
+            backdrop = backdrop,
+            modifier = Modifier.testTag("about_header"),
         )
         Row(
-            modifier = Modifier.padding(top = 16.dp),
-            horizontalArrangement = Arrangement.spacedBy(8.dp),
+            modifier = Modifier
+                .padding(top = AboutLayoutDefaults.HeaderActionsSpacing)
+                .testTag("about_quick_actions"),
+            horizontalArrangement = Arrangement.spacedBy(AboutLayoutDefaults.QuickActionSpacing),
         ) {
             AboutIconButton(
                 icon = AppIcons.LibraryBooks,
@@ -315,7 +375,9 @@ private fun AboutSupport(
     val shape = RoundedCornerShape(20.dp)
 
     Column(
-        modifier = Modifier.padding(top = 12.dp),
+        modifier = Modifier
+            .padding(top = AboutLayoutDefaults.DonationSpacing)
+            .testTag("about_support_section"),
         horizontalAlignment = Alignment.CenterHorizontally,
     ) {
         Row(
@@ -353,7 +415,9 @@ private fun AboutSupport(
             )
         }
         MiuixText(
-            modifier = Modifier.padding(top = 8.dp),
+            modifier = Modifier
+                .padding(top = AboutLayoutDefaults.DonationDescriptionSpacing)
+                .testTag("about_support_description"),
             text = stringResource(R.string.support_on_afdian_description),
             color = colors.onSurfaceVariantSummary,
             fontSize = 11.sp,
@@ -371,11 +435,12 @@ private fun AboutIconButton(
     onClick: () -> Unit,
 ) {
     MiuixIconButton(
-        modifier = Modifier.testTag(testTag),
+        modifier = Modifier.size(AboutLayoutDefaults.QuickActionSize).testTag(testTag),
         onClick = onClick,
     ) {
         MiuixIcon(
             painter = icon,
+            modifier = Modifier.size(AboutLayoutDefaults.QuickActionIconSize),
             contentDescription = contentDescription,
             tint = MiuixTheme.colorScheme.onBackground,
         )
@@ -390,21 +455,16 @@ private fun AboutIconButton(
     onClick: () -> Unit,
 ) {
     MiuixIconButton(
-        modifier = Modifier.testTag(testTag),
+        modifier = Modifier.size(AboutLayoutDefaults.QuickActionSize).testTag(testTag),
         onClick = onClick,
     ) {
         MiuixIcon(
             imageVector = icon,
+            modifier = Modifier.size(AboutLayoutDefaults.QuickActionIconSize),
             contentDescription = contentDescription,
             tint = MiuixTheme.colorScheme.onBackground,
         )
     }
-}
-
-private fun Context.appVersion(): String {
-    val packageInfo = packageManager.getPackageInfo(packageName, 0)
-    val versionCode = PackageInfoCompat.getLongVersionCode(packageInfo)
-    return "${packageInfo.versionName} ($versionCode)"
 }
 
 private fun Context.versionName(): String = packageManager.getPackageInfo(packageName, 0).versionName ?: ""

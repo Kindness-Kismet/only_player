@@ -39,6 +39,7 @@
 !/app/src/*/res/**/*.xml
 !/app/src/*/res/**/*.png
 !/app/src/main/ic_launcher-playstore.png
+!/app/src/main/icons/*.svg
 
 # 核心模块
 !/core/

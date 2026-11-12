@@ -1,7 +1,9 @@
 package one.only.player.core.ui.extensions
 
+import androidx.compose.foundation.layout.ExperimentalLayoutApi
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.WindowInsets
+import androidx.compose.foundation.layout.areNavigationBarsVisible
 import androidx.compose.foundation.layout.asPaddingValues
 import androidx.compose.foundation.layout.calculateEndPadding
 import androidx.compose.foundation.layout.calculateStartPadding
@@ -16,6 +18,7 @@ import androidx.compose.ui.unit.dp
 val LocalRootBottomBarPadding = staticCompositionLocalOf { PaddingValues(0.dp) }
 
 private val PageBottomPadding = 12.dp
+private val PageBottomPaddingWithoutBars = 20.dp
 
 @Composable
 operator fun PaddingValues.plus(other: PaddingValues): PaddingValues = PaddingValues(
@@ -41,11 +44,26 @@ fun PaddingValues.subtractBottomPadding(padding: Dp): PaddingValues = copy(
 )
 
 @Composable
+@OptIn(ExperimentalLayoutApi::class)
 fun PaddingValues.withBottomFallback(): PaddingValues {
     val bottomPadding = calculateBottomPadding()
-    val navigationBarBottomPadding = WindowInsets.navigationBars.asPaddingValues().calculateBottomPadding()
+    val navigationBarPadding = WindowInsets.navigationBars.asPaddingValues()
+    val navigationBarBottomPadding = navigationBarPadding.calculateBottomPadding()
     val rootBottomBarPadding = LocalRootBottomBarPadding.current.calculateBottomPadding()
+    // 隐藏导航条的系统模块可能保留可见标记，留白以实际占位为准。
+    val hasNavigationBarSpace = WindowInsets.areNavigationBarsVisible &&
+        maxOf(
+            navigationBarBottomPadding,
+            navigationBarPadding.calculateTopPadding(),
+            navigationBarPadding.calculateStartPadding(LocalLayoutDirection.current),
+            navigationBarPadding.calculateEndPadding(LocalLayoutDirection.current),
+        ) > 0.dp
+    val pageBottomPadding = if (hasNavigationBarSpace || rootBottomBarPadding > 0.dp) {
+        PageBottomPadding
+    } else {
+        PageBottomPaddingWithoutBars
+    }
     return copy(
-        bottom = maxOf(bottomPadding, navigationBarBottomPadding, rootBottomBarPadding) + PageBottomPadding,
+        bottom = maxOf(bottomPadding, navigationBarBottomPadding, rootBottomBarPadding) + pageBottomPadding,
     )
 }

@@ -44,6 +44,14 @@ internal class MiuixNavigator : Navigator<MiuixNavigator.Destination>() {
         state.markTransitionComplete(entry)
     }
 
+    fun completeBackStackTransitions() {
+        val entries = backStack.value
+        // 离栈页面由组合释放回调完成转场，保留退出动画所需的 ViewModel。
+        transitionsInProgress.value.forEach { entry ->
+            if (entries.any { it === entry }) state.markTransitionComplete(entry)
+        }
+    }
+
     fun completeTransitions() {
         state.transitionsInProgress.value.forEach(state::markTransitionComplete)
     }

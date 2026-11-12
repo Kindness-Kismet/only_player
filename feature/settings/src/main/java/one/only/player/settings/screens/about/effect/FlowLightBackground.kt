@@ -1,7 +1,9 @@
+// SPDX-License-Identifier: GPL-3.0-only
 package one.only.player.settings.screens.about.effect
 
 import androidx.compose.animation.core.Animatable
 import androidx.compose.animation.core.spring
+import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.BoxScope
 import androidx.compose.foundation.layout.Spacer
@@ -33,16 +35,17 @@ import top.yukonga.miuix.kmp.theme.MiuixTheme
 fun FlowLightBackground(
     modifier: Modifier = Modifier,
     isAnimated: Boolean = true,
+    isDarkTheme: Boolean = MiuixTheme.colorScheme.surface.luminance() < 0.5f,
+    backgroundModifier: Modifier = Modifier,
     content: @Composable BoxScope.() -> Unit,
 ) {
     if (!isRuntimeShaderSupported()) {
-        Box(modifier = modifier, content = content)
+        Box(modifier = modifier.background(MiuixTheme.colorScheme.surface), content = content)
         return
     }
 
     Box(modifier = modifier) {
         val surface = MiuixTheme.colorScheme.surface
-        val isDarkTheme = surface.luminance() < 0.5f
         val painter = remember { FlowLightPainter() }
         val preset = remember(isDarkTheme) {
             if (isDarkTheme) OS3_PHONE_DARK else OS3_PHONE_LIGHT
@@ -64,6 +67,7 @@ fun FlowLightBackground(
         Spacer(
             modifier = Modifier
                 .fillMaxSize()
+                .then(backgroundModifier)
                 .flowLightDraw(
                     painter = painter,
                     preset = preset,
