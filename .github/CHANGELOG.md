@@ -1,11 +1,13 @@
-- Unify settings dialogs with rounded press feedback, aligned buttons, and smooth closing transitions
-- Keep search controls on one row with separate clear and close buttons, and dismiss the keyboard before closing search
-- Fix system back navigation from audio and subtitle settings opened while search is active
-- Round press feedback for protocol choices and proxy settings in server dialogs
+- Refresh the About page with a cleaner Miuix-style layout
+- Keep outgoing pages on screen until transitions finish so switching pages no longer flashes
+- Redraw the launcher icon from vector layers and support themed icons on Android 13 and later
+- Adapt bottom page spacing to the real navigation bar state so content no longer leaves extra gaps
+- Simplify playback control and subtitle settings by removing redundant section headings
 
 ---
 
-- 统一设置对话框样式，提供圆角按压反馈、整齐的按钮布局和连贯的关闭动画
-- 将搜索控件放在同一行，分别提供清空和关闭按钮，返回时先收起键盘再关闭搜索
-- 修复搜索开启时进入音频、字幕设置后，系统返回无法回到上级页面的问题
-- 为服务器对话框中的协议选项和代理设置提供圆角按压反馈
+- 关于页面改用更清爽的 Miuix 风格布局
+- 切换页面时保留旧页面直到转场结束，页面切换不再闪烁
+- 启动图标改为矢量图层绘制，Android 13 及以上支持随壁纸变色
+- 页面底部间距跟随导航栏实际状态调整，内容不再留出多余空隙
+- 精简播放控制和字幕设置页面，去掉多余的分节标题
