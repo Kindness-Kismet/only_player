@@ -783,7 +783,7 @@ class PlayerService : MediaSessionService() {
         val failedPlayer = session.player as? ExoPlayer ?: return false
         val mediaId = failedPlayer.currentMediaItem?.mediaId ?: return false
         val retryDecoderPriority = when {
-            error.errorCode == PlaybackException.ERROR_CODE_VIDEO_FRAME_PROCESSING_FAILED -> {
+            isVideoFrameProcessingError(error) -> {
                 // 新管线出帧前只重试一次，避免持续失败时循环重建。
                 if (videoFrameProcessingRetryMediaId == mediaId) return false
                 videoFrameProcessingRetryMediaId = mediaId
@@ -843,6 +843,16 @@ class PlayerService : MediaSessionService() {
         videoEffectsCoordinator.updateAvailability(retryPlayer)
         applyAmbienceModeToPlayer(retryPlayer)
         return true
+    }
+
+    private fun isVideoFrameProcessingError(error: PlaybackException): Boolean {
+        if (error.errorCode == PlaybackException.ERROR_CODE_VIDEO_FRAME_PROCESSING_FAILED) return true
+        if (error.errorCode != PlaybackException.ERROR_CODE_UNSPECIFIED) return false
+        val cause = error.cause as? NoSuchElementException ?: return false
+        // Media3 的纹理队列异常也可能以未知运行错误上报。
+        return cause.stackTrace.any { frame ->
+            frame.className == "androidx.media3.effect.ExternalTextureManager"
+        }
     }
 
     private fun ExoPlayer.restoreRuntimeState(
