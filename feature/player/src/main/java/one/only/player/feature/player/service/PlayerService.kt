@@ -1371,8 +1371,9 @@ class PlayerService : MediaSessionService() {
             startPositionMs: Long,
         ): ListenableFuture<MediaSession.MediaItemsWithStartPosition> = serviceScope.future(Dispatchers.Default) {
             preciseSeekCoordinator.clearPreciseMediaIds()
-            val updatedMediaItems = updatedMediaItemsWithMetadata(mediaItems)
-            preciseSeekCoordinator.prepareCachedMediaItems(updatedMediaItems)
+            val updatedMediaItems = preciseSeekCoordinator.prepareCachedMediaItems(
+                updatedMediaItemsWithMetadata(mediaItems),
+            )
             artworkLoader.loadInBackground(updatedMediaItems)
             return@future MediaSession.MediaItemsWithStartPosition(updatedMediaItems, startIndex, startPositionMs)
         }
@@ -1382,8 +1383,9 @@ class PlayerService : MediaSessionService() {
             controller: MediaSession.ControllerInfo,
             mediaItems: MutableList<MediaItem>,
         ): ListenableFuture<MutableList<MediaItem>> = serviceScope.future(Dispatchers.Default) {
-            val updatedMediaItems = updatedMediaItemsWithMetadata(mediaItems)
-            preciseSeekCoordinator.prepareCachedMediaItems(updatedMediaItems)
+            val updatedMediaItems = preciseSeekCoordinator.prepareCachedMediaItems(
+                updatedMediaItemsWithMetadata(mediaItems),
+            )
             artworkLoader.loadInBackground(updatedMediaItems)
             return@future updatedMediaItems.toMutableList()
         }

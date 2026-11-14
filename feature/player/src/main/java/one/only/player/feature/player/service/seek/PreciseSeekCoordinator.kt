@@ -70,14 +70,12 @@ internal class PreciseSeekCoordinator(
         cueParseJobs.clear()
     }
 
-    fun prepareCachedMediaItems(mediaItems: List<MediaItem>) {
-        mediaItems.forEach { mediaItem ->
-            if (!mediaItem.mediaMetadata.isApproximateSeekEnabled) return@forEach
-            restoreCachedSeekMap(mediaItem)?.let { seekMap ->
-                seekMapCache[mediaItem.mediaId] = seekMap
-                preciseSeekMediaIds.add(mediaItem.mediaId)
-            }
-        }
+    fun prepareCachedMediaItems(mediaItems: List<MediaItem>): List<MediaItem> = mediaItems.map { mediaItem ->
+        if (!mediaItem.mediaMetadata.isApproximateSeekEnabled) return@map mediaItem
+        val seekMap = restoreCachedSeekMap(mediaItem) ?: return@map mediaItem
+        seekMapCache[mediaItem.mediaId] = seekMap
+        preciseSeekMediaIds.add(mediaItem.mediaId)
+        mediaItem.copy(isApproximateSeekEnabled = false)
     }
 
     fun prepareStartup(
