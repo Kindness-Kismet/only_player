@@ -9,7 +9,6 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.key
-import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
@@ -30,9 +29,7 @@ import androidx.media3.ui.compose.SURFACE_TYPE_TEXTURE_VIEW
 import androidx.media3.ui.compose.state.rememberPresentationState
 import kotlin.math.max
 import kotlin.math.min
-import kotlinx.coroutines.delay
 import one.only.player.core.common.Logger
-import one.only.player.core.model.DecoderPriority
 import one.only.player.core.model.VideoContentScale
 import one.only.player.feature.player.state.ControlsVisibilityState
 import one.only.player.feature.player.state.PictureInPictureState
@@ -53,6 +50,7 @@ import one.only.player.feature.player.ui.SubtitleView
 fun PlayerContentFrame(
     modifier: Modifier = Modifier,
     player: Player,
+    videoOutputGeneration: Long,
     pictureInPictureState: PictureInPictureState,
     controlsVisibilityState: ControlsVisibilityState,
     tapGestureState: TapGestureState,
@@ -60,7 +58,6 @@ fun PlayerContentFrame(
     videoZoomAndContentScaleState: VideoZoomAndContentScaleState,
     volumeAndBrightnessGestureState: VolumeAndBrightnessGestureState,
     subtitleConfiguration: SubtitleConfiguration,
-    decoderPriority: DecoderPriority,
     isGesturesEnabled: Boolean = true,
     shouldAttachVideoOutput: Boolean = true,
     shouldUseTextureView: Boolean = false,
@@ -68,17 +65,6 @@ fun PlayerContentFrame(
     isChapterSwipeEnabled: Boolean = false,
     onChapterSwipe: (ChapterSwipeDirection) -> Unit = {},
 ) {
-    // decoder 切换重建 SurfaceView，重新绑定视频输出
-    var surfaceRefreshKey by remember { mutableIntStateOf(0) }
-    var previousDecoderPriority by remember { mutableStateOf(decoderPriority) }
-    LaunchedEffect(decoderPriority) {
-        if (previousDecoderPriority == decoderPriority) return@LaunchedEffect
-        previousDecoderPriority = decoderPriority
-        surfaceRefreshKey++
-        delay(120)
-        surfaceRefreshKey++
-    }
-
     val presentationState = rememberPresentationState(player)
     val density = LocalDensity.current
     val textTracksState = rememberTracksState(player = player, trackType = C.TRACK_TYPE_TEXT)
@@ -93,7 +79,7 @@ fun PlayerContentFrame(
     // Media3 1.10.1 的 videoSizeDp 名带 Dp 但实际存视频 px
     val sourceVideoSizePx = presentationState.videoSizeDp
 
-    key(surfaceRefreshKey, surfaceType) {
+    key(player, videoOutputGeneration, surfaceType) {
         BoxWithConstraints(
             modifier = modifier.fillMaxSize().clipToBounds(),
             contentAlignment = Alignment.Center,
@@ -157,12 +143,12 @@ fun PlayerContentFrame(
                                 bounds.right.toInt(),
                                 bounds.bottom.toInt(),
                             )
-                            val key = "${rect.width()}x${rect.height()}@${rect.left},${rect.top}:${videoZoomAndContentScaleState.videoContentScale}:${videoSizePx?.width}x${videoSizePx?.height}:${contentVideoSizePx?.width}x${contentVideoSizePx?.height}:$surfaceType:$surfaceRefreshKey:$isVideoMirrored"
+                            val key = "${rect.width()}x${rect.height()}@${rect.left},${rect.top}:${videoZoomAndContentScaleState.videoContentScale}:${videoSizePx?.width}x${videoSizePx?.height}:${contentVideoSizePx?.width}x${contentVideoSizePx?.height}:$surfaceType:$videoOutputGeneration:$isVideoMirrored"
                             if (key != lastLoggedSurfaceLayout) {
                                 lastLoggedSurfaceLayout = key
                                 Logger.info(
                                     TAG,
-                                    "Player surface layout size=${rect.width()}x${rect.height()} left=${rect.left} top=${rect.top} contentScale=${videoZoomAndContentScaleState.videoContentScale} videoPx=${videoSizePx?.width}x${videoSizePx?.height} contentPx=${contentVideoSizePx?.width}x${contentVideoSizePx?.height} coverSurface=${presentationState.coverSurface} refresh=$surfaceRefreshKey",
+                                    "Player surface layout size=${rect.width()}x${rect.height()} left=${rect.left} top=${rect.top} contentScale=${videoZoomAndContentScaleState.videoContentScale} videoPx=${videoSizePx?.width}x${videoSizePx?.height} contentPx=${contentVideoSizePx?.width}x${contentVideoSizePx?.height} coverSurface=${presentationState.coverSurface} refresh=$videoOutputGeneration",
                                 )
                             }
                             pictureInPictureState.updateVideoViewRect(rect)

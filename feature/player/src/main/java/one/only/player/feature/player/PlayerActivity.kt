@@ -27,6 +27,7 @@ import androidx.appcompat.app.AppCompatActivity
 import androidx.compose.foundation.isSystemInDarkTheme
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableLongStateOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
@@ -93,6 +94,7 @@ import one.only.player.feature.player.extensions.setExtras
 import one.only.player.feature.player.extensions.toActivityOrientation
 import one.only.player.feature.player.extensions.toOnlineSubtitleMessageResId
 import one.only.player.feature.player.extensions.uriToSubtitleConfiguration
+import one.only.player.feature.player.service.CustomCommands
 import one.only.player.feature.player.service.PlayerService
 import one.only.player.feature.player.service.addSubtitleTrack
 import one.only.player.feature.player.service.hideCustomPictureInPicture
@@ -231,6 +233,7 @@ open class PlayerActivity : AppCompatActivity() {
 
     private var controllerFuture: ListenableFuture<MediaController>? = null
     private var mediaController: MediaController? = null
+    private var videoOutputGeneration by mutableLongStateOf(0L)
     private lateinit var playerApi: PlayerApi
 
     private val playbackStateListener: Player.Listener = playbackStateListener()
@@ -293,6 +296,7 @@ open class PlayerActivity : AppCompatActivity() {
                 lifecycleScope.launch {
                     val controller = controllerFuture?.await()
                     controller?.hideCustomPictureInPicture()
+                    videoOutputGeneration = controller?.sessionExtras?.getLong(CustomCommands.VIDEO_OUTPUT_GENERATION_KEY) ?: 0L
                     player = controller
                 }
 
@@ -326,6 +330,7 @@ open class PlayerActivity : AppCompatActivity() {
                         testTagsAsResourceId = true
                     },
                     player = player,
+                    videoOutputGeneration = videoOutputGeneration,
                     viewModel = viewModel,
                     playerPreferences = uiState.playerPreferences ?: return@OnlyPlayerTheme,
                     externalSubtitleFontSource = uiState.externalSubtitleFontSource,
@@ -450,7 +455,16 @@ open class PlayerActivity : AppCompatActivity() {
     private fun maybeInitControllerFuture() {
         if (controllerFuture == null) {
             val sessionToken = SessionToken(applicationContext, ComponentName(applicationContext, PlayerService::class.java))
-            controllerFuture = MediaController.Builder(applicationContext, sessionToken).buildAsync()
+            controllerFuture = MediaController.Builder(applicationContext, sessionToken)
+                .setListener(object : MediaController.Listener {
+                    override fun onExtrasChanged(
+                        controller: MediaController,
+                        extras: Bundle,
+                    ) {
+                        videoOutputGeneration = extras.getLong(CustomCommands.VIDEO_OUTPUT_GENERATION_KEY)
+                    }
+                })
+                .buildAsync()
         }
     }
 

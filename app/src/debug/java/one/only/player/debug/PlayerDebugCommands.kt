@@ -12,6 +12,7 @@ import androidx.media3.session.MediaController
 import androidx.media3.session.SessionResult
 import androidx.media3.session.SessionToken
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.NonCancellable
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.guava.await
 import kotlinx.coroutines.runBlocking
@@ -51,6 +52,7 @@ internal fun Context.runPlayerAction(
                     "previous" -> controller.seekToPreviousMediaItem()
                     "seek_to" -> controller.awaitSeekTo(value.requiredLongMillis(EXTRA_VALUE))
                     "seek_by" -> controller.awaitSeekTo((controller.currentPosition + value.requiredLongMillis(EXTRA_VALUE)).coerceAtLeast(0L))
+                    "stress_seek" -> controller.stressSeek(value)
                     "chapter.seek" -> controller.awaitSeekTo(
                         controller.requireVideoChapter(value.requiredInt(EXTRA_VALUE)).startTimeMs,
                     )
@@ -242,6 +244,42 @@ private suspend fun MediaController.awaitSettledSeek(
         delay(SEEK_SETTLE_POLL_INTERVAL_MS)
     }
     return false
+}
+
+private suspend fun MediaController.stressSeek(extras: Bundle) {
+    val count = extras.getString(EXTRA_VALUE)?.toInt() ?: 100
+    val intervalMs = extras.getString("interval_ms")?.toLong() ?: 120L
+    require(count in 1..1_000 && intervalMs in 1..1_000 && count * intervalMs <= 15_000L)
+    check(awaitMediaReady()) { "Player is not ready for seek" }
+    val mediaId = currentMediaItem?.mediaId
+    val durationMs = duration
+    require(durationMs > 0L && durationMs != C.TIME_UNSET)
+
+    suspend fun setSeekMode(
+        command: CustomCommands,
+        key: String,
+        isEnabled: Boolean,
+    ) {
+        val result = sendCustomCommand(command.sessionCommand, Bundle().apply { putBoolean(key, isEnabled) }).await()
+        check(result.resultCode == SessionResult.RESULT_SUCCESS) { "Seek mode command failed: ${result.resultCode}" }
+    }
+
+    try {
+        setSeekMode(CustomCommands.SET_IS_SCRUBBING_MODE_ENABLED, CustomCommands.IS_SCRUBBING_MODE_ENABLED_KEY, true)
+        setSeekMode(CustomCommands.SET_IS_SEEK_PREVIEW_ENABLED, CustomCommands.IS_SEEK_PREVIEW_ENABLED_KEY, true)
+        repeat(count) { index ->
+            check(currentMediaItem?.mediaId == mediaId) { "Media changed during seek stress" }
+            playerError?.let { error("Seek failed: ${it.errorCodeName}") }
+            val percentage = if (index % 2 == 0) 10 + index % 30 else 60 + index % 30
+            seekTo(durationMs * percentage / 100)
+            delay(intervalMs)
+        }
+    } finally {
+        withContext(NonCancellable) {
+            setSeekMode(CustomCommands.SET_IS_SEEK_PREVIEW_ENABLED, CustomCommands.IS_SEEK_PREVIEW_ENABLED_KEY, false)
+            setSeekMode(CustomCommands.SET_IS_SCRUBBING_MODE_ENABLED, CustomCommands.IS_SCRUBBING_MODE_ENABLED_KEY, false)
+        }
+    }
 }
 
 private suspend fun runLongPressSpeed(

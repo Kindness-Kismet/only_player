@@ -32,7 +32,6 @@ import androidx.media3.exoplayer.ExoPlaybackException
 import androidx.media3.exoplayer.ExoPlayer
 import androidx.media3.exoplayer.SeekParameters
 import androidx.media3.exoplayer.drm.DrmSessionManagerProvider
-import androidx.media3.exoplayer.mediacodec.MediaCodecRenderer
 import androidx.media3.exoplayer.source.DefaultMediaSourceFactory
 import androidx.media3.exoplayer.source.MediaSource
 import androidx.media3.exoplayer.trackselection.DefaultTrackSelector
@@ -280,6 +279,8 @@ class PlayerService : MediaSessionService() {
     }
     private val mediaParserRetried = mutableSetOf<String>()
     private val softwareDecoderRetried = mutableSetOf<String>()
+    private var videoFrameProcessingRetryMediaId: String? = null
+    private var videoOutputGeneration = 0L
     private var isPendingExternalSubAutoSelect = false
     private var pendingRememberedSubtitleSelection: PendingSubtitleSelection? = null
     private var pendingExternalSubtitleSelection: ExternalSubtitleSelection? = null
@@ -679,6 +680,7 @@ class PlayerService : MediaSessionService() {
 
         override fun onRenderedFirstFrame() {
             super.onRenderedFirstFrame()
+            videoFrameProcessingRetryMediaId = null
             val player = mediaSession?.player ?: return
             val currentMediaItem = player.currentMediaItem ?: return
 
@@ -771,20 +773,32 @@ class PlayerService : MediaSessionService() {
         override fun onPlayerError(error: PlaybackException) {
             super.onPlayerError(error)
             Logger.error(TAG, "Player error: code=${error.errorCode} name=${error.errorCodeName}", error)
-            if (retryWithSoftwareDecoder(error)) return
+            if (retryWithVideoRenderer(error)) return
             retryWithFixedSource(error)
         }
     }
 
-    private fun retryWithSoftwareDecoder(error: PlaybackException): Boolean {
-        if (!isHardwareVideoDecoderError(error)) return false
+    private fun retryWithVideoRenderer(error: PlaybackException): Boolean {
         val session = mediaSession ?: return false
         val failedPlayer = session.player as? ExoPlayer ?: return false
         val mediaId = failedPlayer.currentMediaItem?.mediaId ?: return false
-        if (!softwareDecoderRetried.add(mediaId)) return false
+        val retryDecoderPriority = when {
+            isVideoFrameProcessingError(error) -> {
+                // 新管线出帧前只重试一次，避免持续失败时循环重建。
+                if (videoFrameProcessingRetryMediaId == mediaId) return false
+                videoFrameProcessingRetryMediaId = mediaId
+                activeDecoderPriority
+            }
+            isHardwareVideoDecoderError(error) -> {
+                if (!softwareDecoderRetried.add(mediaId)) return false
+                DecoderPriority.PREFER_APP
+            }
+            else -> return false
+        }
         val mediaItems = (0 until failedPlayer.mediaItemCount).map {
             failedPlayer.getMediaItemAt(it).copy(
-                isVideoEffectsAvailable = shouldApplyVideoEffects(DecoderPriority.PREFER_APP),
+                hasRenderedFirstFrame = false,
+                isVideoEffectsAvailable = shouldApplyVideoEffects(retryDecoderPriority),
             )
         }
         if (mediaItems.isEmpty()) return false
@@ -800,9 +814,9 @@ class PlayerService : MediaSessionService() {
         val subtitleDelayMilliseconds = failedPlayer.playerSpecificSubtitleDelayMilliseconds
         val subtitleSpeed = failedPlayer.playerSpecificSubtitleSpeed
         val retryPlayer = createPlayer(
-            decoderPriority = DecoderPriority.PREFER_APP,
+            decoderPriority = retryDecoderPriority,
         )
-        Logger.debug(TAG, "Retrying playback with software decoder: ${mediaId.toPrivateMediaLogSummary()}")
+        Logger.info(TAG, "Retrying video renderer error=${error.errorCodeName} decoder=${retryDecoderPriority.logName()}: ${mediaId.toPrivateMediaLogSummary()}")
 
         retryPlayer.setMediaItems(mediaItems, currentIndex, playbackPosition)
         retryPlayer.restoreRuntimeState(
@@ -821,7 +835,7 @@ class PlayerService : MediaSessionService() {
         audioEffectsCoordinator.releaseLoudnessEnhancer()
         failedPlayer.removeListener(playbackStateListener)
         failedPlayer.removeAnalyticsListener(startupAnalyticsListener)
-        session.player = retryPlayer
+        session.replacePlayer(retryPlayer)
         retryPlayer.prepare()
         failedPlayer.clearMediaItems()
         failedPlayer.stop()
@@ -829,6 +843,16 @@ class PlayerService : MediaSessionService() {
         videoEffectsCoordinator.updateAvailability(retryPlayer)
         applyAmbienceModeToPlayer(retryPlayer)
         return true
+    }
+
+    private fun isVideoFrameProcessingError(error: PlaybackException): Boolean {
+        if (error.errorCode == PlaybackException.ERROR_CODE_VIDEO_FRAME_PROCESSING_FAILED) return true
+        if (error.errorCode != PlaybackException.ERROR_CODE_UNSPECIFIED) return false
+        val cause = error.cause as? NoSuchElementException ?: return false
+        // Media3 的纹理队列异常也可能以未知运行错误上报。
+        return cause.stackTrace.any { frame ->
+            frame.className == "androidx.media3.effect.ExternalTextureManager"
+        }
     }
 
     private fun ExoPlayer.restoreRuntimeState(
@@ -859,6 +883,7 @@ class PlayerService : MediaSessionService() {
         // 会话接入新播放器前，整条队列必须携带新解码器的可用状态。
         val mediaItems = (0 until currentPlayer.mediaItemCount).map {
             currentPlayer.getMediaItemAt(it).copy(
+                hasRenderedFirstFrame = false,
                 isVideoEffectsAvailable = shouldApplyVideoEffects(decoderPriority),
             )
         }
@@ -870,7 +895,7 @@ class PlayerService : MediaSessionService() {
             audioEffectsCoordinator.releaseLoudnessEnhancer()
             currentPlayer.removeListener(playbackStateListener)
             currentPlayer.removeAnalyticsListener(startupAnalyticsListener)
-            session.player = nextPlayer
+            session.replacePlayer(nextPlayer)
             currentPlayer.release()
             applyAmbienceModeToPlayer(nextPlayer)
             return
@@ -912,13 +937,24 @@ class PlayerService : MediaSessionService() {
         audioEffectsCoordinator.releaseLoudnessEnhancer()
         currentPlayer.removeListener(playbackStateListener)
         currentPlayer.removeAnalyticsListener(startupAnalyticsListener)
-        session.player = nextPlayer
+        session.replacePlayer(nextPlayer)
         nextPlayer.prepare()
         currentPlayer.clearMediaItems()
         currentPlayer.stop()
         currentPlayer.release()
         videoEffectsCoordinator.updateAvailability(nextPlayer)
         applyAmbienceModeToPlayer(nextPlayer)
+    }
+
+    private fun MediaSession.replacePlayer(nextPlayer: ExoPlayer) {
+        nextPlayer.playlistMetadata = player.playlistMetadata
+        player = nextPlayer
+        // Controller 不随播放器替换，用会话 extras 通知画面重新绑定。
+        sessionExtras = Bundle(sessionExtras).apply {
+            putLong(CustomCommands.VIDEO_OUTPUT_GENERATION_KEY, ++videoOutputGeneration)
+        }
+        customPictureInPictureOverlay?.replacePlayer(nextPlayer)
+        Logger.info(TAG, "Rebind video output generation=$videoOutputGeneration decoder=${activeDecoderPriority.logName()}")
     }
 
     private fun applyAmbienceModeToPlayer(player: ExoPlayer?) {
@@ -931,12 +967,14 @@ class PlayerService : MediaSessionService() {
 
     private fun isHardwareVideoDecoderError(error: PlaybackException): Boolean {
         if (!activeDecoderPriority.shouldRetryWithSoftwareDecoder()) return false
+        if (error.errorCode != PlaybackException.ERROR_CODE_DECODER_INIT_FAILED &&
+            error.errorCode != PlaybackException.ERROR_CODE_DECODING_FAILED
+        ) {
+            return false
+        }
         val exoError = error as? ExoPlaybackException ?: return false
         if (exoError.type != ExoPlaybackException.TYPE_RENDERER) return false
-        if (exoError.rendererFormat?.sampleMimeType?.startsWith("video/") != true) return false
-        val rendererException = exoError.rendererException
-        if (rendererException !is MediaCodecRenderer.DecoderInitializationException && rendererException.cause == null) return false
-        return true
+        return exoError.rendererFormat?.sampleMimeType?.startsWith("video/") == true
     }
 
     // 解析失败后只对已识别的结构异常做定向容错重试
@@ -1343,8 +1381,9 @@ class PlayerService : MediaSessionService() {
             startPositionMs: Long,
         ): ListenableFuture<MediaSession.MediaItemsWithStartPosition> = serviceScope.future(Dispatchers.Default) {
             preciseSeekCoordinator.clearPreciseMediaIds()
-            val updatedMediaItems = updatedMediaItemsWithMetadata(mediaItems)
-            preciseSeekCoordinator.prepareCachedMediaItems(updatedMediaItems)
+            val updatedMediaItems = preciseSeekCoordinator.prepareCachedMediaItems(
+                updatedMediaItemsWithMetadata(mediaItems),
+            )
             artworkLoader.loadInBackground(updatedMediaItems)
             return@future MediaSession.MediaItemsWithStartPosition(updatedMediaItems, startIndex, startPositionMs)
         }
@@ -1354,8 +1393,9 @@ class PlayerService : MediaSessionService() {
             controller: MediaSession.ControllerInfo,
             mediaItems: MutableList<MediaItem>,
         ): ListenableFuture<MutableList<MediaItem>> = serviceScope.future(Dispatchers.Default) {
-            val updatedMediaItems = updatedMediaItemsWithMetadata(mediaItems)
-            preciseSeekCoordinator.prepareCachedMediaItems(updatedMediaItems)
+            val updatedMediaItems = preciseSeekCoordinator.prepareCachedMediaItems(
+                updatedMediaItemsWithMetadata(mediaItems),
+            )
             artworkLoader.loadInBackground(updatedMediaItems)
             return@future updatedMediaItems.toMutableList()
         }
@@ -1428,7 +1468,7 @@ class PlayerService : MediaSessionService() {
                 CustomCommands.SET_SKIP_SILENCE_ENABLED -> {
                     val isSkipSilenceEnabled = args.getBoolean(CustomCommands.SKIP_SILENCE_ENABLED_KEY)
                     mediaSession?.player?.isSkipSilenceEnabledForPlayer = isSkipSilenceEnabled
-                    mediaSession?.sessionExtras = Bundle().apply {
+                    mediaSession?.sessionExtras = Bundle(mediaSession?.sessionExtras ?: Bundle.EMPTY).apply {
                         putBoolean(CustomCommands.SKIP_SILENCE_ENABLED_KEY, isSkipSilenceEnabled)
                     }
                     return@future SessionResult(SessionResult.RESULT_SUCCESS)

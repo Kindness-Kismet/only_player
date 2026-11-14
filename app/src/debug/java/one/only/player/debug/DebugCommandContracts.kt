@@ -132,6 +132,7 @@ internal val PLAYER_ACTION_METHODS = setOf(
     "player.next",
     "player.seek_to",
     "player.seek_by",
+    "player.stress_seek",
     "player.long_press_speed",
     "player.stop",
     "player.shuffle",

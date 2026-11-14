@@ -227,6 +227,7 @@ internal fun resolveLongPressOverlayUiState(
 @Composable
 internal fun MediaPlayerScreen(
     player: Player?,
+    videoOutputGeneration: Long,
     viewModel: PlayerViewModel,
     playerPreferences: PlayerPreferences,
     externalSubtitleFontSource: ExternalSubtitleFontSource?,
@@ -909,6 +910,7 @@ internal fun MediaPlayerScreen(
 
                 PlayerContentFrame(
                     player = player,
+                    videoOutputGeneration = videoOutputGeneration,
                     pictureInPictureState = pictureInPictureState,
                     controlsVisibilityState = controlsVisibilityState,
                     tapGestureState = tapGestureState,
@@ -930,7 +932,6 @@ internal fun MediaPlayerScreen(
                         subtitleScale = activePlayerPreferences.subtitleScale,
                         externalSubtitleFontSource = externalSubtitleFontSource,
                     ),
-                    decoderPriority = playerPreferences.decoderPriority,
                     shouldAttachVideoOutput = shouldAttachActivityVideoOutput,
                     shouldUseTextureView = isVideoMirrored,
                     isVideoMirrored = isVideoMirrored,

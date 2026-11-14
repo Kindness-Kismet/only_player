@@ -51,6 +51,7 @@ enum class CustomCommands(val customAction: String) {
         const val SEEK_POSITION_MS_KEY = "seek_position_ms"
         const val SEEK_WAS_APPLIED_KEY = "seek_was_applied"
         const val SKIP_SILENCE_ENABLED_KEY = "skip_silence_enabled"
+        const val VIDEO_OUTPUT_GENERATION_KEY = "video_output_generation"
         const val IS_SCRUBBING_MODE_ENABLED_KEY = "is_scrubbing_mode_enabled"
         const val IS_SEEK_PREVIEW_ENABLED_KEY = "is_seek_preview_enabled"
         const val PLAYBACK_SPEED_KEY = "playback_speed"
