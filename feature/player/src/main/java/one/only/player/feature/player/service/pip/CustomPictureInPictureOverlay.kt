@@ -136,6 +136,11 @@ internal class CustomPictureInPictureOverlay(
         }
     }
 
+    fun replacePlayer(player: Player) {
+        if (rootView == null) return
+        attachPlayer(player)
+    }
+
     fun dismiss() {
         mainHandler.removeCallbacks(hideControlsRunnable)
         unregisterConfigurationCallbacks()

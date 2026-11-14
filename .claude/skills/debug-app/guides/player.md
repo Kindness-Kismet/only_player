@@ -19,6 +19,7 @@
 | `player.next` | 空 | 播放下一个视频 |
 | `player.seek_to` | 时间 | 连接播放器服务执行跳转，并等待位置落稳；也可用 `value` 填时间 |
 | `player.seek_by` | 时间 | 连接播放器服务按指定时间前进或后退，并等待位置落稳；也可用 `value` 填正数或负数时间 |
+| `player.stress_seek` | 次数 | 在拖动预览模式下快速往返 seek；`value:s:` 填次数（默认 100），`interval_ms:s:` 填间隔毫秒（默认 120），总时长最多 15 秒；返回后检查画面、状态及错误日志 |
 | `player.long_press_speed` | 倍速 | 临时倍速一段时间，也可用 `value` 填倍速，`duration_ms` 填持续时间 |
 | `player.stop` | 空 | 停止播放 |
 | `player.shuffle` | 空 | 设置或切换随机播放，`enabled` 可选 |
