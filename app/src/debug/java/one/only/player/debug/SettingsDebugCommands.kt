@@ -7,6 +7,7 @@ import kotlinx.coroutines.runBlocking
 import one.only.player.core.common.AppLanguageManager
 import one.only.player.core.common.AppThemeMode
 import one.only.player.core.common.AppThemeModeManager
+import one.only.player.core.model.AppScale
 import one.only.player.core.model.ApplicationPreferences
 import one.only.player.core.model.AudioEqualizerBand
 import one.only.player.core.model.AudioEqualizerBuiltInPreset
@@ -113,6 +114,11 @@ internal suspend fun DebugCommandEntryPoint.setSetting(
         }
         "appearance.navigation_bar_blur" -> updateApplicationBoolean(value) { preferences, isEnabled ->
             preferences.copy(shouldBlurNavigationBar = isEnabled)
+        }
+        "appearance.app_scale" -> {
+            val scale = value.requiredFloat(EXTRA_VALUE)
+            require(scale.isFinite() && scale in AppScale.MIN..AppScale.MAX) { "App scale must be between 0.8 and 1.2" }
+            preferencesRepository().updateApplicationPreferences { it.copy(appScale = AppScale.quantize(scale)) }
         }
         "appearance.predictive_back" -> updateApplicationBoolean(value) { preferences, isEnabled ->
             preferences.copy(shouldEnablePredictiveBack = isEnabled)

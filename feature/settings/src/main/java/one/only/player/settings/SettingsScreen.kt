@@ -277,6 +277,7 @@ internal enum class SettingRow(
             R.string.show_cloud_tab,
             R.string.show_cloud_tab_description,
             R.string.predictive_back_gesture,
+            R.string.app_scale,
         ),
     ),
     MEDIA_LIBRARY(
