@@ -1704,6 +1704,7 @@ class PlayerService : MediaSessionService() {
         val trackSelector = DefaultTrackSelector(applicationContext).apply {
             setParameters(
                 buildUponParameters()
+                    .setAllowInvalidateSelectionsOnRendererCapabilitiesChange(true)
                     .setPreferredAudioLanguage(preferences.preferredAudioLanguage)
                     .setPreferredTextLanguage(preferences.preferredSubtitleLanguage),
             )

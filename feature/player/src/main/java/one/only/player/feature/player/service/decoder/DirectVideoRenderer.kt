@@ -11,23 +11,28 @@ import one.only.player.core.common.Logger
 import one.only.player.feature.player.service.effects.isDolbyVisionVideoFormat
 
 @OptIn(UnstableApi::class)
-internal class DolbyVisionVideoRenderer(builder: Builder) : MediaCodecVideoRenderer(builder) {
+internal class DirectVideoRenderer(
+    builder: Builder,
+    private val shouldUseVideoEffects: () -> Boolean,
+) : MediaCodecVideoRenderer(builder) {
 
-    override fun getName(): String = "DolbyVisionVideoRenderer"
+    override fun getName(): String = "DirectVideoRenderer"
 
     override fun onEnabled(
         joining: Boolean,
         mayRenderStartOfStream: Boolean,
     ) {
         super.onEnabled(joining, mayRenderStartOfStream)
-        Logger.info(name, "Video output path=direct effectsSupported=false")
+        Logger.info(name, "Video output path=direct")
     }
 
     override fun supportsFormat(
         mediaCodecSelector: MediaCodecSelector,
         format: Format,
     ): Int {
-        if (!format.isDolbyVisionVideoFormat()) return RendererCapabilities.create(C.FORMAT_UNSUPPORTED_TYPE)
+        if (shouldUseVideoEffects() && !format.isDolbyVisionVideoFormat()) {
+            return RendererCapabilities.create(C.FORMAT_UNSUPPORTED_TYPE)
+        }
         return super.supportsFormat(mediaCodecSelector, format)
     }
 
@@ -35,7 +40,7 @@ internal class DolbyVisionVideoRenderer(builder: Builder) : MediaCodecVideoRende
         messageType: Int,
         message: Any?,
     ) {
-        // 空效果列表也会创建中间 Surface，杜比视界必须忽略整个效果指令。
+        // 原生输出不能接收效果指令，空列表也会创建中间 Surface。
         if (messageType == MSG_SET_VIDEO_EFFECTS) return
         super.handleMessage(messageType, message)
     }
