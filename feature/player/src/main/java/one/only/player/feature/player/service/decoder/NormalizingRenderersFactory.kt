@@ -49,18 +49,19 @@ class NormalizingRenderersFactory(
             .setMaxDroppedFramesToNotify(MAX_DROPPED_VIDEO_FRAME_COUNT_TO_NOTIFY)
 
         val firstVideoRendererIndex = out.size
+        lateinit var directRenderer: DirectVideoRenderer
         val effectsRenderer = VideoEffectsRenderer(
             builder = newRendererBuilder(),
             eventHandler = eventHandler,
             eventListener = eventListener,
+            isDirectRendererEnabled = { directRenderer.state != Renderer.STATE_DISABLED },
+        )
+        directRenderer = DirectVideoRenderer(
+            builder = newRendererBuilder(),
+            shouldUseVideoEffects = { effectsRenderer.hasVideoEffects },
         )
         out.add(effectsRenderer)
-        out.add(
-            DirectVideoRenderer(
-                builder = newRendererBuilder(),
-                shouldUseVideoEffects = { effectsRenderer.hasVideoEffects },
-            ),
-        )
+        out.add(directRenderer)
         if (extensionRendererMode == EXTENSION_RENDERER_MODE_OFF) return
 
         val softwareRenderer = FfmpegVideoRenderer(

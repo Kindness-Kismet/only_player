@@ -24,6 +24,7 @@ internal class VideoEffectsRenderer(
     builder: Builder,
     eventHandler: Handler,
     eventListener: VideoRendererEventListener,
+    private val isDirectRendererEnabled: () -> Boolean,
 ) : MediaCodecVideoRenderer(builder) {
 
     private val eventDispatcher = VideoRendererEventListener.EventDispatcher(eventHandler, eventListener)
@@ -83,7 +84,10 @@ internal class VideoEffectsRenderer(
             hasVideoEffects = shouldEnableEffects
             if (shouldEnableEffects) super.handleMessage(messageType, message)
             // 同一个播放时钟下重选视频轨，避免重建播放器丢失运行状态。
-            if (hasOutputPathChanged) onRendererCapabilitiesChanged()
+            // 首次选轨前没有播放周期，不能触发 Media3 的重选后 seek。
+            if (hasOutputPathChanged && (state != STATE_DISABLED || isDirectRendererEnabled())) {
+                onRendererCapabilitiesChanged()
+            }
             return
         }
         super.handleMessage(messageType, message)
