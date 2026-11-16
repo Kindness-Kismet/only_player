@@ -16,6 +16,7 @@ from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).resolve().parent))
 
+from build_support.concurrency import DEFAULT_JOBS, gradle_concurrency_args, parse_jobs
 from prebuild import MIN_JDK, Jdk, current_portable_jdk, detect_sdk, read_java_major
 
 SUPPORTED_ABIS = ("arm64-v8a", "x86_64")
@@ -247,7 +248,7 @@ def build_apk(args: argparse.Namespace) -> None:
     abis = resolve_abis(args.abi)
     build_type = args.build_type
 
-    console.info(f"app={app_info.name} version={app_info.version_name} code={app_info.version_code} abi={', '.join(abis)} type={build_type}")
+    console.info(f"app={app_info.name} version={app_info.version_name} code={app_info.version_code} abi={', '.join(abis)} type={build_type} jobs={args.jobs}")
     if args.clean:
         clean_output_dir(project_root)
         console.ok("output dir cleaned")
@@ -258,6 +259,7 @@ def build_apk(args: argparse.Namespace) -> None:
     console.step(1, 2, "Build APK")
     gradle_args = [
         f"-Dorg.gradle.java.home={jdk.home}",
+        *gradle_concurrency_args(args.jobs),
         assemble_task(build_type),
         f"-PabiFilter={','.join(abis)}",
         *signing_args_from_env(),
@@ -270,7 +272,8 @@ def build_apk(args: argparse.Namespace) -> None:
         env=gradle_env(jdk.home, sdk_dir),
     )
     if result.returncode != 0:
-        fail("apk build failed")
+        print("error: apk build failed", file=sys.stderr)
+        raise SystemExit(result.returncode)
     console.ok("apk build done")
 
     console.step(2, 2, "Collect APK")
@@ -296,6 +299,7 @@ def build_parser() -> argparse.ArgumentParser:
     apk.add_argument("--abi", choices=SUPPORTED_ABIS, help="Build only one ABI; default builds all supported ABIs")
     apk.add_argument("--build-type", default="release", choices=("debug", "release", "release-with-debug-signing"), help="Gradle build type; default: release")
     apk.add_argument("--clean", action="store_true", help="Remove old APK files from build/apk before building")
+    apk.add_argument("--jobs", type=parse_jobs, default=DEFAULT_JOBS, help="Parallel build jobs, 1-64 (default: 12)")
     apk.set_defaults(func=build_apk)
     return parser
 
@@ -304,7 +308,11 @@ def main() -> int:
     if hasattr(sys.stdout, "reconfigure"):
         sys.stdout.reconfigure(encoding="utf-8")
         sys.stderr.reconfigure(encoding="utf-8")
-    args = build_parser().parse_args()
+    parser = build_parser()
+    if len(sys.argv) == 1:
+        parser.print_help()
+        return 0
+    args = parser.parse_args()
     args.func(args)
     return 0
 

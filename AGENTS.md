@@ -320,16 +320,26 @@ python scripts/prebuild.py
 python scripts/build.py build-apk --abi arm64-v8a --build-type debug
 ```
 
+### 构建并发
+
+- `scripts/build.py build-apk --jobs N` 接受 1～64 的整数，省略时默认 12；参数校验先于环境准备和构建。
+- 用户指定并发数后，本次会话后续构建显式沿用该值，跨上下文压缩保持；用户更改时更新，恢复默认或新会话使用 12。
+- 默认值、参数校验与工具映射由 `scripts/build_support/concurrency.py` 维护；会话覆盖只通过命令传入，不修改脚本默认值或共享配置。
+- 实际 Gradle 调用传入 `--max-workers=N`，跨模块并行沿用 `gradle.properties` 的 `org.gradle.parallel=true`；直接调用 wrapper 时也显式传入当前额度。
+- 单次构建的 ABI 和模块共用一个 Gradle 调度额度；独立构建阶段依次执行时各用 N，同时执行时额度合计不超过 N。同一输出目录的构建串行执行。
+- 格式化会修改检查输入，`ktlintFormat` 与 `ktlintCheck` 分两次串行调用，避免跨模块并行时边格式化边检查。
+
 提交代码格式相关改动前使用 `ktlintFormat` 自动格式化，再用 `ktlintCheck` 验证：
 
 ```bash
-./gradlew ktlintFormat ktlintCheck
+./gradlew --max-workers=12 ktlintFormat
+./gradlew --max-workers=12 ktlintCheck
 ```
 
 涉及构建、运行逻辑、依赖、资源、Manifest 或 APK 行为时，按需运行完整构建命令，并检查 test 报告；当前 `test` 不能只看退出码判断通过：
 
 ```bash
-./gradlew ktlintCheck test assembleDebug --warning-mode=all
+./gradlew --max-workers=12 ktlintCheck test assembleDebug --warning-mode=all
 ```
 
 ### UI 控件标识

@@ -30,6 +30,7 @@ import one.only.player.core.model.ThemeConfig
 import one.only.player.core.ui.R
 import one.only.player.core.ui.components.AppDialogHost
 import one.only.player.core.ui.components.AppScaffold
+import one.only.player.core.ui.components.AppScalePreference
 import one.only.player.core.ui.components.AppTopAppBar
 import one.only.player.core.ui.components.PageContentTopPadding
 import one.only.player.core.ui.components.RadioTextButton
@@ -227,6 +228,12 @@ private fun AppearancePreferencesContent(
                         onCheckedChange = onPredictiveBackToggle,
                     )
                 }
+            }
+            Card(modifier = Modifier.fillMaxWidth()) {
+                AppScalePreference(
+                    scale = preferences.appScale,
+                    onScaleChange = { onEvent(AppearancePreferencesEvent.UpdateAppScale(it)) },
+                )
             }
         }
 

@@ -6,6 +6,7 @@
     <string name="settings">设置</string>
     <string name="done">确定</string>
     <string name="appearance_name">外观</string>
+    <string name="app_scale">缩放比例</string>
     <string name="cancel">取消</string>
     <string name="add">添加</string>
     <string name="name">名称</string>

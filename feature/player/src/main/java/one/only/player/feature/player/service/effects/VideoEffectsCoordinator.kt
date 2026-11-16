@@ -183,7 +183,7 @@ internal class VideoEffectsCoordinator(
             decoderPriority = activeDecoderPriority,
             isAmbientEnabled = isAmbientEnabled,
             ambientTargetAspectRatio = normalizedAmbientTargetAspectRatio,
-            isPipelineInitialized = isAvailable(),
+            isPipelineInitialized = isAvailable() && videoFilters.shouldCreateEffect(),
         )
         if (!force && currentState == targetState) return
 
@@ -269,8 +269,9 @@ internal class VideoEffectsCoordinator(
 
         val filterEffect = activeFilterEffect
         val shouldUseAmbientEffect = shouldUseAmbientEffect(isAmbientEnabled, decoderPriority)
-        // 已启用的效果实例复用参数更新，关闭时恢复恒等参数。
+        // 开启期间复用效果实例；关闭时移除效果，触发原生输出重选。
         val canUpdateActiveFilterEffect = filterEffect != null &&
+            shouldUseFilterEffect(videoFilters, decoderPriority) &&
             (activeAmbientEffect != null) == shouldUseAmbientEffect &&
             currentState.isAmbientEnabled == isAmbientEnabled &&
             currentState.ambientTargetAspectRatio == ambientTargetAspectRatio
@@ -295,19 +296,20 @@ internal class VideoEffectsCoordinator(
             isAmbientEnabled = isAmbientEnabled,
             ambientTargetAspectRatio = ambientTargetAspectRatio,
         )
-        // 即使滤镜关闭，也要在 prepare 前用空列表初始化 Media3 效果管线。
+        val hasOutputPathChanged = currentState.isPipelineInitialized != effects.isNotEmpty()
         transition = if (effects.isEmpty()) VideoFilterTransition.default() else nextTransition
         currentState = VideoEffectsState(
             filters = videoFilters,
             decoderPriority = decoderPriority,
             isAmbientEnabled = isAmbientEnabled,
             ambientTargetAspectRatio = ambientTargetAspectRatio,
-            isPipelineInitialized = true,
+            isPipelineInitialized = effects.isNotEmpty(),
         )
         activeFilterEffect = effects.filterIsInstance<VideoFiltersEffect>().firstOrNull()
         activeAmbientEffect = effects.filterIsInstance<AmbientVideoEffect>().firstOrNull()
         player.setVideoEffects(effects)
-        refreshPausedFrame(player, shouldReloadFrame = true)
+        // 路径切换由轨道重选重新送帧；同一路径更换效果链才主动刷新。
+        if (!hasOutputPathChanged && effects.isNotEmpty()) refreshPausedFrame(player, shouldReloadFrame = true)
         updateAvailability(player)
     }
 

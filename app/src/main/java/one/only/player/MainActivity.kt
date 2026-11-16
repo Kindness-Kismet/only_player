@@ -1,5 +1,6 @@
 package one.only.player
 
+import android.content.Context
 import android.content.Intent
 import android.content.res.Configuration
 import android.os.Bundle
@@ -37,13 +38,16 @@ import androidx.navigation.NavHostController
 import dagger.hilt.android.AndroidEntryPoint
 import javax.inject.Inject
 import kotlinx.coroutines.launch
+import one.only.player.core.common.Logger
 import one.only.player.core.common.createManageExternalStorageAccessIntent
 import one.only.player.core.common.extensions.applyPrivacyProtection
 import one.only.player.core.common.extensions.resolvePrivacyPreviewScrim
 import one.only.player.core.common.hasManageExternalStorageAccess
 import one.only.player.core.common.storagePermission
+import one.only.player.core.datastore.readPersistedApplicationPreferences
 import one.only.player.core.media.services.MediaService
 import one.only.player.core.media.sync.MediaSynchronizer
+import one.only.player.core.model.AppScale
 import one.only.player.core.model.NavigationBarStyle
 import one.only.player.core.model.ThemeConfig
 import one.only.player.core.ui.R as UiR
@@ -51,6 +55,7 @@ import one.only.player.core.ui.components.AppDialog
 import one.only.player.core.ui.components.AppUpdateDialog
 import one.only.player.core.ui.components.LocalTopBarBlur
 import one.only.player.core.ui.composables.rememberRuntimePermissionState
+import one.only.player.core.ui.extensions.scaledAppContext
 import one.only.player.core.ui.navigation.MiuixNavHost
 import one.only.player.core.ui.navigation.miuixComposable
 import one.only.player.core.ui.navigation.rememberMiuixNavController
@@ -103,6 +108,19 @@ import top.yukonga.miuix.kmp.theme.MiuixTheme
 
 @AndroidEntryPoint
 class MainActivity : AppCompatActivity() {
+
+    private var appliedAppScale = AppScale.DEFAULT
+
+    override fun attachBaseContext(newBase: Context) {
+        appliedAppScale = AppScale.quantize(newBase.readPersistedApplicationPreferences().appScale)
+        super.attachBaseContext(scaledAppContext(newBase, appliedAppScale))
+        Logger.info("AppScale", "MainActivity scale=$appliedAppScale densityDpi=${resources.configuration.densityDpi} fontScale=${resources.configuration.fontScale}")
+    }
+
+    override fun onConfigurationChanged(newConfig: Configuration) {
+        super.onConfigurationChanged(newConfig)
+        if (appliedAppScale != AppScale.DEFAULT) recreate()
+    }
 
     @Inject
     lateinit var synchronizer: MediaSynchronizer
@@ -164,6 +182,10 @@ class MainActivity : AppCompatActivity() {
             )
 
             val preferences = (uiState as? MainActivityUiState.Success)?.preferences
+            LaunchedEffect(preferences?.appScale) {
+                val scale = preferences?.appScale ?: return@LaunchedEffect
+                if (AppScale.quantize(scale) != appliedAppScale) recreate()
+            }
             val shouldPreventScreenshots = preferences?.shouldPreventScreenshots == true
             val shouldHideInRecents = preferences?.shouldHideInRecents == true
             val shouldBlurTopBar = preferences?.shouldBlurTopBar != false
@@ -220,6 +242,7 @@ class MainActivity : AppCompatActivity() {
 
         // Provider 可能先于 Compose 导航树启动，先暂存到首帧后执行。
         pendingDebugPageRoute = DebugPageRoute.from(intent.getStringExtra(DEBUG_EXTRA_PAGE))
+        intent.action = null
     }
 
     private fun consumeDebugPlayerIntent(intent: Intent?) {
@@ -232,6 +255,7 @@ class MainActivity : AppCompatActivity() {
             replaceExtras(intent.extras)
             addFlags(Intent.FLAG_ACTIVITY_CLEAR_TOP or Intent.FLAG_ACTIVITY_SINGLE_TOP)
         }
+        intent.action = null
     }
 
     private fun navigateToDebugPage(

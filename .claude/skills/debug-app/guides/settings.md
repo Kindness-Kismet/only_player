@@ -18,6 +18,7 @@
 | `settings.set` | `appearance.top_bar_blur` | 设置顶部标题栏模糊开关 |
 | `settings.set` | `appearance.navigation_bar_blur` | 设置底栏模糊开关；仅标准、悬浮样式生效，需 Android 13 及以上；切换到原生样式时保留设置 |
 | `settings.set` | `appearance.predictive_back` | 设置预测性返回手势开关，重启应用后生效 |
+| `settings.set` | `appearance.app_scale` | 设置全应用缩放：`0.8..1.2`，步进 `0.05`；保存后自动重建当前页面，`1.0` 恢复默认，保留系统字体倍率 |
 | `settings.set` | `appearance.show_cloud_tab` | 设置底部导航是否显示云端入口；关闭后 `page.open cloud` 无效 |
 | `settings.set` | `media.mark_last_played` | 设置标记最近播放媒体 |
 | `settings.set` | `media.restore_last_played_in_folders` | 设置文件夹恢复最近播放 |

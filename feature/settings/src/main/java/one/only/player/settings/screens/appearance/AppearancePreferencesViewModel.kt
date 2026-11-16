@@ -15,6 +15,7 @@ import one.only.player.core.common.AppLanguageManager
 import one.only.player.core.common.AppThemeMode
 import one.only.player.core.common.AppThemeModeManager
 import one.only.player.core.data.repository.PreferencesRepository
+import one.only.player.core.model.AppScale
 import one.only.player.core.model.ApplicationPreferences
 import one.only.player.core.model.NavigationBarStyle
 import one.only.player.core.model.ThemeConfig
@@ -45,6 +46,7 @@ class AppearancePreferencesViewModel @Inject constructor(
             is AppearancePreferencesEvent.ShowDialog -> showDialog(event.value)
             is AppearancePreferencesEvent.UpdateThemeConfig -> updateThemeConfig(event.themeConfig)
             is AppearancePreferencesEvent.UpdateAppLanguage -> updateAppLanguage(event.languageTag)
+            is AppearancePreferencesEvent.UpdateAppScale -> updateAppScale(event.scale)
             AppearancePreferencesEvent.ToggleUseDynamicColors -> toggleUseDynamicColors()
             AppearancePreferencesEvent.ToggleNavigateHomeOnTitleLongPress -> toggleNavigateHomeOnTitleLongPress()
             is AppearancePreferencesEvent.UpdateNavigationBarStyle -> updateNavigationBarStyle(event.style)
@@ -88,6 +90,14 @@ class AppearancePreferencesViewModel @Inject constructor(
         viewModelScope.launch {
             preferencesRepository.updateApplicationPreferences {
                 it.copy(shouldUseDynamicColors = !it.shouldUseDynamicColors)
+            }
+        }
+    }
+
+    private fun updateAppScale(scale: Float) {
+        viewModelScope.launch {
+            preferencesRepository.updateApplicationPreferences {
+                it.copy(appScale = AppScale.quantize(scale))
             }
         }
     }
@@ -165,6 +175,7 @@ sealed interface AppearancePreferencesEvent {
     data class ShowDialog(val value: AppearancePreferenceDialog?) : AppearancePreferencesEvent
     data class UpdateThemeConfig(val themeConfig: ThemeConfig) : AppearancePreferencesEvent
     data class UpdateAppLanguage(val languageTag: String) : AppearancePreferencesEvent
+    data class UpdateAppScale(val scale: Float) : AppearancePreferencesEvent
     data object ToggleUseDynamicColors : AppearancePreferencesEvent
     data object ToggleNavigateHomeOnTitleLongPress : AppearancePreferencesEvent
     data class UpdateNavigationBarStyle(val style: NavigationBarStyle) : AppearancePreferencesEvent

@@ -17,6 +17,7 @@ data class ApplicationPreferences(
     val shouldBlurNavigationBar: Boolean = true,
     val shouldBlurTopBar: Boolean = true,
     val shouldEnablePredictiveBack: Boolean = false,
+    val appScale: Float = AppScale.DEFAULT,
     val shouldPreventScreenshots: Boolean = false,
     val shouldHideInRecents: Boolean = false,
     val shouldShowCloudTab: Boolean = true,

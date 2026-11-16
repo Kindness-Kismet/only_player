@@ -3,6 +3,7 @@ package one.only.player.crash
 import android.content.ClipData
 import android.content.ClipDescription
 import android.content.ClipboardManager
+import android.content.Context
 import android.content.Intent
 import android.content.res.Configuration
 import android.graphics.Color
@@ -42,9 +43,11 @@ import kotlinx.coroutines.withContext
 import one.only.player.MainActivity
 import one.only.player.core.common.di.DispatchersModule
 import one.only.player.core.common.extensions.applyPrivacyProtection
+import one.only.player.core.datastore.readPersistedApplicationPreferences
 import one.only.player.core.ui.R
 import one.only.player.core.ui.components.PageContentTopPadding
 import one.only.player.core.ui.designsystem.AppIcons
+import one.only.player.core.ui.extensions.scaledAppContext
 import one.only.player.core.ui.extensions.withBottomFallback
 import one.only.player.core.ui.theme.OnlyPlayerTheme
 import top.yukonga.miuix.kmp.basic.Card
@@ -56,6 +59,11 @@ import top.yukonga.miuix.kmp.basic.TopAppBar
 import top.yukonga.miuix.kmp.theme.MiuixTheme
 
 class CrashActivity : AppCompatActivity() {
+
+    override fun attachBaseContext(newBase: Context) {
+        val scale = newBase.readPersistedApplicationPreferences().appScale
+        super.attachBaseContext(scaledAppContext(newBase, scale))
+    }
 
     // 恢复进程跳过 Hilt，调度器直接取自不依赖业务图的基础模块。
     private val ioDispatcher = DispatchersModule.providesIODispatcher()

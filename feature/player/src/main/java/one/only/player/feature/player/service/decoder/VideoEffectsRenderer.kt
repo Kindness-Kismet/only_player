@@ -24,16 +24,33 @@ internal class VideoEffectsRenderer(
     builder: Builder,
     eventHandler: Handler,
     eventListener: VideoRendererEventListener,
+    private val isDirectRendererEnabled: () -> Boolean,
 ) : MediaCodecVideoRenderer(builder) {
 
     private val eventDispatcher = VideoRendererEventListener.EventDispatcher(eventHandler, eventListener)
     private var videoGraphWrapper: PlaybackVideoGraphWrapper? = null
 
+    @Volatile
+    var hasVideoEffects = false
+        private set
+
+    override fun getName(): String = "VideoEffectsRenderer"
+
+    override fun onEnabled(
+        joining: Boolean,
+        mayRenderStartOfStream: Boolean,
+    ) {
+        super.onEnabled(joining, mayRenderStartOfStream)
+        Logger.info(name, "Video output path=effects")
+    }
+
     override fun supportsFormat(
         mediaCodecSelector: MediaCodecSelector,
         format: Format,
     ): Int {
-        if (format.isDolbyVisionVideoFormat()) return RendererCapabilities.create(C.FORMAT_UNSUPPORTED_TYPE)
+        if (!hasVideoEffects || format.isDolbyVisionVideoFormat()) {
+            return RendererCapabilities.create(C.FORMAT_UNSUPPORTED_TYPE)
+        }
         return super.supportsFormat(mediaCodecSelector, format)
     }
 
@@ -61,6 +78,18 @@ internal class VideoEffectsRenderer(
         messageType: Int,
         message: Any?,
     ) {
+        if (messageType == MSG_SET_VIDEO_EFFECTS && message != VideoFrameProcessor.REDRAW) {
+            val shouldEnableEffects = (message as List<*>).isNotEmpty()
+            val hasOutputPathChanged = hasVideoEffects != shouldEnableEffects
+            hasVideoEffects = shouldEnableEffects
+            if (shouldEnableEffects) super.handleMessage(messageType, message)
+            // 同一个播放时钟下重选视频轨，避免重建播放器丢失运行状态。
+            // 首次选轨前没有播放周期，不能触发 Media3 的重选后 seek。
+            if (hasOutputPathChanged && (state != STATE_DISABLED || isDirectRendererEnabled())) {
+                onRendererCapabilitiesChanged()
+            }
+            return
+        }
         super.handleMessage(messageType, message)
         val isOutputMessage = messageType == MSG_SET_VIDEO_OUTPUT || messageType == MSG_SET_VIDEO_OUTPUT_RESOLUTION
         if (state == STATE_DISABLED && isOutputMessage) {
@@ -78,7 +107,7 @@ internal class VideoEffectsRenderer(
         context: Context,
         videoFrameReleaseControl: VideoFrameReleaseControl,
     ): PlaybackVideoGraphWrapper {
-        Logger.info("VideoEffectsRenderer", "Video output path=effects")
+        Logger.info(name, "Initialize video graph")
         val wrapper = PlaybackVideoGraphWrapper.Builder(context, videoFrameReleaseControl)
             .setEnablePlaylistMode(true)
             .setEnableReplayableCache(true)

@@ -10,10 +10,14 @@ import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.DisposableEffectResult
 import androidx.compose.runtime.DisposableEffectScope
 import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.MutableIntState
+import androidx.compose.runtime.MutableState
 import androidx.compose.runtime.Stable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableIntStateOf
+import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.core.util.Consumer
 import androidx.media3.common.Player
@@ -34,6 +38,8 @@ fun rememberRotationState(
     onLastScreenOrientationChange: (LastPlayerScreenOrientation) -> Unit,
 ): RotationState {
     val activity = LocalActivity.current as ComponentActivity
+    val lastVideoOrientation = rememberSaveable(screenOrientation) { mutableIntStateOf(ActivityInfo.SCREEN_ORIENTATION_UNSPECIFIED) }
+    val lastVideoMediaId = rememberSaveable(screenOrientation) { mutableStateOf<String?>(null) }
     val rotationState = remember(screenOrientation, shouldRememberScreenOrientation, lastScreenOrientation) {
         RotationState(
             activity = activity,
@@ -41,6 +47,8 @@ fun rememberRotationState(
             shouldRememberScreenOrientation = shouldRememberScreenOrientation,
             lastScreenOrientation = lastScreenOrientation,
             onLastScreenOrientationChange = onLastScreenOrientationChange,
+            lastVideoOrientation = lastVideoOrientation,
+            lastVideoMediaId = lastVideoMediaId,
         )
     }
     DisposableEffect(activity, rotationState) {
@@ -57,6 +65,8 @@ class RotationState(
     private val shouldRememberScreenOrientation: Boolean,
     private val lastScreenOrientation: LastPlayerScreenOrientation?,
     private val onLastScreenOrientationChange: (LastPlayerScreenOrientation) -> Unit,
+    private val lastVideoOrientation: MutableIntState,
+    private val lastVideoMediaId: MutableState<String?>,
 ) {
     var currentRequestedOrientation: Int by mutableIntStateOf(activity.requestedOrientation)
         private set
@@ -125,10 +135,14 @@ class RotationState(
         if (hasSystemIgnoredOrientationRequest) return
         if (screenOrientation != ScreenOrientation.VIDEO_ORIENTATION) return
         val orientation = getVideoBasedOrientation(player)
-        if (orientation != ActivityInfo.SCREEN_ORIENTATION_UNSPECIFIED) {
-            Log.d(TAG, "applyOrientation: $orientation")
-            activity.requestedOrientation = orientation
-        }
+        if (orientation == ActivityInfo.SCREEN_ORIENTATION_UNSPECIFIED) return
+        val mediaId = player.currentMediaItem?.mediaId
+        // 同一视频重建输出时保留手动方向，换片或视频方向变化后才重新应用。
+        if (lastVideoMediaId.value == mediaId && lastVideoOrientation.intValue == orientation) return
+        lastVideoMediaId.value = mediaId
+        lastVideoOrientation.intValue = orientation
+        Log.d(TAG, "applyOrientation: $orientation")
+        activity.requestedOrientation = orientation
     }
 
     private fun setOrientation(player: Player) {

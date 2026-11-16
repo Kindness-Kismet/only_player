@@ -1,8 +1,10 @@
 package one.only.player.feature.player
 
 import android.content.ComponentName
+import android.content.Context
 import android.content.Intent
 import android.content.pm.ActivityInfo
+import android.content.res.Configuration
 import android.graphics.Color
 import android.net.Uri
 import android.os.Build
@@ -79,11 +81,14 @@ import one.only.player.core.common.extensions.resolvePrivacyPreviewScrim
 import one.only.player.core.common.extensions.scanFileForContentUri
 import one.only.player.core.common.extensions.toPrivateLogSummary
 import one.only.player.core.common.storagePermission
+import one.only.player.core.datastore.readPersistedApplicationPreferences
 import one.only.player.core.media.container.isMpegTsStream
 import one.only.player.core.media.sync.MediaSynchronizer
+import one.only.player.core.model.AppScale
 import one.only.player.core.model.PictureInPictureMode
 import one.only.player.core.model.ScreenOrientation
 import one.only.player.core.model.ThemeConfig
+import one.only.player.core.ui.extensions.scaledAppContext
 import one.only.player.core.ui.theme.OnlyPlayerTheme
 import one.only.player.feature.player.extensions.OpenDocumentWithInitialUri
 import one.only.player.feature.player.extensions.copy
@@ -193,6 +198,28 @@ internal fun buildPlaybackPlaylist(
 @AndroidEntryPoint
 open class PlayerActivity : AppCompatActivity() {
 
+    private var appliedAppScale = AppScale.DEFAULT
+
+    override fun attachBaseContext(newBase: Context) {
+        appliedAppScale = AppScale.quantize(newBase.readPersistedApplicationPreferences().appScale)
+        super.attachBaseContext(scaledAppContext(newBase, appliedAppScale))
+        Logger.info("AppScale", "PlayerActivity scale=$appliedAppScale densityDpi=${resources.configuration.densityDpi} fontScale=${resources.configuration.fontScale}")
+    }
+
+    override fun onConfigurationChanged(newConfig: Configuration) {
+        super.onConfigurationChanged(newConfig)
+        if (appliedAppScale != AppScale.DEFAULT) recreateForAppScale()
+    }
+
+    private fun recreateForAppScale() {
+        // 在 Controller 断开前撤销旧 Surface；重建后 prepare 沿用队列、位置和播放意图。
+        mediaController?.run {
+            clearVideoSurface()
+            stop()
+        }
+        recreate()
+    }
+
     companion object {
         private const val TAG = "PlayerActivity"
         private const val MAX_MEDIA3_PLAYLIST_ITEMS = 500
@@ -256,14 +283,15 @@ open class PlayerActivity : AppCompatActivity() {
 
     @OptIn(ExperimentalComposeUiApi::class)
     override fun onCreate(savedInstanceState: Bundle?) {
-        val launchOrientation = intent.launchOrientationExtra()
+        isIntentNew = savedInstanceState == null
+        val launchOrientation = intent.launchOrientationExtra().takeIf { savedInstanceState == null }
         launchOrientation?.let(::applyRequestedOrientation)
         super.onCreate(savedInstanceState)
         applyPrivacyProtection(
             shouldPreventScreenshots = viewModel.uiState.value.shouldPreventScreenshots,
             shouldHideInRecents = viewModel.uiState.value.shouldHideInRecents,
         )
-        if (launchOrientation == null) {
+        if (savedInstanceState == null && launchOrientation == null) {
             applyConfiguredOrientation()
         }
         val systemBarScrim = resolvePrivacyPreviewScrim(
@@ -277,6 +305,9 @@ open class PlayerActivity : AppCompatActivity() {
 
         setContent {
             val uiState by viewModel.uiState.collectAsStateWithLifecycle()
+            LaunchedEffect(uiState.applicationPreferences.appScale) {
+                if (AppScale.quantize(uiState.applicationPreferences.appScale) != appliedAppScale) recreateForAppScale()
+            }
             var player by remember { mutableStateOf<MediaController?>(null) }
             var isTakingScreenshot by remember { mutableStateOf(false) }
 
