@@ -1,11 +1,11 @@
-name: Android 开发版发布
+name: Android Beta 版发布
 
 on:
   workflow_dispatch:
   workflow_call:
 
 concurrency:
-  group: android-dev-release
+  group: android-beta-release
   cancel-in-progress: true
 
 permissions:
@@ -13,15 +13,15 @@ permissions:
 
 jobs:
   validate-branch:
-    name: 校验开发分支
+    name: 校验 Beta 分支
     runs-on: ubuntu-24.04
     steps:
-      - name: 要求在 dev 分支运行
+      - name: 要求在 beta 分支运行
         shell: bash
-        run: test "${{ github.ref }}" = 'refs/heads/dev'
+        run: test "${{ github.ref }}" = 'refs/heads/beta'
 
   prepare:
-    name: 准备开发版信息
+    name: 准备 Beta 版信息
     needs: validate-branch
     runs-on: ubuntu-24.04
     outputs:
@@ -48,7 +48,7 @@ jobs:
           test -n "${application_id}"
           echo "application_id=${application_id}" >> "$GITHUB_OUTPUT"
 
-      - name: 计算开发版版本
+      - name: 计算 Beta 版版本
         id: ver
         shell: bash
         env:
@@ -88,7 +88,7 @@ jobs:
             previous_tag="v${target}-beta${beta}"
           else
             stable_tag="v${stable}"
-            baseline_tag="dev-base/${stable_tag}"
+            baseline_tag="beta-base/${stable_tag}"
             if git ls-remote --exit-code --tags origin "refs/tags/${baseline_tag}" >/dev/null 2>&1; then
               previous_tag="${baseline_tag}"
             else
@@ -101,7 +101,7 @@ jobs:
           printf 'version=%s\nversion_code=%s\ntag=v%s\nprevious_tag=%s\n' \
             "${version}" "${version_code}" "${version}" "${previous_tag}" | tee -a "$GITHUB_OUTPUT"
 
-      - name: 导出开发版元数据
+      - name: 导出 Beta 版元数据
         id: meta
         shell: bash
         env:
@@ -114,7 +114,7 @@ jobs:
           short_sha="$(git rev-parse --short HEAD)"
           echo "short_sha=${short_sha}" >> "$GITHUB_OUTPUT"
           {
-            echo "### 开发版发布信息"
+            echo "### Beta 版发布信息"
             echo
             echo "- 应用 ID: \`${APPLICATION_ID}\`"
             echo "- 通道: \`test\`"
@@ -124,7 +124,7 @@ jobs:
             echo "- 提交: \`${short_sha}\`"
           } >> "$GITHUB_STEP_SUMMARY"
 
-      - name: 验证开发版基线标签
+      - name: 验证 Beta 版基线标签
         id: base-tag
         shell: bash
         run: |
@@ -135,8 +135,8 @@ jobs:
             exit 0
           fi
           echo 'can_build=false' >> "$GITHUB_OUTPUT"
-          echo "::notice::开发版构建已跳过，因为基线标签 ${previous_tag} 不存在。"
-          echo "开发版构建已跳过，因为基线标签 \`${previous_tag}\` 不存在。" >> "$GITHUB_STEP_SUMMARY"
+          echo "::notice::Beta 版构建已跳过，因为基线标签 ${previous_tag} 不存在。"
+          echo "Beta 版构建已跳过，因为基线标签 \`${previous_tag}\` 不存在。" >> "$GITHUB_STEP_SUMMARY"
 
       - name: 验证签名配置
         if: steps.base-tag.outputs.can_build == 'true'
@@ -161,7 +161,7 @@ jobs:
             -alias "${KEY_ALIAS}" > /dev/null
           echo "签名校验通过"
 
-      - name: 生成开发版更新说明
+      - name: 生成 Beta 版更新说明
         id: notes
         if: steps.base-tag.outputs.can_build == 'true'
         shell: bash
@@ -178,7 +178,7 @@ jobs:
             done < <(git log --reverse --no-merges --format='%H%x09%h%x09%s' "${previous_tag}..${GITHUB_SHA}")
           } > release_notes.md
 
-          echo "========== 开发版更新说明 =========="
+          echo "========== Beta 版更新说明 =========="
           cat release_notes.md
 
           release_notes="$(base64 -w 0 release_notes.md)"
@@ -200,7 +200,7 @@ jobs:
       - name: 检出代码
         uses: actions/checkout@v6
 
-      - name: 写入开发版版本号
+      - name: 写入 Beta 版版本号
         shell: bash
         run: |
           set -euo pipefail
@@ -242,7 +242,7 @@ jobs:
             -alias "${KEY_ALIAS}" > /dev/null
           echo "keystore_path=${keystore_path}" >> "$GITHUB_OUTPUT"
 
-      - name: 构建已签名开发版
+      - name: 构建已签名 Beta 版
         shell: bash
         env:
           KEYSTORE_PATH: ${{ steps.signing.outputs.keystore_path }}
@@ -265,12 +265,12 @@ jobs:
       - name: 上传发布产物
         uses: actions/upload-artifact@v7
         with:
-          name: Only-Player-dev-${{ needs.prepare.outputs.version }}-${{ matrix.abi }}
+          name: Only-Player-beta-${{ needs.prepare.outputs.version }}-${{ matrix.abi }}
           path: build/apk/
           if-no-files-found: error
 
   release:
-    name: 发布开发版
+    name: 发布 Beta 版
     needs: [prepare, build]
     if: ${{ needs.prepare.outputs.can_build == 'true' && needs.build.result == 'success' }}
     runs-on: ubuntu-24.04
@@ -278,7 +278,7 @@ jobs:
       - name: 下载所有构建产物
         uses: actions/download-artifact@v8
         with:
-          pattern: Only-Player-dev-${{ needs.prepare.outputs.version }}-*
+          pattern: Only-Player-beta-${{ needs.prepare.outputs.version }}-*
           path: release
           merge-multiple: true
 
@@ -289,8 +289,8 @@ jobs:
           printf '%s' '${{ needs.prepare.outputs.release_notes }}' | base64 --decode > release_notes.md
           cat release_notes.md
 
-      - name: 上传开发版草稿
-        id: dev-release
+      - name: 上传 Beta 版草稿
+        id: beta-release
         uses: softprops/action-gh-release@v3
         with:
           token: ${{ secrets.GITHUB_TOKEN }}
@@ -305,11 +305,11 @@ jobs:
           fail_on_unmatched_files: true
           make_latest: false
 
-      - name: 发布开发版
+      - name: 发布 Beta 版
         shell: bash
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-          RELEASE_ID: ${{ steps.dev-release.outputs.id }}
+          RELEASE_ID: ${{ steps.beta-release.outputs.id }}
         run: |
           set -euo pipefail
           gh api \
@@ -318,7 +318,7 @@ jobs:
             -F draft=false \
             -F prerelease=true
 
-      - name: 丢弃未发布的开发版
+      - name: 丢弃未发布的 Beta 版
         if: ${{ failure() || cancelled() }}
         shell: bash
         env:
@@ -331,8 +331,8 @@ jobs:
               jq -r --arg tag "${TAG}" '[.[][] | select(.draft and .tag_name == $tag) | .id] | first // empty'
           )"
           if [ -z "${release_id}" ]; then
-            echo '没有需要丢弃的开发版草稿。'
+            echo '没有需要丢弃的 Beta 版草稿。'
             exit 0
           fi
           gh api --method DELETE "repos/${GITHUB_REPOSITORY}/releases/${release_id}"
-          echo "::notice::已丢弃未发布的开发版 ${TAG}。"
+          echo "::notice::已丢弃未发布的 Beta 版 ${TAG}。"

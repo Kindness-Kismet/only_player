@@ -2,7 +2,7 @@ name: 测试检查
 
 on:
   push:
-    branches: [main, dev]
+    branches: [main, beta]
   pull_request:
     types: [opened, synchronize, reopened]
   workflow_dispatch:
@@ -73,6 +73,9 @@ jobs:
       - name: 检出代码
         uses: actions/checkout@v6
 
+      - name: Check skill mirrors
+        run: python scripts/build_support/sync_skills.py --check
+
       - name: 配置 JDK 26
         uses: actions/setup-java@v5
         with:
@@ -87,7 +90,9 @@ jobs:
 
       - name: 执行 Ktlint 格式化
         shell: bash
-        run: bash ./gradlew ktlintFormat ktlintCheck --warning-mode=all
+        run: |
+          bash ./gradlew --max-workers=12 ktlintFormat --warning-mode=all
+          bash ./gradlew --max-workers=12 ktlintCheck --warning-mode=all
 
       - name: 检查格式化结果
         shell: bash
@@ -101,9 +106,9 @@ jobs:
           path: |
             **/build/reports
 
-  detect-dev-build-changes:
-    name: 检测开发版构建变更
-    if: github.event_name == 'push' && github.ref == 'refs/heads/dev'
+  detect-beta-build-changes:
+    name: 检测 Beta 版构建变更
+    if: github.event_name == 'push' && github.ref == 'refs/heads/beta'
     runs-on: ubuntu-24.04
     outputs:
       should_build: ${{ steps.changes.outputs.should_build }}
@@ -124,19 +129,19 @@ jobs:
           set -euo pipefail
           if [ -z "${BEFORE_SHA}" ] || [[ "${BEFORE_SHA}" =~ ^0+$ ]]; then
             echo 'should_build=false' >> "$GITHUB_OUTPUT"
-            echo '缺少可比较的前一次提交：跳过开发版构建。'
+            echo '缺少可比较的前一次提交：跳过 Beta 版构建。'
             exit 0
           fi
 
           if git log --format= --patch "${BEFORE_SHA}..${AFTER_SHA}" -- app/build.gradle.kts | grep -Eq '^[+-].*versionName'; then
             echo 'should_build=false' >> "$GITHUB_OUTPUT"
-            echo '本次推送修改了 versionName，跳过开发版构建。'
+            echo '本次推送修改了 versionName，跳过 Beta 版构建。'
             exit 0
           fi
 
           if git log --format= --name-only "${BEFORE_SHA}..${AFTER_SHA}" -- .github/CHANGELOG.md | grep -q .; then
             echo 'should_build=false' >> "$GITHUB_OUTPUT"
-            echo '本次推送修改了更新日志，跳过开发版构建。'
+            echo '本次推送修改了更新日志，跳过 Beta 版构建。'
             exit 0
           fi
 
@@ -165,7 +170,7 @@ jobs:
             previous_tag="v${target}-beta${beta}"
           else
             stable_tag="v${stable}"
-            baseline_tag="dev-base/${stable_tag}"
+            baseline_tag="beta-base/${stable_tag}"
             if git ls-remote --exit-code --tags origin "refs/tags/${baseline_tag}" >/dev/null 2>&1; then
               previous_tag="${baseline_tag}"
             else
@@ -175,7 +180,7 @@ jobs:
 
           if ! git ls-remote --exit-code --tags origin "refs/tags/${previous_tag}" >/dev/null 2>&1; then
             echo 'should_build=false' >> "$GITHUB_OUTPUT"
-            echo "::notice::基线标签 ${previous_tag} 尚不存在，跳过开发版构建。"
+            echo "::notice::基线标签 ${previous_tag} 尚不存在，跳过 Beta 版构建。"
             exit 0
           fi
 
@@ -195,43 +200,43 @@ jobs:
           echo "should_build=${should_build}" >> "$GITHUB_OUTPUT"
 
           if [ "${should_build}" = true ]; then
-            echo "自 ${previous_tag} 以来存在产品变更，需要开发版构建。"
+            echo "自 ${previous_tag} 以来存在产品变更，需要 Beta 版构建。"
           else
-            echo "自 ${previous_tag} 以来没有产品变更，跳过开发版构建。"
+            echo "自 ${previous_tag} 以来没有产品变更，跳过 Beta 版构建。"
           fi
 
-  trigger-dev-publish:
-    name: 触发开发版发布
-    needs: [prepare, verify, detect-dev-build-changes]
+  trigger-beta-publish:
+    name: 触发 Beta 版发布
+    needs: [prepare, verify, detect-beta-build-changes]
     if: >-
       ${{
         always() &&
         github.event_name == 'push' &&
-        github.ref == 'refs/heads/dev' &&
+        github.ref == 'refs/heads/beta' &&
         needs.verify.result == 'success' &&
-        needs.detect-dev-build-changes.result == 'success' &&
-        needs.detect-dev-build-changes.outputs.should_build == 'true'
+        needs.detect-beta-build-changes.result == 'success' &&
+        needs.detect-beta-build-changes.outputs.should_build == 'true'
       }}
-    uses: ./.github/workflows/publish-dev.yaml
+    uses: ./.github/workflows/publish-beta.yaml
     secrets: inherit
 
-  skip-dev-publish:
-    name: 无需开发版发布
-    needs: [prepare, verify, detect-dev-build-changes]
+  skip-beta-publish:
+    name: 无需 Beta 版发布
+    needs: [prepare, verify, detect-beta-build-changes]
     if: >-
       ${{
         always() &&
         github.event_name == 'push' &&
-        github.ref == 'refs/heads/dev' &&
+        github.ref == 'refs/heads/beta' &&
         needs.verify.result == 'success' &&
-        needs.detect-dev-build-changes.result == 'success' &&
-        needs.detect-dev-build-changes.outputs.should_build != 'true'
+        needs.detect-beta-build-changes.result == 'success' &&
+        needs.detect-beta-build-changes.outputs.should_build != 'true'
       }}
     runs-on: ubuntu-24.04
     steps:
       - name: 记录有意跳过
         shell: bash
         run: |
-          echo '::notice::检查已通过；没有需要开发版构建的产品变更。'
-          echo '### 开发版构建' >> "$GITHUB_STEP_SUMMARY"
-          echo '检查已通过。因为没有产品文件变更，开发版构建被有意跳过。' >> "$GITHUB_STEP_SUMMARY"
+          echo '::notice::检查已通过；没有需要 Beta 版构建的产品变更。'
+          echo '### Beta 版构建' >> "$GITHUB_STEP_SUMMARY"
+          echo '检查已通过。因为没有产品文件变更，Beta 版构建被有意跳过。' >> "$GITHUB_STEP_SUMMARY"

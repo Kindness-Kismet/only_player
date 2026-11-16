@@ -315,7 +315,7 @@ jobs:
           tag_name: ${{ needs.prepare.outputs.release_tag }}
           target_commitish: ${{ github.sha }}
 
-      - name: 查找已合入的开发分支来源
+      - name: 查找已合入的 Beta 分支来源
         id: promotion
         continue-on-error: true
         shell: bash
@@ -341,7 +341,7 @@ jobs:
                 | select(
                     .merged_at != null
                     and .base.ref == "main"
-                    and .head.ref == "dev"
+                    and .head.ref == "beta"
                     and .head.repo.full_name == $repository
                     and .merge_commit_sha != null
                     and .head.sha != null
@@ -355,13 +355,13 @@ jobs:
             ' main-pulls.json
           )
           if [ -z "${source_sha}" ]; then
-            echo '::notice::没有包含在本次发布中的 dev → main 合入记录，跳过开发版基线标签。'
+            echo '::notice::没有包含在本次发布中的 beta → main 合入记录，跳过 Beta 版基线标签。'
             echo "source_sha=" >> "$GITHUB_OUTPUT"
             exit 0
           fi
           printf 'pull_number=%s\nsource_sha=%s\n' "${pull_number}" "${source_sha}" | tee -a "$GITHUB_OUTPUT"
 
-      - name: 创建开发版基线标签
+      - name: 创建 Beta 版基线标签
         if: steps.promotion.outputs.source_sha != ''
         shell: bash
         env:
@@ -369,7 +369,7 @@ jobs:
           SOURCE_SHA: ${{ steps.promotion.outputs.source_sha }}
         run: |
           set -euo pipefail
-          baseline_tag="dev-base/${{ needs.prepare.outputs.release_tag }}"
+          baseline_tag="beta-base/${{ needs.prepare.outputs.release_tag }}"
           existing_sha="$(
             git ls-remote --tags origin "refs/tags/${baseline_tag}" "refs/tags/${baseline_tag}^{}" |
               awk '$2 ~ /\^\{\}$/ { peeled=$1 } $2 !~ /\^\{\}$/ { direct=$1 } END { print peeled ? peeled : direct }'
@@ -384,5 +384,5 @@ jobs:
               -f ref="refs/tags/${baseline_tag}" \
               -f sha="${SOURCE_SHA}" >/dev/null
           fi
-          echo "开发版基线 ${baseline_tag} 指向 ${SOURCE_SHA}。"
-          echo "- 开发版基线: \`${baseline_tag}\`" >> "$GITHUB_STEP_SUMMARY"
+          echo "Beta 版基线 ${baseline_tag} 指向 ${SOURCE_SHA}。"
+          echo "- Beta 版基线: \`${baseline_tag}\`" >> "$GITHUB_STEP_SUMMARY"
