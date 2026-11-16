@@ -58,6 +58,6 @@ adb shell content call \
 
 ## 维护规则
 
-- 本技能同时保存在 `.codex/skills/debug-app/` 和 `.claude/skills/debug-app/`。修改任一端的正文、指引或脚本时，必须同步更新另一端，保持所有同名文件内容一致。
+- `.codex/skills` 为主源。修改前核对镜像与同步基线；修改正文、指引或脚本后运行 `python scripts/build_support/sync_skills.py --sync`，再用 `--check` 核对文件集合与字节一致。
 - 调试指令入口、参数、返回值或说明发生变化时，更新本目录中的对应文档或脚本。
 - 指令表只放到 `guides/*.md`，`SKILL.md` 只保留入口、规则和索引；新增指令类别时更新本索引。

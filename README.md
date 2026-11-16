@@ -219,13 +219,14 @@ The `release` build type requires signing configuration to produce an installabl
 **Format and check code changes:**
 
 ```bash
-./gradlew ktlintFormat ktlintCheck
+./gradlew --max-workers=12 ktlintFormat
+./gradlew --max-workers=12 ktlintCheck
 ```
 
 **Validate changes affecting builds or app behavior:**
 
 ```bash
-./gradlew ktlintCheck test assembleDebug --warning-mode=all
+./gradlew --max-workers=12 ktlintCheck test assembleDebug --warning-mode=all
 ```
 
 Inspect test reports under each module's `build/reports/tests/` directory as well as the command result. For playback changes, verify actual playback on a device or emulator. Run `./gradlew connectedAndroidTest` when instrumentation tests are needed.
@@ -236,10 +237,10 @@ Documentation-only changes do not require formatting, tests, or APK builds.
 
 | Channel | Branch | Workflow |
 |---|---|---|
-| Development | `dev` | [Validation](.github/workflows/test.yaml) can trigger [development publishing](.github/workflows/publish-dev.yaml) after detecting product changes and passing checks; development publishing also supports manual runs |
+| Beta | `beta` | [Validation](.github/workflows/test.yaml) can trigger [Beta publishing](.github/workflows/publish-beta.yaml) after detecting product changes and passing checks; Beta publishing also supports manual runs |
 | Stable | `main` | [Stable publishing](.github/workflows/publish.yaml) runs when `versionName` changes in `app/build.gradle.kts`, or when started manually on `main` |
 
-For a stable release, update the version and [changelog](.github/CHANGELOG.md) on `dev`, then promote `dev` to `main`. Publishing workflows validate signing configuration before building signed APKs. If publishing fails, check the workflow's signing validation output.
+For a stable release, update the version and [changelog](.github/CHANGELOG.md) on `beta`, then promote `beta` to `main`. Publishing workflows validate signing configuration before building signed APKs. If publishing fails, check the workflow's signing validation output.
 
 <br>
 
@@ -249,7 +250,11 @@ For a stable release, update the version and [changelog](.github/CHANGELOG.md) o
 
 <sub>[↑ Back to Navigation](#navigation)</sub>
 
-Feature and fix pull requests target **`dev`**. Use **`dev` → `main`** only to promote a stable release.
+Feature and fix pull requests target **`beta`**. Use **`beta` → `main`** only to promote a stable release.
+
+Use `type(scope): summary` for commit titles. Write commit messages and PR titles and descriptions in English. Describe the problem, final behavior, and actual validation based on the source and target branches. See the [commit](.codex/skills/commit/SKILL.md) and [pull-request](.codex/skills/pull-request/SKILL.md) skills.
+
+Edit skills in `.codex/skills`, run `python scripts/build_support/sync_skills.py --sync`, then use `--check` on the same entrypoint to verify the Claude mirror.
 
 | Check | Requirement |
 |---|---|

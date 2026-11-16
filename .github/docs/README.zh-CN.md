@@ -219,13 +219,14 @@ python scripts/build.py build-apk --abi arm64-v8a --build-type debug
 **代码改动后格式化并检查：**
 
 ```bash
-./gradlew ktlintFormat ktlintCheck
+./gradlew --max-workers=12 ktlintFormat
+./gradlew --max-workers=12 ktlintCheck
 ```
 
 **涉及构建或应用行为时验证：**
 
 ```bash
-./gradlew ktlintCheck test assembleDebug --warning-mode=fail
+./gradlew --max-workers=12 ktlintCheck test assembleDebug --warning-mode=all
 ```
 
 除了命令结果，还要检查各模块 `build/reports/tests/` 下的测试报告。涉及播放行为时，在真机或模拟器上验证实际播放；需要运行设备测试时，使用 `./gradlew connectedAndroidTest`。
@@ -236,10 +237,10 @@ python scripts/build.py build-apk --abi arm64-v8a --build-type debug
 
 | 通道 | 分支 | 工作流 |
 |---|---|---|
-| 开发版 | `dev` | [检查工作流](../workflows/test.yaml) 检测到产品改动且检查通过后，可触发 [开发版发布](../workflows/publish-dev.yaml)；也支持手动运行开发版发布 |
+| Beta | `beta` | [检查工作流](../workflows/test.yaml) 检测到产品改动且检查通过后，可触发 [Beta 发布](../workflows/publish-beta.yaml)；也支持手动运行 Beta 发布 |
 | 正式版 | `main` | `app/build.gradle.kts` 中的 `versionName` 变化时触发 [正式版发布](../workflows/publish.yaml)，也可在 `main` 上手动运行 |
 
-发布正式版时，先在 `dev` 更新版本号和 [更新日志](../CHANGELOG.md)，再将 `dev` 合并到 `main`。发布工作流会先验证签名配置，再构建已签名安装包；发布失败时，先查看签名验证步骤的输出。
+发布正式版时，先在 `beta` 更新版本号和 [更新日志](../CHANGELOG.md)，再将 `beta` 合并到 `main`。发布工作流会先验证签名配置，再构建已签名安装包；发布失败时，先查看签名验证步骤的输出。
 
 <br>
 
@@ -249,7 +250,11 @@ python scripts/build.py build-apk --abi arm64-v8a --build-type debug
 
 <sub>[↑ 回到导航](#导航)</sub>
 
-功能和修复的合并请求以 **`dev`** 为目标分支。只有晋升正式版时，才将 **`dev` 合并到 `main`**。
+功能和修复的合并请求以 **`beta`** 为目标分支。只有晋升正式版时，才将 **`beta` 合并到 `main`**。
+
+提交标题采用 `type(scope): summary`；提交信息及 PR 标题、正文使用英文。PR 按实际来源与目标分支的最终差异说明问题、结果和验证。详细规范见 [commit](../../.codex/skills/commit/SKILL.md) 和 [pull-request](../../.codex/skills/pull-request/SKILL.md)。
+
+修改技能时，以 `.codex/skills` 为主源，运行 `python scripts/build_support/sync_skills.py --sync`，再运行同一入口的 `--check` 验证 Claude 镜像。
 
 | 检查项 | 要求 |
 |---|---|
