@@ -24,8 +24,12 @@
 
 # 构建脚本
 !/scripts/
-!/scripts/**/
-!/scripts/**/*.py
+!/scripts/prebuild.py
+!/scripts/build.py
+!/scripts/generate_launcher_icons.py
+!/scripts/build_support/
+!/scripts/build_support/**/
+!/scripts/build_support/**/*.py
 
 # 应用模块
 !/app/
@@ -80,6 +84,7 @@
 !/.github/ISSUE_TEMPLATE/*.md
 !/.github/workflows/
 !/.github/workflows/*.yaml
+!/.github/workflows/*.yml
 !/.github/designs/
 !/.github/designs/about-support.html
 !/.github/docs/
@@ -98,6 +103,8 @@
 !/.claude/skills/*/SKILL.md
 !/.claude/skills/*/guides/**/*.md
 !/.claude/skills/*/scripts/**/*.sh
+!/.pi/
+!/.pi/settings.json
 
 # 放行目录中的生成物和本地文件仍须忽略。
 build/
