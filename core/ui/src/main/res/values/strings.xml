@@ -31,6 +31,9 @@
     <string name="permission_settings">The Only Player app needs \"%1$s\" permission to access and play media. Without it, media access and playback won\'t work. To use the app fully, grant the permission from settings since it was permanently denied.</string>
     <string name="local_network_permission_info">Only Player needs Nearby devices permission to reach LAN devices such as a NAS at 192.168.*.*. Grant the permission to continue.</string>
     <string name="local_network_permission_settings">Only Player needs Nearby devices permission to reach LAN devices such as a NAS at 192.168.*.*. Grant the permission in system settings to continue.</string>
+    <string name="playback_notifications">Playback notifications</string>
+    <string name="playback_notifications_settings">Notifications are turned off. Enable them in system settings to use playback controls in the notification shade.</string>
+    <string name="continue_playback">Continue playback</string>
     <string name="player_controls_exit">Back</string>
     <string name="player_controls_next">Player next</string>
     <string name="player_controls_play_pause">Player play pause</string>

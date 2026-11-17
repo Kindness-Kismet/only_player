@@ -191,6 +191,9 @@
     <string name="permission_settings">Only Player 應用程式需要 \"%1$s\" 權限以存取或播放媒體。沒有它，媒體存取與播放功能將無法工作。要完整地使用此應用程式，請從設定中授予權限，因為它已經被永久地拒絕。</string>
     <string name="local_network_permission_info">Only Player 需要「附近的裝置」權限才能連線 192.168.*.* 等區域網路裝置。請授予此權限後繼續。</string>
     <string name="local_network_permission_settings">Only Player 需要「附近的裝置」權限才能連線 192.168.*.* 等區域網路裝置。請在系統設定中授予此權限後繼續。</string>
+    <string name="playback_notifications">播放通知</string>
+    <string name="playback_notifications_settings">通知已關閉。請在系統設定中開啟通知，以便在通知列控制播放。</string>
+    <string name="continue_playback">繼續播放</string>
     <string name="monospace">等寬字型</string>
     <string name="folder_path">資料夾路徑</string>
     <string name="appearance_description">調整此應用程式以符合您的喜好</string>

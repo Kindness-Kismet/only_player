@@ -27,6 +27,9 @@
     <string name="permission_settings">Only Player 应用需要“%1$s”权限以访问和播放媒体。没有它，则无法访问和播放媒体。由于已永久拒绝了此权限，要使用应用的完整功能，请在设置中授予此权限。</string>
     <string name="local_network_permission_info">Only Player 需要「附近的设备」权限才能连接 192.168.*.* 等局域网设备。请授予此权限后继续。</string>
     <string name="local_network_permission_settings">Only Player 需要「附近的设备」权限才能连接 192.168.*.* 等局域网设备。请在系统设置中授予此权限后继续。</string>
+    <string name="playback_notifications">播放通知</string>
+    <string name="playback_notifications_settings">通知已关闭。请在系统设置中开启通知，以便在通知栏控制播放。</string>
+    <string name="continue_playback">继续播放</string>
     <string name="player_controls_exit">返回</string>
     <string name="player_controls_next">下一个</string>
     <string name="player_controls_play_pause">播放/暂停</string>
