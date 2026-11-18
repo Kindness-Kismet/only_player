@@ -135,11 +135,14 @@
     <string name="screen_rotation">Screen Rotation</string>
     <string name="player_screen_orientation">Player screen orientation</string>
     <string name="automatic">Automatic (sensor)</string>
-    <string name="landscape">Landscape</string>
-    <string name="landscape_reverse">Landscape reverse</string>
     <string name="landscape_auto">Landscape (sensor)</string>
-    <string name="portrait">Portrait</string>
+    <string name="landscape">Landscape (top edge first)</string>
+    <string name="landscape_reverse">Landscape (bottom edge first)</string>
     <string name="video_orientation">Video Orientation</string>
+    <string name="video_landscape_orientation">Landscape orientation</string>
+    <string name="video_landscape_sensor">Follow sensor</string>
+    <string name="video_landscape_top_left">Top edge on the left</string>
+    <string name="video_landscape_top_right">Top edge on the right</string>
     <string name="ambience_mode">Ambience mode</string>
     <string name="remember_player_screen_orientation">Remember rotation</string>
     <string name="remember_player_screen_orientation_description">Start playback with the last manually selected rotation</string>

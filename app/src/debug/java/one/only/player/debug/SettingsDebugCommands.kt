@@ -31,6 +31,7 @@ import one.only.player.core.model.ThemeConfig
 import one.only.player.core.model.ThumbnailGenerationStrategy
 import one.only.player.core.model.UpdateChannel
 import one.only.player.core.model.VideoFilterPreset
+import one.only.player.core.model.VideoLandscapeOrientation
 import one.only.player.core.model.toAudioEqualizerPreset
 import one.only.player.core.model.toVideoFilterPreset
 import one.only.player.core.model.withAudioEqualizerBandLevel
@@ -175,6 +176,10 @@ internal suspend fun DebugCommandEntryPoint.setSetting(
             preferencesRepository().updatePlayerPreferences {
                 it.copy(playerScreenOrientation = orientation, lastPlayerScreenOrientation = null)
             }
+        }
+        "player.video_landscape_orientation" -> {
+            val orientation = enumValue<VideoLandscapeOrientation>(value.requiredString(EXTRA_VALUE))
+            preferencesRepository().updatePlayerPreferences { it.copy(videoLandscapeOrientation = orientation) }
         }
         "player.remember_orientation" -> updatePlayerBoolean(value) { preferences, isEnabled ->
             preferences.copy(shouldRememberPlayerScreenOrientation = isEnabled, lastPlayerScreenOrientation = null)

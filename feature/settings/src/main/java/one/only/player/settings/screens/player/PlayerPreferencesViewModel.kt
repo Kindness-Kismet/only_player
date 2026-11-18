@@ -19,6 +19,7 @@ import one.only.player.core.model.PlayerControlsArrangement
 import one.only.player.core.model.PlayerPreferences
 import one.only.player.core.model.Resume
 import one.only.player.core.model.ScreenOrientation
+import one.only.player.core.model.VideoLandscapeOrientation
 import one.only.player.core.model.withControlMoved
 import one.only.player.core.model.withControlShifted
 
@@ -54,6 +55,7 @@ class PlayerPreferencesViewModel @Inject constructor(
             PlayerPreferencesUiEvent.ToggleRememberBrightnessLevel -> toggleRememberBrightnessLevel()
             PlayerPreferencesUiEvent.ToggleRememberPlayerScreenOrientation -> toggleRememberPlayerScreenOrientation()
             is PlayerPreferencesUiEvent.UpdatePreferredPlayerOrientation -> updatePreferredPlayerOrientation(event.value)
+            is PlayerPreferencesUiEvent.UpdateVideoLandscapeOrientation -> updateVideoLandscapeOrientation(event.value)
             is PlayerPreferencesUiEvent.UpdateDefaultPlaybackSpeed -> updateDefaultPlaybackSpeed(event.value)
             is PlayerPreferencesUiEvent.UpdateControlAutoHidePreset -> updateControlAutoHidePreset(event.value)
             is PlayerPreferencesUiEvent.UpdateControlAutoHideTimeout -> updateControlAutoHideTimeout(event.value)
@@ -139,6 +141,12 @@ class PlayerPreferencesViewModel @Inject constructor(
                     lastPlayerScreenOrientation = null,
                 )
             }
+        }
+    }
+
+    private fun updateVideoLandscapeOrientation(value: VideoLandscapeOrientation) {
+        viewModelScope.launch {
+            preferencesRepository.updatePlayerPreferences { it.copy(videoLandscapeOrientation = value) }
         }
     }
 
@@ -229,6 +237,7 @@ data class PlayerPreferencesUiState(
 sealed interface PlayerPreferenceDialog {
     data object ControllerAutoHideDialog : PlayerPreferenceDialog
     data object PlayerScreenOrientationDialog : PlayerPreferenceDialog
+    data object VideoLandscapeOrientationDialog : PlayerPreferenceDialog
     data object PictureInPictureModeDialog : PlayerPreferenceDialog
 }
 
@@ -243,6 +252,7 @@ sealed interface PlayerPreferencesUiEvent {
     data object ToggleRememberBrightnessLevel : PlayerPreferencesUiEvent
     data object ToggleRememberPlayerScreenOrientation : PlayerPreferencesUiEvent
     data class UpdatePreferredPlayerOrientation(val value: ScreenOrientation) : PlayerPreferencesUiEvent
+    data class UpdateVideoLandscapeOrientation(val value: VideoLandscapeOrientation) : PlayerPreferencesUiEvent
     data class UpdateDefaultPlaybackSpeed(val value: Float) : PlayerPreferencesUiEvent
     data class UpdateControlAutoHidePreset(val value: ControllerAutoHidePreset) : PlayerPreferencesUiEvent
     data class UpdateControlAutoHideTimeout(val value: Int) : PlayerPreferencesUiEvent

@@ -298,6 +298,7 @@ internal fun MediaPlayerScreen(
     val rotationState = rememberRotationState(
         player = player,
         screenOrientation = playerPreferences.playerScreenOrientation,
+        videoLandscapeOrientation = playerPreferences.videoLandscapeOrientation,
         shouldRememberScreenOrientation = playerPreferences.shouldRememberPlayerScreenOrientation,
         lastScreenOrientation = playerPreferences.lastPlayerScreenOrientation,
         onLastScreenOrientationChange = viewModel::updateLastPlayerScreenOrientation,

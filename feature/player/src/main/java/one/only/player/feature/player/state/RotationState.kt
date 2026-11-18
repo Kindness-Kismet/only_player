@@ -25,6 +25,7 @@ import androidx.media3.common.listen
 import androidx.media3.common.util.UnstableApi
 import one.only.player.core.model.LastPlayerScreenOrientation
 import one.only.player.core.model.ScreenOrientation
+import one.only.player.core.model.VideoLandscapeOrientation
 import one.only.player.feature.player.extensions.isPortrait
 import one.only.player.feature.player.extensions.toActivityOrientation
 
@@ -33,6 +34,7 @@ import one.only.player.feature.player.extensions.toActivityOrientation
 fun rememberRotationState(
     player: Player,
     screenOrientation: ScreenOrientation,
+    videoLandscapeOrientation: VideoLandscapeOrientation,
     shouldRememberScreenOrientation: Boolean,
     lastScreenOrientation: LastPlayerScreenOrientation?,
     onLastScreenOrientationChange: (LastPlayerScreenOrientation) -> Unit,
@@ -40,10 +42,16 @@ fun rememberRotationState(
     val activity = LocalActivity.current as ComponentActivity
     val lastVideoOrientation = rememberSaveable(screenOrientation) { mutableIntStateOf(ActivityInfo.SCREEN_ORIENTATION_UNSPECIFIED) }
     val lastVideoMediaId = rememberSaveable(screenOrientation) { mutableStateOf<String?>(null) }
-    val rotationState = remember(screenOrientation, shouldRememberScreenOrientation, lastScreenOrientation) {
+    val landscapeOrientation = if (screenOrientation == ScreenOrientation.VIDEO_ORIENTATION) {
+        videoLandscapeOrientation
+    } else {
+        VideoLandscapeOrientation.SENSOR
+    }
+    val rotationState = remember(screenOrientation, landscapeOrientation, shouldRememberScreenOrientation, lastScreenOrientation) {
         RotationState(
             activity = activity,
             screenOrientation = screenOrientation,
+            landscapeOrientation = landscapeOrientation,
             shouldRememberScreenOrientation = shouldRememberScreenOrientation,
             lastScreenOrientation = lastScreenOrientation,
             onLastScreenOrientationChange = onLastScreenOrientationChange,
@@ -62,6 +70,7 @@ fun rememberRotationState(
 class RotationState(
     private val activity: ComponentActivity,
     private val screenOrientation: ScreenOrientation,
+    private val landscapeOrientation: VideoLandscapeOrientation,
     private val shouldRememberScreenOrientation: Boolean,
     private val lastScreenOrientation: LastPlayerScreenOrientation?,
     private val onLastScreenOrientationChange: (LastPlayerScreenOrientation) -> Unit,
@@ -78,7 +87,7 @@ class RotationState(
             Configuration.ORIENTATION_LANDSCAPE -> LastPlayerScreenOrientation.PORTRAIT
             else -> LastPlayerScreenOrientation.LANDSCAPE
         }
-        activity.requestedOrientation = newOrientation.toActivityOrientation()
+        activity.requestedOrientation = newOrientation.toActivityOrientation(landscapeOrientation)
         if (shouldRememberScreenOrientation) {
             onLastScreenOrientationChange(newOrientation)
         }
@@ -153,13 +162,10 @@ class RotationState(
         activity.requestedOrientation = lastScreenOrientation
             ?.takeIf { shouldRememberScreenOrientation && screenOrientation != ScreenOrientation.VIDEO_ORIENTATION }
             ?.toActivityOrientation()
-            ?: when (screenOrientation) {
-                ScreenOrientation.AUTOMATIC -> ActivityInfo.SCREEN_ORIENTATION_SENSOR
-                ScreenOrientation.LANDSCAPE -> ActivityInfo.SCREEN_ORIENTATION_LANDSCAPE
-                ScreenOrientation.LANDSCAPE_REVERSE -> ActivityInfo.SCREEN_ORIENTATION_REVERSE_LANDSCAPE
-                ScreenOrientation.LANDSCAPE_AUTO -> ActivityInfo.SCREEN_ORIENTATION_SENSOR_LANDSCAPE
-                ScreenOrientation.PORTRAIT -> ActivityInfo.SCREEN_ORIENTATION_SENSOR_PORTRAIT
-                ScreenOrientation.VIDEO_ORIENTATION -> getVideoBasedOrientation(player)
+            ?: if (screenOrientation == ScreenOrientation.VIDEO_ORIENTATION) {
+                getVideoBasedOrientation(player)
+            } else {
+                screenOrientation.toActivityOrientation()
             }
     }
 
@@ -174,7 +180,7 @@ class RotationState(
         return if (videoSize.isPortrait) {
             ActivityInfo.SCREEN_ORIENTATION_SENSOR_PORTRAIT
         } else {
-            ActivityInfo.SCREEN_ORIENTATION_SENSOR_LANDSCAPE
+            landscapeOrientation.toActivityOrientation()
         }
     }
 }
