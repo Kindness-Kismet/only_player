@@ -88,6 +88,7 @@ import one.only.player.core.model.AppScale
 import one.only.player.core.model.PictureInPictureMode
 import one.only.player.core.model.ScreenOrientation
 import one.only.player.core.model.ThemeConfig
+import one.only.player.core.ui.components.AppDialogHost
 import one.only.player.core.ui.extensions.scaledAppContext
 import one.only.player.core.ui.theme.OnlyPlayerTheme
 import one.only.player.feature.player.extensions.OpenDocumentWithInitialUri
@@ -111,6 +112,7 @@ import one.only.player.feature.player.subtitle.EmptyOnlineSubtitleException
 import one.only.player.feature.player.subtitle.InvalidOnlineSubtitleException
 import one.only.player.feature.player.subtitle.OnlineSubtitleRepository
 import one.only.player.feature.player.subtitle.OnlineSubtitleTooLargeException
+import one.only.player.feature.player.ui.NotificationPermissionDialog
 import one.only.player.feature.player.utils.PlayerApi
 
 internal data class PlaybackPlaylist(
@@ -266,6 +268,7 @@ open class PlayerActivity : AppCompatActivity() {
     private val playbackStateListener: Player.Listener = playbackStateListener()
 
     private val subtitleFileSuspendLauncher = registerForSuspendActivityResult(OpenDocumentWithInitialUri())
+    private val notificationPermission = PlayerNotificationPermission(this)
     private val mediaPermissionLauncher = registerForActivityResult(RequestPermission()) { isGranted ->
         if (!isGranted) return@registerForActivityResult
 
@@ -278,6 +281,7 @@ open class PlayerActivity : AppCompatActivity() {
                 addListener(playbackStateListener)
                 startPlayback()
             }
+            notificationPermission.requestOnce()
         }
     }
 
@@ -391,8 +395,10 @@ open class PlayerActivity : AppCompatActivity() {
                     onRemoveSubtitleClick = ::removeAddedSubtitle,
                     onBackClick = { finishAndStopPlayerSession() },
                     onPlayInBackgroundClick = {
-                        shouldPlayInBackground = true
-                        finish()
+                        notificationPermission.playInBackground {
+                            shouldPlayInBackground = true
+                            finish()
+                        }
                     },
                     isTakingScreenshot = isTakingScreenshot,
                     onScreenshotClick = screenshotClick@{
@@ -420,6 +426,12 @@ open class PlayerActivity : AppCompatActivity() {
                         keyboardEventHandler = handler
                     },
                 )
+                AppDialogHost(dialog = Unit.takeIf { notificationPermission.isSettingsDialogVisible }) {
+                    NotificationPermissionDialog(
+                        onOpenSettings = notificationPermission::openSettings,
+                        onDismissRequest = notificationPermission::dismissDialog,
+                    )
+                }
             }
         }
 
@@ -443,6 +455,7 @@ open class PlayerActivity : AppCompatActivity() {
                 addListener(playbackStateListener)
                 startPlayback()
             }
+            notificationPermission.requestOnce()
         }
     }
 

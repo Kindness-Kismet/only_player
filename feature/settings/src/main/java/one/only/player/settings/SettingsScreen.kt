@@ -311,6 +311,7 @@ internal enum class SettingRow(
             R.string.pip_auto_enter,
             R.string.background_play,
             R.string.player_screen_orientation,
+            R.string.video_landscape_orientation,
             R.string.remember_player_screen_orientation,
             R.string.remember_brightness_level,
             R.string.controller_timeout,

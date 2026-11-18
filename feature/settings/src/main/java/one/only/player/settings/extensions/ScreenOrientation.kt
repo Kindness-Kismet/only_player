@@ -9,10 +9,9 @@ import one.only.player.core.ui.R
 fun ScreenOrientation.name(): String {
     val stringRes = when (this) {
         ScreenOrientation.AUTOMATIC -> R.string.automatic
+        ScreenOrientation.LANDSCAPE_AUTO -> R.string.landscape_auto
         ScreenOrientation.LANDSCAPE -> R.string.landscape
         ScreenOrientation.LANDSCAPE_REVERSE -> R.string.landscape_reverse
-        ScreenOrientation.LANDSCAPE_AUTO -> R.string.landscape_auto
-        ScreenOrientation.PORTRAIT -> R.string.portrait
         ScreenOrientation.VIDEO_ORIENTATION -> R.string.video_orientation
     }
 

@@ -13,7 +13,7 @@
     <string name="double_tap">雙輕觸手勢</string>
     <string name="remember_audio_track">記住音軌</string>
     <string name="remember_subtitle_track">記住字幕</string>
-    <string name="landscape_reverse">橫向翻轉</string>
+    <string name="landscape_reverse">橫向（底部優先）</string>
     <string name="long_press_gesture_desc">長按以 %.1fx 速度播放</string>
     <string name="long_press_variable_speed">長按即時變速</string>
     <string name="long_press_variable_speed_desc">按住後左右滑動，暫時調整播放速度</string>
@@ -24,7 +24,6 @@
     <string name="long_press_gesture">長按手勢</string>
     <string name="player_controls_exit">返回</string>
     <string name="shortest">最短</string>
-    <string name="portrait">直向</string>
     <string name="require_audio_focus">需要音訊焦點</string>
     <string name="media_library_description">掃描與管理媒體庫</string>
     <string name="autoplay_settings_description">自動播放在目前資料夾中下一個影片</string>
@@ -77,7 +76,7 @@
     <string name="hw_decoder">硬體解碼</string>
     <string name="hw_plus_decoder">硬體解碼+</string>
     <string name="sw_decoder">軟體解碼</string>
-    <string name="automatic">自動 (感測器)</string>
+    <string name="automatic">自動（感測器）</string>
     <string name="delete">刪除</string>
     <string name="zoom_gesture">縮放手勢</string>
     <string name="menu">選單</string>
@@ -177,7 +176,7 @@
     <string name="scan_folders_empty_desc">未新增目錄，將掃描全部儲存空間</string>
     <string name="add_folder">新增目錄</string>
     <string name="remember_brightness_level">記住亮度等級</string>
-    <string name="landscape">橫向</string>
+    <string name="landscape">橫向（頂部優先）</string>
     <string name="system_caption_style_desc">點擊以開啟系統字幕偏好設定</string>
     <string name="screen_rotation">畫面旋轉</string>
     <string name="theme_mode">主題模式</string>
@@ -191,6 +190,9 @@
     <string name="permission_settings">Only Player 應用程式需要 \"%1$s\" 權限以存取或播放媒體。沒有它，媒體存取與播放功能將無法工作。要完整地使用此應用程式，請從設定中授予權限，因為它已經被永久地拒絕。</string>
     <string name="local_network_permission_info">Only Player 需要「附近的裝置」權限才能連線 192.168.*.* 等區域網路裝置。請授予此權限後繼續。</string>
     <string name="local_network_permission_settings">Only Player 需要「附近的裝置」權限才能連線 192.168.*.* 等區域網路裝置。請在系統設定中授予此權限後繼續。</string>
+    <string name="playback_notifications">播放通知</string>
+    <string name="playback_notifications_settings">通知已關閉。請在系統設定中開啟通知，以便在通知列控制播放。</string>
+    <string name="continue_playback">繼續播放</string>
     <string name="monospace">等寬字型</string>
     <string name="folder_path">資料夾路徑</string>
     <string name="appearance_description">調整此應用程式以符合您的喜好</string>
@@ -198,7 +200,7 @@
     <string name="mirror_video">鏡像影片</string>
     <string name="media_library">媒體庫</string>
     <string name="disable">停用</string>
-    <string name="landscape_auto">橫向 (感測器)</string>
+    <string name="landscape_auto">橫向（感測器）</string>
     <string name="remember_brightness_level_description">記住播放時的亮度等級</string>
     <string name="preferred_subtitle_lang_description">預設使用的字幕軌語言</string>
     <string name="largest">最大</string>
@@ -225,6 +227,10 @@
     <string name="z_a">Z-A</string>
     <string name="decoder_desc">解碼器、影片濾鏡選項</string>
     <string name="video_orientation">影片方向</string>
+    <string name="video_landscape_orientation">橫向螢幕方向</string>
+    <string name="video_landscape_sensor">跟隨感測器</string>
+    <string name="video_landscape_top_left">頂端朝左</string>
+    <string name="video_landscape_top_right">頂端朝右</string>
     <string name="ambience_mode">氛圍模式</string>
     <string name="remember_player_screen_orientation">記住旋轉方向</string>
     <string name="remember_player_screen_orientation_description">播放開始時使用上次手動選擇的方向</string>

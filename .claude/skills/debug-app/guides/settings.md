@@ -30,7 +30,8 @@
 | `settings.set` | `player.controller_timeout` | 设置控制栏自动隐藏：`disabled`/`15s`/`1m`、`custom_<秒数>` 或 `value:i:<秒数>` |
 | `settings.set` | `player.controller_timeout_preset` | 设置控制栏自动隐藏预设：`DISABLED`/`FIFTEEN_SECONDS`/`ONE_MINUTE`/`CUSTOM` |
 | `settings.set` | `player.dim_video_controls` | 设置控制栏显示时是否压暗视频 |
-| `settings.set` | `player.screen_orientation` | 设置播放器方向 |
+| `settings.set` | `player.screen_orientation` | 设置播放器方向，支持 `AUTOMATIC`、`LANDSCAPE_AUTO`、`LANDSCAPE`、`LANDSCAPE_REVERSE`、`VIDEO_ORIENTATION` |
+| `settings.set` | `player.video_landscape_orientation` | 按视频方向播放时的横屏方向，`SENSOR` 跟随传感器，`LANDSCAPE` 顶部朝左，`REVERSE_LANDSCAPE` 顶部朝右 |
 | `settings.set` | `player.remember_orientation` | 设置记住旋转方向 |
 | `settings.set` | `player.resume` | 设置恢复播放：`YES`/`NO` |
 | `settings.set` | `player.default_speed` | 设置默认播放速度：`0.2..4.0` |

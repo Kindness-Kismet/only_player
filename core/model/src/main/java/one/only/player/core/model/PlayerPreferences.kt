@@ -11,6 +11,7 @@ data class PlayerPreferences(
     val shouldRememberAudioTrack: Boolean = true,
     val shouldRememberSubtitleTrack: Boolean = true,
     val playerScreenOrientation: ScreenOrientation = ScreenOrientation.VIDEO_ORIENTATION,
+    val videoLandscapeOrientation: VideoLandscapeOrientation = VideoLandscapeOrientation.SENSOR,
     val shouldRememberPlayerScreenOrientation: Boolean = false,
     val lastPlayerScreenOrientation: LastPlayerScreenOrientation? = null,
     val playerVideoZoom: VideoContentScale = VideoContentScale.BEST_FIT,

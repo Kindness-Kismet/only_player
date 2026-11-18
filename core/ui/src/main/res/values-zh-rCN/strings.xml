@@ -27,6 +27,9 @@
     <string name="permission_settings">Only Player 应用需要“%1$s”权限以访问和播放媒体。没有它，则无法访问和播放媒体。由于已永久拒绝了此权限，要使用应用的完整功能，请在设置中授予此权限。</string>
     <string name="local_network_permission_info">Only Player 需要「附近的设备」权限才能连接 192.168.*.* 等局域网设备。请授予此权限后继续。</string>
     <string name="local_network_permission_settings">Only Player 需要「附近的设备」权限才能连接 192.168.*.* 等局域网设备。请在系统设置中授予此权限后继续。</string>
+    <string name="playback_notifications">播放通知</string>
+    <string name="playback_notifications_settings">通知已关闭。请在系统设置中开启通知，以便在通知栏控制播放。</string>
+    <string name="continue_playback">继续播放</string>
     <string name="player_controls_exit">返回</string>
     <string name="player_controls_next">下一个</string>
     <string name="player_controls_play_pause">播放/暂停</string>
@@ -114,11 +117,14 @@
     <string name="add_folder">添加目录</string>
     <string name="screen_rotation">屏幕旋转</string>
     <string name="automatic">自动（传感器）</string>
-    <string name="landscape">横向</string>
-    <string name="portrait">纵向</string>
-    <string name="landscape_reverse">横向反转</string>
+    <string name="landscape">横向（顶部优先）</string>
+    <string name="landscape_reverse">横向（底部优先）</string>
     <string name="player_screen_orientation">播放器屏幕方向</string>
     <string name="video_orientation">视频方向</string>
+    <string name="video_landscape_orientation">横屏方向</string>
+    <string name="video_landscape_sensor">跟随传感器</string>
+    <string name="video_landscape_top_left">顶部朝左</string>
+    <string name="video_landscape_top_right">顶部朝右</string>
     <string name="ambience_mode">氛围模式</string>
     <string name="remember_player_screen_orientation">记住旋转方向</string>
     <string name="remember_player_screen_orientation_description">播放开始时使用上次手动选择的方向</string>

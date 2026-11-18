@@ -34,6 +34,7 @@ import one.only.player.core.model.ControllerAutoHidePreset
 import one.only.player.core.model.PictureInPictureMode
 import one.only.player.core.model.PlayerPreferences
 import one.only.player.core.model.ScreenOrientation
+import one.only.player.core.model.VideoLandscapeOrientation
 import one.only.player.core.ui.R
 import one.only.player.core.ui.components.AppDialog
 import one.only.player.core.ui.components.AppDialogDefaults
@@ -162,6 +163,17 @@ private fun PlayerPreferencesContent(
                         onEvent(PlayerPreferencesUiEvent.ShowDialog(PlayerPreferenceDialog.PlayerScreenOrientationDialog))
                     },
                 )
+                if (uiState.preferences.playerScreenOrientation == ScreenOrientation.VIDEO_ORIENTATION) {
+                    ClickablePreferenceItem(
+                        modifier = Modifier.testTag("item_settings_player_video_landscape_orientation"),
+                        title = stringResource(R.string.video_landscape_orientation),
+                        description = uiState.preferences.videoLandscapeOrientation.displayName(),
+                        icon = AppIcons.Rotation,
+                        onClick = {
+                            onEvent(PlayerPreferencesUiEvent.ShowDialog(PlayerPreferenceDialog.VideoLandscapeOrientationDialog))
+                        },
+                    )
+                }
                 PreferenceSwitch(
                     modifier = Modifier.testTag("switch_settings_player_remember_orientation"),
                     title = stringResource(id = R.string.remember_player_screen_orientation),
@@ -298,6 +310,25 @@ private fun PlayerPreferencesContent(
                     }
                 }
 
+                PlayerPreferenceDialog.VideoLandscapeOrientationDialog -> {
+                    OptionsDialog(
+                        text = stringResource(R.string.video_landscape_orientation),
+                        onDismissClick = { onEvent(PlayerPreferencesUiEvent.ShowDialog(null)) },
+                    ) {
+                        items(VideoLandscapeOrientation.entries) { orientation ->
+                            RadioTextButton(
+                                modifier = Modifier.testTag("option_settings_player_video_landscape_orientation_${orientation.name.lowercase()}"),
+                                text = orientation.displayName(),
+                                isSelected = orientation == uiState.preferences.videoLandscapeOrientation,
+                                onClick = {
+                                    onEvent(PlayerPreferencesUiEvent.UpdateVideoLandscapeOrientation(orientation))
+                                    onEvent(PlayerPreferencesUiEvent.ShowDialog(null))
+                                },
+                            )
+                        }
+                    }
+                }
+
                 PlayerPreferenceDialog.PictureInPictureModeDialog -> {
                     OptionsDialog(
                         text = stringResource(id = R.string.pip_mode),
@@ -319,6 +350,13 @@ private fun PlayerPreferencesContent(
             }
         }
     }
+}
+
+@Composable
+private fun VideoLandscapeOrientation.displayName(): String = when (this) {
+    VideoLandscapeOrientation.SENSOR -> stringResource(R.string.video_landscape_sensor)
+    VideoLandscapeOrientation.LANDSCAPE -> stringResource(R.string.video_landscape_top_left)
+    VideoLandscapeOrientation.REVERSE_LANDSCAPE -> stringResource(R.string.video_landscape_top_right)
 }
 
 @Composable
