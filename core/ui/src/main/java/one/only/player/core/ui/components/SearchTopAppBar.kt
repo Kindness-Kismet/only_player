@@ -16,6 +16,7 @@ import androidx.compose.foundation.layout.union
 import androidx.compose.foundation.layout.windowInsetsPadding
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
@@ -35,11 +36,11 @@ import androidx.compose.ui.unit.dp
 import androidx.lifecycle.Lifecycle
 import androidx.lifecycle.compose.LocalLifecycleOwner
 import kotlinx.coroutines.delay
+import one.only.player.core.model.TopBarStyle
 import one.only.player.core.ui.R
 import one.only.player.core.ui.designsystem.AppIcons
 import one.only.player.core.ui.navigation.MiuixNavigationGestureBlocker
 import top.yukonga.miuix.kmp.basic.Icon
-import top.yukonga.miuix.kmp.basic.IconButton
 import top.yukonga.miuix.kmp.basic.InputField
 import top.yukonga.miuix.kmp.basic.SearchBar
 import top.yukonga.miuix.kmp.basic.SearchBarDefaults
@@ -61,6 +62,7 @@ fun SearchTopAppBar(
     val focusManager = LocalFocusManager.current
     val keyboardController = LocalSoftwareKeyboardController.current
     val topBarBackdrop = LocalTopBarBackdrop.current
+    val isGlassTopBar = LocalTopBarStyle.current == TopBarStyle.HYPER_OS_4
     val lifecycleState by LocalLifecycleOwner.current.lifecycle.currentStateFlow.collectAsState()
     val canInteract = isActive && lifecycleState == Lifecycle.State.RESUMED
     val isKeyboardVisible = WindowInsets.isImeVisible
@@ -132,16 +134,18 @@ fun SearchTopAppBar(
                 )
             },
             outsideEndAction = {
-                IconButton(
-                    onClick = close,
-                    enabled = canInteract,
-                    modifier = Modifier.size(40.dp).testTag(closeButtonTestTag),
-                ) {
-                    Icon(
-                        imageVector = AppIcons.Close,
-                        contentDescription = stringResource(R.string.close_search),
-                        modifier = Modifier.size(24.dp),
-                    )
+                CompositionLocalProvider(LocalGlassTopBar provides isGlassTopBar) {
+                    AppIconButton(
+                        onClick = close,
+                        isEnabled = canInteract,
+                        modifier = Modifier.size(if (isGlassTopBar) 44.dp else 40.dp).testTag(closeButtonTestTag),
+                    ) {
+                        Icon(
+                            imageVector = AppIcons.Close,
+                            contentDescription = stringResource(R.string.close_search),
+                            modifier = Modifier.size(24.dp),
+                        )
+                    }
                 }
             },
         ) {}

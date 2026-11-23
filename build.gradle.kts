@@ -18,6 +18,7 @@ versionCatalogUpdate {
     keep {
         versions.addAll(
             "android-compileSdk",
+            "android-compileSdkMinor",
             "android-jvm",
             "android-minSdk",
             "android-targetSdk",

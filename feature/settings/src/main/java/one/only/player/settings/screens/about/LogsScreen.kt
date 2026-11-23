@@ -32,6 +32,7 @@ import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 import one.only.player.core.common.Logger
 import one.only.player.core.ui.R
+import one.only.player.core.ui.components.AppIconButton as IconButton
 import one.only.player.core.ui.components.AppScaffold
 import one.only.player.core.ui.components.AppTopAppBar
 import one.only.player.core.ui.components.PageContentTopPadding
@@ -39,7 +40,6 @@ import one.only.player.core.ui.designsystem.AppIcons
 import one.only.player.core.ui.extensions.withBottomFallback
 import top.yukonga.miuix.kmp.basic.Card
 import top.yukonga.miuix.kmp.basic.Icon
-import top.yukonga.miuix.kmp.basic.IconButton
 import top.yukonga.miuix.kmp.basic.Text
 import top.yukonga.miuix.kmp.theme.MiuixTheme
 
@@ -97,7 +97,7 @@ fun LogsScreen(
                 actions = {
                     IconButton(
                         onClick = { scope.launch { context.shareLogs() } },
-                        enabled = hasLogs,
+                        isEnabled = hasLogs,
                         modifier = Modifier.testTag("button_logs_share"),
                     ) {
                         Icon(
@@ -108,7 +108,7 @@ fun LogsScreen(
                     }
                     IconButton(
                         onClick = { saveLogsLauncher.launch(LOG_EXPORT_FILE_NAME) },
-                        enabled = hasLogs,
+                        isEnabled = hasLogs,
                         modifier = Modifier.testTag("button_logs_save"),
                     ) {
                         Icon(
@@ -132,7 +132,7 @@ fun LogsScreen(
                                 ).show()
                             }
                         },
-                        enabled = hasLogs,
+                        isEnabled = hasLogs,
                         modifier = Modifier.testTag("button_logs_clear"),
                     ) {
                         Icon(

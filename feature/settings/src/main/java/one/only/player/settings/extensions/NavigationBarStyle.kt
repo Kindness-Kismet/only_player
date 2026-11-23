@@ -11,5 +11,6 @@ fun NavigationBarStyle.name(): String = stringResource(
         NavigationBarStyle.STANDARD -> R.string.navigation_bar_style_standard
         NavigationBarStyle.FLOATING -> R.string.navigation_bar_style_floating
         NavigationBarStyle.MIUIX -> R.string.navigation_bar_style_miuix
+        NavigationBarStyle.HYPER_OS_4 -> R.string.bar_style_hyperos4
     },
 )

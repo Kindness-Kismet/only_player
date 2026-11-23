@@ -16,6 +16,7 @@ import one.only.player.core.model.ControllerAutoHidePreset
 import one.only.player.core.model.DecoderPriority
 import one.only.player.core.model.DoubleTapGesture
 import one.only.player.core.model.Font
+import one.only.player.core.model.HyperOsBottomBarDefaults
 import one.only.player.core.model.NavigationBarStyle
 import one.only.player.core.model.PictureInPictureMode
 import one.only.player.core.model.PlayerControl
@@ -29,6 +30,7 @@ import one.only.player.core.model.SubtitleColor
 import one.only.player.core.model.SubtitleEdgeStyle
 import one.only.player.core.model.ThemeConfig
 import one.only.player.core.model.ThumbnailGenerationStrategy
+import one.only.player.core.model.TopBarStyle
 import one.only.player.core.model.UpdateChannel
 import one.only.player.core.model.VideoFilterPreset
 import one.only.player.core.model.VideoLandscapeOrientation
@@ -105,6 +107,20 @@ internal suspend fun DebugCommandEntryPoint.setSetting(
         }
         "appearance.title_long_press_home" -> updateApplicationBoolean(value) { preferences, isEnabled ->
             preferences.copy(shouldNavigateHomeOnTitleLongPress = isEnabled)
+        }
+        "appearance.top_bar_style" -> {
+            val style = enumValue<TopBarStyle>(value.requiredString(EXTRA_VALUE))
+            preferencesRepository().updateApplicationPreferences { it.copy(topBarStyle = style) }
+        }
+        "appearance.hyperos_bottom_bar_width" -> {
+            val percent = value.requiredInt(EXTRA_VALUE)
+            require(percent in HyperOsBottomBarDefaults.widthPercentRange) { "Bottom bar width must be between 70 and 100 percent" }
+            preferencesRepository().updateApplicationPreferences { it.copy(hyperOsBottomBarWidthPercent = percent) }
+        }
+        "appearance.hyperos_bottom_bar_height" -> {
+            val heightDp = value.requiredInt(EXTRA_VALUE)
+            require(heightDp in HyperOsBottomBarDefaults.heightDpRange) { "Bottom bar height must be between 54 and 88 dp" }
+            preferencesRepository().updateApplicationPreferences { it.copy(hyperOsBottomBarHeightDp = heightDp) }
         }
         "appearance.navigation_bar_style" -> {
             val style = enumValue<NavigationBarStyle>(value.requiredString(EXTRA_VALUE))

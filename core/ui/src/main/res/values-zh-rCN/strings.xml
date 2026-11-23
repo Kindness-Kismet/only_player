@@ -642,6 +642,12 @@
     <string name="search_settings">搜索设置…</string>
     <string name="home_title_long_press_to_root">长按标题回到首页</string>
     <string name="home_title_long_press_to_root_description">长按标题栏可直接返回根目录</string>
+    <string name="top_bar_style">顶栏样式</string>
+    <string name="bar_style_hyperos4">HyperOS 4</string>
+    <string name="hyperos_bottom_bar_width">底栏宽度</string>
+    <string name="hyperos_bottom_bar_height">底栏最小高度</string>
+    <string name="bottom_bar_width_value">%1$d%%</string>
+    <string name="bottom_bar_height_value">%1$d dp</string>
     <string name="navigation_bar_style">底栏样式</string>
     <string name="navigation_bar_style_standard">标准</string>
     <string name="navigation_bar_style_floating">悬浮</string>

@@ -647,6 +647,12 @@
     <string name="search_settings">Search settings…</string>
     <string name="home_title_long_press_to_root">Long press title to go home</string>
     <string name="home_title_long_press_to_root_description">Long press the title bar to navigate back to the root folder</string>
+    <string name="top_bar_style">Top bar style</string>
+    <string name="bar_style_hyperos4">HyperOS 4</string>
+    <string name="hyperos_bottom_bar_width">Bottom bar width</string>
+    <string name="hyperos_bottom_bar_height">Minimum bottom bar height</string>
+    <string name="bottom_bar_width_value">%1$d%%</string>
+    <string name="bottom_bar_height_value">%1$d dp</string>
     <string name="navigation_bar_style">Navigation bar style</string>
     <string name="navigation_bar_style_standard">Standard</string>
     <string name="navigation_bar_style_floating">Floating</string>

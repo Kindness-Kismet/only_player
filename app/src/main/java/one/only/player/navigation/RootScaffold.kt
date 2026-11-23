@@ -8,19 +8,28 @@ import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.RowScope
 import androidx.compose.foundation.layout.WindowInsets
+import androidx.compose.foundation.layout.WindowInsetsSides
 import androidx.compose.foundation.layout.asPaddingValues
 import androidx.compose.foundation.layout.captionBar
 import androidx.compose.foundation.layout.defaultMinSize
+import androidx.compose.foundation.layout.displayCutout
 import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.navigationBars
+import androidx.compose.foundation.layout.only
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.layout.union
+import androidx.compose.foundation.layout.windowInsetsPadding
 import androidx.compose.foundation.pager.HorizontalPager
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
@@ -30,9 +39,11 @@ import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
+import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import kotlinx.serialization.Serializable
+import one.only.player.core.model.HyperOsBottomBarDefaults
 import one.only.player.core.model.NavigationBarStyle
 import one.only.player.core.ui.R as UiR
 import one.only.player.core.ui.components.surfaceBlur
@@ -40,6 +51,7 @@ import one.only.player.core.ui.designsystem.AppIcons
 import one.only.player.core.ui.extensions.LocalRootBottomBarPadding
 import one.only.player.ui.component.FloatingBottomBar
 import one.only.player.ui.component.FloatingBottomBarItem
+import one.only.player.ui.component.HyperOsBottomBar
 import top.yukonga.miuix.kmp.basic.DividerDefaults
 import top.yukonga.miuix.kmp.basic.FloatingNavigationBar
 import top.yukonga.miuix.kmp.basic.FloatingNavigationBarDefaults
@@ -49,9 +61,9 @@ import top.yukonga.miuix.kmp.basic.NavigationBar
 import top.yukonga.miuix.kmp.basic.Text
 import top.yukonga.miuix.kmp.blur.Backdrop
 import top.yukonga.miuix.kmp.blur.LayerBackdrop
-import top.yukonga.miuix.kmp.blur.isRuntimeShaderSupported
 import top.yukonga.miuix.kmp.blur.layerBackdrop
 import top.yukonga.miuix.kmp.blur.rememberLayerBackdrop
+import top.yukonga.miuix.kmp.material.isRuntimeShaderSupported
 import top.yukonga.miuix.kmp.theme.MiuixTheme
 
 // 根 Tab 定义，每项对应一个顶级导航目的地
@@ -82,6 +94,8 @@ fun RootScaffold(
     modifier: Modifier = Modifier,
     navigationBarStyle: NavigationBarStyle = NavigationBarStyle.STANDARD,
     shouldBlurNavigationBar: Boolean = true,
+    hyperOsBottomBarWidthPercent: Int = HyperOsBottomBarDefaults.DEFAULT_WIDTH_PERCENT,
+    hyperOsBottomBarHeightDp: Int = HyperOsBottomBarDefaults.DEFAULT_HEIGHT_DP,
     content: @Composable (RootDestination) -> Unit,
 ) {
     val destinations = rootNavigationState.destinations
@@ -92,7 +106,9 @@ fun RootScaffold(
     LaunchedEffect(destinations) {
         rootNavigationState.clampToDestinations()
     }
-    val bottomBarPadding = rememberRootBottomBarPadding(navigationBarStyle)
+    val hyperOsMinimumHeight = hyperOsBottomBarHeightDp.coerceIn(HyperOsBottomBarDefaults.heightDpRange).dp
+    var hyperOsMeasuredHeight by remember(hyperOsMinimumHeight) { mutableStateOf(hyperOsMinimumHeight) }
+    val bottomBarPadding = rememberRootBottomBarPadding(navigationBarStyle, hyperOsMeasuredHeight)
     val floatingBlurBackdrop = rememberRootBlurBackdrop(
         navigationBarStyle = navigationBarStyle,
         shouldBlurNavigationBar = shouldBlurNavigationBar,
@@ -117,6 +133,9 @@ fun RootScaffold(
             destinations = destinations,
             navigationBarStyle = navigationBarStyle,
             floatingBlurBackdrop = floatingBlurBackdrop,
+            hyperOsBottomBarWidthPercent = hyperOsBottomBarWidthPercent,
+            hyperOsMinimumHeight = hyperOsMinimumHeight,
+            onHyperOsHeightChange = { hyperOsMeasuredHeight = it },
             onTabSelected = rootNavigationState::animateTo,
             modifier = Modifier.align(Alignment.BottomCenter),
         )
@@ -126,9 +145,19 @@ fun RootScaffold(
 @Composable
 fun rememberRootBottomBarPadding(
     navigationBarStyle: NavigationBarStyle,
+    hyperOsMeasuredHeight: Dp = HyperOsBottomBarDefaults.DEFAULT_HEIGHT_DP.dp,
 ): PaddingValues {
     // 内容区底部预留：系统导航栏 + 底栏高度，避免导航栏遮挡内容。
     val navigationBarsBottom = WindowInsets.navigationBars.asPaddingValues().calculateBottomPadding()
+    val bottomInset = if (navigationBarStyle == NavigationBarStyle.HYPER_OS_4) {
+        WindowInsets.navigationBars
+            .union(WindowInsets.displayCutout)
+            .union(WindowInsets.captionBar)
+            .asPaddingValues()
+            .calculateBottomPadding()
+    } else {
+        navigationBarsBottom
+    }
     val captionBarBottom = if (navigationBarStyle == NavigationBarStyle.FLOATING) {
         0.dp
     } else {
@@ -137,6 +166,7 @@ fun rememberRootBottomBarPadding(
     val navigationBarHeight = when (navigationBarStyle) {
         NavigationBarStyle.STANDARD -> NAV_BAR_CONTENT_HEIGHT + DividerDefaults.Thickness + captionBarBottom
         NavigationBarStyle.FLOATING -> FLOATING_NAV_BAR_RESERVED_HEIGHT
+        NavigationBarStyle.HYPER_OS_4 -> hyperOsMeasuredHeight + 22.dp
         NavigationBarStyle.MIUIX -> {
             // 最小高度和底部间距与 Miuix 0.9.4 原生悬浮栏一致。
             val bottomSpacing = if (navigationBarsBottom > 0.dp) 26.dp else 36.dp
@@ -144,8 +174,8 @@ fun rememberRootBottomBarPadding(
             maxOf(52.dp, contentHeight + captionBarBottom) + bottomSpacing
         }
     }
-    return remember(navigationBarsBottom, navigationBarHeight) {
-        PaddingValues(bottom = navigationBarsBottom + navigationBarHeight)
+    return remember(bottomInset, navigationBarHeight) {
+        PaddingValues(bottom = bottomInset + navigationBarHeight)
     }
 }
 
@@ -170,8 +200,34 @@ fun RootBottomBar(
     navigationBarStyle: NavigationBarStyle,
     floatingBlurBackdrop: Backdrop?,
     modifier: Modifier = Modifier,
+    hyperOsBottomBarWidthPercent: Int = HyperOsBottomBarDefaults.DEFAULT_WIDTH_PERCENT,
+    hyperOsMinimumHeight: Dp = HyperOsBottomBarDefaults.DEFAULT_HEIGHT_DP.dp,
+    onHyperOsHeightChange: (Dp) -> Unit = {},
     onTabSelected: (RootDestination) -> Unit,
 ) {
+    if (navigationBarStyle == NavigationBarStyle.HYPER_OS_4) {
+        Box(
+            modifier = modifier
+                .fillMaxWidth()
+                .windowInsetsPadding(WindowInsets.navigationBars.union(WindowInsets.displayCutout).union(WindowInsets.captionBar).only(WindowInsetsSides.Horizontal + WindowInsetsSides.Bottom))
+                .padding(horizontal = 12.dp)
+                .padding(bottom = 12.dp),
+            contentAlignment = Alignment.BottomCenter,
+        ) {
+            HyperOsBottomBar(
+                currentRoot = currentRoot,
+                destinations = destinations,
+                backdrop = floatingBlurBackdrop,
+                minimumHeight = hyperOsMinimumHeight,
+                onHeightChange = onHyperOsHeightChange,
+                onTabSelected = onTabSelected,
+                modifier = Modifier
+                    .fillMaxWidth(hyperOsBottomBarWidthPercent.coerceIn(HyperOsBottomBarDefaults.widthPercentRange) / 100f)
+                    .testTag("root_navigation_bar_hyperos4"),
+            )
+        }
+        return
+    }
     if (navigationBarStyle == NavigationBarStyle.FLOATING) {
         FloatingRootBottomBar(
             currentRoot = currentRoot,
