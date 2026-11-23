@@ -7,12 +7,27 @@ import android.net.Uri
 import android.os.Binder
 import android.os.Bundle
 import android.os.Process
+import org.json.JSONObject
 
 class DebugCommandProvider : ContentProvider() {
 
     override fun onCreate(): Boolean = true
 
+    @Suppress("DEPRECATION")
     override fun call(
+        method: String,
+        arg: String?,
+        extras: Bundle?,
+    ): Bundle {
+        val result = executeCommand(method, arg, extras)
+        if (extras?.getBoolean("response_json") != true) return result
+
+        val payload = JSONObject()
+        result.keySet().forEach { key -> payload.put(key, JSONObject.wrap(result[key])) }
+        return Bundle().apply { putString("response_json", payload.toString()) }
+    }
+
+    private fun executeCommand(
         method: String,
         arg: String?,
         extras: Bundle?,

@@ -6,7 +6,9 @@
 
 ## set：写入确定状态
 
-开关用 `--extra enabled:b:true/false`，数字、固定选项和文字用 `--extra value:s:<value>`。`player.control_slot` 需要同时给 `--extra name:s:<control>` 和 `--extra value:s:<slot>`，`audio.equalizer_band` 同样要 `name` 填频段、`value:i:` 填增益。
+开关用 `--enabled true/false`，数字、固定选项和文字用 `--value <value>`；原有 `--extra enabled:b:true/false` 和 `--extra value:s:<value>` 同样支持。`player.control_slot` 需要同时给 `--extra name:s:<control>` 和 `--value <slot>`，`audio.equalizer_band` 同样要 `name` 填频段、`--extra value:i:<gain>` 填增益。
+
+示例：`python <skill_dir>/scripts/run.py settings.set appearance.top_bar_style --value HYPER_OS_4 --device <device_id>`。其他设置的合法取值见下表，执行格式与返回规则见 [运行与截图](runtime.md)。
 
 | method | arg | 作用 |
 |---|---|---|
@@ -104,6 +106,10 @@
 ## toggle：快速切换
 
 `settings.toggle` 支持普通开关类 `settings.set` 目标；快捷设置字段开关不要用 toggle，改用 `quick_settings.set field.* --extra enabled:b:true/false`。
+
+| method | arg | 作用 |
+|---|---|---|
+| `settings.toggle` | 开关类设置键 | 切换当前值，例如 `appearance.top_bar_blur`；需要确定状态时用 `settings.set --enabled true/false` |
 
 ## action：执行设置动作
 

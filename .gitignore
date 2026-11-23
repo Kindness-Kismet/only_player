@@ -97,12 +97,14 @@
 !/.codex/skills/*/SKILL.md
 !/.codex/skills/*/guides/**/*.md
 !/.codex/skills/*/scripts/**/*.sh
+!/.codex/skills/*/scripts/**/*.py
 !/.claude/
 !/.claude/skills/
 !/.claude/skills/**/
 !/.claude/skills/*/SKILL.md
 !/.claude/skills/*/guides/**/*.md
 !/.claude/skills/*/scripts/**/*.sh
+!/.claude/skills/*/scripts/**/*.py
 !/.pi/
 !/.pi/settings.json
 

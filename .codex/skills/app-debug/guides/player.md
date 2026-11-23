@@ -39,9 +39,6 @@
 | `player.cycle_scale` | 空 | 切换下一个画面缩放方式 |
 | `player.show_scale` | 空 | 打开画面缩放面板 |
 | `player.show_decoder` | 空 | 打开解码器选择框 |
-| `player.show_stats` | 空 | 显示技术信息叠加层 |
-| `player.hide_stats` | 空 | 隐藏技术信息叠加层 |
-| `player.toggle_stats` | 空 | 切换技术信息叠加层 |
 | `player.show_video_filters` | 空 | 打开视频滤镜面板 |
 | `player.show_audio_equalizer` | 空 | 打开均衡器面板 |
 | `player.pip` | 空 | 进入画中画，没权限时打开系统设置 |

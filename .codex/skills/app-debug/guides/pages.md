@@ -1,5 +1,7 @@
 # 页面指令
 
+统一入口示例：`python <skill_dir>/scripts/run.py page.open settings.appearance --device <device_id>`。返回成功表示导航请求已受理；页面内容通过 UI 树和截图验证。
+
 | method | arg | 作用 |
 |---|---|---|
 | `page.open` | `home` | 打开媒体库首页 |
