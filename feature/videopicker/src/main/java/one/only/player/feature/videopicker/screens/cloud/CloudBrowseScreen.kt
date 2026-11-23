@@ -66,6 +66,7 @@ import one.only.player.core.model.resolveQuickSettings
 import one.only.player.core.model.withQuickSettings
 import one.only.player.core.ui.R
 import one.only.player.core.ui.components.AppDialog
+import one.only.player.core.ui.components.AppIconButton as MiuixIconButton
 import one.only.player.core.ui.components.AppScaffold
 import one.only.player.core.ui.components.AppSmallTopAppBar
 import one.only.player.core.ui.components.AppTopAppBar
@@ -100,7 +101,6 @@ import one.only.player.feature.videopicker.composables.rememberLocalNetworkPermi
 import one.only.player.feature.videopicker.composables.rememberPullToRefreshTexts
 import top.yukonga.miuix.kmp.basic.CircularProgressIndicator
 import top.yukonga.miuix.kmp.basic.Icon as MiuixIcon
-import top.yukonga.miuix.kmp.basic.IconButton as MiuixIconButton
 import top.yukonga.miuix.kmp.basic.MiuixScrollBehavior
 import top.yukonga.miuix.kmp.basic.PullToRefresh
 import top.yukonga.miuix.kmp.basic.Text
@@ -297,7 +297,7 @@ internal fun CloudBrowseScreen(
                         }
                         MiuixIconButton(
                             onClick = { shouldShowSelectionMenu = true },
-                            holdDownState = shouldShowSelectionMenu,
+                            isHeldDown = shouldShowSelectionMenu,
                             modifier = Modifier.testTag("btn_cloud_selection_actions"),
                         ) {
                             MiuixIcon(

@@ -53,11 +53,14 @@ import androidx.lifecycle.Lifecycle
 import androidx.lifecycle.compose.LocalLifecycleOwner
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.lifecycle.compose.currentStateAsState
+import one.only.player.core.model.TopBarStyle
 import one.only.player.core.model.UpdateChannel
 import one.only.player.core.ui.R
 import one.only.player.core.ui.components.AppDialogHost
 import one.only.player.core.ui.components.AppUpdateDialog
 import one.only.player.core.ui.components.ClickablePreferenceItem
+import one.only.player.core.ui.components.LocalTopBarBlur
+import one.only.player.core.ui.components.LocalTopBarStyle
 import one.only.player.core.ui.components.PreferenceGroup
 import one.only.player.core.ui.components.PreferenceItem
 import one.only.player.core.ui.components.PreferenceSwitch
@@ -77,10 +80,11 @@ import top.yukonga.miuix.kmp.blur.BlendColorEntry
 import top.yukonga.miuix.kmp.blur.BlurBlendMode
 import top.yukonga.miuix.kmp.blur.BlurColors
 import top.yukonga.miuix.kmp.blur.LayerBackdrop
-import top.yukonga.miuix.kmp.blur.isRuntimeShaderSupported
 import top.yukonga.miuix.kmp.blur.layerBackdrop
 import top.yukonga.miuix.kmp.blur.rememberLayerBackdrop
 import top.yukonga.miuix.kmp.blur.textureBlur
+import top.yukonga.miuix.kmp.glass.GlassIconButton
+import top.yukonga.miuix.kmp.material.isRuntimeShaderSupported
 import top.yukonga.miuix.kmp.squircle.squircleClip
 import top.yukonga.miuix.kmp.theme.MiuixTheme
 
@@ -154,23 +158,47 @@ fun AboutPreferencesScreen(
                 isDarkTheme = isDarkTheme,
             )
         }
-        MiuixIconButton(
+        AboutBackButton(
             onClick = onNavigateUp,
+            backdrop = backdrop,
             modifier = Modifier
                 .align(Alignment.TopStart)
                 .windowInsetsPadding(WindowInsets.safeDrawing.only(WindowInsetsSides.Top + WindowInsetsSides.Horizontal))
                 .padding(AboutLayoutDefaults.BackButtonInset)
-                .size(AboutLayoutDefaults.BackButtonSize)
                 .testTag("button_about_back"),
-        ) {
-            MiuixIcon(
-                imageVector = AppIcons.ArrowBack,
-                contentDescription = stringResource(R.string.navigate_up),
-                modifier = Modifier.size(24.dp),
-                tint = MiuixTheme.colorScheme.onBackground,
-            )
-        }
+        )
     }
+}
+
+@Composable
+private fun AboutBackButton(
+    onClick: () -> Unit,
+    backdrop: LayerBackdrop?,
+    modifier: Modifier = Modifier,
+) {
+    val icon: @Composable () -> Unit = {
+        MiuixIcon(
+            imageVector = AppIcons.ArrowBack,
+            contentDescription = stringResource(R.string.navigate_up),
+            modifier = Modifier.size(24.dp),
+            tint = MiuixTheme.colorScheme.onBackground,
+        )
+    }
+    if (LocalTopBarStyle.current == TopBarStyle.HYPER_OS_4) {
+        GlassIconButton(
+            onClick = onClick,
+            modifier = modifier,
+            backdrop = backdrop.takeIf { LocalTopBarBlur.current },
+            shadow = null,
+            content = icon,
+        )
+        return
+    }
+    MiuixIconButton(
+        onClick = onClick,
+        modifier = modifier.size(AboutLayoutDefaults.BackButtonSize),
+        content = icon,
+    )
 }
 
 @Composable

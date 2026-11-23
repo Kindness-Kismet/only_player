@@ -54,6 +54,7 @@ import one.only.player.core.ui.R as UiR
 import one.only.player.core.ui.components.AppDialog
 import one.only.player.core.ui.components.AppUpdateDialog
 import one.only.player.core.ui.components.LocalTopBarBlur
+import one.only.player.core.ui.components.LocalTopBarStyle
 import one.only.player.core.ui.composables.rememberRuntimePermissionState
 import one.only.player.core.ui.extensions.scaledAppContext
 import one.only.player.core.ui.navigation.MiuixNavHost
@@ -103,7 +104,7 @@ import top.yukonga.miuix.kmp.basic.ButtonDefaults
 import top.yukonga.miuix.kmp.basic.Surface
 import top.yukonga.miuix.kmp.basic.Text
 import top.yukonga.miuix.kmp.basic.TextButton
-import top.yukonga.miuix.kmp.blur.isRuntimeShaderSupported
+import top.yukonga.miuix.kmp.material.isRuntimeShaderSupported
 import top.yukonga.miuix.kmp.theme.MiuixTheme
 
 @AndroidEntryPoint
@@ -208,13 +209,18 @@ class MainActivity : AppCompatActivity() {
                 shouldUseDarkTheme = shouldUseDarkTheme,
                 shouldUseDynamicColor = shouldUseDynamicColor,
             ) {
-                CompositionLocalProvider(LocalTopBarBlur provides shouldBlurTopBar) {
+                CompositionLocalProvider(
+                    LocalTopBarBlur provides shouldBlurTopBar,
+                    LocalTopBarStyle provides (preferences?.topBarStyle ?: persistedStartupPreferences.topBarStyle),
+                ) {
                     Surface(
                         modifier = Modifier.fillMaxSize(),
                         color = MiuixTheme.colorScheme.surface,
                     ) {
                         MainAppContent(
-                            navigationBarStyle = preferences?.navigationBarStyle ?: NavigationBarStyle.STANDARD,
+                            navigationBarStyle = preferences?.navigationBarStyle ?: persistedStartupPreferences.navigationBarStyle,
+                            hyperOsBottomBarWidthPercent = preferences?.hyperOsBottomBarWidthPercent ?: persistedStartupPreferences.hyperOsBottomBarWidthPercent,
+                            hyperOsBottomBarHeightDp = preferences?.hyperOsBottomBarHeightDp ?: persistedStartupPreferences.hyperOsBottomBarHeightDp,
                             shouldBlurNavigationBar = preferences?.shouldBlurNavigationBar != false,
                             shouldShowCloudTab = preferences?.shouldShowCloudTab != false,
                             shouldEnablePredictiveBack = persistedStartupPreferences.shouldEnablePredictiveBack,
@@ -348,6 +354,8 @@ class MainActivity : AppCompatActivity() {
     @Composable
     private fun MainAppContent(
         navigationBarStyle: NavigationBarStyle,
+        hyperOsBottomBarWidthPercent: Int,
+        hyperOsBottomBarHeightDp: Int,
         shouldBlurNavigationBar: Boolean,
         shouldShowCloudTab: Boolean,
         shouldEnablePredictiveBack: Boolean,
@@ -401,6 +409,8 @@ class MainActivity : AppCompatActivity() {
         // 返回栈会保留页面内容，捕获 State 以便根页即时响应外观设置。
         val rootNavigationState by rememberUpdatedState(rememberRootNavigationState(destinations = rootDestinations))
         val rootNavigationBarStyle by rememberUpdatedState(navigationBarStyle)
+        val rootHyperOsWidthPercent by rememberUpdatedState(hyperOsBottomBarWidthPercent)
+        val rootHyperOsHeightDp by rememberUpdatedState(hyperOsBottomBarHeightDp)
         val shouldBlurRootNavigationBar by rememberUpdatedState(shouldBlurNavigationBar)
         LaunchedEffect(mainNavController, rootNavigationState, pendingDebugPageRoute) {
             val pageRoute = pendingDebugPageRoute ?: return@LaunchedEffect
@@ -436,6 +446,8 @@ class MainActivity : AppCompatActivity() {
                         rootNavigationState = rootNavigationState,
                         navigationBarStyle = rootNavigationBarStyle,
                         shouldBlurNavigationBar = shouldBlurRootNavigationBar,
+                        hyperOsBottomBarWidthPercent = rootHyperOsWidthPercent,
+                        hyperOsBottomBarHeightDp = rootHyperOsHeightDp,
                     ) { destination ->
                         when (destination) {
                             RootDestination.HOME -> MediaRootPage(

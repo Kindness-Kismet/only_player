@@ -12,7 +12,10 @@ data class ApplicationPreferences(
     val themeConfig: ThemeConfig = ThemeConfig.SYSTEM,
     val shouldUseDynamicColors: Boolean = true,
     val shouldNavigateHomeOnTitleLongPress: Boolean = false,
+    val topBarStyle: TopBarStyle = TopBarStyle.STANDARD,
     val navigationBarStyle: NavigationBarStyle = NavigationBarStyle.STANDARD,
+    val hyperOsBottomBarWidthPercent: Int = HyperOsBottomBarDefaults.DEFAULT_WIDTH_PERCENT,
+    val hyperOsBottomBarHeightDp: Int = HyperOsBottomBarDefaults.DEFAULT_HEIGHT_DP,
     @SerialName("shouldBlurFloatingNavigationBar")
     val shouldBlurNavigationBar: Boolean = true,
     val shouldBlurTopBar: Boolean = true,

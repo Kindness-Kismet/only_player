@@ -31,6 +31,7 @@ import one.only.player.core.model.PlayerPreferences
 import one.only.player.core.model.Video
 import one.only.player.core.ui.R
 import one.only.player.core.ui.components.AppDialog
+import one.only.player.core.ui.components.AppIconButton as MiuixIconButton
 import one.only.player.core.ui.components.AppScaffold
 import one.only.player.core.ui.components.AppTopAppBar
 import one.only.player.core.ui.components.CancelButton
@@ -49,7 +50,6 @@ import one.only.player.feature.videopicker.composables.VideoThumbnail
 import one.only.player.feature.videopicker.composables.libraryListThumbWidth
 import top.yukonga.miuix.kmp.basic.ButtonDefaults
 import top.yukonga.miuix.kmp.basic.Icon as MiuixIcon
-import top.yukonga.miuix.kmp.basic.IconButton as MiuixIconButton
 import top.yukonga.miuix.kmp.basic.MiuixScrollBehavior
 import top.yukonga.miuix.kmp.basic.Text
 import top.yukonga.miuix.kmp.basic.TextButton

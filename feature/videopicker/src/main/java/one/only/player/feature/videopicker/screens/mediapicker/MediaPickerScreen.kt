@@ -63,15 +63,19 @@ import one.only.player.core.model.MediaLayoutMode
 import one.only.player.core.model.MediaViewMode
 import one.only.player.core.model.PlayerPreferences
 import one.only.player.core.model.StoragePath
+import one.only.player.core.model.TopBarStyle
 import one.only.player.core.model.Video
 import one.only.player.core.ui.R
 import one.only.player.core.ui.base.DataState
 import one.only.player.core.ui.components.AppDialog
+import one.only.player.core.ui.components.AppIconButton as IconButton
 import one.only.player.core.ui.components.AppScaffold
+import one.only.player.core.ui.components.AppSmallTopAppBar
 import one.only.player.core.ui.components.AppTopAppBar
 import one.only.player.core.ui.components.CancelButton
 import one.only.player.core.ui.components.DoneButton
 import one.only.player.core.ui.components.LocalTopBarBackdrop
+import one.only.player.core.ui.components.LocalTopBarStyle
 import one.only.player.core.ui.components.PageContentTopPadding
 import one.only.player.core.ui.components.surfaceBlur
 import one.only.player.core.ui.composables.PermissionMissingView
@@ -106,7 +110,7 @@ import one.only.player.feature.videopicker.state.rememberSelectionManager
 import top.yukonga.miuix.kmp.basic.ButtonDefaults
 import top.yukonga.miuix.kmp.basic.CircularProgressIndicator
 import top.yukonga.miuix.kmp.basic.Icon
-import top.yukonga.miuix.kmp.basic.IconButton
+import top.yukonga.miuix.kmp.basic.IconButton as MiuixIconButton
 import top.yukonga.miuix.kmp.basic.MiuixScrollBehavior
 import top.yukonga.miuix.kmp.basic.PullToRefresh
 import top.yukonga.miuix.kmp.basic.ScrollBehavior
@@ -367,7 +371,7 @@ internal fun MediaPickerScreen(
                                 onEvent(MediaPickerUiEvent.CancelMoveSelection)
                                 onMoveSelectionClosed()
                             },
-                            enabled = !uiState.isMovingSelection,
+                            isEnabled = !uiState.isMovingSelection,
                             modifier = Modifier.testTag("btn_cancel_move"),
                         ) {
                             Icon(
@@ -448,7 +452,7 @@ internal fun MediaPickerScreen(
                         )
                         IconButton(
                             onClick = { shouldShowSelectionMenu = true },
-                            holdDownState = shouldShowSelectionMenu,
+                            isHeldDown = shouldShowSelectionMenu,
                             modifier = Modifier.testTag("btn_selection_more"),
                         ) {
                             Icon(
@@ -498,7 +502,7 @@ internal fun MediaPickerScreen(
                             }
                             IconButton(
                                 onClick = { shouldShowMainMenu = true },
-                                holdDownState = shouldShowMainMenu,
+                                isHeldDown = shouldShowMainMenu,
                                 modifier = Modifier.testTag("btn_main_menu"),
                             ) {
                                 Icon(
@@ -912,6 +916,26 @@ private fun MediaPickerSmallTitleTopAppBar(
     }
 
     val topBarBackdrop = LocalTopBarBackdrop.current
+    if (LocalTopBarStyle.current == TopBarStyle.HYPER_OS_4) {
+        AppSmallTopAppBar(
+            title = "",
+            actions = {
+                Row(
+                    modifier = Modifier.fillMaxWidth().padding(start = 12.dp),
+                    verticalAlignment = Alignment.CenterVertically,
+                ) {
+                    navigationIcon()
+                    MediaPickerTitle(title, 8.dp, titleGestureModifier)
+                    Row(
+                        horizontalArrangement = Arrangement.spacedBy(8.dp),
+                        verticalAlignment = Alignment.CenterVertically,
+                        content = actions,
+                    )
+                }
+            },
+        )
+        return
+    }
     Surface(
         color = if (topBarBackdrop != null) Color.Transparent else MiuixTheme.colorScheme.surface,
         modifier = Modifier
@@ -930,25 +954,7 @@ private fun MediaPickerSmallTitleTopAppBar(
             Box(modifier = Modifier.padding(start = TopAppBarDefaults.NavigationIconPadding)) {
                 navigationIcon()
             }
-            Row(
-                modifier = Modifier
-                    .weight(1f)
-                    .padding(start = titlePadding)
-                    .then(titleGestureModifier)
-                    .testTag("title_media_picker"),
-                verticalAlignment = Alignment.CenterVertically,
-            ) {
-                Text(
-                    text = title,
-                    modifier = Modifier.weight(1f, fill = false),
-                    color = MiuixTheme.colorScheme.onSurface,
-                    fontSize = MiuixTheme.textStyles.title3.fontSize,
-                    fontWeight = FontWeight.Medium,
-                    maxLines = 1,
-                    overflow = TextOverflow.Ellipsis,
-                    softWrap = false,
-                )
-            }
+            MediaPickerTitle(title, titlePadding, titleGestureModifier)
             Row(
                 modifier = Modifier.padding(end = TopAppBarDefaults.ActionIconPadding),
                 horizontalArrangement = Arrangement.End,
@@ -956,6 +962,33 @@ private fun MediaPickerSmallTitleTopAppBar(
                 content = actions,
             )
         }
+    }
+}
+
+@Composable
+private fun RowScope.MediaPickerTitle(
+    title: String,
+    titlePadding: Dp,
+    titleGestureModifier: Modifier,
+) {
+    Row(
+        modifier = Modifier
+            .weight(1f)
+            .padding(start = titlePadding)
+            .then(titleGestureModifier)
+            .testTag("title_media_picker"),
+        verticalAlignment = Alignment.CenterVertically,
+    ) {
+        Text(
+            text = title,
+            modifier = Modifier.weight(1f, fill = false),
+            color = MiuixTheme.colorScheme.onSurface,
+            fontSize = MiuixTheme.textStyles.title3.fontSize,
+            fontWeight = FontWeight.Medium,
+            maxLines = 1,
+            overflow = TextOverflow.Ellipsis,
+            softWrap = false,
+        )
     }
 }
 
@@ -967,7 +1000,7 @@ private fun MoveProgressButton(
     onClick: () -> Unit,
     modifier: Modifier = Modifier,
 ) {
-    IconButton(
+    MiuixIconButton(
         onClick = onClick,
         minWidth = 56.dp,
         minHeight = 56.dp,

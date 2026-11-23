@@ -7,7 +7,11 @@ plugins {
 
 android {
     namespace = "one.only.player.core.ui"
-    compileSdk = libs.versions.android.compileSdk.get().toInt()
+    compileSdk {
+        version = release(libs.versions.android.compileSdk.get().toInt()) {
+            minorApiLevel = libs.versions.android.compileSdkMinor.get().toInt()
+        }
+    }
 
     defaultConfig {
         minSdk = libs.versions.android.minSdk.get().toInt()
@@ -52,6 +56,8 @@ dependencies {
     api(libs.miuix.icons)
     api(libs.miuix.preference)
     api(libs.miuix.blur)
+    api(libs.miuix.glass)
+    api(libs.miuix.material)
     implementation(libs.miuix.nav)
 
     implementation(libs.androidx.hilt.navigation.compose)

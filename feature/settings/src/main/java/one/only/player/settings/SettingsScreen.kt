@@ -32,6 +32,7 @@ import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.unit.dp
 import kotlinx.coroutines.delay
 import one.only.player.core.ui.R
+import one.only.player.core.ui.components.AppIconButton as MiuixIconButton
 import one.only.player.core.ui.components.AppScaffold
 import one.only.player.core.ui.components.AppTopAppBar
 import one.only.player.core.ui.components.PageContentTopPadding
@@ -40,7 +41,6 @@ import one.only.player.core.ui.designsystem.AppIcons
 import one.only.player.core.ui.extensions.withBottomFallback
 import top.yukonga.miuix.kmp.basic.Card
 import top.yukonga.miuix.kmp.basic.Icon as MiuixIcon
-import top.yukonga.miuix.kmp.basic.IconButton as MiuixIconButton
 import top.yukonga.miuix.kmp.basic.MiuixScrollBehavior
 import top.yukonga.miuix.kmp.preference.ArrowPreference
 import top.yukonga.miuix.kmp.theme.MiuixTheme

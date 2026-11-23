@@ -17,7 +17,11 @@ val configuredAbiFilter = providers.gradleProperty("abiFilter").orNull
 android {
     namespace = "one.only.player"
 
-    compileSdk = libs.versions.android.compileSdk.get().toInt()
+    compileSdk {
+        version = release(libs.versions.android.compileSdk.get().toInt()) {
+            minorApiLevel = libs.versions.android.compileSdkMinor.get().toInt()
+        }
+    }
     defaultConfig {
         minSdk = libs.versions.android.minSdk.get().toInt()
         targetSdk = libs.versions.android.targetSdk.get().toInt()

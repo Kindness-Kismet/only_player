@@ -17,8 +17,10 @@ import one.only.player.core.common.AppThemeModeManager
 import one.only.player.core.data.repository.PreferencesRepository
 import one.only.player.core.model.AppScale
 import one.only.player.core.model.ApplicationPreferences
+import one.only.player.core.model.HyperOsBottomBarDefaults
 import one.only.player.core.model.NavigationBarStyle
 import one.only.player.core.model.ThemeConfig
+import one.only.player.core.model.TopBarStyle
 
 @HiltViewModel
 class AppearancePreferencesViewModel @Inject constructor(
@@ -49,7 +51,10 @@ class AppearancePreferencesViewModel @Inject constructor(
             is AppearancePreferencesEvent.UpdateAppScale -> updateAppScale(event.scale)
             AppearancePreferencesEvent.ToggleUseDynamicColors -> toggleUseDynamicColors()
             AppearancePreferencesEvent.ToggleNavigateHomeOnTitleLongPress -> toggleNavigateHomeOnTitleLongPress()
+            is AppearancePreferencesEvent.UpdateTopBarStyle -> updateTopBarStyle(event.style)
             is AppearancePreferencesEvent.UpdateNavigationBarStyle -> updateNavigationBarStyle(event.style)
+            is AppearancePreferencesEvent.UpdateHyperOsBottomBarWidth -> updateHyperOsBottomBarWidth(event.percent)
+            is AppearancePreferencesEvent.UpdateHyperOsBottomBarHeight -> updateHyperOsBottomBarHeight(event.heightDp)
             AppearancePreferencesEvent.ToggleBlurNavigationBar -> toggleBlurNavigationBar()
             AppearancePreferencesEvent.ToggleBlurTopBar -> toggleBlurTopBar()
             AppearancePreferencesEvent.ToggleShowCloudTab -> toggleShowCloudTab()
@@ -108,6 +113,28 @@ class AppearancePreferencesViewModel @Inject constructor(
                 it.copy(
                     shouldNavigateHomeOnTitleLongPress = !it.shouldNavigateHomeOnTitleLongPress,
                 )
+            }
+        }
+    }
+
+    private fun updateTopBarStyle(style: TopBarStyle) {
+        viewModelScope.launch {
+            preferencesRepository.updateApplicationPreferences { it.copy(topBarStyle = style) }
+        }
+    }
+
+    private fun updateHyperOsBottomBarWidth(percent: Int) {
+        viewModelScope.launch {
+            preferencesRepository.updateApplicationPreferences {
+                it.copy(hyperOsBottomBarWidthPercent = percent.coerceIn(HyperOsBottomBarDefaults.widthPercentRange))
+            }
+        }
+    }
+
+    private fun updateHyperOsBottomBarHeight(heightDp: Int) {
+        viewModelScope.launch {
+            preferencesRepository.updateApplicationPreferences {
+                it.copy(hyperOsBottomBarHeightDp = heightDp.coerceIn(HyperOsBottomBarDefaults.heightDpRange))
             }
         }
     }
@@ -178,7 +205,10 @@ sealed interface AppearancePreferencesEvent {
     data class UpdateAppScale(val scale: Float) : AppearancePreferencesEvent
     data object ToggleUseDynamicColors : AppearancePreferencesEvent
     data object ToggleNavigateHomeOnTitleLongPress : AppearancePreferencesEvent
+    data class UpdateTopBarStyle(val style: TopBarStyle) : AppearancePreferencesEvent
     data class UpdateNavigationBarStyle(val style: NavigationBarStyle) : AppearancePreferencesEvent
+    data class UpdateHyperOsBottomBarWidth(val percent: Int) : AppearancePreferencesEvent
+    data class UpdateHyperOsBottomBarHeight(val heightDp: Int) : AppearancePreferencesEvent
     data object ToggleBlurNavigationBar : AppearancePreferencesEvent
     data object ToggleBlurTopBar : AppearancePreferencesEvent
     data object ToggleShowCloudTab : AppearancePreferencesEvent
@@ -191,5 +221,6 @@ sealed interface AppearancePreferencesEvent {
 sealed interface AppearancePreferenceDialog {
     data object Theme : AppearancePreferenceDialog
     data object AppLanguage : AppearancePreferenceDialog
+    data object TopBarStyle : AppearancePreferenceDialog
     data object NavigationBarStyle : AppearancePreferenceDialog
 }

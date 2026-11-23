@@ -24,11 +24,15 @@ import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.unit.dp
 import androidx.hilt.lifecycle.viewmodel.compose.hiltViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
+import kotlin.math.roundToInt
 import one.only.player.core.common.PredictiveBackSupport
+import one.only.player.core.model.HyperOsBottomBarDefaults
 import one.only.player.core.model.NavigationBarStyle
 import one.only.player.core.model.ThemeConfig
+import one.only.player.core.model.TopBarStyle
 import one.only.player.core.ui.R
 import one.only.player.core.ui.components.AppDialogHost
+import one.only.player.core.ui.components.AppIconButton as IconButton
 import one.only.player.core.ui.components.AppScaffold
 import one.only.player.core.ui.components.AppScalePreference
 import one.only.player.core.ui.components.AppTopAppBar
@@ -43,9 +47,9 @@ import one.only.player.settings.extensions.name
 import one.only.player.settings.utils.LocalesHelper
 import top.yukonga.miuix.kmp.basic.Card
 import top.yukonga.miuix.kmp.basic.Icon
-import top.yukonga.miuix.kmp.basic.IconButton
 import top.yukonga.miuix.kmp.basic.MiuixScrollBehavior
 import top.yukonga.miuix.kmp.preference.ArrowPreference
+import top.yukonga.miuix.kmp.preference.SliderPreference
 import top.yukonga.miuix.kmp.preference.SwitchPreference
 import top.yukonga.miuix.kmp.theme.MiuixTheme
 
@@ -186,6 +190,15 @@ private fun AppearancePreferencesContent(
                     },
                 )
                 ArrowPreference(
+                    modifier = Modifier.testTag("item_settings_appearance_top_bar_style"),
+                    title = stringResource(R.string.top_bar_style),
+                    summary = preferences.topBarStyle.name(),
+                    startAction = { PrefIcon(AppIcons.Title) },
+                    onClick = {
+                        onEvent(AppearancePreferencesEvent.ShowDialog(AppearancePreferenceDialog.TopBarStyle))
+                    },
+                )
+                ArrowPreference(
                     modifier = Modifier.testTag("item_settings_appearance_navigation_bar_style"),
                     title = stringResource(id = R.string.navigation_bar_style),
                     summary = preferences.navigationBarStyle.name(),
@@ -194,6 +207,28 @@ private fun AppearancePreferencesContent(
                         onEvent(AppearancePreferencesEvent.ShowDialog(AppearancePreferenceDialog.NavigationBarStyle))
                     },
                 )
+                if (preferences.navigationBarStyle == NavigationBarStyle.HYPER_OS_4) {
+                    val widthRange = HyperOsBottomBarDefaults.widthPercentRange
+                    val heightRange = HyperOsBottomBarDefaults.heightDpRange
+                    SliderPreference(
+                        modifier = Modifier.testTag("slider_settings_hyperos_bottom_bar_width"),
+                        title = stringResource(R.string.hyperos_bottom_bar_width),
+                        value = preferences.hyperOsBottomBarWidthPercent.coerceIn(widthRange).toFloat(),
+                        valueText = stringResource(R.string.bottom_bar_width_value, preferences.hyperOsBottomBarWidthPercent),
+                        valueRange = widthRange.first.toFloat()..widthRange.last.toFloat(),
+                        steps = widthRange.last - widthRange.first - 1,
+                        onValueChange = { onEvent(AppearancePreferencesEvent.UpdateHyperOsBottomBarWidth(it.roundToInt())) },
+                    )
+                    SliderPreference(
+                        modifier = Modifier.testTag("slider_settings_hyperos_bottom_bar_height"),
+                        title = stringResource(R.string.hyperos_bottom_bar_height),
+                        value = preferences.hyperOsBottomBarHeightDp.coerceIn(heightRange).toFloat(),
+                        valueText = stringResource(R.string.bottom_bar_height_value, preferences.hyperOsBottomBarHeightDp),
+                        valueRange = heightRange.first.toFloat()..heightRange.last.toFloat(),
+                        steps = heightRange.last - heightRange.first - 1,
+                        onValueChange = { onEvent(AppearancePreferencesEvent.UpdateHyperOsBottomBarHeight(it.roundToInt())) },
+                    )
+                }
                 if (shouldShowTopBarBlur) {
                     SwitchPreference(
                         modifier = Modifier.testTag("switch_settings_appearance_top_bar_blur"),
@@ -239,6 +274,25 @@ private fun AppearancePreferencesContent(
 
         AppDialogHost(dialog = uiState.showDialog) { showDialog ->
             when (showDialog) {
+                AppearancePreferenceDialog.TopBarStyle -> {
+                    OptionsDialog(
+                        text = stringResource(R.string.top_bar_style),
+                        onDismissClick = { onEvent(AppearancePreferencesEvent.ShowDialog(null)) },
+                    ) {
+                        items(TopBarStyle.entries) { style ->
+                            RadioTextButton(
+                                modifier = Modifier.testTag("option_settings_top_bar_style_${style.name.lowercase()}"),
+                                text = style.name(),
+                                isSelected = style == preferences.topBarStyle,
+                                onClick = {
+                                    onEvent(AppearancePreferencesEvent.UpdateTopBarStyle(style))
+                                    onEvent(AppearancePreferencesEvent.ShowDialog(null))
+                                },
+                            )
+                        }
+                    }
+                }
+
                 AppearancePreferenceDialog.NavigationBarStyle -> {
                     OptionsDialog(
                         text = stringResource(id = R.string.navigation_bar_style),
