@@ -90,122 +90,6 @@ feature/videopicker→ 媒体库浏览，搜索，快速设置
 
 ---
 
-## Kotlin Conventions
-
-### Naming
-
-| 类别 | 规则 | 示例 |
-|---|---|---|
-| 类 / 接口 / Object | PascalCase | `PlayerViewModel`, `MediaRepository` |
-| 函数 / 变量 | camelCase | `getVideoByUri`, `folderPath` |
-| 常量 | UPPER_SNAKE_CASE，定义在 companion object 或顶层 | `private const val TAG = "..."` |
-| 包名 | 全小写，点分隔 | `one.only.player.core.data.repository` |
-| Composable 函数 | PascalCase | `VideoItem`, `MediaPlayerScreen` |
-| 回调参数 | `on` + 事件名 | `onClick`, `onNavigateUp`, `onPlayVideo` |
-| 函数类型参数 | 动词或名词短语 | `transform: suspend (T) -> T` |
-| Boolean 变量 | 必须命名为可直接判断真假的短语，按语义使用 `is` / `has` / `can` / `should` 前缀 | `isLoading`, `hasPermission`, `canDelete`, `shouldRetry` |
-
-补充约束：
-
-- `is` 用于状态、特征、分类结果
-- `has` 用于拥有、包含、存在
-- `can` 用于能力或当前条件下是否允许执行
-- `should` 用于策略、推荐或派生决策
-- 优先使用正向命名，避免双重否定，如 `isEnabled` 优于 `isDisabled`
-- 属性与返回 `Boolean` 的函数都应命名为判断句，如 `isSelected`、`hasAccess()`、`canDelete()`
-- 禁止使用不带谓词语义的布尔命名，如 `loading`、`permission`、`visible`
-- 禁止用不同表达描述同一语义，如同时使用 `canDelete` 和 `isDeleteEnabled` 表示同一件事
-- 布尔参数需保持语义清晰，避免 `flag`、`state` 这类无语义命名
-- 语义复杂或存在多种状态时，优先使用 enum 或 sealed type，不要硬塞为 `Boolean`
-- 非必要不要使用 `Boolean?`，避免 `null` 带来额外语义歧义
-
-### Syntax Style
-
-- 简短逻辑使用单表达式函数（`=`），复杂逻辑使用块体
-- 密封类型分发使用 `when` 表达式，覆盖所有分支，不使用 `else` 兜底
-- Nullable 处理优先用 `?.`、`?:` 和 `takeIf`；复杂场景用显式 `if` 检查
-- 作用域函数：`let` 用于 null 链式操作，`apply` 用于对象初始化，`use` 用于资源管理
-- 扩展函数按接收者类型放在独立文件中（如 `Context.kt`、`Uri.kt`、`File.kt`）
-
-### Import
-
-- 禁止通配符导入
-- 按包名字母顺序排列
-
-### Trailing Comma
-
-所有多行参数列表、属性列表使用尾随逗号：
-
-```kotlin
-data class Video(
-    val id: Long,
-    val path: String,
-    val duration: Long,  // <- 尾随逗号
-)
-```
-
----
-
-## Guard Clause
-
-使用卫语句减少嵌套，保持函数逻辑扁平。
-
-### Rules
-
-1. 函数入口处优先验证前置条件，不满足时立即 `return` / `return defaultValue` / `throw`
-2. 最大嵌套深度不超过 3 层（不含 class 和 fun 本身的层级）
-3. 条件取反提前退出，正向逻辑留在主路径
-4. 禁止 `if-else` 链超过 3 个分支，改用 `when`
-
-### Patterns
-
-```kotlin
-// 参数校验
-fun moveItem(fromIndex: Int, toIndex: Int) {
-    if (fromIndex == toIndex) return
-    if (fromIndex !in playlist.indices || toIndex !in playlist.indices) return
-    // 主逻辑
-}
-
-// Null 检查
-fun isRecentlyPlayed(video: Video?): Boolean {
-    if (recentlyPlayedVideo == null) return false
-    if (video == null) return false
-    return video.path == recentlyPlayedVideo.path
-}
-
-// 集合检查
-fun onSearch(query: String) {
-    if (query.isBlank()) return
-    // 主逻辑
-}
-```
-
-### Anti-patterns
-
-```kotlin
-// 禁止：深层嵌套
-fun process(data: Data?) {
-    if (data != null) {
-        if (data.isValid) {
-            if (data.items.isNotEmpty()) {
-                // 三层嵌套
-            }
-        }
-    }
-}
-
-// 应改为：
-fun process(data: Data?) {
-    if (data == null) return
-    if (!data.isValid) return
-    if (data.items.isEmpty()) return
-    // 主逻辑
-}
-```
-
----
-
 ## Path Handling
 
 `/storage/emulated/0` 走 FUSE，大小写不敏感且保留写法，同一文件可能以不同写法进入应用。路径语义由类型承载：比较按大小写归一，取值保留真实写法。
@@ -236,23 +120,7 @@ File(path.value).delete()
 
 ---
 
-## Code Formatting
-
-### EditorConfig
-
-- 缩进：4 空格
-- 行长度：不硬性限制，建议 120 字符内
-- 尾随逗号：启用
-- ktlint code style：`android_studio`
-- Composable 函数跳过函数命名检查
-
-### Formatting Rules
-
-- 多参数函数声明每个参数独占一行
-- 链式调用超过 2 层时换行，续行缩进 4 空格
-- `when` 分支体为单行时写在同一行，多行时使用块体
-- 方法之间保留一个空行
-- 逻辑段落之间用空行分隔
+## Runtime Conventions
 
 ### Coroutines
 
@@ -286,7 +154,19 @@ File(path.value).delete()
 
 `CLAUDE.md` 只有一行 `@AGENTS.md`，项目规范维护在本文件。`.codex/skills/` 为主源，`.claude/skills/` 为单向同步镜像，`.pi/settings.json` 引用同一主源。技能内容使用仓库相对路径。
 
-修改技能前核对镜像与同步基线；修改后执行 `python scripts/build_support/sync_skills.py --sync`，再用同一入口的 `--check` 检查文件集合与字节一致。该入口独立于 SDK、构建与应用连接；镜像漂移先核对归属，备份保存在 `build/skills-sync/`。
+同步入口为 `scripts/build_support/sync_skills.py`，独立于 SDK、构建与应用连接；同步基线与可恢复备份位于 `build/skills-sync/`。
+
+共享界面资源位于 [core/ui/src/main/res](core/ui/src/main/res/)，代码格式配置位于 [.editorconfig](.editorconfig)。
+
+## 技能使用
+
+- 新增、重命名或审查代码标识符，以及调整语法和格式时，阅读 code-style skill。
+- 新增或修改界面文案、翻译键或多语言资源时，阅读 translation skill。
+- 创建、修改或整理提交时，阅读 commit skill。
+- 推送 Git 提交、分支或标签到远端时，阅读 git-push skill。
+- 更新版本号、整理发布日志或准备发布版本时，阅读 version-bump skill。
+- 准备、创建、更新、描述或审查及合并 PR 时，阅读 pull-request skill。
+- 业务逻辑新增或变更、补充业务调试指令，以及调试应用、验证功能、操作页面或控件、启停调试应用或截图时，阅读 app-debug skill。
 
 ## Git Workflow
 
@@ -294,14 +174,7 @@ File(path.value).delete()
 - 新增类型或用途目录时同步维护白名单，核对源码与构建输入的正向探针，以及产物、record、缓存和私人文件的负向探针。本地方案、记录、配置和构建产物不入库，不使用 `git add -f`。
 - 每次提交对应一个完整逻辑目标，关联实现、配置和文档一起提交，独立目标分开提交。
 - 独立修改完成且必要验证通过后及时创建本地提交；依赖尚未完成的关联改动保留到同一目标完成。
-- 创建、修改或整理提交时阅读 commit 技能。
-- 推送提交、分支或标签时阅读 git-push 技能，按该技能核对推送范围、明确确认与会话授权次数。
-- 准备、创建、更新、审查或合并 PR 时阅读 pull-request 技能。
 - 日常开发通道为 `beta`，正式通道为 `main`，实际发布条件由 `.github/workflows/` 中的 `test.yaml`、`publish-beta.yaml` 和 `publish.yaml` 维护。
-
-## Version Bump
-
-使用 `/version-bump` 触发；版本号、changelog、依赖更新和版本提交模板遵守本地 `version-bump` 技能，通用提交规则仍遵守 commit 技能。
 
 ## Code Quality
 
